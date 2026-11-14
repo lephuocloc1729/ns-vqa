@@ -132,3 +132,17 @@ def test_day_plate_cites_41(engine):
     a = permitted(engine, sc, "park", V("passenger_car"),
                   When(date=dt.date(2025, 9, 3), time=dt.time(8)))
     assert a.verdict == Verdict.no and {"41", "F.10", "B.31"} <= articles(a)
+
+
+def test_unreadable_sign_turns_closed_world_answers_unknown(engine):
+    from vqa.schemas import Required
+    sc = scene(sign("s1", "P.104"), sign("s2", "UNKNOWN"))
+    # "yes" rests on no visible sign forbidding it: the unreadable sign might
+    a = permitted(engine, sc, "enter", V("passenger_car"))
+    assert a.verdict == Verdict.unknown and a.uncertain_signs == ["s2"]
+    # a ban the engine can read stands
+    assert permitted(engine, sc, "enter", V("motorbike")).verdict == Verdict.no
+    assert engine.answer(sc, SpeedOk(vehicle=V("car"), speed_kmh=50)).verdict == Verdict.unknown
+    assert engine.answer(sc, Required(action="turn_right")).verdict == Verdict.unknown
+    assert engine.answer(scene(sign("s1", "P.104")),
+                         Required(action="turn_right")).verdict == Verdict.no

@@ -194,7 +194,8 @@ The pieces the table uses:
   - The result is "no" if some class is a counterexample, reported at the broadest level with proofs.
   - `forbidden(..., every_vehicle)` means forbidden for every class. It is not "not permitted for every vehicle".
   - The class `vehicle` still means "a vehicle of unknown kind".
-  - A class whose answer depends on its own weight or seats counts as unknown, not as a counterexample.
+  - A class whose answer depends on unstated weight or seats has members on both sides. The engine tries members at the scene's thresholds, and a failing member makes the class a counterexample, reported with its condition (e.g. coach, "seats > 29" under P.107a).
+  - The answer is unknown only when it depends on something unknown in the scene: the time, the day, the lane, or an unreadable sign.
 - **`which_vehicles` and `lane_vehicles`** check every vehicle class. They report the broadest class that holds as a whole (P.104 → motorbike), plus conditional classes whose answer depends on their own attributes (P.106b → truck).
 - **`speed_limit`** returns the binding limit (the lowest certain maximum), plus stricter limits that may apply.
 

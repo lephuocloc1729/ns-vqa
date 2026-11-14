@@ -72,6 +72,10 @@ swipl -q -g "consult('kb/load.pl'), halt"
 
 - **The rule engine owns every legal conclusion.** Python resolves selectors, loops over lanes and reading variants, and packages results. It never decides what is permitted.
 - **Three-valued logic.** Truth values are `true`, `false` and `unknown`. A missing fact (time, weight, lane, exact vehicle subtype) makes the result `unknown`, never `false`. Verdicts: `yes`, `no`, `unknown`, `uncertain` (alternative readings disagree), or `value`.
+- **An unreadable sign makes closed-world answers unknown.** "Unreadable" means the code is UNKNOWN or not in the catalog.
+  - Affected: a "yes" from `permitted`/`speed_ok`, or a "no" from `required`/`exists_violation`, since the sign might say otherwise. The answer lists that sign in `uncertain_signs`.
+  - Not affected: answers decided by a readable sign.
+- **`every_vehicle` claims quantify over members, not just classes.** A class whose answer depends on unstated weight or seats is tried at the scene's thresholds. A failing member makes the class a counterexample, reported with its condition.
 - **Every rule and catalog row cites its source** as `law_id` + `article_id`, using the dataset's `relevant_articles` format, e.g. `QCVN 41:2024/BGTVT` + `B.25`.
   - Generic rules use `cite(r_...)` with a `rule_source/3` fact in `kb/rules/common.pl`.
   - Catalog facts are cited automatically through `catalog_sign/4`.

@@ -37,7 +37,8 @@ def test_every_vehicle_may_stop_and_park(engine):
 def test_counterexamples_reported_at_the_broadest_level(engine):
     a = permitted(engine, scene(sign("s1", "P.104")), "enter")
     assert a.verdict == Verdict.no
-    assert a.value["counterexamples"] == ["motorbike"] and "B.4" in articles(a)
+    assert a.value["counterexamples"] == [{"class": "motorbike", "condition": None}]
+    assert "B.4" in articles(a)
 
 
 def test_forbidden_for_every_vehicle_is_not_negated_permitted(engine):
@@ -64,13 +65,50 @@ def test_vehicle_still_means_unknown_kind(engine):
     assert permitted(engine, sc, "enter").verdict == Verdict.no
 
 
-def test_attribute_dependent_classes_count_as_unknown(engine):
-    # P.106b also bans tractors and special machines outright -> a clear counterexample
+def counter(a):
+    return {c["class"]: c["condition"] for c in a.value["counterexamples"]}
+
+
+def test_members_on_both_sides_are_counterexamples(engine):
+    # P.107a bans coaches with more than 29 seats
+    sc = scene(sign("s1", "P.107a", value=29))
+    may = permitted(engine, sc, "enter")
+    assert may.verdict == Verdict.no                    # coaches over 29 seats may not
+    assert counter(may) == {"coach": "seats > 29"} and "B.7a" in articles(may)
+    banned = engine.answer(sc, Forbidden(action="enter", vehicle=EVERY))
+    assert banned.verdict == Verdict.no                 # most vehicles may enter
+
+
+def test_forbidden_for_every_vehicle_with_a_weight_limit(engine):
+    # P.115 bans every vehicle over 10 t gross: "every vehicle is banned" is false
+    # (lighter vehicles may enter), and so is "every vehicle may enter".
+    sc = scene(sign("s1", "P.115", value=10))
+    banned = engine.answer(sc, Forbidden(action="enter", vehicle=EVERY))
+    assert banned.verdict == Verdict.no
+    assert counter(banned) == {"vehicle": "gross_t < 10"}
+    may = permitted(engine, sc, "enter")
+    assert may.verdict == Verdict.no and counter(may) == {"vehicle": "gross_t > 10"}
+
+
+def test_weight_and_outright_counterexamples(engine):
     a = permitted(engine, scene(sign("s1", "P.106b", value=2.5)), "enter")
-    assert a.verdict == Verdict.no and a.value["counterexamples"] == ["special_machine"]
-    # P.107a only bans coaches above a seat count: depends on the coach -> unknown
-    b = permitted(engine, scene(sign("s1", "P.107a", value=29)), "enter")
-    assert b.verdict == Verdict.unknown and b.value["unknown"] == ["coach"]
+    assert a.verdict == Verdict.no
+    assert counter(a) == {"truck": "load_t > 2.5", "special_machine": None}
+
+
+def test_unknown_only_for_unknowns_in_the_scene(engine):
+    # the coach answer also depends on the time, which the question does not give
+    sc = scene(sign("s1", "P.107a", value=29, plates=[times(("06:00", "09:00"))]))
+    assert permitted(engine, sc, "enter").verdict == Verdict.unknown
+    assert permitted(engine, sc, "enter", when=at(7)).verdict == Verdict.no
+    assert permitted(engine, sc, "enter", when=at(12)).verdict == Verdict.yes
+    # an unreadable sign is unknown in the scene too
+    assert permitted(engine, scene(sign("s1", "UNKNOWN")), "enter").verdict == Verdict.unknown
+
+
+def test_stated_attributes_are_not_varied(engine):
+    sc = scene(sign("s1", "P.107a", value=29))
+    assert permitted(engine, sc, "enter", vehicle=V("every_vehicle", seats=16)).verdict == Verdict.yes
 
 
 def test_every_vehicle_inside_choose_and_with_forbidden(engine):
