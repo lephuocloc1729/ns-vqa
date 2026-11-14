@@ -1,0 +1,2613 @@
+{
+  "method": "pHash (DCT 8x8 of 32x32 grey) and dHash (9x8 grey); near-duplicate when (pHash <= 10 and dHash <= 14) or (pHash <= 16 and dHash <= 7), of 64 bits, minus reviewed false positives; groups = connected components",
+  "not_duplicates_reviewed": [
+    [
+      "train:train_1_23",
+      "train:train_2_31"
+    ],
+    [
+      "train:train_1_23",
+      "train:train_2_38"
+    ]
+  ],
+  "counts": {
+    "train": 304,
+    "public": 90,
+    "private": 104
+  },
+  "groups": [
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_1_5"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_4_10"
+        },
+        {
+          "split": "train",
+          "image_id": "train_4_25"
+        }
+      ],
+      "splits": [
+        "private",
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 10,
+      "max_dhash_distance": 14
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_2_10"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_2_10"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_20"
+        }
+      ],
+      "splits": [
+        "private",
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_2_13"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_2_2"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_2"
+        }
+      ],
+      "splits": [
+        "private",
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_2_6"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_2_9"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_30"
+        }
+      ],
+      "splits": [
+        "private",
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_2_7"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_2_6"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_4"
+        }
+      ],
+      "splits": [
+        "private",
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_3_8"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_3_8"
+        },
+        {
+          "split": "train",
+          "image_id": "train_3_12"
+        },
+        {
+          "split": "train",
+          "image_id": "train_3_23"
+        }
+      ],
+      "splits": [
+        "private",
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 14,
+      "max_dhash_distance": 5
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_4_5"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_4_6"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_6_2"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_23"
+        }
+      ],
+      "splits": [
+        "private",
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_5_1"
+        },
+        {
+          "split": "private",
+          "image_id": "private_test_7_11"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_3_10"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_5_10"
+        },
+        {
+          "split": "train",
+          "image_id": "train_5_20"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_33"
+        }
+      ],
+      "splits": [
+        "private",
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 4,
+      "max_dhash_distance": 1
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_5_2"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_5_1"
+        },
+        {
+          "split": "train",
+          "image_id": "train_5_8"
+        }
+      ],
+      "splits": [
+        "private",
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_5_8"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_5_4"
+        },
+        {
+          "split": "train",
+          "image_id": "train_5_23"
+        }
+      ],
+      "splits": [
+        "private",
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_6_17"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_6_15"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_2"
+        }
+      ],
+      "splits": [
+        "private",
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_6_2"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_6_14"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_27"
+        }
+      ],
+      "splits": [
+        "private",
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_6_3"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_6_6"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_32"
+        }
+      ],
+      "splits": [
+        "private",
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_6_4"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_6_5"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_31"
+        }
+      ],
+      "splits": [
+        "private",
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_6_5"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_4_12"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_43"
+        }
+      ],
+      "splits": [
+        "private",
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 14,
+      "max_dhash_distance": 7
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_7_1"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_7_1"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_13"
+        }
+      ],
+      "splits": [
+        "private",
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_8_11"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_4_2"
+        },
+        {
+          "split": "train",
+          "image_id": "train_8_33"
+        }
+      ],
+      "splits": [
+        "private",
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 4,
+      "max_dhash_distance": 5
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_1_8"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_7"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 1
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_1_9"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_29"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_2_1"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_45"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_2_11"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_7"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_2_12"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_50"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_2_14"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_12"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_2_15"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_28"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_2_16"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_21"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_2_17"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_6"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_2_2"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_33"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_2_3"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_51"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_2_4"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_10"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_2_5"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_42"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_2_8"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_19"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_2_9"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_5"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_3_1"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_3_13"
+        }
+      ],
+      "splits": [
+        "private",
+        "public"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_3_11"
+        },
+        {
+          "split": "train",
+          "image_id": "train_3_24"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_3_12"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_3_4"
+        }
+      ],
+      "splits": [
+        "private",
+        "public"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_3_2"
+        },
+        {
+          "split": "train",
+          "image_id": "train_3_4"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_3_3"
+        },
+        {
+          "split": "train",
+          "image_id": "train_3_1"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_3_5"
+        },
+        {
+          "split": "train",
+          "image_id": "train_3_20"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_3_6"
+        },
+        {
+          "split": "train",
+          "image_id": "train_3_9"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_3_7"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_3_6"
+        }
+      ],
+      "splits": [
+        "private",
+        "public"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_4_1"
+        },
+        {
+          "split": "train",
+          "image_id": "train_4_19"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_4_2"
+        },
+        {
+          "split": "train",
+          "image_id": "train_4_8"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_4_4"
+        },
+        {
+          "split": "train",
+          "image_id": "train_4_20"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_4_7"
+        },
+        {
+          "split": "train",
+          "image_id": "train_4_22"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_5_11"
+        },
+        {
+          "split": "train",
+          "image_id": "train_5_30"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_5_12"
+        },
+        {
+          "split": "train",
+          "image_id": "train_5_29"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_5_3"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_5_2"
+        }
+      ],
+      "splits": [
+        "private",
+        "public"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_5_5"
+        },
+        {
+          "split": "train",
+          "image_id": "train_5_35"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_5_7"
+        },
+        {
+          "split": "train",
+          "image_id": "train_5_33"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_5_9"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_5_9"
+        }
+      ],
+      "splits": [
+        "private",
+        "public"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_6_1"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_28"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_6_10"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_26"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_6_11"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_12"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_6_12"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_24"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_6_13"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_3"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_6_14"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_1"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_6_15"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_41"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_6_16"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_16"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_6_18"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_34"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_6_6"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_39"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_6_7"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_45"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_6_8"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_30"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_6_9"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_22"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_7_10"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_7_5"
+        }
+      ],
+      "splits": [
+        "private",
+        "public"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_7_13"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_7_7"
+        }
+      ],
+      "splits": [
+        "private",
+        "public"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_7_14"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_17"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_7_15"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_16"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_7_3"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_10"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_7_4"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_50"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_7_5"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_14"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_7_6"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_13"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_12"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 10,
+      "max_dhash_distance": 8
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_7_7"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_8"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_7_8"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_3"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_7_9"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_37"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_8_1"
+        },
+        {
+          "split": "train",
+          "image_id": "train_8_5"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_8_10"
+        },
+        {
+          "split": "public",
+          "image_id": "public_test_8_11"
+        }
+      ],
+      "splits": [
+        "private",
+        "public"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_8_12"
+        },
+        {
+          "split": "train",
+          "image_id": "train_4_23"
+        },
+        {
+          "split": "train",
+          "image_id": "train_8_38"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_8_13"
+        },
+        {
+          "split": "train",
+          "image_id": "train_8_32"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_8_2"
+        },
+        {
+          "split": "train",
+          "image_id": "train_8_25"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_8_3"
+        },
+        {
+          "split": "train",
+          "image_id": "train_8_26"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_8_4"
+        },
+        {
+          "split": "train",
+          "image_id": "train_8_9"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_8_5"
+        },
+        {
+          "split": "train",
+          "image_id": "train_8_27"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_8_6"
+        },
+        {
+          "split": "train",
+          "image_id": "train_8_8"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_8_7"
+        },
+        {
+          "split": "train",
+          "image_id": "train_8_4"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_8_8"
+        },
+        {
+          "split": "train",
+          "image_id": "train_8_22"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "private",
+          "image_id": "private_test_8_9"
+        },
+        {
+          "split": "train",
+          "image_id": "train_8_1"
+        }
+      ],
+      "splits": [
+        "private",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_2_1"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_44"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_2_11"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_37"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_2_12"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_15"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_2_3"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_17"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_2_4"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_14"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_2_5"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_34"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_2_7"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_48"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_2_8"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_39"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_49"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_3_1"
+        },
+        {
+          "split": "train",
+          "image_id": "train_3_3"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_3_11"
+        },
+        {
+          "split": "train",
+          "image_id": "train_3_18"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_3_7"
+        },
+        {
+          "split": "train",
+          "image_id": "train_3_5"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_3_9"
+        },
+        {
+          "split": "train",
+          "image_id": "train_3_14"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_4_4"
+        },
+        {
+          "split": "train",
+          "image_id": "train_4_2"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_5_11"
+        },
+        {
+          "split": "train",
+          "image_id": "train_5_2"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_5_12"
+        },
+        {
+          "split": "train",
+          "image_id": "train_5_14"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_5_3"
+        },
+        {
+          "split": "train",
+          "image_id": "train_5_1"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_5_6"
+        },
+        {
+          "split": "train",
+          "image_id": "train_5_25"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_5_7"
+        },
+        {
+          "split": "train",
+          "image_id": "train_5_6"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_5_8"
+        },
+        {
+          "split": "train",
+          "image_id": "train_4_24"
+        },
+        {
+          "split": "train",
+          "image_id": "train_5_10"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 16,
+      "max_dhash_distance": 6
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_6_1"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_25"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_6_10"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_4"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_6_11"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_19"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_6_12"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_5"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_6_13"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_14"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_6_3"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_35"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_6_4"
+        },
+        {
+          "split": "train",
+          "image_id": "train_4_10"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_33"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_6_7"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_9"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_6_8"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_13"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_6_9"
+        },
+        {
+          "split": "train",
+          "image_id": "train_6_17"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_7_4"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_38"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_8_10"
+        },
+        {
+          "split": "train",
+          "image_id": "train_8_40"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_8_2"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_48"
+        },
+        {
+          "split": "train",
+          "image_id": "train_8_42"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 12,
+      "max_dhash_distance": 1
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_8_8"
+        },
+        {
+          "split": "train",
+          "image_id": "train_8_21"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "public",
+          "image_id": "public_test_8_9"
+        },
+        {
+          "split": "train",
+          "image_id": "train_8_16"
+        }
+      ],
+      "splits": [
+        "public",
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "train",
+          "image_id": "train_1_11"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_20"
+        }
+      ],
+      "splits": [
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "train",
+          "image_id": "train_2_31"
+        },
+        {
+          "split": "train",
+          "image_id": "train_2_38"
+        }
+      ],
+      "splits": [
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "train",
+          "image_id": "train_3_11"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_34"
+        },
+        {
+          "split": "train",
+          "image_id": "train_8_14"
+        }
+      ],
+      "splits": [
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "train",
+          "image_id": "train_4_14"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_9"
+        }
+      ],
+      "splits": [
+        "train"
+      ],
+      "max_phash_distance": 0,
+      "max_dhash_distance": 0
+    },
+    {
+      "images": [
+        {
+          "split": "train",
+          "image_id": "train_5_22"
+        },
+        {
+          "split": "train",
+          "image_id": "train_8_3"
+        }
+      ],
+      "splits": [
+        "train"
+      ],
+      "max_phash_distance": 4,
+      "max_dhash_distance": 4
+    },
+    {
+      "images": [
+        {
+          "split": "train",
+          "image_id": "train_7_1"
+        },
+        {
+          "split": "train",
+          "image_id": "train_7_39"
+        }
+      ],
+      "splits": [
+        "train"
+      ],
+      "max_phash_distance": 4,
+      "max_dhash_distance": 0
+    }
+  ],
+  "cross_split_groups": 120,
+  "duplicated_with_train": {
+    "public": [
+      "public_test_2_1",
+      "public_test_2_10",
+      "public_test_2_11",
+      "public_test_2_12",
+      "public_test_2_2",
+      "public_test_2_3",
+      "public_test_2_4",
+      "public_test_2_5",
+      "public_test_2_6",
+      "public_test_2_7",
+      "public_test_2_8",
+      "public_test_2_9",
+      "public_test_3_1",
+      "public_test_3_10",
+      "public_test_3_11",
+      "public_test_3_7",
+      "public_test_3_8",
+      "public_test_3_9",
+      "public_test_4_10",
+      "public_test_4_12",
+      "public_test_4_2",
+      "public_test_4_4",
+      "public_test_4_6",
+      "public_test_5_1",
+      "public_test_5_10",
+      "public_test_5_11",
+      "public_test_5_12",
+      "public_test_5_3",
+      "public_test_5_4",
+      "public_test_5_6",
+      "public_test_5_7",
+      "public_test_5_8",
+      "public_test_6_1",
+      "public_test_6_10",
+      "public_test_6_11",
+      "public_test_6_12",
+      "public_test_6_13",
+      "public_test_6_14",
+      "public_test_6_15",
+      "public_test_6_2",
+      "public_test_6_3",
+      "public_test_6_4",
+      "public_test_6_5",
+      "public_test_6_6",
+      "public_test_6_7",
+      "public_test_6_8",
+      "public_test_6_9",
+      "public_test_7_1",
+      "public_test_7_4",
+      "public_test_8_10",
+      "public_test_8_2",
+      "public_test_8_8",
+      "public_test_8_9"
+    ],
+    "private": [
+      "private_test_1_5",
+      "private_test_1_8",
+      "private_test_1_9",
+      "private_test_2_1",
+      "private_test_2_10",
+      "private_test_2_11",
+      "private_test_2_12",
+      "private_test_2_13",
+      "private_test_2_14",
+      "private_test_2_15",
+      "private_test_2_16",
+      "private_test_2_17",
+      "private_test_2_2",
+      "private_test_2_3",
+      "private_test_2_4",
+      "private_test_2_5",
+      "private_test_2_6",
+      "private_test_2_7",
+      "private_test_2_8",
+      "private_test_2_9",
+      "private_test_3_11",
+      "private_test_3_2",
+      "private_test_3_3",
+      "private_test_3_5",
+      "private_test_3_6",
+      "private_test_3_8",
+      "private_test_4_1",
+      "private_test_4_2",
+      "private_test_4_4",
+      "private_test_4_5",
+      "private_test_4_7",
+      "private_test_5_1",
+      "private_test_5_11",
+      "private_test_5_12",
+      "private_test_5_2",
+      "private_test_5_5",
+      "private_test_5_7",
+      "private_test_5_8",
+      "private_test_6_1",
+      "private_test_6_10",
+      "private_test_6_11",
+      "private_test_6_12",
+      "private_test_6_13",
+      "private_test_6_14",
+      "private_test_6_15",
+      "private_test_6_16",
+      "private_test_6_17",
+      "private_test_6_18",
+      "private_test_6_2",
+      "private_test_6_3",
+      "private_test_6_4",
+      "private_test_6_5",
+      "private_test_6_6",
+      "private_test_6_7",
+      "private_test_6_8",
+      "private_test_6_9",
+      "private_test_7_1",
+      "private_test_7_11",
+      "private_test_7_14",
+      "private_test_7_15",
+      "private_test_7_3",
+      "private_test_7_4",
+      "private_test_7_5",
+      "private_test_7_6",
+      "private_test_7_7",
+      "private_test_7_8",
+      "private_test_7_9",
+      "private_test_8_1",
+      "private_test_8_11",
+      "private_test_8_12",
+      "private_test_8_13",
+      "private_test_8_2",
+      "private_test_8_3",
+      "private_test_8_4",
+      "private_test_8_5",
+      "private_test_8_6",
+      "private_test_8_7",
+      "private_test_8_8",
+      "private_test_8_9"
+    ]
+  },
+  "duplicated_public_private": {
+    "public": [
+      "public_test_2_10",
+      "public_test_2_2",
+      "public_test_2_6",
+      "public_test_2_9",
+      "public_test_3_10",
+      "public_test_3_13",
+      "public_test_3_4",
+      "public_test_3_6",
+      "public_test_3_8",
+      "public_test_4_10",
+      "public_test_4_12",
+      "public_test_4_2",
+      "public_test_4_6",
+      "public_test_5_1",
+      "public_test_5_10",
+      "public_test_5_2",
+      "public_test_5_4",
+      "public_test_5_9",
+      "public_test_6_14",
+      "public_test_6_15",
+      "public_test_6_2",
+      "public_test_6_5",
+      "public_test_6_6",
+      "public_test_7_1",
+      "public_test_7_5",
+      "public_test_7_7",
+      "public_test_8_11"
+    ],
+    "private": [
+      "private_test_1_5",
+      "private_test_2_10",
+      "private_test_2_13",
+      "private_test_2_6",
+      "private_test_2_7",
+      "private_test_3_1",
+      "private_test_3_12",
+      "private_test_3_7",
+      "private_test_3_8",
+      "private_test_4_5",
+      "private_test_5_1",
+      "private_test_5_2",
+      "private_test_5_3",
+      "private_test_5_8",
+      "private_test_5_9",
+      "private_test_6_17",
+      "private_test_6_2",
+      "private_test_6_3",
+      "private_test_6_4",
+      "private_test_6_5",
+      "private_test_7_1",
+      "private_test_7_10",
+      "private_test_7_11",
+      "private_test_7_13",
+      "private_test_8_10",
+      "private_test_8_11"
+    ]
+  }
+}

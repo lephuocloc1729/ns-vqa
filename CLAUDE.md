@@ -26,6 +26,10 @@ swipl -q -g "consult('kb/load.pl'), halt"
   - The split is saved in `data/splits/public_split.json` (seed 20261114). `eval/make_public_split.py` regenerates it and only reads question and image ids.
   - **Only `public_dev` may be looked at question by question** (images, questions, answers, error analysis).
   - `public_holdout` is for aggregate scores only. Don't read its questions, images or per-question results.
+- **Many images repeat across splits.** `data/splits/duplicates.json` lists near-duplicate image groups, made by `eval/find_duplicates.py`. It uses perceptual hashes and reads image files only, never question files.
+  - 79 of the 104 private images and 53 of the 90 public images also appear in train.
+  - Evaluations report every score twice: on all questions, and without questions whose image is in `duplicated_with_train`. Map image ids to questions at evaluation time.
+  - The duplicate check finds copies and slight re-crops. It misses different photos of the same scene.
 - **Never open the private test answers.** The private test is the final benchmark and runs once, at the end.
 - Keep `provenance.json` and `review.json` out of prompts. `train_284` has an invalid citation.
 
@@ -74,6 +78,20 @@ swipl -q -g "consult('kb/load.pl'), halt"
 - **Sign codes in Prolog** are lowercase with no dots: `P.127b` becomes `p127b`, `S.H,6` becomes `sh_6`. See `vqa.kb.code_atom`.
 - **Lanes are numbered from 1**, with lane 1 the leftmost. Time windows include both ends and may run past midnight.
 - Add a test with every new rule. Write test scenes by hand and model them on train questions. Do not copy them from dataset files.
+
+## Phase 2 notes (parser)
+
+- **The parser fills in values the question leaves out, and records that it did** (e.g. `defaults_applied: ["year", "vehicle"]` next to `missing_slots`):
+  - year: the current year in the question's context;
+  - vehicle: `motor_vehicle`.
+
+## Coverage targets
+
+- Rule coverage is the share of questions the rules answer, rather than the fallback.
+- **Targets:** at least 70% after phase 1.6 and at least 80% after phase 1.7.
+  - Phase 1.7: warning-sign behaviour, a sign's time windows without a vehicle, counting signs by category, the B.25 overtaking exception, expressway rules, P.118/P.119 size limits.
+  - Guide-sign content and traffic lights stay with the fallback.
+- **Audits of `public_dev` are development estimates only.** The real coverage figure is measured later on `public_holdout`, through the pipeline, together with accuracy on the rule-answered questions.
 
 ## Not built yet (later phases)
 
