@@ -169,6 +169,12 @@ Claude turns the user's question (in Vietnamese) into a small typed query progra
 | identity / meaning | "Đây là biển báo gì?" | `meaning(select(only))` |
 | placement and scope | "Nếu biển đặt sau nơi đường giao nhau, có bắt buộc rẽ phải ngay không?" | `required(turn_right, placement=after_intersection)` |
 | violation | "Trong hình không phát hiện hành vi vi phạm, đúng hay sai?" | `verify(exists_violation, expect=false)` |
+| sign identity | "Đây là biển báo cấm vượt. Đúng hay sai?" | `is_sign(select(only), meaning=no_overtaking)` (or `code=P.125`, or `category=prohibitory`) |
+| compound claim | "Các loại xe được dừng và đỗ vào lúc 12 giờ trưa đúng hay sai?" | `verify(all_of([permitted(stop, vehicle, 12:00), permitted(park, vehicle, 12:00)]))` |
+| which vehicles | "Đối tượng nào không được phép đi lại trên phần đường này?" | `which_vehicles(enter, status=banned)` |
+| lane by vehicle, lane slot | "Xe ô tô đi vào 2 làn bên phải lúc 10 giờ có bị phạm luật không?" | `forbidden(enter, car, lane=3, when=10:00)` |
+| vehicles on a lane | "Làn bên trái dành cho những xe nào?" | `lane_vehicles(lane=1, status=allowed)` |
+| speed limit value | "Tốc độ tối đa trên cả 3 làn đường là bao nhiêu?" | `speed_limit(motor_vehicle, kind=max)` (per lane when there is a lane board) |
 
 The pieces the table uses:
 
@@ -181,6 +187,10 @@ The pieces the table uses:
   - `forbidden` compiles to `verify(permitted(...), expect=false)` with the quantifier flipped, so the parser never writes the double negative.
 - **`choose`** returns the options that hold (an option holds when its claim's answer matches `expect`), the ones that don't, and the unknown ones.
 - **`required`** uses the placement the question gives, else the sign's placement in the scene, else its standard placement from QCVN 41 D.1a.
+- **`is_sign`** checks the selected sign against a catalog code, meaning or category. A family code ("W.221") matches its variants, and the proof cites the actual sign's article.
+- **`all_of` / `any_of`** combine claims with three-valued AND/OR.
+- **`which_vehicles` and `lane_vehicles`** check every vehicle class. They report the broadest class that holds as a whole (P.104 → motorbike), plus conditional classes whose answer depends on their own attributes (P.106b → truck).
+- **`speed_limit`** returns the binding limit (the lowest certain maximum), plus stricter limits that may apply.
 
 Every answer comes with a proof and citations, including "yes" answers:
 
@@ -191,6 +201,13 @@ Every answer comes with a proof and citations, including "yes" answers:
 | "unknown" | what it depends on |
 
 In the scene graph, a sign whose plate or board lists several (vehicles, time window) pairs carries them as condition groups (`Sign.rules`). The sign applies when one group matches both the vehicle and the time.
+
+A non-standard plate (not in QCVN 41, e.g. a red local text plate) is a plate of kind `local`:
+- its text is kept verbatim;
+- the vehicles and actions read from it replace the main sign's own;
+- its times and condition groups work like standard plates.
+
+The proof shows the plate and is marked "not in QCVN 41", and the answer carries `basis: ["non_standard_plate"]`.
 
 **Implementation**
 

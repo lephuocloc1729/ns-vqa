@@ -1,0 +1,52 @@
+id	class	v1_class	gap	nonstd_plate	how_answered_or_next	note
+public_natural_0001	A	A	-	0	unchanged	P.131c; meaning(select(only))
+public_natural_0002	A	A	-	0	unchanged	P.131a blue/red; meaning(select(background=blue,border=red)); brown local plate present but not asked
+public_natural_0005	A	C	-	0	R.415a; all_of(permitted(enter, car, lane=1), forbidden(enter, motorbike, lane=1))	"R.412f x3 + R.412g board; claim ""left lanes only for cars"""
+public_natural_0008	A	A	-	0	unchanged	P.124b; permitted(u_turn, car)
+public_natural_0009	A	A	-	0	speed_limit (was meaning() value in v1)	P.127 60; meaning(select(meaning=max_speed)) returns value (no dedicated speed-limit value intent)
+public_natural_0010	A	A	-	0	unchanged	R.301b/d isolated; meaning(only)
+public_natural_0011	B	B	rules: overtaking target (B.25 b: two-wheelers may still be overtaken)	0	phase 1.7 (overtaking exception)	"P.125 + P.107 w/ blue text plate; claim ""motor vehicles cannot overtake each other"" is Sai only because of the B.25 exception"
+public_natural_0014	A	A	-	0	unchanged	P.107-type pictogram truck 4T + coach 16 seats -> condition groups; permitted(enter, truck(load_gt=4)); blue exception text plate
+public_natural_0015	A	C	-	0	speed_limit per lane -> 40 (conditional per lane, vehicle not given)	"P.127c board 40/40/40; ""max speed on all 3 lanes"""
+public_natural_0017	A	A	-	0	unchanged	P.126 diagram; meaning(only)
+public_natural_0018	A	C	-	0	is_sign(code=W.221a) on W.221b -> no (meaning rows)	W.221b speed bump; claim it is W.221a
+public_natural_0021	C	C	DSL: count signs by category	0	phase 1.7 (count signs by category)	"P.106b 2.5t + P.131a w/ time plate; ""how many prohibitory signs"""
+public_natural_0022	A	B	-	0	meaning(only).category = information (meaning rows)	"I.423 pedestrian crossing; ""what kind of sign"" -> meaning(only).category"
+public_natural_0025	A	B	-	0	meaning(select(shape=triangle)) -> W.240 (meaning rows)	W.240 tunnel among P.110a, P.112, P.127, P.128, P.117; meaning(select(shape=triangle))
+public_natural_0026	A	A	-	0	unchanged	"P.106b 1.25t (+ red local plate ""cấm các loại xe tải"", not needed); forbidden(enter, truck(load_gt=1.25))"
+public_natural_0027	A	A	-	0	unchanged	P.110a; verify(permitted(enter, bicycle))
+public_natural_0028	A	A	-	0	speed_limit (was meaning() value in v1)	P.127 40 + W.203; max speed via meaning value
+public_natural_0036	A	A	-	0	unchanged	P.131b; meaning(only)
+public_natural_0037	A	A	-	0	unchanged	P.131b; permitted(park, motor_vehicle, date 5/11); year not given (any year works for parity); vehicle defaults to motor_vehicle
+public_natural_0038	A	A	-	0	unchanged	same as 0037, 6/11
+public_natural_0041	A	A	-	0	unchanged	"P.131a; verify(permitted(park, motorbike)); red local plate + ""xe buýt được phép"" plate present, not needed"
+public_natural_0042	A	C	-	0	all_of(permitted(stop), permitted(park)) at 12h	"P.130 + time plate 6-9/16-19; ""may stop and park at 12h""; two separate verifies would work"
+public_natural_0043	C	C	DSL: time windows of a sign (no vehicle given); scene: composite image (two photos)	0	phase 1.7 (sign time windows without a vehicle); composite image	two P.107 photos side by side; answer is the right one's three windows
+public_natural_0044	A	C	-	0	is_sign on IE.465 (meaning rows)	green expressway distance signs
+public_natural_0045	A	A	-	0	unchanged	P.125; meaning(only)
+public_natural_0048	A	A	-	0	unchanged	P.106b 2.5t; forbidden(enter, special_machine, sign=select(code=P.106b)) (tractor is_a special_machine)
+public_natural_0049	A	B	-	0	R.415a; lanes_for(car) -> 2 lanes	4-lane board car,car,motorbike,bicycle; lanes_for(car) -> count 2
+public_natural_0051	A	C	-	1	local plate (action go_straight, 23-04); ban_times(go_straight, moped); basis non_standard_plate	"red local plate ""CẤM XE GẮN MÁY ĐI THẲNG"" under P.111a-type sign; ban_times(go_straight, moped) needs the plate"
+public_natural_0053	A	C	-	0	is_sign(meaning=no_overtaking)	"P.125; ""this is the no-overtaking sign, true?"""
+public_natural_0055	C	C	DSL: guide-sign content (destination/direction); catalog: guide signs (I.414)	0	fallback (guide-sign content)	I.414 direction sign to Vinh
+public_natural_0058	A	C	-	0	which_vehicles -> [pedestrian]	P.112; no options given (meaning() gives the name only)
+public_natural_0063	C	C	DSL: guide-sign content (junction shape); catalog: guide signs	0	fallback (guide-sign content)	I.414 with roundabout pictogram at Đại Lộc
+public_natural_0065	A	C	-	0	lane slot: forbidden(enter, car, lane=3, 10h)	same site as train_3_25: P.103a 6-22 over the right lanes; car in right 2 lanes at 10h
+public_natural_0067	C	C	DSL+rules: warning-sign behaviour (slow down); catalog: W.245	0	phase 1.7 (warning-sign behaviour)	"W.245 ""Đi chậm"" + plate 150m works ahead"
+public_natural_0068	A	A	- (engine answer would disagree with gold)	1	unchanged	"P.123b + S.505a truck plate + 6-22; verify(permitted(turn_right, motorbike, 10h)). Plate limits the ban to trucks -> engine ""Đúng"", gold ""Sai""; the red roadside banner (local, unreadable here) may extend it"
+public_natural_0070	C	C	DSL: guide-sign content (exit/lane to destination); catalog: expressway guide signs	0	fallback (guide-sign content)	green CT.01 / QL.1 split sign
+public_natural_0072	A	B	-	0	meaning(select(shape=triangle)) -> W.245a, W.201b (meaning rows)	W.245 + W.201b; meaning(select(shape=triangle)) -> both
+public_natural_0073	C	C	DSL+rules: warning-sign behaviour (slow down); catalog: W.244	0	phase 1.7 (warning-sign behaviour)	"Đoạn đường hay xảy ra tai nạn sign; claim ""need not slow down"" -> Sai"
+public_natural_0080	A	C	-	0	is_sign(code=I.419) (meaning rows)	Địa phận TP HCM boundary sign
+public_natural_0082	B	B	rules: expressway restrictions (motorbikes banned, Law 36); catalog: I.437 / expressway speed signs	0	phase 1.7 (expressway rules)	expressway entry: P.102, R.302, gantry with 120/60; motorbike at 100 km/h -> Sai
+public_natural_0083	A	A	-	0	unchanged	P.131a + times; verify(permitted(stop, motor_vehicle)) -> parking ban does not cover stopping
+public_natural_0084	A	A	-	0	unchanged	P.102 + R.302; verify(forbidden(enter, vehicle))
+public_natural_0085	C	C	"traffic-light rules (v2 scope) + non-standard text sign ""Đèn đỏ được phép đi thẳng"""	1	fallback (traffic lights)	only a local blue text sign
+public_natural_0086	A	B	-	0	meaning(select()).category = information (meaning rows)	"gantry of direction signs; ""what kind of signs"" -> meaning category"
+public_natural_0087	C	C	DSL+rules: warning-sign behaviour (slow down); catalog: W.239-type clearance sign	0	phase 1.7 (warning-sign behaviour)	"5.0m clearance triangle + ""GIẢM TỐC ĐỘ"" text sign"
+public_natural_0092	A	C	-	1	local plate vehicles; which_vehicles -> conditional [cyclo, similar_rudimentary] (time not given)	"train_2_26 site: red plate ""CẤM XE 3 BÁNH VÀ 4 BÁNH THÔ SƠ"""
+public_natural_0093	A	A	-	0	speed_limit (was meaning() value in v1)	P.127 50; max speed via meaning value
+public_natural_0094	A	A	-	0	unchanged	P.111d + times; verify(permitted(enter, cyclo, 00:00..23:59, all)) -> Sai
+public_natural_0095	A	A	-	0	unchanged	P.115 10t; permitted(enter, truck(gross_gt=10))
+public_natural_0096	B	B	catalog: dimension limits P.118/P.119 (+ length/width bounds in Vehicle)	0	phase 1.7 (P.118/P.119 size limits)	P.119 9 m length limit
+public_natural_0097	A	C	-	0	is_sign(meaning=no_entry_one_way)	"P.102; ""this is the no-entry sign, true?"""

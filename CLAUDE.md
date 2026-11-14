@@ -48,7 +48,10 @@ swipl -q -g "consult('kb/load.pl'), halt"
 ## Layout
 
 - `vqa/schemas.py`: contracts: SceneGraph, QueryProgram (the DSL), Answer. Any vocabulary that reaches Prolog is an enum here.
-- `vqa/kb.py`: loads `kb/sign_catalog.yaml` and turns it into Prolog facts.
+- `vqa/kb.py`: loads the catalog and turns it into Prolog facts.
+  - `kb/sign_catalog.yaml`: rows with rule effects.
+  - `kb/sign_catalog_meaning.yaml`: meaning-only W/I/IE rows drafted by `tools/draft_catalog_rows.py`. Their review list is `kb/review/meaning_rows_review.md`.
+- `tools/`: offline authoring tools. They may read law_db; inference code may not.
 - `vqa/parsing/dsl.py`: rewrites run before the engine. `Forbidden` becomes `Verify(Permitted, expect=False)` with the quantifier flipped.
 - `vqa/reasoning/`:
   - `terms.py`: Python values to Prolog text.
@@ -60,7 +63,7 @@ swipl -q -g "consult('kb/load.pl'), halt"
   - `meta.pl`: meta-interpreter that builds the proof tree.
   - `scene.pl`: declarations for the fact predicates.
   - `ontology.pl`: vehicle hierarchy.
-  - `rules/*.pl`: one file per rule family: `prohibitions`, `speed` (speed limits and lanes), and `mandatory` (R.301 by placement). Shared checks are in `common.pl`.
+  - `rules/*.pl`: one file per rule family: `prohibitions`, `speed` (speed limits, lanes, limit values), `mandatory` (R.301 by placement) and `identity` (`is_sign`). Shared checks are in `common.pl`.
   - `query.pl`: the `q_*` entry points.
 - `tests/`: one file per rule family, using hand-written scene graphs and programs.
   - `tests/integration/` runs train questions from `tests/fixtures/train_*.json` (format in `tests/fixtures/README.md`).
@@ -87,11 +90,23 @@ swipl -q -g "consult('kb/load.pl'), halt"
 - **Vehicle attributes are exact or bounded** (`seats_gt=29`), never both. In Prolog a bounded attribute is an interval `iv(Lo, LoIn, Hi, HiIn)`.
 - **Time intervals need a quantifier** (`all` or `any`), which applies to what the program states. For a ban, write `Forbidden`, not `Verify(Permitted, expect=False)`.
 - **A sign with several (vehicle, time) pairs uses condition groups (`Sign.rules`)**, not separate vehicle and time plates.
+- **The context is `ctx(Minute, Day, Lane)`.** The lane check is part of `assess/6`. A sign over some lanes gives unknown when no lane is asked about.
+- **Non-standard plates are plates of kind `local`.**
+  - The text is kept verbatim.
+  - Its vehicles and actions replace the sign's own (`effective_prohibits/4`).
+  - Proofs show `local_plate(...)` and `cite(r_non_standard_plate_not_in_qcvn41)`, which has no law source.
+  - Answers get `basis: ["non_standard_plate"]`.
+  - Standalone local signs (no standard main sign) are not modelled.
+- **Catalog family rows carry their variants in QCVN notation** (`W.207(a,b,...)`). `Catalog.get("W.207c")` resolves to the family row.
 - **Sign codes in Prolog** are lowercase with no dots: `P.127b` becomes `p127b`, `S.H,6` becomes `sh_6`. See `vqa.kb.code_atom`.
 - **Lanes are numbered from 1**, with lane 1 the leftmost. Time windows include both ends and may run past midnight.
 - Add a test with every new rule. Write test scenes by hand and model them on train questions. Do not copy them from dataset files.
 
 ## Phase 2 notes (parser)
+
+- **"Các loại xe" / "mọi phương tiện" (every vehicle) is not `vehicle`.** The class `vehicle` means "a vehicle of unknown kind": against a motor-vehicle ban it gives unknown.
+  - The parser should write a universal claim over classes instead, e.g. `all_of` over the classes in question, or `which_vehicles`.
+  - A dedicated "for every vehicle" form may be worth adding.
 
 - **The parser fills in values the question leaves out, and records that it did** (e.g. `defaults_applied: ["year", "vehicle"]` next to `missing_slots`):
   - year: the current year in the question's context;
@@ -104,6 +119,14 @@ swipl -q -g "consult('kb/load.pl'), halt"
   - Phase 1.7: warning-sign behaviour, a sign's time windows without a vehicle, counting signs by category, the B.25 overtaking exception, expressway rules, P.118/P.119 size limits.
   - Guide-sign content and traffic lights stay with the fallback.
 - **Audits of `public_dev` are development estimates only.** The real coverage figure is measured later on `public_holdout`, through the pipeline, together with accuracy on the rule-answered questions.
+
+## Coverage audit
+
+- `eval/audits/public_dev_audit_v2.tsv` (after phase 1.6) puts public-dev at **39 A / 3 B / 9 C**, i.e. 76.5% rules-covered. This is a development estimate.
+  - `eval/audits/public_dev_v2_checks.py` runs the 20 questions that changed against the engine with hand-made scenes. These are audit material, not inference inputs.
+- Still open:
+  - phase 1.7: warning-sign behaviour (3), the overtaking exception, P.118/P.119, expressway rules, sign windows without a vehicle, counting signs;
+  - fallback: guide-sign content (3), traffic lights (1).
 
 ## Not built yet (later phases)
 
