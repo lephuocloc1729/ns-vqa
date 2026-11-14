@@ -104,7 +104,10 @@ class CatalogSign(_M):
     note: str | None = None     # e.g. where a meaning is our reading rather than QCVN wording
     variants: list[str] = []    # letters a family row stands for
     source: Citation
-    reviewed: bool = False
+    # Who checked the row's name, letters and citation; visual attributes are tracked
+    # separately because corrections there may come from a different reviewer.
+    reviewed_by: Literal["human", "assistant", "none"] = "none"
+    visual_reviewed_by: Literal["human", "assistant", "none"] = "none"
 
     @property
     def base(self) -> str:

@@ -85,7 +85,10 @@ swipl -q -g "consult('kb/load.pl'), halt"
   - `forbids` and the other "against" rules use them to show why a sign applies.
   - `clears`, `speed_clears`, `lane_clears` and `requirement_clears` use them to name the check that failed (`vehicle_not_covered`, `outside_time_window`, ...).
   - Citations follow the verdict: clears for yes, true reasons for no, unknown reasons for unknown.
-- **Catalog rows are drafts until a person checks them.** Each row has `reviewed: false` until then. Quote the article text in a YAML comment wherever an effect depends on a specific phrase, such as "kể cả xe được ưu tiên".
+- **Catalog rows are drafts until a person checks them.**
+  - `reviewed_by: human | assistant | none` says who checked a row's name, letters and citation. Only `human` counts as checked.
+  - `visual_reviewed_by` tracks the visual attributes separately.
+  - Quote the article text in a YAML comment wherever an effect depends on a specific phrase, such as "kể cả xe được ưu tiên".
 - **Prolog rules may not contain cuts.** The meta-interpreter does not implement cut, so use if-then-else or mutually exclusive clauses. Small deterministic helpers are marked `leaf(...)`: they run natively and show up as one proof node, and they may cut.
 - **Vehicle classes live in two places.** They are `VehicleClass` in `vqa/schemas.py` and `is_a/2` in `kb/ontology.pl`. `tests/test_schemas.py` checks that the two stay in sync.
   - "xe khách" means `coach`, a bus that is not a city bus.
