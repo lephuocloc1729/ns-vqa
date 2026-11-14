@@ -26,6 +26,10 @@
            plate_days/2,         % plate_days(S, even|odd)     S.508
            plate_vehicle/2,      % plate_vehicle(S, Spec)      S.505a
            plate_except/2,       % plate_except(S, Spec)       S.H,6
+           group/2,              % group(S, G)               condition groups (Sign.rules)
+           group_vehicle/3,      % group_vehicle(S, G, Spec)
+           group_time/4,         % group_time(S, G, FromMin, ToMin)
+           group_days/3,         % group_days(S, G, even|odd)
            lane_limit/4,         % lane_limit(S, Lane, Spec|any, MaxKmh)
            lane_min/4,           % lane_min(S, Lane, Spec|any, MinKmh)
            lane_vehicle/3,       % lane_vehicle(S, Lane, Spec)  lane open only to these
@@ -37,6 +41,8 @@ scene_fact(sign/3).        scene_fact(sign_value/2).   scene_fact(sign_lane/3).
 scene_fact(plate_time/3).  scene_fact(plate_days/2).   scene_fact(plate_vehicle/2).
 scene_fact(plate_except/2). scene_fact(lane_limit/4).  scene_fact(lane_min/4).
 scene_fact(lane_vehicle/3). scene_fact(scene_vehicle/5).
+scene_fact(group/2).       scene_fact(group_vehicle/3). scene_fact(group_time/4).
+scene_fact(group_days/3).
 scene_fact(selected/1).    scene_fact(selection_active/0).
 
 catalog_fact(catalog_sign/4). catalog_fact(prohibits/3). catalog_fact(catalog_except/2).

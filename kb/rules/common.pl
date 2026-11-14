@@ -49,9 +49,27 @@ not3(unknown, unknown).
 
 leaf(cmp_truth(_, _, _, _)).
 %!  cmp_truth(+Op, +X, +Y, -T) is det.  `unknown` operands give unknown.
+%   X may be an interval iv(Lo, LoIn, Hi, HiIn) (only bounds known): true when every
+%   value in it satisfies the comparison, false when none does, unknown otherwise.
 cmp_truth(_, X, _, unknown) :- X == unknown, !.
 cmp_truth(_, _, Y, unknown) :- Y == unknown, !.
+cmp_truth(Op, iv(Lo, LI, Hi, HI), Y, T) :- !,
+    (   iv_all(Op, Lo, LI, Hi, HI, Y) -> T = true
+    ;   iv_none(Op, Lo, LI, Hi, HI, Y) -> T = false
+    ;   T = unknown
+    ).
 cmp_truth(Op, X, Y, T) :- ( cmp(Op, X, Y) -> T = true ; T = false ).
+
+% every value v in the interval has v Op Y
+iv_all(gt, Lo, LI, _, _, Y) :- ( Lo > Y ; Lo =:= Y, LI == false ).
+iv_all(ge, Lo, _, _, _, Y)  :- Lo >= Y.
+iv_all(lt, _, _, Hi, HI, Y) :- ( Hi < Y ; Hi =:= Y, HI == false ).
+iv_all(le, _, _, Hi, _, Y)  :- Hi =< Y.
+% no value v in the interval has v Op Y
+iv_none(gt, _, _, Hi, _, Y)  :- Hi =< Y.
+iv_none(ge, _, _, Hi, HI, Y) :- ( Hi < Y ; Hi =:= Y, HI == false ).
+iv_none(lt, Lo, _, _, _, Y)  :- Lo >= Y.
+iv_none(le, Lo, LI, _, _, Y) :- ( Lo > Y ; Lo =:= Y, LI == false ).
 
 cmp(gt, X, Y) :- X > Y.
 cmp(ge, X, Y) :- X >= Y.
@@ -260,10 +278,61 @@ assess(S, Code, Specs0, Veh, Ctx,
     sign_specs(S, Code, Specs0, Specs),
     any_spec_match(Specs, Veh, T1),
     exception_check(S, Code, Veh, T2),
-    plate_check(S, Veh, T3),
-    time_check(S, Ctx, T4),
-    day_check(S, Code, Ctx, T5),
+    conditions_check(S, Code, Veh, Ctx, T3, T4, T5),
     scope_check(Code, T6).
+
+%!  conditions_check(+S, +Code, +Veh, +Ctx, -Tvehicle, -Ttime, -Tday) is det.
+%   Plates, or the sign's condition groups when it has them.
+conditions_check(S, Code, Veh, Ctx, Tv, Tt, Td) :-
+    \+ group(S, _),
+    plate_check(S, Veh, Tv),
+    time_check(S, Ctx, Tt),
+    day_check(S, Code, Ctx, Td).
+conditions_check(S, Code, Veh, Ctx, Tv, Tt, Td) :-
+    has_groups(S),
+    cite(r_aux_plate),
+    (   has_group_vehicles(S) -> cite(r_vehicle_plate) ; true ),
+    (   has_group_times(S) -> cite(r_time_plate) ; true ),
+    groups_truth(S, Code, Veh, Ctx, Tv, Tt, Td).
+
+leaf(has_groups(_)).
+has_groups(S) :- group(S, _), !.
+leaf(has_group_vehicles(_)).
+has_group_vehicles(S) :- group_vehicle(S, _, _), !.
+leaf(has_group_times(_)).
+has_group_times(S) :- group_time(S, _, _, _), !.
+
+leaf(groups_truth(_, _, _, _, _, _, _)).
+%!  groups_truth(+S, +Code, +Veh, +Ctx, -Tv, -Tt, -Td) is det.
+%   The sign applies when some group matches both vehicle and time (and day).
+%   Tv: some group's vehicles match; Tt: some group matches vehicle and time;
+%   Td: some group matches vehicle, time and day. Td is the exact answer.
+groups_truth(S, Code, Veh, ctx(M, D), Tv, Tt, Td) :-
+    findall(V-T-Dy, ( group(S, G),
+                      group_vehicle_truth(S, G, Veh, V),
+                      group_time_truth(S, G, M, T),
+                      group_day_truth(S, G, Code, D, Dy) ), Rows),
+    findall(V, member(V-_-_, Rows), Vs), or3(Vs, Tv),
+    findall(X, ( member(V-T-_, Rows), and3([V, T], X) ), Ts), or3(Ts, Tt),
+    findall(X, ( member(V-T-Dy, Rows), and3([V, T, Dy], X) ), Ds), or3(Ds, Td).
+
+group_vehicle_truth(S, G, Veh, T) :-
+    findall(Sp, group_vehicle(S, G, Sp), Specs),
+    ( Specs == [] -> T = true ; any_spec_match(Specs, Veh, T) ).
+
+group_time_truth(S, G, M, T) :-
+    (   \+ group_time(S, G, _, _) -> T = true
+    ;   M == unknown -> T = unknown
+    ;   group_time(S, G, F, To), in_window(M, F, To) -> T = true
+    ;   T = false
+    ).
+
+group_day_truth(S, G, Code, D, T) :-
+    (   group_days(S, G, P) -> true
+    ;   catalog_days(Code, P) -> true
+    ;   P = none
+    ),
+    ( P == none -> T = true ; day_truth(D, P, T) ).
 
 %!  applies(+S, +Code, +Specs, +Veh, +Ctx, -T) is semidet.
 %   Fails when the sign surely does not apply; T is true or unknown otherwise.

@@ -7,6 +7,8 @@
 # Fields
 #   code, name_vi, name_en, category    identity (category: prohibitory | mandatory | warning
 #                                       | information | auxiliary | end_of_restriction)
+#   key                                 unique snake_case meaning, used by Selector.meaning
+#   tags                                broader meanings a Selector may also use (speed_limit, ...)
 #   visual                              shape / border / background for the perception prompt
 #   effect                              what the rule engine uses (all keys optional):
 #     prohibits: [{actions, vehicles: [VehicleSpec]}]   forbidden actions per vehicle spec
@@ -33,6 +35,8 @@ law_versions:
 signs:
   # ------------------------------------------------------------------ prohibitory
   - code: P.101
+    key: road_closed
+    tags: [vehicle_ban]
     name_vi: Đường cấm
     name_en: Road closed
     category: prohibitory
@@ -42,6 +46,7 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.1"}
 
   - code: P.102
+    key: no_entry_one_way
     name_vi: Cấm đi ngược chiều
     name_en: No entry
     category: prohibitory
@@ -51,6 +56,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.2"}
 
   - code: P.103a
+    key: no_cars
+    tags: [vehicle_ban]
     name_vi: Cấm xe ô tô
     name_en: No cars
     category: prohibitory
@@ -62,6 +69,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.3"}
 
   - code: P.103b
+    key: no_right_turn_for_cars
+    tags: [turn_ban]
     name_vi: Cấm xe ô tô rẽ phải
     name_en: No right turn for cars
     category: prohibitory
@@ -72,6 +81,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.3"}
 
   - code: P.103c
+    key: no_left_turn_for_cars
+    tags: [turn_ban]
     name_vi: Cấm xe ô tô rẽ trái
     name_en: No left turn for cars
     category: prohibitory
@@ -82,6 +93,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.3"}
 
   - code: P.104
+    key: no_motorbikes
+    tags: [vehicle_ban]
     name_vi: Cấm xe máy
     name_en: No motorbikes
     category: prohibitory
@@ -92,6 +105,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.4"}
 
   - code: P.105
+    key: no_cars_and_motorbikes
+    tags: [vehicle_ban]
     name_vi: Cấm xe ô tô và xe máy
     name_en: No cars and motorbikes
     category: prohibitory
@@ -101,6 +116,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.5"}
 
   - code: P.106a
+    key: no_trucks
+    tags: [vehicle_ban]
     name_vi: Cấm xe ô tô tải
     name_en: No trucks
     category: prohibitory
@@ -111,6 +128,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.6"}
 
   - code: P.106b
+    key: no_trucks_over_load
+    tags: [vehicle_ban, weight_limit]
     name_vi: Cấm xe ô tô tải có khối lượng chuyên chở lớn hơn giá trị ghi trên biển
     name_en: No trucks above the load shown
     category: prohibitory
@@ -122,6 +141,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.6"}
 
   - code: P.107
+    key: no_buses_and_trucks
+    tags: [vehicle_ban]
     name_vi: Cấm xe ô tô khách và xe ô tô tải
     name_en: No buses and trucks
     category: prohibitory
@@ -133,6 +154,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.7"}
 
   - code: P.107a
+    key: no_buses_coaches
+    tags: [vehicle_ban]
     name_vi: Cấm xe ô tô khách
     name_en: No buses (coaches)
     category: prohibitory
@@ -145,6 +168,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.7a"}
 
   - code: P.107b
+    key: no_taxis
+    tags: [vehicle_ban]
     name_vi: Cấm xe ô tô taxi
     name_en: No taxis
     category: prohibitory
@@ -154,6 +179,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.7b"}
 
   - code: P.109
+    key: no_tractors
+    tags: [vehicle_ban]
     name_vi: Cấm máy kéo
     name_en: No tractors
     category: prohibitory
@@ -163,6 +190,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.9"}
 
   - code: P.110a
+    key: no_bicycles
+    tags: [vehicle_ban]
     name_vi: Cấm xe đạp
     name_en: No bicycles
     category: prohibitory
@@ -172,6 +201,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.10"}
 
   - code: P.110b
+    key: no_cargo_bicycles
+    tags: [vehicle_ban]
     name_vi: Cấm xe đạp thồ
     name_en: No cargo bicycles
     category: prohibitory
@@ -181,6 +212,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.10"}
 
   - code: P.111a
+    key: no_mopeds
+    tags: [vehicle_ban]
     name_vi: Cấm xe gắn máy
     name_en: No mopeds
     category: prohibitory
@@ -190,6 +223,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.11"}
 
   - code: P.111b
+    key: no_motor_tricycles
+    tags: [vehicle_ban]
     name_vi: Cấm xe ba bánh loại có động cơ
     name_en: No motor tricycles
     category: prohibitory
@@ -199,6 +234,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.11"}
 
   - code: P.111d
+    key: no_non_motorised_tricycles
+    tags: [vehicle_ban]
     name_vi: Cấm xe ba bánh loại không có động cơ
     name_en: No non-motorised tricycles
     category: prohibitory
@@ -208,6 +245,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.11"}
 
   - code: P.112
+    key: no_pedestrians
+    tags: [vehicle_ban]
     name_vi: Cấm người đi bộ
     name_en: No pedestrians
     category: prohibitory
@@ -217,6 +256,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.12"}
 
   - code: P.115
+    key: gross_weight_limit
+    tags: [weight_limit]
     name_vi: Hạn chế trọng tải toàn bộ xe
     name_en: Gross weight limit
     category: prohibitory
@@ -228,6 +269,7 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.15"}
 
   - code: P.117
+    key: height_limit
     name_vi: Hạn chế chiều cao
     name_en: Height limit
     category: prohibitory
@@ -239,6 +281,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.17"}
 
   - code: P.123a
+    key: no_left_turn
+    tags: [turn_ban]
     name_vi: Cấm rẽ trái
     name_en: No left turn
     category: prohibitory
@@ -249,6 +293,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.23"}
 
   - code: P.123b
+    key: no_right_turn
+    tags: [turn_ban]
     name_vi: Cấm rẽ phải
     name_en: No right turn
     category: prohibitory
@@ -258,6 +304,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.23"}
 
   - code: P.124a
+    key: no_u_turn
+    tags: [turn_ban, u_turn_ban]
     name_vi: Cấm quay đầu xe
     name_en: No U-turn
     category: prohibitory
@@ -268,6 +316,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.24"}
 
   - code: P.124b
+    key: no_u_turn_for_cars
+    tags: [turn_ban, u_turn_ban]
     name_vi: Cấm ô tô quay đầu xe
     name_en: No U-turn for cars
     category: prohibitory
@@ -277,6 +327,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.24"}
 
   - code: P.124c
+    key: no_left_turn_and_no_u_turn
+    tags: [turn_ban, u_turn_ban]
     name_vi: Cấm rẽ trái và quay đầu xe
     name_en: No left turn and no U-turn
     category: prohibitory
@@ -286,6 +338,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.24"}
 
   - code: P.124d
+    key: no_right_turn_and_no_u_turn
+    tags: [turn_ban, u_turn_ban]
     name_vi: Cấm rẽ phải và quay đầu xe
     name_en: No right turn and no U-turn
     category: prohibitory
@@ -295,6 +349,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.24"}
 
   - code: P.125
+    key: no_overtaking
+    tags: [overtaking_ban]
     name_vi: Cấm vượt
     name_en: No overtaking
     category: prohibitory
@@ -307,6 +363,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.25"}
 
   - code: P.126
+    key: no_overtaking_by_trucks
+    tags: [overtaking_ban]
     name_vi: Cấm xe ô tô tải vượt
     name_en: No overtaking by trucks
     category: prohibitory
@@ -319,6 +377,7 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.26"}
 
   - code: P.128
+    key: no_horn
     name_vi: Cấm sử dụng còi
     name_en: No horn
     category: prohibitory
@@ -328,6 +387,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.28"}
 
   - code: P.130
+    key: no_stopping_or_parking
+    tags: [parking_ban, no_stopping]
     name_vi: Cấm dừng xe và đỗ xe
     name_en: No stopping or parking
     category: prohibitory
@@ -337,6 +398,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.30"}
 
   - code: P.131a
+    key: no_parking
+    tags: [parking_ban]
     name_vi: Cấm đỗ xe
     name_en: No parking
     category: prohibitory
@@ -346,6 +409,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.31"}
 
   - code: P.131b
+    key: no_parking_on_odd_days
+    tags: [parking_ban]
     name_vi: Cấm đỗ xe ngày lẻ
     name_en: No parking on odd days
     category: prohibitory
@@ -356,6 +421,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.31"}
 
   - code: P.131c
+    key: no_parking_on_even_days
+    tags: [parking_ban]
     name_vi: Cấm đỗ xe ngày chẵn
     name_en: No parking on even days
     category: prohibitory
@@ -366,6 +433,7 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.31"}
 
   - code: P.136
+    key: no_straight_ahead
     name_vi: Cấm đi thẳng
     name_en: No straight ahead
     category: prohibitory
@@ -375,6 +443,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.36"}
 
   - code: P.137
+    key: no_left_or_right_turn
+    tags: [turn_ban]
     name_vi: Cấm rẽ trái, rẽ phải
     name_en: No left or right turn
     category: prohibitory
@@ -384,6 +454,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.37"}
 
   - code: P.138
+    key: no_straight_ahead_or_left_turn
+    tags: [turn_ban]
     name_vi: Cấm đi thẳng, rẽ trái
     name_en: No straight ahead or left turn
     category: prohibitory
@@ -393,6 +465,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.38"}
 
   - code: P.139
+    key: no_straight_ahead_or_right_turn
+    tags: [turn_ban]
     name_vi: Cấm đi thẳng, rẽ phải
     name_en: No straight ahead or right turn
     category: prohibitory
@@ -403,6 +477,8 @@ signs:
 
   # ------------------------------------------------------------------ speed
   - code: P.127
+    key: max_speed
+    tags: [speed_limit]
     name_vi: Tốc độ tối đa cho phép
     name_en: Maximum speed limit
     category: prohibitory
@@ -412,6 +488,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.27"}
 
   - code: P.127a
+    key: max_speed_at_night
+    tags: [speed_limit]
     name_vi: Tốc độ tối đa cho phép về ban đêm
     name_en: Maximum speed limit at night
     category: prohibitory
@@ -422,6 +500,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.27a"}
 
   - code: P.127b
+    key: max_speed_per_lane
+    tags: [speed_limit]
     name_vi: Biển ghép tốc độ tối đa cho phép trên từng làn đường
     name_en: Maximum speed per lane
     category: prohibitory
@@ -431,6 +511,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.27b"}
 
   - code: P.127c
+    key: max_speed_per_lane_and_vehicle
+    tags: [speed_limit]
     name_vi: Biển ghép tốc độ tối đa cho phép theo phương tiện, trên từng làn đường
     name_en: Maximum speed per lane and vehicle type
     category: prohibitory
@@ -441,6 +523,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.27c"}
 
   - code: R.306
+    key: min_speed
+    tags: [speed_limit]
     name_vi: Tốc độ tối thiểu cho phép
     name_en: Minimum speed
     category: mandatory
@@ -451,6 +535,8 @@ signs:
 
   # ------------------------------------------------------------------ end of restriction
   - code: DP.127
+    key: end_of_per_lane_speed_limits
+    tags: [end_of_restriction]
     name_vi: Biển hết tốc độ tối đa cho phép theo biển ghép
     name_en: End of per-lane speed limits
     category: end_of_restriction
@@ -460,6 +546,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.27d"}
 
   - code: DP.133
+    key: end_of_no_overtaking
+    tags: [end_of_restriction]
     name_vi: Hết cấm vượt
     name_en: End of no overtaking
     category: end_of_restriction
@@ -469,6 +557,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.33"}
 
   - code: DP.134
+    key: end_of_maximum_speed_limit
+    tags: [end_of_restriction]
     name_vi: Hết tốc độ tối đa cho phép
     name_en: End of maximum speed limit
     category: end_of_restriction
@@ -478,6 +568,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.34"}
 
   - code: DP.135
+    key: end_of_all_restrictions
+    tags: [end_of_restriction]
     name_vi: Hết tất cả các lệnh cấm
     name_en: End of all restrictions
     category: end_of_restriction
@@ -488,6 +580,8 @@ signs:
 
   # ------------------------------------------------------------------ mandatory directions
   - code: R.301a
+    key: straight_ahead_only
+    tags: [direction_order]
     name_vi: Hướng đi phải theo (chỉ được đi thẳng)
     name_en: Straight ahead only
     category: mandatory
@@ -496,6 +590,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.1a"}
 
   - code: R.301b
+    key: turn_right_only_after_intersection
+    tags: [direction_order]
     name_vi: Hướng đi phải theo (chỉ được rẽ phải)
     name_en: Turn right only (after the intersection)
     category: mandatory
@@ -504,6 +600,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.1a"}
 
   - code: R.301c
+    key: turn_left_only_after_intersection
+    tags: [direction_order]
     name_vi: Hướng đi phải theo (chỉ được rẽ trái)
     name_en: Turn left only (after the intersection)
     category: mandatory
@@ -512,6 +610,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.1a"}
 
   - code: R.301d
+    key: turn_right_only_before_intersection
+    tags: [direction_order]
     name_vi: Hướng đi phải theo (chỉ được rẽ phải)
     name_en: Turn right only (before the intersection)
     category: mandatory
@@ -520,6 +620,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.1a"}
 
   - code: R.301e
+    key: turn_left_only_before_intersection
+    tags: [direction_order]
     name_vi: Hướng đi phải theo (chỉ được rẽ trái)
     name_en: Turn left only (before the intersection)
     category: mandatory
@@ -528,6 +630,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.1a"}
 
   - code: R.301f
+    key: straight_ahead_or_right_only
+    tags: [direction_order]
     name_vi: Hướng đi phải theo (chỉ được đi thẳng và rẽ phải)
     name_en: Straight ahead or right only
     category: mandatory
@@ -536,6 +640,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.1a"}
 
   - code: R.301g
+    key: straight_ahead_or_left_only
+    tags: [direction_order]
     name_vi: Hướng đi phải theo (chỉ được đi thẳng và rẽ trái)
     name_en: Straight ahead or left only
     category: mandatory
@@ -544,6 +650,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.1a"}
 
   - code: R.301h
+    key: left_or_right_only
+    tags: [direction_order]
     name_vi: Hướng đi phải theo (chỉ được rẽ trái và rẽ phải)
     name_en: Left or right only
     category: mandatory
@@ -553,6 +661,8 @@ signs:
 
   # ------------------------------------------------------------------ reserved lanes
   - code: R.412a
+    key: bus_and_coach_lane
+    tags: [reserved_lane]
     name_vi: Làn đường dành cho xe ô tô khách
     name_en: Bus and coach lane
     category: mandatory
@@ -561,6 +671,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.14"}
 
   - code: R.412b
+    key: passenger_car_lane
+    tags: [reserved_lane]
     name_vi: Làn đường dành cho xe ô tô con
     name_en: Passenger car lane
     category: mandatory
@@ -569,6 +681,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.14"}
 
   - code: R.412c
+    key: truck_lane
+    tags: [reserved_lane]
     name_vi: Làn đường dành cho xe ô tô tải
     name_en: Truck lane
     category: mandatory
@@ -580,6 +694,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.14"}
 
   - code: R.412d
+    key: motorbike_lane
+    tags: [reserved_lane]
     name_vi: Làn đường dành cho xe máy
     name_en: Motorbike lane
     category: mandatory
@@ -588,6 +704,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.14"}
 
   - code: R.412e
+    key: city_bus_lane
+    tags: [reserved_lane]
     name_vi: Làn đường dành cho xe buýt
     name_en: City bus lane
     category: mandatory
@@ -598,6 +716,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.14"}
 
   - code: R.412f
+    key: car_lane
+    tags: [reserved_lane]
     name_vi: Làn đường dành cho xe ô tô
     name_en: Car lane
     category: mandatory
@@ -606,6 +726,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.14"}
 
   - code: R.412g
+    key: motorbike_and_bicycle_lane
+    tags: [reserved_lane]
     name_vi: Làn đường dành cho xe máy và xe đạp
     name_en: Motorbike and bicycle lane
     category: mandatory
@@ -614,6 +736,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.14"}
 
   - code: R.412h
+    key: bicycle_lane
+    tags: [reserved_lane]
     name_vi: Làn đường dành cho xe đạp
     name_en: Bicycle lane
     category: mandatory
@@ -623,6 +747,7 @@ signs:
 
   # ------------------------------------------------------------------ auxiliary plates
   - code: S.504
+    key: lane_plate
     name_vi: Làn đường
     name_en: Lane plate
     category: auxiliary
@@ -631,6 +756,7 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "F.4"}
 
   - code: S.505a
+    key: vehicle_type_plate
     name_vi: Loại xe
     name_en: Vehicle type plate
     category: auxiliary
@@ -639,6 +765,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "F.5"}
 
   - code: S.508a
+    key: time_plate_a
+    tags: [time_plate]
     name_vi: Biểu thị thời gian
     name_en: Time plate
     category: auxiliary
@@ -647,6 +775,8 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "F.10"}
 
   - code: S.508b
+    key: time_plate_b
+    tags: [time_plate]
     name_vi: Biểu thị thời gian
     name_en: Time plate
     category: auxiliary
@@ -655,6 +785,7 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "F.10"}
 
   - code: S.H,6
+    key: exception_plate
     name_vi: Ngoại lệ
     name_en: Exception plate
     category: auxiliary

@@ -19,7 +19,7 @@ from typing import Annotated, Any, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-SCHEMA_VERSION = "1.1"
+SCHEMA_VERSION = "1.2"
 
 
 class _Model(BaseModel):
@@ -102,8 +102,20 @@ class VehicleSpec(_Model):
     conditions: list[Condition] = []
 
 
+# exact field -> (lower-bound field, upper-bound field); bounds are strict
+_BOUNDS = {
+    "seats": ("seats_gt", "seats_lt"),
+    "load_t": ("load_gt", "load_lt"),
+    "gross_t": ("gross_gt", "gross_lt"),
+}
+
+
 class Vehicle(_Model):
-    """A concrete vehicle being asked about. Unset attributes are unknown, not zero."""
+    """A vehicle being asked about. Unset attributes are unknown, not zero.
+
+    A numeric attribute is either exact (``seats=45``) or bounded by strict
+    comparisons (``seats_gt=29`` for "xe khách trên 29 chỗ"), never both.
+    """
 
     cls: VehicleClass = Field(alias="class")
     load_t: float | None = None
@@ -112,7 +124,23 @@ class Vehicle(_Model):
     height_m: float | None = None
     width_m: float | None = None
     length_m: float | None = None
+    seats_gt: int | None = None
+    seats_lt: int | None = None
+    load_gt: float | None = None
+    load_lt: float | None = None
+    gross_gt: float | None = None
+    gross_lt: float | None = None
     priority: bool = False  # xe được quyền ưu tiên on an emergency mission
+
+    @model_validator(mode="after")
+    def _bounds(self) -> "Vehicle":
+        for exact, (gt, lt) in _BOUNDS.items():
+            lo, hi = getattr(self, gt), getattr(self, lt)
+            if getattr(self, exact) is not None and (lo is not None or hi is not None):
+                raise ValueError(f"{exact}: give an exact value or bounds, not both")
+            if lo is not None and hi is not None and lo >= hi:
+                raise ValueError(f"{exact}: empty range {gt}={lo}, {lt}={hi}")
+        return self
 
 
 # --------------------------------------------------------------------------- #
@@ -186,6 +214,17 @@ class PlateKind(str, Enum):
     text = "text"            # S.509 or anything else
 
 
+class ConditionGroup(_Model):
+    """One (vehicles, time) pair from a plate or board that lists several, e.g.
+    "trucks <= 1.5 t: 6h-9h and 16h-19h30; trucks > 1.5 t: 6h-21h".
+    Empty ``vehicles`` = every vehicle the sign covers; no time = all day."""
+
+    vehicles: list[VehicleSpec] = []
+    time_windows: list[TimeWindow] = []
+    days: DayParity | None = None
+    text: str | None = None
+
+
 class Plate(_Model):
     kind: PlateKind
     text: str | None = None
@@ -236,8 +275,16 @@ class Sign(_Model):
     background: Colour | None = None
     position: Position = Position()
     plates: list[Plate] = []
+    rules: list[ConditionGroup] = []  # the sign applies when any group matches
     lanes: list[LaneSpec] = []
     alternatives: list[AltReading] = []
+
+    @model_validator(mode="after")
+    def _rules_xor_plates(self) -> "Sign":
+        if self.rules and any(p.kind in (PlateKind.vehicle, PlateKind.time) for p in self.plates):
+            raise ValueError(f"{self.id}: use either condition groups (rules) or "
+                             "vehicle/time plates, not both")
+        return self
 
 
 class RoadType(str, Enum):
@@ -309,11 +356,39 @@ class SceneGraph(_Model):
 # --------------------------------------------------------------------------- #
 
 
+class Quantifier(str, Enum):
+    all = "all"  # the statement holds at every moment of the interval
+    any = "any"  # the statement holds at some moment of the interval
+
+
 class When(_Model):
-    """When the question is about. Either part may be missing (= unknown)."""
+    """When the question is about: a moment (``time``) or an interval
+    (``start``..``end``, may run past midnight) with a quantifier. Any part may be
+    missing (= unknown). The quantifier applies to what the program states:
+    Permitted(all) = permitted throughout; Forbidden(all) = forbidden throughout."""
 
     date: dt.date | None = None
     time: dt.time | None = None
+    start: dt.time | None = None
+    end: dt.time | None = None
+    quantifier: Quantifier | None = None
+
+    @model_validator(mode="after")
+    def _shape(self) -> "When":
+        interval = self.start is not None or self.end is not None
+        if interval and (self.start is None or self.end is None):
+            raise ValueError("an interval needs both start and end")
+        if interval and self.time is not None:
+            raise ValueError("give either a time or an interval, not both")
+        if interval and self.quantifier is None:
+            raise ValueError("an interval needs a quantifier (all or any)")
+        if not interval and self.quantifier is not None:
+            raise ValueError("a quantifier only goes with an interval")
+        return self
+
+    @property
+    def is_interval(self) -> bool:
+        return self.start is not None
 
 
 class Selector(_Model):
@@ -327,11 +402,23 @@ class Selector(_Model):
     rank_top_down: int | None = None
     position: Literal["top", "bottom"] | None = None
     side: Side | None = None
+    meaning: str | None = None  # a catalog key or tag, e.g. "no_motorbikes", "speed_limit"
     only: bool = False  # "đây là biển gì?" - the single sign in the image
 
 
 class Permitted(_Model):
     intent: Literal["permitted"] = "permitted"
+    action: Action
+    vehicle: Vehicle
+    when: When | None = None
+    sign: Selector | None = None
+
+
+class Forbidden(_Model):
+    """Direct form of "not permitted"; compiles to Verify(Permitted(...), expect=False)
+    with the interval quantifier flipped (vqa/parsing/dsl.py)."""
+
+    intent: Literal["forbidden"] = "forbidden"
     action: Action
     vehicle: Vehicle
     when: When | None = None
@@ -390,7 +477,7 @@ class ExistsViolation(_Model):
 
 
 Claim = Annotated[
-    Union[Permitted, SpeedOk, Required, ExistsViolation],
+    Union[Permitted, Forbidden, SpeedOk, Required, ExistsViolation],
     Field(discriminator="intent"),
 ]
 
@@ -403,9 +490,22 @@ class Verify(_Model):
     expect: bool = True
 
 
+class ChoiceOption(_Model):
+    label: str
+    claim: Claim
+    expect: bool = True  # the option "holds" when the claim's answer matches, as in Verify
+
+
+class Choose(_Model):
+    """ "Trong các ..., ... nào ...?": returns the options that hold."""
+
+    intent: Literal["choose"] = "choose"
+    options: Annotated[list[ChoiceOption], Field(min_length=1)]
+
+
 Program = Annotated[
-    Union[Permitted, SpeedOk, LanesFor, LanesWhere, BanTimes, Meaning, Required,
-          ExistsViolation, Verify],
+    Union[Permitted, Forbidden, SpeedOk, LanesFor, LanesWhere, BanTimes, Meaning, Required,
+          ExistsViolation, Verify, Choose],
     Field(discriminator="intent"),
 ]
 

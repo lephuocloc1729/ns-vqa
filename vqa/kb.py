@@ -64,6 +64,8 @@ class Visual(_M):
 
 class CatalogSign(_M):
     code: str
+    key: str
+    tags: list[str] = []
     name_vi: str
     name_en: str
     category: Literal["prohibitory", "mandatory", "warning", "information", "auxiliary",
@@ -101,7 +103,19 @@ class Catalog(_M):
         atoms = [s.atom for s in self.signs]
         if len(set(atoms)) != len(atoms):
             raise ValueError("two codes map to the same Prolog atom")
+        keys = [s.key for s in self.signs]
+        if len(set(keys)) != len(keys):
+            raise ValueError("duplicate catalog keys")
+        if set(keys) & {t for s in self.signs for t in s.tags}:
+            raise ValueError("a tag must not reuse a catalog key")
         return self
+
+    def codes_for_meaning(self, meaning: str) -> list[str]:
+        """Codes whose key or tags match ``meaning``. Raises KeyError if none do."""
+        codes = [s.code for s in self.signs if s.key == meaning or meaning in s.tags]
+        if not codes:
+            raise KeyError(f"unknown sign meaning {meaning!r}")
+        return codes
 
     def get(self, code: str) -> CatalogSign:
         for s in self.signs:

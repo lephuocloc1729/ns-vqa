@@ -15,8 +15,9 @@ from vqa.kb import KB_DIR, Catalog, load_catalog
 from vqa.reasoning import explain
 from vqa.reasoning.facts import reading_variants, scene_facts
 from vqa.reasoning.terms import Term, atom, to_prolog, vehicle_term
+from vqa.parsing.dsl import normalize
 from vqa.schemas import (
-    Answer, BanTimes, ExistsViolation, LanesFor, LanesWhere, Meaning, Permitted,
+    Answer, BanTimes, Choose, ExistsViolation, LanesFor, LanesWhere, Meaning, Permitted,
     Program, QueryProgram, Reason, Required, SceneGraph, Selector, SpeedOk, Verdict,
     Verify, When,
 )
@@ -53,6 +54,17 @@ def _assert(facts: list[Term]) -> None:
     r = janus.query_once("add_facts(T)", {"T": to_prolog(list(facts))})
     if not r.get("truth"):
         raise EngineError("asserting facts failed")
+
+
+def _days(when: When | None) -> tuple[int | None, int | None]:
+    """Day of month for the interval's start and for after midnight."""
+    if when is None or when.date is None:
+        return None, None
+    return when.date.day, (when.date + dt.timedelta(days=1)).day
+
+
+def _minute(t: dt.time) -> int:
+    return t.hour * 60 + t.minute
 
 
 def _ctx(when: When | None, scene: SceneGraph) -> Term:
@@ -96,9 +108,17 @@ class Engine:
                          and self.catalog.get(s.code).category == "auxiliary")]
         if sel.sign_id:
             return [s.id for s in signs if s.id == sel.sign_id]
+        codes = None
+        if sel.meaning:
+            try:
+                codes = set(self.catalog.codes_for_meaning(sel.meaning))
+            except KeyError as e:
+                raise EngineError(str(e)) from None
         out = []
         for s in signs:
             if sel.code and s.code != sel.code:
+                continue
+            if codes is not None and s.code not in codes:
                 continue
             if sel.shape and s.shape != sel.shape:
                 continue
@@ -121,7 +141,7 @@ class Engine:
 
     # ------------------------------------------------------------------ entry point
     def answer(self, scene: SceneGraph, query: QueryProgram | Program) -> Answer:
-        program = query.program if isinstance(query, QueryProgram) else query
+        program = normalize(query.program if isinstance(query, QueryProgram) else query)
         variants = reading_variants(scene)
         answers = [(picked, self._run(sc, program)) for sc, picked in variants]
         first = answers[0][1]
@@ -142,6 +162,12 @@ class Engine:
 
     # ------------------------------------------------------------------ per program
     def _run(self, scene: SceneGraph, p: Program) -> Answer:
+        when = getattr(p, "when", None)
+        if when is not None and when.is_interval and not isinstance(p, Permitted):
+            return Answer(verdict=Verdict.unknown,
+                          note="time intervals are supported for permitted/forbidden only")
+        if isinstance(p, Choose):
+            return self._choose(scene, p)
         if isinstance(p, Verify):
             return self._verify(scene, p)
         if isinstance(p, Permitted):
@@ -171,6 +197,14 @@ class Engine:
             if not selection:
                 return Answer(verdict=Verdict.unknown, note="no sign in the scene matches the selector")
         self.load_scene(scene, selection)
+        if p.when is not None and p.when.is_interval:
+            d1, d2 = _days(p.when)
+            out = self.call(Term("q_permitted_iv", atom(p.action.value), vehicle_term(p.vehicle),
+                                 _minute(p.when.start), _minute(p.when.end), d1, d2,
+                                 atom(p.when.quantifier.value)))
+            ans = _verdict_answer(out)
+            return ans.model_copy(update={"value": {
+                "decided_at": _fmt_min(out["minute"]), "moments_checked": out["checked"]}})
         out = self.call(Term("q_permitted", atom(p.action.value), vehicle_term(p.vehicle),
                              _ctx(p.when, scene)))
         return _verdict_answer(out)
@@ -263,14 +297,31 @@ class Engine:
         return Answer(verdict=verdict, reasons=reasons + clears, citations=_cites(support),
                       value={"violations": [r.detail for r in reasons if r.truth == "true"]})
 
+    def _choose(self, scene: SceneGraph, p: Choose) -> Answer:
+        options, reasons, cites = [], [], []
+        for o in p.options:
+            a = self._verify(scene, Verify(claim=o.claim, expect=o.expect))
+            options.append({"label": o.label, "verdict": a.verdict.value})
+            reasons += a.reasons
+            cites += a.citations
+        value = {
+            "holding": [o["label"] for o in options if o["verdict"] == "yes"],
+            "not_holding": [o["label"] for o in options if o["verdict"] == "no"],
+            "unknown": [o["label"] for o in options if o["verdict"] not in ("yes", "no")],
+            "options": options,
+        }
+        return Answer(verdict=Verdict.value, value=value, reasons=reasons, citations=cites)
+
     def _verify(self, scene: SceneGraph, p: Verify) -> Answer:
         inner = self._run(scene, p.claim)
+        value = {"claim": inner.verdict.value}
+        if isinstance(inner.value, dict) and "decided_at" in inner.value:
+            value.update(inner.value)
         if inner.verdict not in (Verdict.yes, Verdict.no):
-            return inner.model_copy(update={"value": {"claim": inner.verdict.value}})
+            return inner.model_copy(update={"value": value})
         holds = inner.verdict == Verdict.yes
         verdict = Verdict.yes if holds == p.expect else Verdict.no
-        return inner.model_copy(update={"verdict": verdict,
-                                        "value": {"claim": inner.verdict.value}})
+        return inner.model_copy(update={"verdict": verdict, "value": value})
 
 
 # ---------------------------------------------------------------------- helpers

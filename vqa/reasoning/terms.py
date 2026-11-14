@@ -81,13 +81,36 @@ def spec_term(s: Any) -> Term:
     return Term("spec", atom(s.cls.value), [cond_term(c) for c in s.conditions])
 
 
+# Bounds written as an interval iv(Lo, LoIncluded, Hi, HiIncluded); BIG stands for infinity.
+BIG = 1.0e18
+_BOUNDED = {  # attr -> (lower-bound field, upper-bound field, integer valued?)
+    "seats": ("seats_gt", "seats_lt", True),
+    "load_t": ("load_gt", "load_lt", False),
+    "gross_t": ("gross_gt", "gross_lt", False),
+}
+
+
+def _interval(lo: float | None, hi: float | None, integer: bool) -> Term:
+    if integer:  # seats > 29 means seats >= 30
+        return Term("iv", float(lo + 1) if lo is not None else -BIG, atom("true"),
+                    float(hi - 1) if hi is not None else BIG, atom("true"))
+    return Term("iv", float(lo) if lo is not None else -BIG, atom("false"),
+                float(hi) if hi is not None else BIG, atom("false"))
+
+
 def vehicle_term(v: Any) -> Term:
-    """Vehicle -> veh(Class, [a(Attr, Value), ...]); unset attributes are left out (unknown)."""
+    """Vehicle -> veh(Class, [a(Attr, Value), ...]); unset attributes are left out (unknown).
+    Value is a number, or iv(Lo, LoIn, Hi, HiIn) when only bounds are known."""
     attrs = []
     for name in ("load_t", "gross_t", "seats", "height_m", "width_m", "length_m"):
         val = getattr(v, name)
         if val is not None:
             attrs.append(Term("a", atom(name), float(val)))
+        elif name in _BOUNDED:
+            gt, lt, integer = _BOUNDED[name]
+            lo, hi = getattr(v, gt), getattr(v, lt)
+            if lo is not None or hi is not None:
+                attrs.append(Term("a", atom(name), _interval(lo, hi, integer)))
     if v.priority:
         attrs.append(Term("a", atom("priority"), atom("true")))
     return Term("veh", atom(v.cls.value), attrs)

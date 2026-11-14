@@ -49,6 +49,16 @@ def sign_facts(sign: Sign, catalog: Catalog) -> list[Term]:
         elif p.kind == PlateKind.exception:
             out += [Term("plate_except", s, spec_term(v)) for v in p.vehicles]
 
+    for i, g in enumerate(sign.rules, start=1):
+        gid = atom(f"g{i}")
+        out.append(Term("group", s, gid))
+        out += [Term("group_vehicle", s, gid, spec_term(v)) for v in g.vehicles]
+        for w in g.time_windows:
+            f, t = w.minutes()
+            out.append(Term("group_time", s, gid, f, t))
+        if g.days:
+            out.append(Term("group_days", s, gid, atom(g.days.value)))
+
     for row in sign.lanes:
         specs = [spec_term(v) for v in row.vehicles] or [atom("any")]
         for sp in specs:

@@ -129,7 +129,11 @@ q_ban_times(Action, Veh, _{items:Items, clears:Cs}) :-
 
 ban_item(Action, Veh, S, _{sign_id:SS, windows:Ws, days:DS, truth:TS, proof:D}) :-
     atom_string(S, SS),
-    findall([F, To], plate_time(S, F, To), Ws),
+    findall([F, To], ( plate_time(S, F, To)
+                     ; group(S, G),
+                       group_vehicle_truth(S, G, Veh, Tv), Tv \== false,
+                       group_time(S, G, F, To) ), Ws0),
+    sort(Ws0, Ws),
     sign(S, Code, _),
     ( sign_days(S, Code, Day) -> atom_string(Day, DS) ; DS = "" ),
     (   Ws = [[F0, _]|_] -> M = F0 ; M = unknown ),
@@ -199,6 +203,57 @@ vehicle_clear(V, Kind, Cs, C) :-
     atom_string(V, VS),
     member(C0, Cs),
     C = C0.put(_{vehicle_id:VS, kind:Kind}).
+
+% --------------------------------------------------------------------------
+% Time intervals with a quantifier (When.start..end, all | any)
+% --------------------------------------------------------------------------
+
+%!  q_permitted_iv(+A, +Veh, +From, +To, +Day1, +Day2, +Quant, -Out) is det.
+%   Is A permitted for Veh at every (all) / some (any) moment of From..To?
+%   The interval may run past midnight; minutes after midnight are on Day2.
+%   Truth can only change at window edges, so the interval is checked at its ends,
+%   at midnight, and at each window edge and the minutes next to it. The answer
+%   carries the proof from the moment that decides it.
+q_permitted_iv(A, Veh, From, To, D1, D2, Quant, Out) :-
+    interval_points(From, To, D1, D2, Pts),
+    findall(Ctx-O, ( member(Ctx, Pts), q_permitted(A, Veh, Ctx, O) ), Rs),
+    findall(V, ( member(_-O, Rs), atom_string(V, O.verdict) ), Vs),
+    quantified(Quant, Vs, Verdict),
+    decisive(Quant, Verdict, Rs, ctx(M, D)-O0),
+    length(Pts, N),
+    atom_string(Verdict, VS),
+    Out = O0.put(_{verdict:VS, minute:M, day:D, checked:N}).
+
+quantified(all, Vs, no)      :- memberchk(no, Vs), !.
+quantified(all, Vs, unknown) :- memberchk(unknown, Vs), !.
+quantified(all, _, yes).
+quantified(any, Vs, yes)     :- memberchk(yes, Vs), !.
+quantified(any, Vs, unknown) :- memberchk(unknown, Vs), !.
+quantified(any, _, no).
+
+% the moment whose answer equals the overall verdict (the first one)
+decisive(_, Verdict, Rs, R) :-
+    atom_string(Verdict, VS),
+    member(R, Rs), R = _-O, O.verdict == VS, !.
+
+interval_points(From, To, D1, D2, Pts) :-
+    (   From =< To
+    ->  segment_points(From, To, D1, Pts)
+    ;   segment_points(From, 1439, D1, P1),
+        segment_points(0, To, D2, P2),
+        append(P1, P2, Pts)
+    ).
+
+segment_points(A, B, D, Pts) :-
+    findall(E, ( plate_time(_, F, T), member(E, [F, T]) ;
+                 group_time(_, _, F, T), member(E, [F, T]) ), Edges),
+    findall(M, ( member(M, [A, B])
+               ; member(E, Edges), member(Dx, [-1, 0, 1]), M is E + Dx ), Ms0),
+    include(between_(A, B), Ms0, Ms1),
+    sort(Ms1, Ms),
+    findall(ctx(M, D), member(M, Ms), Pts).
+
+between_(A, B, M) :- M >= A, M =< B.
 
 %!  solve_text(+Text, -Out) is det.  Entry point used by Python: Text is a goal term.
 solve_text(Text, Out) :-
