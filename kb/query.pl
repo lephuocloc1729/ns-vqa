@@ -205,6 +205,22 @@ vehicle_clear(V, Kind, Cs, C) :-
     C = C0.put(_{vehicle_id:VS, kind:Kind}).
 
 % --------------------------------------------------------------------------
+% Required directions (R.301 family, by placement)
+% --------------------------------------------------------------------------
+
+%!  verdict_for(+Truths, -Verdict) is det.  Truths of reasons *for* the claim.
+verdict_for(Ts, yes)     :- memberchk(true, Ts), !.
+verdict_for(Ts, unknown) :- memberchk(unknown, Ts), !.
+verdict_for(_, no).
+
+q_required(A, Veh, P0, Ctx, _{verdict:VS, reasons:R, clears:Cs, details:Ds}) :-
+    reasons(S-T-required(A, Veh, P0, Ctx, S, T), R, Ts, Signs),
+    verdict_for(Ts, V), atom_string(V, VS),
+    clears([ [S1-W-requirement_clears(A, Veh, P0, Ctx, S1, W)],
+             [S2-not_a_direction_sign-restricting_scene_sign(S2)] ], Signs, Cs),
+    findall(D, ( scene_sign(S3, C3), direction_sign(C3), requirement_detail(S3, P0, D) ), Ds).
+
+% --------------------------------------------------------------------------
 % Time intervals with a quantifier (When.start..end, all | any)
 % --------------------------------------------------------------------------
 

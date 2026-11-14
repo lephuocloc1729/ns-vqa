@@ -276,6 +276,7 @@ sign_lanes_truth(S, Lane, T) :-
 assess(S, Code, Specs0, Veh, Ctx,
        [vehicle-T1, exception-T2, plate-T3, time-T4, day-T5, scope-T6]) :-
     sign_specs(S, Code, Specs0, Specs),
+    vehicle_basis(Veh),
     any_spec_match(Specs, Veh, T1),
     exception_check(S, Code, Veh, T2),
     conditions_check(S, Code, Veh, Ctx, T3, T4, T5),
@@ -341,6 +342,18 @@ applies(S, Code, Specs, Veh, Ctx, T) :-
     checks_truth(Checks, T),
     T \== false.
 
+%!  vehicle_basis(+Veh) is det.
+%   A vehicle class that is our interpretation of the law (class_interpretation/3)
+%   is shown in the proof with its source, so the reading is visible and cited.
+vehicle_basis(veh(C, _)) :-
+    (   interpreted_class(C)
+    ->  class_interpretation(C, _, _)
+    ;   true
+    ).
+
+leaf(interpreted_class(_)).
+interpreted_class(C) :- class_interpretation(C, _, _), !.
+
 leaf(checks_truth(_, _)).
 checks_truth(Checks, T) :-
     findall(Ti, member(_-Ti, Checks), Ts),
@@ -361,3 +374,4 @@ why_name(limit,       within_limit).
 why_name(lane,        lane_not_covered).
 why_name(lane_closed, vehicle_allowed_on_lane).
 why_name(direction,   direction_allowed).
+why_name(required,    not_the_only_direction).

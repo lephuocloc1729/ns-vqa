@@ -11,4 +11,5 @@
 :- ensure_loaded('rules/common').
 :- ensure_loaded('rules/prohibitions').
 :- ensure_loaded('rules/speed').
+:- ensure_loaded('rules/mandatory').
 :- ensure_loaded(query).

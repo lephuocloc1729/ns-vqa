@@ -23,6 +23,10 @@
 #     lane_reserved: [class]            lane (Sign.position.lane) reserved for these classes
 #     only_directions: [action]         only these of go_straight/turn_left/turn_right allowed
 #     ends: [code]                      end-of-restriction: cancels these signs
+#     placement: {standard, before_intersection, after_intersection}
+#                                       R.301 family (D.1a): directions allowed and their scope
+#                                       for each placement the article describes; scope is
+#                                       intersection_behind | intersection_ahead | until_next_intersection
 #   source                              law_id + article_id, same format as relevant_articles
 #
 # VehicleSpec is {class, conditions: [{attr, op, value}]} as in vqa/schemas.py.
@@ -31,6 +35,17 @@ version: "qcvn41-2024.phase1"
 law_versions:
   - "QCVN 41:2024/BGTVT"
   - "36/2024/QH15"
+
+# Vehicle classes that are our reading of the law, not a class the law names.
+# They are cited in every proof that uses them, marked as an interpretation.
+vehicle_interpretations:
+  - class: similar_rudimentary
+    label_vi: "xe 4 bánh thô sơ (và xe thô sơ tương tự khác)"
+    note: >-
+      Interpretation: Law 36/2024/QH15 art. 34(2) lists bicycles, pedal-assist bicycles,
+      cyclos, wheelchairs and animal-drawn carts, and "(e) xe tương tự" (similar vehicles).
+      It names no four-wheeled class, so "xe 4 bánh thô sơ" is read as 34(2)(e).
+    source: {law_id: "36/2024/QH15", article_id: "34"}
 
 signs:
   # ------------------------------------------------------------------ prohibitory
@@ -586,7 +601,15 @@ signs:
     name_en: Straight ahead only
     category: mandatory
     visual: {shape: circle, border: none, background: blue}
-    effect: {only_directions: [go_straight]}
+    effect:
+      only_directions: [go_straight]
+      # D.1a c: before the intersection it applies at the intersection behind the sign
+      # (no left/right turn); after it, from the sign to the next intersection, with
+      # "cấm rẽ trái và quay đầu" (turning into gates and alleys stays allowed).
+      placement:
+        standard: either
+        before_intersection: {directions: [go_straight], scope: intersection_behind}
+        after_intersection: {directions: [go_straight], scope: until_next_intersection}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.1a"}
 
   - code: R.301b
@@ -596,7 +619,13 @@ signs:
     name_en: Turn right only (after the intersection)
     category: mandatory
     visual: {shape: circle, border: none, background: blue}
-    effect: {only_directions: [turn_right]}
+    effect:
+      only_directions: [turn_right]
+      # D.1a: "R.301(b,c) được đặt ở sau nơi đường giao nhau ... chỉ được phép rẽ phải
+      # hoặc rẽ trái ở phạm vi nơi đường giao nhau trước mặt biển"
+      placement:
+        standard: after_intersection
+        after_intersection: {directions: [turn_right], scope: intersection_ahead}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.1a"}
 
   - code: R.301c
@@ -606,7 +635,11 @@ signs:
     name_en: Turn left only (after the intersection)
     category: mandatory
     visual: {shape: circle, border: none, background: blue}
-    effect: {only_directions: [turn_left]}
+    effect:
+      only_directions: [turn_left]
+      placement:
+        standard: after_intersection
+        after_intersection: {directions: [turn_left], scope: intersection_ahead}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.1a"}
 
   - code: R.301d
@@ -616,7 +649,13 @@ signs:
     name_en: Turn right only (before the intersection)
     category: mandatory
     visual: {shape: circle, border: none, background: blue}
-    effect: {only_directions: [turn_right]}
+    effect:
+      only_directions: [turn_right]
+      # D.1a: "R.301(d,e) được đặt ở trước nơi đường giao nhau ... ở phạm vi nơi đường
+      # giao nhau đằng sau mặt biển"
+      placement:
+        standard: before_intersection
+        before_intersection: {directions: [turn_right], scope: intersection_behind}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.1a"}
 
   - code: R.301e
@@ -626,7 +665,11 @@ signs:
     name_en: Turn left only (before the intersection)
     category: mandatory
     visual: {shape: circle, border: none, background: blue}
-    effect: {only_directions: [turn_left]}
+    effect:
+      only_directions: [turn_left]
+      placement:
+        standard: before_intersection
+        before_intersection: {directions: [turn_left], scope: intersection_behind}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.1a"}
 
   - code: R.301f
@@ -636,7 +679,11 @@ signs:
     name_en: Straight ahead or right only
     category: mandatory
     visual: {shape: circle, border: none, background: blue}
-    effect: {only_directions: [go_straight, turn_right]}
+    effect:
+      only_directions: [go_straight, turn_right]
+      placement:
+        standard: before_intersection
+        before_intersection: {directions: [go_straight, turn_right], scope: intersection_behind}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.1a"}
 
   - code: R.301g
@@ -646,7 +693,12 @@ signs:
     name_en: Straight ahead or left only
     category: mandatory
     visual: {shape: circle, border: none, background: blue}
-    effect: {only_directions: [go_straight, turn_left]}
+    effect:
+      only_directions: [go_straight, turn_left]
+      # D.1a: "chỉ được phép đi thẳng hay rẽ trái và được phép quay đầu xe"
+      placement:
+        standard: before_intersection
+        before_intersection: {directions: [go_straight, turn_left, u_turn], scope: intersection_behind}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.1a"}
 
   - code: R.301h
@@ -656,7 +708,13 @@ signs:
     name_en: Left or right only
     category: mandatory
     visual: {shape: circle, border: none, background: blue}
-    effect: {only_directions: [turn_left, turn_right]}
+    effect:
+      only_directions: [turn_left, turn_right]
+      # D.1a: "chỉ được phép rẽ trái, quay đầu hoặc rẽ phải ở phạm vi nơi đường giao nhau
+      # trước mặt biển"
+      placement:
+        standard: after_intersection
+        after_intersection: {directions: [turn_left, u_turn, turn_right], scope: intersection_ahead}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.1a"}
 
   # ------------------------------------------------------------------ reserved lanes

@@ -186,8 +186,7 @@ class Engine:
         if isinstance(p, ExistsViolation):
             return self._violations(scene, p)
         if isinstance(p, Required):
-            return Answer(verdict=Verdict.unknown,
-                          note="'required' questions are not covered by the phase 1 rules")
+            return self._required(scene, p)
         raise EngineError(f"unsupported program {type(p).__name__}")
 
     def _permitted(self, scene: SceneGraph, p: Permitted) -> Answer:
@@ -296,6 +295,22 @@ class Engine:
         support = [r for r in reasons if r.truth == want] if want else clears
         return Answer(verdict=verdict, reasons=reasons + clears, citations=_cites(support),
                       value={"violations": [r.detail for r in reasons if r.truth == "true"]})
+
+    def _required(self, scene: SceneGraph, p: Required) -> Answer:
+        self.load_scene(scene)
+        vehicle = vehicle_term(p.vehicle) if p.vehicle else Term("veh", atom("vehicle"), [])
+        out = self.call(Term("q_required", atom(p.action.value), vehicle,
+                             atom(p.placement) if p.placement else None, _ctx(None, scene)))
+        reasons = [_reason(r) for r in out["reasons"]] + [_reason(c) for c in out["clears"]]
+        v = out["verdict"]
+        if v == "yes":
+            support = [_reason(r) for r in out["reasons"] if r["truth"] == "true"]
+        elif v == "unknown":
+            support = [_reason(r) for r in out["reasons"] if r["truth"] == "unknown"]
+        else:
+            support = [_reason(c) for c in out["clears"]]
+        return Answer(verdict=Verdict(v), value={"signs": out["details"]}, reasons=reasons,
+                      citations=_cites(support))
 
     def _choose(self, scene: SceneGraph, p: Choose) -> Answer:
         options, reasons, cites = [], [], []

@@ -16,12 +16,16 @@
            lane_reserved/2,      % lane_reserved(Code, Class)
            direction_sign/1,     % direction_sign(Code)
            only_direction/2,     % only_direction(Code, Action)
-           ends/2.               % ends(EndCode, EndedCode)
+           ends/2,               % ends(EndCode, EndedCode)
+           standard_placement/2, % standard_placement(Code, before_intersection|after_intersection)
+           placement_effect/4,   % placement_effect(Code, Placement, Directions, Scope)
+           class_interpretation/3. % class_interpretation(Class, LawId, ArticleId)
 
 % ---- scene facts (replaced for every query)
 :- dynamic sign/3,               % sign(S, Code, Confidence)
            sign_value/2,         % sign_value(S, Number)
            sign_lane/3,          % sign_lane(S, Lane, plate|position)  S.504 plate or position.lane
+           sign_placement/2,     % sign_placement(S, before_intersection|after_intersection)
            plate_time/3,         % plate_time(S, FromMin, ToMin)   S.508, minutes after midnight
            plate_days/2,         % plate_days(S, even|odd)     S.508
            plate_vehicle/2,      % plate_vehicle(S, Spec)      S.505a
@@ -38,6 +42,7 @@
            selection_active/0.
 
 scene_fact(sign/3).        scene_fact(sign_value/2).   scene_fact(sign_lane/3).
+scene_fact(sign_placement/2).
 scene_fact(plate_time/3).  scene_fact(plate_days/2).   scene_fact(plate_vehicle/2).
 scene_fact(plate_except/2). scene_fact(lane_limit/4).  scene_fact(lane_min/4).
 scene_fact(lane_vehicle/3). scene_fact(scene_vehicle/5).
@@ -49,7 +54,8 @@ catalog_fact(catalog_sign/4). catalog_fact(prohibits/3). catalog_fact(catalog_ex
 catalog_fact(no_priority_exempt/1). catalog_fact(value_cond/4). catalog_fact(catalog_days/2).
 catalog_fact(max_speed_for/2). catalog_fact(min_speed_for/2). catalog_fact(lane_board/1).
 catalog_fact(lane_reserved/2). catalog_fact(direction_sign/1). catalog_fact(only_direction/2).
-catalog_fact(ends/2).
+catalog_fact(ends/2). catalog_fact(standard_placement/2). catalog_fact(placement_effect/4).
+catalog_fact(class_interpretation/3).
 
 clear_scene :-
     forall(scene_fact(N/A), (functor(H, N, A), retractall(H))).
@@ -71,6 +77,7 @@ fact_pred(G) :-
 ontology_fact(is_a/2).
 
 %!  fact_source(+Fact, -Source) is det.  Catalog facts cite the sign's article.
+fact_source(class_interpretation(_, L, A), src(L, A)) :- !.
 fact_source(G, src(L, A)) :-
     functor(G, N, Ar), catalog_fact(N/Ar),
     arg(1, G, Code), atom(Code),

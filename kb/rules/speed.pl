@@ -110,6 +110,7 @@ lane_sign_checks(Veh, Lane, Ctx, S, [lane_closed-T0, exception-T1, time-T2, day-
     catalog_sign(Code, _, _, _),
     lane_has_specs(S, Lane),
     lane_specs(S, Lane, Specs),
+    vehicle_basis(Veh),
     any_spec_match(Specs, Veh, M),
     not3(M, T0),
     exception_check(S, Code, Veh, T1),

@@ -32,6 +32,9 @@ is_a(cargo_bicycle,   rudimentary).
 is_a(cyclo,           rudimentary).
 is_a(hand_cart,       rudimentary).
 is_a(animal_cart,     rudimentary).
+% Interpretation of Law 36 art. 34(2)(e) "xe tương tự": the law names no four-wheeled
+% non-motorised class ("xe 4 bánh thô sơ"). Cited in proofs via class_interpretation/3.
+is_a(similar_rudimentary, rudimentary).
 
 % pedestrian is a road user but not a vehicle: P.101 does not ban pedestrians (B.1 c).
 road_user(pedestrian).

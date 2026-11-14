@@ -54,6 +54,33 @@ class Effect(_M):
     lane_reserved: list[VehicleClass] = []
     only_directions: list[Literal["go_straight", "turn_left", "turn_right"]] = []
     ends: list[str] = []
+    placement: PlacementRules | None = None
+
+
+Direction = Literal["go_straight", "turn_left", "turn_right", "u_turn"]
+Placement = Literal["before_intersection", "after_intersection"]
+
+
+class PlacementEffect(_M):
+    directions: list[Direction]
+    scope: Literal["intersection_behind", "intersection_ahead", "until_next_intersection"]
+
+
+class PlacementRules(_M):
+    """R.301 family (QCVN 41 D.1a): what the sign allows for each placement."""
+
+    standard: Literal["before_intersection", "after_intersection", "either"]
+    before_intersection: PlacementEffect | None = None
+    after_intersection: PlacementEffect | None = None
+
+
+class VehicleInterpretation(_M):
+    """A vehicle class that is our reading of the law rather than a class it names."""
+
+    cls: VehicleClass = Field(alias="class")
+    label_vi: str
+    note: str
+    source: Citation
 
 
 class Visual(_M):
@@ -92,6 +119,7 @@ class CatalogSign(_M):
 class Catalog(_M):
     version: str
     law_versions: list[str]
+    vehicle_interpretations: list[VehicleInterpretation] = []
     signs: list[CatalogSign]
 
     @model_validator(mode="after")
@@ -170,6 +198,18 @@ class Catalog(_M):
                     out.append(Term("only_direction", c, atom(a)))
             for ended in e.ends:
                 out.append(Term("ends", c, atom(code_atom(ended))))
+            if e.placement:
+                pl = e.placement
+                if pl.standard != "either":
+                    out.append(Term("standard_placement", c, atom(pl.standard)))
+                for name in ("before_intersection", "after_intersection"):
+                    eff = getattr(pl, name)
+                    if eff:
+                        out.append(Term("placement_effect", c, atom(name),
+                                        [atom(d) for d in eff.directions], atom(eff.scope)))
+        for vi in self.vehicle_interpretations:
+            out.append(Term("class_interpretation", atom(vi.cls.value),
+                            atom(vi.source.law_id), atom(vi.source.article_id)))
         return out
 
 

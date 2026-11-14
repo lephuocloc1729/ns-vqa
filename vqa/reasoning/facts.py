@@ -30,6 +30,8 @@ def sign_facts(sign: Sign, catalog: Catalog) -> list[Term]:
     out: list[Term] = [Term("sign", s, code, atom(sign.confidence.value))]
     if sign.value is not None:
         out.append(Term("sign_value", s, float(sign.value)))
+    if sign.position.placement:
+        out.append(Term("sign_placement", s, atom(sign.position.placement)))
     lanes = _sign_lanes(sign)
     entry = catalog.get(sign.code) if catalog.has(sign.code) else None
     reserves_lane = bool(entry and entry.effect.lane_reserved)

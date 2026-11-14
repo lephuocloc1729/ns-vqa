@@ -56,6 +56,9 @@ class VehicleClass(str, Enum):
     cyclo = "cyclo"                      # xe ba bánh không động cơ (xích lô)
     hand_cart = "hand_cart"              # xe người kéo, đẩy
     animal_cart = "animal_cart"          # xe vật nuôi kéo
+    # Interpretation of Law 36 art. 34(2)(e) "xe tương tự": e.g. "xe 4 bánh thô sơ".
+    # The law names no such class; proofs that use it cite it as an interpretation.
+    similar_rudimentary = "similar_rudimentary"
     pedestrian = "pedestrian"            # người đi bộ (a road user, not a vehicle)
 
 
@@ -240,6 +243,7 @@ class Position(_Model):
     rank_top_down: int | None = None
     side: Side = Side.unknown
     lane: int | None = None  # lane the sign covers (1 = leftmost); None = whole road
+    placement: Literal["before_intersection", "after_intersection"] | None = None
     box: tuple[int, int, int, int] | None = None  # debug only, pixel x0,y0,x1,y1
 
 
