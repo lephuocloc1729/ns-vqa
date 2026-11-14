@@ -1,0 +1,30 @@
+{
+  "question_id": "train_217",
+  "image_id": "train_4_20",
+  "summary": "Which lane must you use to drive at up to 90 km/h?",
+  "scene": {
+    "scene_id": "train_4_20",
+    "road": {"type": "rural", "lanes": 3},
+    "signs": [
+      {"id": "r1", "code": "R.412f", "shape": "rectangle", "background": "blue",
+       "position": {"side": "overhead", "lane": 1}},
+      {"id": "p1", "code": "P.127", "value": 90, "shape": "circle", "border": "red",
+       "background": "white", "position": {"side": "overhead", "lane": 1}},
+      {"id": "r2", "code": "R.412f", "shape": "rectangle", "background": "blue",
+       "position": {"side": "overhead", "lane": 2}},
+      {"id": "p2", "code": "P.127", "value": 80, "shape": "circle", "border": "red",
+       "background": "white", "position": {"side": "overhead", "lane": 2}},
+      {"id": "r3", "code": "R.412f", "shape": "rectangle", "background": "blue",
+       "position": {"side": "overhead", "lane": 3}},
+      {"id": "p3", "code": "P.127", "value": 80, "shape": "circle", "border": "red",
+       "background": "white", "position": {"side": "overhead", "lane": 3}}
+    ]
+  },
+  "cases": [
+    {"program": {"intent": "lanes_where", "vehicle": {"class": "passenger_car"},
+                 "speed_kmh": 90, "ok": true},
+     "expect": {"verdict": "value", "value": {"lanes": [1], "conditional": []}}}
+  ],
+  "core_articles": ["22", "B.27"],
+  "not_core": {}
+}

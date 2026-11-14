@@ -1,0 +1,34 @@
+{
+  "question_id": "train_181",
+  "image_id": "train_3_25",
+  "summary": "True or false: cars may not use this road 6:00-22:00.",
+  "scene": {
+    "scene_id": "train_3_25",
+    "signs": [
+      {"id": "s1", "code": "P.127c", "shape": "rectangle", "background": "blue",
+       "position": {"rank_top_down": 1, "side": "left"},
+       "lanes": [
+         {"lane": 1, "max_speed": 60, "vehicles": [{"class": "car"}]},
+         {"lane": 2, "max_speed": 60, "vehicles": [{"class": "car"}]},
+         {"lane": 3, "max_speed": 60, "vehicles": [{"class": "car"}]}
+       ]},
+      {"id": "s2", "code": "P.111b", "shape": "circle", "border": "red", "background": "white",
+       "position": {"rank_top_down": 2, "side": "left"}},
+      {"id": "s3", "code": "P.130", "shape": "circle", "border": "red", "background": "blue",
+       "position": {"rank_top_down": 3, "side": "left"}},
+      {"id": "s4", "code": "P.103a", "shape": "circle", "border": "red", "background": "white",
+       "position": {"rank_top_down": 1, "side": "right"},
+       "plates": [{"kind": "time", "text": "6:00-22:00",
+                   "time_windows": [{"start": "06:00", "end": "22:00"}]}]}
+    ]
+  },
+  "cases": [
+    {"program": {"intent": "verify", "expect": false,
+                 "claim": {"intent": "permitted", "action": "enter", "vehicle": {"class": "car"},
+                           "when": {"time": "14:00"}}},
+     "expect": {"verdict": "yes", "value": {"claim": "no"}}}
+  ],
+  "core_articles": ["22", "B.3", "F.10"],
+  "not_core": {"41": "auxiliary-plate article; rules cite F.10 for time plates, not art. 41"},
+  "notes": "The claim covers a time window; When is one point, so a time inside the window is used. The small sign under P.103a is left out (not identified)."
+}
