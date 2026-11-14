@@ -4,8 +4,12 @@ information (IE) signs from the dataset's law_db, with citations.
 Authoring tool, run by hand; the output is reviewed and committed as
 kb/sign_catalog_meaning.yaml. Not inference code.
 
-    .venv/bin/python tools/draft_catalog_rows.py            # writes the YAML and a review list
-    .venv/bin/python tools/draft_catalog_rows.py --dry-run  # prints stats only
+    .venv/bin/python tools/draft_catalog_rows.py                # writes the YAML
+    .venv/bin/python tools/draft_catalog_rows.py --review-list  # also (re)writes the review list
+    .venv/bin/python tools/draft_catalog_rows.py --dry-run      # prints stats only
+
+The review list (kb/review/meaning_rows_review.md) holds review results added by
+hand, so it is only written with --review-list.
 
 Sources:
   W.2xx  names from QCVN 41 art. 28 list, cited to the appendix C article that
@@ -36,18 +40,49 @@ QCVN = "QCVN 41:2024/BGTVT"
 
 # Expressway rows whose name cannot be cut from the text automatically. Each name is
 # taken from QCVN 41 art. 47 as written (sentence or figure caption).
+# Entries: code -> (name, review flags, note written into the row).
 IE_OVERRIDES = {
-    "IE.463a": ("Chỉ dẫn khoảng cách đến Công trình kiểm soát tải trọng xe", []),
-    "IE.463b": ("Chỉ dẫn hướng rẽ vào nơi đặt Công trình kiểm soát tải trọng xe", []),
+    "IE.463a": ("Chỉ dẫn khoảng cách đến Công trình kiểm soát tải trọng xe", [], None),
+    "IE.463b": ("Chỉ dẫn hướng rẽ vào nơi đặt Công trình kiểm soát tải trọng xe", [], None),
     "IE.464b": ("Chỉ dẫn hướng ra tại lối ra",
-                ["name from figure caption Hình 11', which prints the code as 'E.464b'"]),
+                ["name from figure caption Hình 11', which prints the code as 'E.464b'"], None),
+    # set in review (2026-11-14): the drafted name was cut from a sentence
+    "IE.473": ("Chỉ dẫn giảm tốc độ", ["name set in review from Hình 32"], None),
+    # set in review (2026-11-14): the IE.472 family split into its two variants
+    "IE.472a": ("Chỉ dẫn khoảng cách đến trạm thu phí",
+                ["variant split in review"],
+                "The sign shows a distance to the toll station, e.g. '750 m' (Hình 31a)."),
+    "IE.472b": ("Chỉ dẫn trạm thu phí phía trước",
+                ["variant split in review; meaning is our reading of the figure"],
+                "QCVN 41 art. 47 names the IE.472 family 'Chỉ dẫn khoảng cách đến trạm thu "
+                "phí'. This variant shows only 'TRẠM THU PHÍ / Toll Plaza' with no distance "
+                "(Hình 31b), so 'the toll station itself / toll plaza ahead' is our reading "
+                "of the figure, not a name QCVN gives."),
 }
-# Families described only as a whole, with lettered variants in a figure.
-IE_FAMILIES = {
-    "IE.472": ("Chỉ dẫn khoảng cách đến trạm thu phí", ["a", "b"],
-               ["variant letters a,b are shown only in figure Hình 31"]),
+IE_FAMILIES: dict = {}
+IE_DROP: set = set()
+
+# Visual attributes that differ from the family default, from the figures (review 2026-11-14).
+VISUAL_OVERRIDES = {
+    "W.242(a,b)": {"shape": "other", "border": "red", "background": "white"},       # crossbuck
+    "W.243(a,b,c)": {"shape": "rectangle", "border": "red", "background": "white"},  # striped marker
+    "IE.451a": {"shape": "rectangle", "border": "none", "background": "blue"},
+    "IE.471": {"shape": "rectangle", "border": "black", "background": "yellow"},
+    "IE.473": {"shape": "rectangle", "border": "black", "background": "yellow"},
 }
-IE_DROP = {"IE.472a"}  # picked up from a figure label, not a description
+
+# Rows checked in review on 2026-11-14 (all flagged rows and the 12-row sample):
+# reviewed: true. The other rows stay reviewed: false.
+REVIEWED = {
+    "W.201(c,d)", "W.202(a,b)", "W.203(a,b,c)", "W.205(a,b,c,d,e)",
+    "W.207(a,b,c,d,e,f,g,h,i,k,l)", "W.223(a,b)", "W.228(a,b)", "W.242(a,b)", "W.243(a,b,c)",
+    "W.246(a,b,c)", "I.405(a,b,c)", "I.407(a,b,c)", "I.413(b,c)", "I.414(a,b,c,d)",
+    "I.417(a,b,c)", "I.423(a,b)", "I.424(a,b)", "I.424(c,d)", "I.433(b,c,d)", "I.441(a,b,c)",
+    "I.444(a,b,c,d,e,f,g,h,i,j,k,l,m)", "I.445(a,b,c,d,e,f,g,h)", "I.447(a,b,c,d)",
+    "IE.464b", "IE.472a", "IE.472b", "IE.473",
+    "W.233", "W.234", "W.235", "I.432", "I.434b", "I.442", "I.449",
+    "IE.451a", "IE.453a", "IE.463c", "IE.471", "IE.474",
+}
 
 VISUAL = {
     "warning": {"shape": "triangle", "border": "red", "background": "yellow"},
@@ -157,8 +192,8 @@ def expressway_rows(articles: dict) -> list[dict]:
             name = " ".join(name.split()[:20])
             flags.append("name cut from a longer sentence")
         seen[code] = row(code, name, "expressway", "47", flags)
-    for code, (name, flags) in IE_OVERRIDES.items():
-        seen[code] = row(code, name, "expressway", "47", flags)
+    for code, (name, flags, note) in IE_OVERRIDES.items():
+        seen[code] = row(code, name, "expressway", "47", flags, note=note)
     for code, (name, letters, flags) in IE_FAMILIES.items():
         seen[code] = row(f"{code}({','.join(letters)})", name, "expressway", "47", flags,
                          variants=letters)
@@ -172,11 +207,11 @@ def expressway_rows(articles: dict) -> list[dict]:
 
 
 def row(code: str, name: str, kind: str, source: str, flags: list[str],
-        variants: list[str] | None = None) -> dict:
+        variants: list[str] | None = None, note: str | None = None) -> dict:
     name = re.sub(r"\s+", " ", name).strip().strip('“”"').rstrip(".;")
     name = name[:1].upper() + name[1:]
     return {"code": code, "name_vi": name, "kind": kind, "source": source,
-            "flags": flags, "variants": variants or []}
+            "flags": flags, "variants": variants or [], "note": note}
 
 
 def to_yaml(rows: list[dict]) -> str:
@@ -197,7 +232,7 @@ def to_yaml(rows: list[dict]) -> str:
             key = f"{key}_{fold(r['code'])}"
         keys.add(key)
         cat = "warning" if r["kind"] == "warning" else "information"
-        v = VISUAL[r["kind"]]
+        v = VISUAL_OVERRIDES.get(r["code"], VISUAL[r["kind"]])
         out += [
             f"  - code: {r['code']}",
             f"    key: {key}",
@@ -208,7 +243,11 @@ def to_yaml(rows: list[dict]) -> str:
         ]
         if r["variants"]:
             out.append(f"    variants: [{', '.join(r['variants'])}]")
+        if r.get("note"):
+            out.append(f"    note: {json.dumps(r['note'], ensure_ascii=False)}")
         out.append(f"    source: {{law_id: \"{QCVN}\", article_id: \"{r['source']}\"}}")
+        if r["code"] in REVIEWED:
+            out.append("    reviewed: true")
         out.append("")
     return "\n".join(out)
 
@@ -244,6 +283,7 @@ def review_md(rows: list[dict], seed: int = 1611) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--review-list", action="store_true", help="also rewrite the review list")
     args = ap.parse_args()
     law = json.loads(LAW.read_text(encoding="utf-8"))
     qcvn = {a["id"]: a for a in law[0]["articles"]}
@@ -255,9 +295,14 @@ def main() -> None:
             print(r["code"], r["variants"], r["source"], r["name_vi"][:60], r["flags"])
         return
     OUT.write_text(to_yaml(rows), encoding="utf-8")
-    REVIEW.parent.mkdir(parents=True, exist_ok=True)
-    REVIEW.write_text(review_md(rows), encoding="utf-8")
-    print(f"-> {OUT.relative_to(ROOT)}, {REVIEW.relative_to(ROOT)}")
+    print(f"-> {OUT.relative_to(ROOT)}")
+    missing = REVIEWED - {r["code"] for r in rows}
+    if missing:
+        raise SystemExit(f"reviewed codes not in the draft: {sorted(missing)}")
+    if args.review_list:
+        REVIEW.parent.mkdir(parents=True, exist_ok=True)
+        REVIEW.write_text(review_md(rows), encoding="utf-8")
+        print(f"-> {REVIEW.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

@@ -101,6 +101,7 @@ class CatalogSign(_M):
     visual: Visual
     effect: Effect = Effect()
     meaning_only: bool = False  # names the sign; carries no rule effect
+    note: str | None = None     # e.g. where a meaning is our reading rather than QCVN wording
     variants: list[str] = []    # letters a family row stands for
     source: Citation
     reviewed: bool = False

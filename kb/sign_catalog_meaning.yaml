@@ -30,6 +30,7 @@ signs:
     meaning_only: true
     variants: [c, d]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.1a"}
+    reviewed: true
 
   - code: W.202(a,b)
     key: nhieu_cho_ngoat_nguy_hiem_lien_tiep
@@ -39,6 +40,7 @@ signs:
     meaning_only: true
     variants: [a, b]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.2"}
+    reviewed: true
 
   - code: W.203(a,b,c)
     key: duong_bi_thu_hep
@@ -48,6 +50,7 @@ signs:
     meaning_only: true
     variants: [a, b, c]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.3"}
+    reviewed: true
 
   - code: W.204
     key: duong_hai_chieu
@@ -65,6 +68,7 @@ signs:
     meaning_only: true
     variants: [a, b, c, d, e]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.5"}
+    reviewed: true
 
   - code: W.206
     key: giao_nhau_chay_theo_vong_xuyen
@@ -82,6 +86,7 @@ signs:
     meaning_only: true
     variants: [a, b, c, d, e, f, g, h, i, k, l]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.7"}
+    reviewed: true
 
   - code: W.208
     key: giao_nhau_voi_duong_uu_tien_duong_chinh
@@ -251,6 +256,7 @@ signs:
     meaning_only: true
     variants: [a, b]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.23"}
+    reviewed: true
 
   - code: W.224
     key: duong_nguoi_di_bo_cat_ngang
@@ -292,6 +298,7 @@ signs:
     meaning_only: true
     variants: [a, b]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.28"}
+    reviewed: true
 
   - code: W.228c
     key: soi_da_ban_len
@@ -348,6 +355,7 @@ signs:
     visual: {shape: triangle, border: red, background: yellow}
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.33"}
+    reviewed: true
 
   - code: W.234
     key: giao_nhau_voi_duong_hai_chieu
@@ -356,6 +364,7 @@ signs:
     visual: {shape: triangle, border: red, background: yellow}
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.34"}
+    reviewed: true
 
   - code: W.235
     key: duong_doi
@@ -364,6 +373,7 @@ signs:
     visual: {shape: triangle, border: red, background: yellow}
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.35"}
+    reviewed: true
 
   - code: W.236
     key: ket_thuc_duong_doi
@@ -425,19 +435,21 @@ signs:
     key: noi_duong_sat_giao_vuong_goc_voi_duong_bo
     name_vi: "Nơi đường sắt giao vuông góc với đường bộ"
     category: warning
-    visual: {shape: triangle, border: red, background: yellow}
+    visual: {shape: other, border: red, background: white}
     meaning_only: true
     variants: [a, b]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.42"}
+    reviewed: true
 
   - code: W.243(a,b,c)
     key: noi_duong_sat_giao_khong_vuong_goc_voi_duong_bo
     name_vi: "Nơi đường sắt giao không vuông góc với đường bộ"
     category: warning
-    visual: {shape: triangle, border: red, background: yellow}
+    visual: {shape: rectangle, border: red, background: white}
     meaning_only: true
     variants: [a, b, c]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.43"}
+    reviewed: true
 
   - code: W.244
     key: doan_duong_hay_xay_ra_tai_nan
@@ -471,6 +483,7 @@ signs:
     meaning_only: true
     variants: [a, b, c]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.46"}
+    reviewed: true
 
   - code: W.247
     key: chu_y_xe_do
@@ -504,6 +517,7 @@ signs:
     meaning_only: true
     variants: [a, b, c]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.5"}
+    reviewed: true
 
   - code: I.406
     key: duoc_uu_tien_qua_duong_hep
@@ -521,6 +535,7 @@ signs:
     meaning_only: true
     variants: [a, b, c]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.7"}
+    reviewed: true
 
   - code: I.408
     key: noi_do_xe
@@ -570,6 +585,7 @@ signs:
     meaning_only: true
     variants: [b, c]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.13"}
+    reviewed: true
 
   - code: I.414(a,b,c,d)
     key: chi_huong_duong
@@ -579,6 +595,7 @@ signs:
     meaning_only: true
     variants: [a, b, c, d]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.14"}
+    reviewed: true
 
   - code: I.415
     key: mui_ten_chi_huong_di
@@ -604,6 +621,7 @@ signs:
     meaning_only: true
     variants: [a, b, c]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.17"}
+    reviewed: true
 
   - code: I.418
     key: loi_di_o_nhung_vi_tri_cam_re
@@ -653,6 +671,7 @@ signs:
     meaning_only: true
     variants: [a, b]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.23a"}
+    reviewed: true
 
   - code: I.423c
     key: diem_bat_dau_duong_di_bo
@@ -670,6 +689,7 @@ signs:
     meaning_only: true
     variants: [a, b]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.24"}
+    reviewed: true
 
   - code: I.424(c,d)
     key: ham_chui_qua_duong_cho_nguoi_di_bo
@@ -679,6 +699,7 @@ signs:
     meaning_only: true
     variants: [c, d]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.25"}
+    reviewed: true
 
   - code: I.425
     key: benh_vien
@@ -751,6 +772,7 @@ signs:
     visual: {shape: rectangle, border: none, background: blue}
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.34"}
+    reviewed: true
 
   - code: I.433a
     key: noi_nghi_mat
@@ -768,6 +790,7 @@ signs:
     meaning_only: true
     variants: [b, c, d]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.35b"}
+    reviewed: true
 
   - code: I.433e
     key: bao_hieu_nha_tro
@@ -792,6 +815,7 @@ signs:
     visual: {shape: rectangle, border: none, background: blue}
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.37"}
+    reviewed: true
 
   - code: I.435
     key: ben_xe_dien
@@ -833,6 +857,7 @@ signs:
     meaning_only: true
     variants: [a, b, c]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.44"}
+    reviewed: true
 
   - code: I.442
     key: cho
@@ -841,6 +866,7 @@ signs:
     visual: {shape: rectangle, border: none, background: blue}
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.45"}
+    reviewed: true
 
   - code: I.443
     key: xe_keo_ro_mooc
@@ -858,6 +884,7 @@ signs:
     meaning_only: true
     variants: [a, b, c, d, e, f, g, h, i, j, k, l, m]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.47"}
+    reviewed: true
 
   - code: I.445(a,b,c,d,e,f,g,h)
     key: bien_bao_kieu_mo_ta_tinh_trang_duong
@@ -867,6 +894,7 @@ signs:
     meaning_only: true
     variants: [a, b, c, d, e, f, g, h]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.48"}
+    reviewed: true
 
   - code: I.446
     key: noi_do_xe_danh_cho_nguoi_khuyet_tat
@@ -884,6 +912,7 @@ signs:
     meaning_only: true
     variants: [a, b, c, d]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.50"}
+    reviewed: true
 
   - code: I.448
     key: lan_duong_cuu_nan_hay_lan_dung_xe_khan_cap
@@ -900,6 +929,7 @@ signs:
     visual: {shape: rectangle, border: none, background: blue}
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.52"}
+    reviewed: true
 
   - code: IE.450a
     key: chi_dan_khoang_cach_den_nut_giao_voi_duong_dan_vao_duong_cao
@@ -921,9 +951,10 @@ signs:
     key: chi_dan_khoang_cach_den_loi_vao_duong_cao_toc
     name_vi: "Chỉ dẫn khoảng cách đến lối vào đường cao tốc"
     category: information
-    visual: {shape: rectangle, border: none, background: green}
+    visual: {shape: rectangle, border: none, background: blue}
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+    reviewed: true
 
   - code: IE.451b
     key: chi_dan_loi_vao_duong_cao_toc
@@ -948,6 +979,7 @@ signs:
     visual: {shape: rectangle, border: none, background: green}
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+    reviewed: true
 
   - code: IE.453b
     key: chi_dan_diem_ket_thuc_duong_cao_toc
@@ -1092,6 +1124,7 @@ signs:
     visual: {shape: rectangle, border: none, background: green}
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+    reviewed: true
 
   - code: IE.464
     key: chi_dan_dia_diem_va_phuong_huong
@@ -1108,6 +1141,7 @@ signs:
     visual: {shape: rectangle, border: none, background: green}
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+    reviewed: true
 
   - code: IE.465
     key: chi_dan_dia_diem_va_khoang_cach
@@ -1185,26 +1219,39 @@ signs:
     key: chi_dan_giu_khoang_cach_lai_xe_an_toan
     name_vi: "Chỉ dẫn giữ khoảng cách lái xe an toàn"
     category: information
-    visual: {shape: rectangle, border: none, background: green}
+    visual: {shape: rectangle, border: black, background: yellow}
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+    reviewed: true
 
-  - code: IE.472(a,b)
+  - code: IE.472a
     key: chi_dan_khoang_cach_den_tram_thu_phi
     name_vi: "Chỉ dẫn khoảng cách đến trạm thu phí"
     category: information
     visual: {shape: rectangle, border: none, background: green}
     meaning_only: true
-    variants: [a, b]
+    note: "The sign shows a distance to the toll station, e.g. '750 m' (Hình 31a)."
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+    reviewed: true
 
-  - code: IE.473
-    key: canh_bao_cho_nguoi_dieu_khien_phuong_tien_chu_y_lai_xe_va_gi
-    name_vi: "Cảnh báo cho người điều khiển phương tiện chú ý lái xe và giảm tốc độ tại khu vực có"
+  - code: IE.472b
+    key: chi_dan_tram_thu_phi_phia_truoc
+    name_vi: "Chỉ dẫn trạm thu phí phía trước"
     category: information
     visual: {shape: rectangle, border: none, background: green}
     meaning_only: true
+    note: "QCVN 41 art. 47 names the IE.472 family 'Chỉ dẫn khoảng cách đến trạm thu phí'. This variant shows only 'TRẠM THU PHÍ / Toll Plaza' with no distance (Hình 31b), so 'the toll station itself / toll plaza ahead' is our reading of the figure, not a name QCVN gives."
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+    reviewed: true
+
+  - code: IE.473
+    key: chi_dan_giam_toc_do
+    name_vi: "Chỉ dẫn giảm tốc độ"
+    category: information
+    visual: {shape: rectangle, border: black, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+    reviewed: true
 
   - code: IE.474
     key: chi_dan_loi_ra
@@ -1213,3 +1260,4 @@ signs:
     visual: {shape: rectangle, border: none, background: green}
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+    reviewed: true
