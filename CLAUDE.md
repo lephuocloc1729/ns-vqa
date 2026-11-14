@@ -1,6 +1,10 @@
 # Neuro-symbolic traffic sign VQA
 
-DESIGN.md is the full design. Read it before you change architecture. We build it phase by phase, following its roadmap. **Current phase: 2, "Question parser"** (Claude API calls allowed, behind the spend guard). The scene graph and DSL are at schema 1.2.
+DESIGN.md is the full design. Read it before you change architecture. We build it phase by phase, following its roadmap. The scene graph and DSL are at schema 1.2.
+
+- **Where things stand and what's next:** `docs/status.md` (done work with commit hashes, next steps, open items, coverage figures).
+- **The approved plan for each phase:** `docs/plans/` (e.g. `docs/plans/phase-2.md`). Follow the approved plan; ask before changing it.
+- **Claude API calls are allowed only behind the spend guard,** and never without the owner's go-ahead on the estimated cost.
 
 ## Setup
 
@@ -12,10 +16,17 @@ python3.11 -m venv .venv
 .venv/bin/python -m pytest -q
 ```
 
-If `janus-swi` fails to build, put `SWI_HOME_DIR=/opt/homebrew/lib/swipl` in front of the pip command. To check the Prolog files on their own:
+If `janus-swi` fails to build, put `SWI_HOME_DIR=/opt/homebrew/lib/swipl` in front of the pip command. Add the `eval` extra (`.[dev,eval]`) for Pillow and numpy.
+
+Other commands:
 
 ```bash
-swipl -q -g "consult('kb/load.pl'), halt"
+swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on their own
+.venv/bin/python eval/audits/public_dev_v2_checks.py # audit checks (hand-made scenes, no API)
+.venv/bin/python tools/draft_catalog_rows.py         # regenerate kb/sign_catalog_meaning.yaml
+.venv/bin/python eval/make_public_split.py           # regenerate the public split
+.venv/bin/python eval/find_duplicates.py             # regenerate data/splits/duplicates.json
+.venv/bin/python eval/gold_intents.py estimate       # gold-intent cost estimate, no spend
 ```
 
 ## Dataset rules
@@ -52,6 +63,8 @@ swipl -q -g "consult('kb/load.pl'), halt"
   - `kb/sign_catalog.yaml`: rows with rule effects.
   - `kb/sign_catalog_meaning.yaml`: meaning-only W/I/IE rows drafted by `tools/draft_catalog_rows.py`. Their review list is `kb/review/meaning_rows_review.md`.
 - `tools/`: offline authoring tools. They may read law_db; inference code may not.
+- `docs/`: `status.md` (status and next steps) and `plans/` (approved phase plans).
+- `eval/`: splits, duplicates, reports (`report.py`), audits, gold-intent tooling. Not inference code.
 - `vqa/parsing/dsl.py`: rewrites run before the engine. `Forbidden` becomes `Verify(Permitted, expect=False)` with the quantifier flipped.
 - `vqa/parsing/`, the question parser (phase 2):
   - `wire.py`: the depth-limited structured-output schema, since the API rejects recursive schemas. It converts to `QueryProgram` and applies the defaults.
@@ -129,48 +142,19 @@ swipl -q -g "consult('kb/load.pl'), halt"
 - **Lanes are numbered from 1**, with lane 1 the leftmost. Time windows include both ends and may run past midnight.
 - Add a test with every new rule. Write test scenes by hand and model them on train questions. Do not copy them from dataset files.
 
-## Phase 2 notes (parser)
+## Parser rules
 
 - **"Các loại xe" / "mọi phương tiện" (every vehicle) maps to `every_vehicle`, not `vehicle`.**
   - `every_vehicle` makes a claim hold only if it holds for every vehicle class.
   - `vehicle` means "a vehicle of unknown kind": against a motor-vehicle ban it gives unknown.
-
-- **The parser fills in values the question leaves out, and records that it did** (e.g. `defaults_applied: ["year", "vehicle"]` next to `missing_slots`):
+- **The parser fills in values the question leaves out, and records that it did** in `defaults_applied` (next to `missing_slots`):
   - year: the current year in the question's context;
   - vehicle: `motor_vehicle`.
-
-## Coverage targets
-
-- Rule coverage is the share of questions the rules answer, rather than the fallback.
-- **Targets:** at least 70% after phase 1.6 and at least 80% after phase 1.7.
-  - Phase 1.7: warning-sign behaviour, a sign's time windows without a vehicle, counting signs by category, the B.25 overtaking exception, expressway rules, P.118/P.119 size limits.
-  - Guide-sign content and traffic lights stay with the fallback.
-- **Audits of `public_dev` are development estimates only.** The real coverage figure is measured later on `public_holdout`, through the pipeline, together with accuracy on the rule-answered questions.
-
-## Coverage audit
-
-- `eval/audits/public_dev_audit_v2.tsv` (after phase 1.6) puts public-dev at **39 A / 3 B / 9 C**, i.e. 76.5% rules-covered. This is a development estimate.
-  - `eval/audits/public_dev_v2_checks.py` runs the 20 questions that changed against the engine with hand-made scenes. These are audit material, not inference inputs.
-- Still open:
-  - phase 1.7: warning-sign behaviour (3), the overtaking exception, P.118/P.119, expressway rules, sign windows without a vehicle, counting signs;
-  - fallback: guide-sign content (3), traffic lights (1).
-
-## Not built yet (later phases)
-
-- Claude parser, perception, answer writer, faithfulness guard, eval runner.
-- Rules not yet covered:
-  - Signal-priority order.
-  - Default speed limits by road type (needs a source).
-  - Which vehicle is being overtaken (the B.25 exception for two-wheelers).
-  - Dashed vs. solid bus-lane markings.
-  - Time intervals for intents other than `permitted` / `forbidden`. They answer `unknown` for now.
-
-## TODO
-
-- QCVN 41 art. 26: where and how far prohibitory signs take effect.
-  - 26.6: P.123 applies in the area of the sign.
-  - 26.7: P.124 applies at the intersection.
-  - 26.8: P.125–P.131 apply up to the next intersection or the end sign.
-
-  `Required` with placement covers only the R.301 family (D.1a).
-- Plates that do not follow the standard form (e.g. the red "CẤM XE 3 BÁNH VÀ 4 BÁNH THÔ SƠ" plate on train_2_26) are not modelled. Decide how to represent the vehicles they list.
+- **Questions no DSL intent can express come back as `out_of_scope`,** never as a forced program. They go to the fallback.
+- **Few-shot examples come from train and `public_dev` only, with the dataset's exact question text.** `tests/test_parser.py` checks this.
+  - A `public_dev` question used as a few-shot is excluded from the gate score.
+  - Change a prompt only by adding a new version under `prompts/parser/`. The version is part of cache keys and results.
+- **Gold-intent working files hold dataset question text and stay local** (gitignored). The gold file keeps ids and programs only.
+- **Rule coverage** is the share of questions the rules answer rather than the fallback.
+  - Audits of `public_dev` are development estimates only.
+  - The real figure is measured on `public_holdout` through the pipeline.
