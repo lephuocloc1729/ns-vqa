@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Research data and generated artifacts
+data/
+datasets/
+models/
+checkpoints/
+indexes/
+outputs/
+temp/qwen_descriptions_*.json
+temp/qwen_descriptions_*.png
+runs/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+temp/
+
+# Generated runtime logs
+*.log
+
+# Generated embedding caches (keep configs, manifests and predictions)
+/artifacts/**/embeddings.jsonl
+/artifacts/**/*vectors.npy
+
+# Detailed tuning trial history (keep summary reports)
+/artifacts/**/tuning_trials.csv
+
+# Rebuildable corpus intermediates (keep captions and metadata)
+/artifacts/experiments/text_based_rag/corpus/corpus_chunking/chunks.jsonl
+/artifacts/experiments/text_based_rag/corpus/corpus_chunking/embedding_text_preview.txt
+/artifacts/experiments/text_based_rag/corpus/corpus_chunking/organized_corpus.jsonl
+/artifacts/experiments/text_based_rag/corpus/corpus_chunking/organized_corpus.txt
+/artifacts/experiments/text_based_rag/corpus/corpus_embedding/chunks.jsonl
+/artifacts/experiments/text_based_rag/corpus/corpus_embedding/organized_corpus.jsonl
+/artifacts/experiments/text_based_rag/corpus/data_preprocessing/corpus_preview.md
+/artifacts/experiments/text_based_rag/corpus/data_preprocessing/structured_corpus.jsonl
