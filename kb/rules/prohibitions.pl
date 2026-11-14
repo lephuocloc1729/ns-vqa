@@ -16,7 +16,7 @@
 % restricted by its plates, or out of force (time window, day parity, scope).
 forbids(Action, Veh, Ctx, S, T) :-
     scene_sign(S, Code),
-    prohibits(Code, Action, Specs),
+    effective_prohibits(S, Code, Action, Specs),
     cite(r_prohibition),
     applies(S, Code, Specs, Veh, Ctx, T).
 
@@ -34,7 +34,7 @@ forbids(Action, Veh, Ctx, S, T) :-
 
 clears(Action, Veh, Ctx, S, Why) :-
     scene_sign(S, Code),
-    prohibits(Code, Action, Specs),
+    effective_prohibits(S, Code, Action, Specs),
     cite(r_prohibition),
     assess(S, Code, Specs, Veh, Ctx, Checks),
     first_false(Checks, Why).
@@ -62,8 +62,35 @@ unrelated_sign(Action, S) :-
     scene_sign(S, Code),
     catalog_sign(Code, Cat, _, _),
     restricting_category(Cat),
-    \+ prohibits(Code, Action, _),
+    \+ effective_prohibits(S, Code, Action, _),
     \+ ( direction_sign(Code), direction_action(Action) ).
+
+%!  effective_prohibits(+S, +Code, ?Action, -Specs) is nondet.
+%   What sign S prohibits: the catalog entry, unless a non-standard (local) plate
+%   says otherwise. A local plate's actions and vehicles replace the sign's own;
+%   the proof shows the plate text and is marked as not in QCVN 41.
+effective_prohibits(S, Code, Action, Specs) :-
+    \+ local_plate(S, _),
+    prohibits(Code, Action, Specs).
+effective_prohibits(S, Code, Action, Specs) :-
+    local_plate(S, _),
+    cite(r_non_standard_plate_not_in_qcvn41),
+    local_action_of(S, Code, Action),
+    local_specs(S, Code, Action, Specs).
+
+local_action_of(S, _, Action) :-
+    local_action(S, Action).
+local_action_of(S, Code, Action) :-
+    \+ local_action(S, _),
+    prohibits(Code, Action, _).
+
+leaf(local_specs(_, _, _, _)).
+local_specs(S, Code, Action, Specs) :-
+    findall(Sp, local_vehicle(S, Sp), Local),
+    (   Local \== [] -> Specs = Local
+    ;   prohibits(Code, Action, Specs) -> true
+    ;   findall(Sp, ( prohibits(Code, _, Ss), member(Sp, Ss) ), Specs0), sort(Specs0, Specs)
+    ).
 
 restricting_category(prohibitory).
 restricting_category(mandatory).

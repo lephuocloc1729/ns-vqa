@@ -22,6 +22,20 @@ def _sign_lanes(sign: Sign) -> list[tuple[int, str]]:
     return sorted(set(lanes))
 
 
+def _group_facts(s, rules, prefix: str) -> list[Term]:
+    out: list[Term] = []
+    for i, g in enumerate(rules, start=1):
+        gid = atom(f"{prefix}{i}")
+        out.append(Term("group", s, gid))
+        out += [Term("group_vehicle", s, gid, spec_term(v)) for v in g.vehicles]
+        for w in g.time_windows:
+            f, t = w.minutes()
+            out.append(Term("group_time", s, gid, f, t))
+        if g.days:
+            out.append(Term("group_days", s, gid, atom(g.days.value)))
+    return out
+
+
 def sign_facts(sign: Sign, catalog: Catalog) -> list[Term]:
     if sign.code == UNKNOWN_CODE:
         return []
@@ -50,16 +64,18 @@ def sign_facts(sign: Sign, catalog: Catalog) -> list[Term]:
             out += [Term("plate_vehicle", s, spec_term(v)) for v in p.vehicles]
         elif p.kind == PlateKind.exception:
             out += [Term("plate_except", s, spec_term(v)) for v in p.vehicles]
+        elif p.kind == PlateKind.local:
+            out.append(Term("local_plate", s, atom(p.text)))
+            out += [Term("local_vehicle", s, spec_term(v)) for v in p.vehicles]
+            out += [Term("local_action", s, atom(a.value)) for a in p.actions]
+            for w in p.time_windows:
+                f, t = w.minutes()
+                out.append(Term("plate_time", s, f, t))
+            if p.days:
+                out.append(Term("plate_days", s, atom(p.days.value)))
+            out += _group_facts(s, p.rules, "lg")
 
-    for i, g in enumerate(sign.rules, start=1):
-        gid = atom(f"g{i}")
-        out.append(Term("group", s, gid))
-        out += [Term("group_vehicle", s, gid, spec_term(v)) for v in g.vehicles]
-        for w in g.time_windows:
-            f, t = w.minutes()
-            out.append(Term("group_time", s, gid, f, t))
-        if g.days:
-            out.append(Term("group_days", s, gid, atom(g.days.value)))
+    out += _group_facts(s, sign.rules, "g")
 
     for row in sign.lanes:
         specs = [spec_term(v) for v in row.vehicles] or [atom("any")]

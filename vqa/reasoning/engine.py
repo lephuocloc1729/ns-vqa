@@ -19,8 +19,8 @@ from vqa.parsing.dsl import normalize
 from vqa.schemas import (
     AllOf, Answer, AnyOf, BanTimes, Choose, ExistsViolation, IsSign, LanesFor, LanesWhere,
     Meaning, Permitted,
-    Program, QueryProgram, Reason, Required, SceneGraph, Selector, SpeedOk, Verdict,
-    Verify, When,
+    Program, QueryProgram, Reason, Required, SceneGraph, Selector, SpeedOk, Vehicle,
+    VehicleClass, Verdict, Verify, When, WhichVehicles,
 )
 
 try:
@@ -171,6 +171,8 @@ class Engine:
             return self._choose(scene, p)
         if isinstance(p, IsSign):
             return self._is_sign(scene, p)
+        if isinstance(p, WhichVehicles):
+            return self._which_vehicles(scene, p)
         if isinstance(p, (AllOf, AnyOf)):
             return self._connective(scene, p)
         if isinstance(p, Verify):
@@ -233,7 +235,7 @@ class Engine:
             "lane_count": n,
         }
         return Answer(verdict=Verdict.value, value=value, reasons=reasons,
-                      citations=_cites(reasons))
+                      citations=_cites(reasons), basis=_basis(reasons))
 
     def _ban_times(self, scene: SceneGraph, p: BanTimes) -> Answer:
         selection = self.resolve(scene, p.sign) if p.sign else None
@@ -256,7 +258,7 @@ class Engine:
                                       proof=explain.to_node(it["proof"])))
         support = reasons if items else clears
         return Answer(verdict=Verdict.value, value={"bans": items, "banned": bool(items)},
-                      reasons=reasons + clears, citations=_cites(support))
+                      reasons=reasons + clears, citations=_cites(support), basis=_basis(support))
 
     def _meaning(self, scene: SceneGraph, p: Meaning) -> Answer:
         ids = self.resolve(scene, p.sign)
@@ -316,6 +318,55 @@ class Engine:
             support = [_reason(c) for c in out["clears"]]
         return Answer(verdict=Verdict(v), value={"signs": out["details"]}, reasons=reasons,
                       citations=_cites(support))
+
+    # ------------------------------------------------------------------ vehicle classes
+    def _hierarchy(self) -> dict[str, str]:
+        if not hasattr(self, "_parents"):
+            r = janus.query_once("findall(_C-_P, is_a(_C, _P), L)")
+            self._parents = {c: p for c, p in r["L"]}
+        return self._parents
+
+    def report_classes(self, results: dict[str, tuple[str, dict[str, Any]]],
+                       want: str) -> tuple[list[str], list[str]]:
+        """Classes whose verdict is `want`, at the broadest level (a class is left out
+        when its parent has the same verdict), and the conditional ones (unknown, with
+        no child that has a definite verdict, so the condition is about this class)."""
+        parents = self._hierarchy()
+        children: dict[str, list[str]] = {}
+        for c, p in parents.items():
+            children.setdefault(p, []).append(c)
+
+        def verdict(c: str) -> str:
+            return results[c][0]
+
+        hits = [c for c in results if verdict(c) == want
+                and not (c in parents and verdict(parents[c]) == want)]
+        conditional = [c for c in results if verdict(c) == "unknown"
+                       and all(verdict(k) == "unknown" for k in children.get(c, []))
+                       and not (c in parents and verdict(parents[c]) == "unknown"
+                                and all(verdict(k) == "unknown" for k in children.get(parents[c], [])))]
+        order = [c.value for c in VehicleClass]
+        return sorted(hits, key=order.index), sorted(conditional, key=order.index)
+
+    def _which_vehicles(self, scene: SceneGraph, p: WhichVehicles) -> Answer:
+        selection = None
+        if p.sign is not None:
+            selection = self.resolve(scene, p.sign)
+            if not selection:
+                return Answer(verdict=Verdict.unknown, note="no sign in the scene matches the selector")
+        self.load_scene(scene, selection)
+        ctx = _ctx(p.when, scene)
+        results = {}
+        for c in VehicleClass:
+            out = self.call(Term("q_permitted", atom(p.action.value), Term("veh", atom(c.value), []), ctx))
+            results[c.value] = (out["verdict"], out)
+        want = "no" if p.status == "banned" else "yes"
+        hits, conditional = self.report_classes(results, want)
+        support = [r for c in hits + conditional for r in _supporting(results[c][1])]
+        return Answer(verdict=Verdict.value,
+                      value={p.status: hits, "conditional": conditional,
+                             "per_class": {c: v for c, (v, _) in results.items()}},
+                      reasons=support, citations=_cites(support), basis=_basis(support))
 
     def _is_sign(self, scene: SceneGraph, p: IsSign) -> Answer:
         ids = self.resolve(scene, p.sign)
@@ -378,7 +429,8 @@ class Engine:
             "unknown": [o["label"] for o in options if o["verdict"] not in ("yes", "no")],
             "options": options,
         }
-        return Answer(verdict=Verdict.value, value=value, reasons=reasons, citations=cites)
+        return Answer(verdict=Verdict.value, value=value, reasons=reasons, citations=cites,
+                      basis=_basis(reasons))
 
     def _verify(self, scene: SceneGraph, p: Verify) -> Answer:
         inner = self._run(scene, p.claim)
@@ -423,10 +475,21 @@ def _cites(reasons: list[Reason]):
     return [c for r in reasons for c in explain.citations(r.proof)]
 
 
+def _basis(reasons: list[Reason]) -> list[str]:
+    """Flags for what the answer rests on beyond QCVN 41 / Law 36."""
+    flags = set()
+    for r in reasons:
+        if r.proof and any(n.type == "fact" and n.goal and n.goal.startswith("local_plate(")
+                           for n in explain.walk(r.proof)):
+            flags.add("non_standard_plate")
+    return sorted(flags)
+
+
 def _verdict_answer(out: dict[str, Any]) -> Answer:
     reasons = [_reason(r) for r in out["reasons"]] + [_reason(c) for c in out["clears"]]
+    support = _supporting(out)
     return Answer(verdict=Verdict(out["verdict"]), reasons=reasons,
-                  citations=_cites(_supporting(out)))
+                  citations=_cites(support), basis=_basis(support))
 
 
 def _same(a: Answer, b: Answer) -> bool:

@@ -32,6 +32,9 @@
            plate_days/2,         % plate_days(S, even|odd)     S.508
            plate_vehicle/2,      % plate_vehicle(S, Spec)      S.505a
            plate_except/2,       % plate_except(S, Spec)       S.H,6
+           local_plate/2,        % local_plate(S, Text)      non-standard plate (not in QCVN 41)
+           local_vehicle/2,      % local_vehicle(S, Spec)    replaces the sign's own vehicles
+           local_action/2,       % local_action(S, Action)   replaces the sign's own actions
            group/2,              % group(S, G)               condition groups (Sign.rules)
            group_vehicle/3,      % group_vehicle(S, G, Spec)
            group_time/4,         % group_time(S, G, FromMin, ToMin)
@@ -50,6 +53,7 @@ scene_fact(plate_except/2). scene_fact(lane_limit/4).  scene_fact(lane_min/4).
 scene_fact(lane_vehicle/3). scene_fact(scene_vehicle/5).
 scene_fact(group/2).       scene_fact(group_vehicle/3). scene_fact(group_time/4).
 scene_fact(group_days/3).
+scene_fact(local_plate/2). scene_fact(local_vehicle/2). scene_fact(local_action/2).
 scene_fact(selected/1).    scene_fact(selection_active/0).
 
 catalog_fact(catalog_sign/4). catalog_fact(prohibits/3). catalog_fact(catalog_except/2).

@@ -215,6 +215,7 @@ class PlateKind(str, Enum):
     lane = "lane"            # S.504: sign applies only to these lanes
     distance = "distance"    # S.502
     text = "text"            # S.509 or anything else
+    local = "local"          # non-standard plate (not in QCVN 41), e.g. red local text plates
 
 
 class ConditionGroup(_Model):
@@ -229,14 +230,33 @@ class ConditionGroup(_Model):
 
 
 class Plate(_Model):
+    """An auxiliary plate under a sign.
+
+    kind=local is a non-standard plate (not in QCVN 41). Its text is kept verbatim
+    and what it says is read into the fields: `vehicles` and `actions` replace the
+    main sign's own vehicles and actions; `time_windows`/`days` work like an S.508
+    plate; `rules` are condition groups. Proofs that use it are marked
+    "non-standard plate" and Answer.basis gets "non_standard_plate".
+    """
+
     kind: PlateKind
     text: str | None = None
     code: str | None = None  # e.g. "S.508a"
     time_windows: list[TimeWindow] = []
     days: DayParity | None = None
     vehicles: list[VehicleSpec] = []
+    actions: list[Action] = []        # local plates only
+    rules: list[ConditionGroup] = []  # local plates only
     lanes: list[int] = []
     distance_m: float | None = None
+
+    @model_validator(mode="after")
+    def _local_fields(self) -> "Plate":
+        if self.kind == PlateKind.local and not self.text:
+            raise ValueError("a local plate keeps its text")
+        if self.kind != PlateKind.local and (self.actions or self.rules):
+            raise ValueError("actions and rules are only read from local plates")
+        return self
 
 
 class Position(_Model):
@@ -285,9 +305,14 @@ class Sign(_Model):
 
     @model_validator(mode="after")
     def _rules_xor_plates(self) -> "Sign":
-        if self.rules and any(p.kind in (PlateKind.vehicle, PlateKind.time) for p in self.plates):
+        groups = bool(self.rules) or any(p.rules for p in self.plates)
+        if groups and any(p.kind in (PlateKind.vehicle, PlateKind.time) for p in self.plates):
             raise ValueError(f"{self.id}: use either condition groups (rules) or "
                              "vehicle/time plates, not both")
+        if self.rules and any(p.rules for p in self.plates):
+            raise ValueError(f"{self.id}: condition groups come from one place only")
+        if sum(p.kind == PlateKind.local for p in self.plates) > 1:
+            raise ValueError(f"{self.id}: at most one local plate")
         return self
 
 
@@ -532,6 +557,18 @@ class Verify(_Model):
     expect: bool = True
 
 
+class WhichVehicles(_Model):
+    """ "Phương tiện nào bị cấm / được phép ...?": the vehicle classes (and road users)
+    for which the action is banned, or allowed. Classes are checked one by one and
+    reported at the broadest level that holds as a whole."""
+
+    intent: Literal["which_vehicles"] = "which_vehicles"
+    action: Action = Action.enter
+    status: Literal["banned", "allowed"] = "banned"
+    when: When | None = None
+    sign: Selector | None = None
+
+
 class ChoiceOption(_Model):
     label: str
     claim: Claim
@@ -547,7 +584,7 @@ class Choose(_Model):
 
 Program = Annotated[
     Union[Permitted, Forbidden, SpeedOk, LanesFor, LanesWhere, BanTimes, Meaning, Required,
-          ExistsViolation, Verify, Choose, IsSign, AllOf, AnyOf],
+          ExistsViolation, Verify, Choose, IsSign, AllOf, AnyOf, WhichVehicles],
     Field(discriminator="intent"),
 ]
 
