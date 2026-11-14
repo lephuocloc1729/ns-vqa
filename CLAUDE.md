@@ -22,6 +22,10 @@ swipl -q -g "consult('kb/load.pl'), halt"
 
 - The dataset is at `VLSP2025-MLQA-Natural/` (or set `$VQA_DATASET_DIR`). It is **read-only** and gitignored. Never copy dataset files into the repo.
 - Build rules, prompts and examples from the **train split and `law_db` only**. Use the public test only for tuning.
+- **The public test is split 50/50 by image** into `public_dev` and `public_holdout`. Questions that share an image stay on the same side.
+  - The split is saved in `data/splits/public_split.json` (seed 20261114). `eval/make_public_split.py` regenerates it and only reads question and image ids.
+  - **Only `public_dev` may be looked at question by question** (images, questions, answers, error analysis).
+  - `public_holdout` is for aggregate scores only. Don't read its questions, images or per-question results.
 - **Never open the private test answers.** The private test is the final benchmark and runs once, at the end.
 - Keep `provenance.json` and `review.json` out of prompts. `train_284` has an invalid citation.
 
