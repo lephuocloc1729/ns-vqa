@@ -3,36 +3,26 @@
 
     speed_violation(+Veh, +Speed, +Lane, +Ctx, -S, -T): driving Veh at Speed
     km/h on Lane breaks sign S (T = true or unknown). Lane may be `unknown`.
+    speed_clears(+Veh, +Speed, +Lane, +Ctx, -S, -Why): speed sign S is not broken.
 
     lane_block(+Veh, +Lane, +Ctx, -S, -T): sign S closes Lane to Veh.
+    lane_clears(+Veh, +Lane, +Ctx, -S, -Why): lane sign S leaves Lane open to Veh.
 */
 
 :- multifile leaf/1.
 :- discontiguous leaf/1.
 
-% Maximum speed sign (P.127, P.127a), optionally limited to one lane by S.504.
+% Maximum speed sign (P.127, P.127a), optionally limited to some lanes.
 speed_violation(Veh, Speed, Lane, Ctx, S, T) :-
-    scene_sign(S, Code),
-    max_speed_for(Code, Class),
-    cite(r_prohibition),
-    cite(r_max_speed),
-    catalog_sign(Code, _, _, _),
-    limit_value(S, Max),
-    cmp_truth(gt, Speed, Max, T0), T0 \== false,
-    lane_scope(S, Lane, T1),
-    applies(S, Code, spec(Class, []), Veh, Ctx, T2),
-    and3([T0, T1, T2], T).
+    max_speed_sign(Veh, Speed, Lane, Ctx, S, Checks),
+    checks_truth(Checks, T),
+    T \== false.
 
 % Minimum speed sign (R.306).
 speed_violation(Veh, Speed, Lane, Ctx, S, T) :-
-    scene_sign(S, Code),
-    min_speed_for(Code, Class),
-    cite(r_min_speed),
-    limit_value(S, Min),
-    cmp_truth(lt, Speed, Min, T0), T0 \== false,
-    lane_scope(S, Lane, T1),
-    applies(S, Code, spec(Class, []), Veh, Ctx, T2),
-    and3([T0, T1, T2], T).
+    min_speed_sign(Veh, Speed, Lane, Ctx, S, Checks),
+    checks_truth(Checks, T),
+    T \== false.
 
 % Lane board (P.127b, P.127c): per-lane maximum, optionally per vehicle group.
 speed_violation(Veh, Speed, Lane, Ctx, S, T) :-
@@ -43,7 +33,7 @@ speed_violation(Veh, Speed, Lane, Ctx, S, T) :-
     lane_limit(S, L, Spec, Max),
     Speed > Max,
     lane_truth(Lane, L, T0), T0 \== false,
-    applies(S, Code, Spec, Veh, Ctx, T1),
+    applies(S, Code, [Spec], Veh, Ctx, T1),
     and3([T0, T1], T).
 
 % Lane board: per-lane minimum.
@@ -55,30 +45,80 @@ speed_violation(Veh, Speed, Lane, Ctx, S, T) :-
     lane_min(S, L, Spec, Min),
     Speed < Min,
     lane_truth(Lane, L, T0), T0 \== false,
-    applies(S, Code, Spec, Veh, Ctx, T1),
+    applies(S, Code, [Spec], Veh, Ctx, T1),
     and3([T0, T1], T).
+
+max_speed_sign(Veh, Speed, Lane, Ctx, S, [limit-T0, lane-T1|Checks]) :-
+    scene_sign(S, Code),
+    max_speed_for(Code, Class),
+    cite(r_prohibition),
+    cite(r_max_speed),
+    catalog_sign(Code, _, _, _),
+    limit_value(S, Max),
+    cmp_truth(gt, Speed, Max, T0),
+    lane_check(S, Lane, T1),
+    assess(S, Code, [spec(Class, [])], Veh, Ctx, Checks).
+
+min_speed_sign(Veh, Speed, Lane, Ctx, S, [limit-T0, lane-T1|Checks]) :-
+    scene_sign(S, Code),
+    min_speed_for(Code, Class),
+    cite(r_min_speed),
+    catalog_sign(Code, _, _, _),
+    limit_value(S, Min),
+    cmp_truth(lt, Speed, Min, T0),
+    lane_check(S, Lane, T1),
+    assess(S, Code, [spec(Class, [])], Veh, Ctx, Checks).
 
 leaf(limit_value(_, _)).
 %!  limit_value(+S, -V) is det.  The number on the sign, or unknown if it was not read.
 limit_value(S, V) :- ( sign_value(S, V0) -> V = V0 ; V = unknown ).
 
-% A lane listed on a P.127c board or under an R.412 sign is open only to the
-% vehicles named for it.
+% ---- why a speed sign is not broken
+
+speed_clears(Veh, Speed, Lane, Ctx, S, Why) :-
+    max_speed_sign(Veh, Speed, Lane, Ctx, S, Checks),
+    first_false(Checks, Why).
+speed_clears(Veh, Speed, Lane, Ctx, S, Why) :-
+    min_speed_sign(Veh, Speed, Lane, Ctx, S, Checks),
+    first_false(Checks, Why).
+speed_clears(Veh, Speed, Lane, Ctx, S, within_limit) :-
+    scene_sign(S, Code),
+    lane_board(Code),
+    catalog_sign(Code, _, _, _),
+    cite(r_prohibition),
+    \+ speed_violation(Veh, Speed, Lane, Ctx, S, _).
+
+% ---- lanes open only to some vehicles (P.127c board, R.412 family)
+
 lane_block(Veh, Lane, Ctx, S, T) :-
+    lane_sign_checks(Veh, Lane, Ctx, S, Checks),
+    checks_truth(Checks, T),
+    T \== false.
+
+lane_clears(_Veh, Lane, _Ctx, S, lane_not_covered) :-
+    scene_sign(S, Code),
+    lane_restricting(Code),
+    catalog_sign(Code, _, _, _),
+    \+ lane_has_specs(S, Lane).
+lane_clears(Veh, Lane, Ctx, S, Why) :-
+    lane_sign_checks(Veh, Lane, Ctx, S, Checks),
+    first_false(Checks, Why).
+
+lane_sign_checks(Veh, Lane, Ctx, S, [lane_closed-T0, exception-T1, time-T2, day-T3]) :-
     scene_sign(S, Code),
     lane_restricting(Code),
     catalog_sign(Code, _, _, _),
     lane_has_specs(S, Lane),
-    cite(r_lane_reserved),
     lane_specs(S, Lane, Specs),
     any_spec_match(Specs, Veh, M),
-    not3(M, T0), T0 \== false,
-    not_excepted(S, Code, Veh, T1),
-    in_force(S, Code, Ctx, T2),
-    and3([T0, T1, T2], T).
+    not3(M, T0),
+    exception_check(S, Code, Veh, T1),
+    time_check(S, Ctx, T2),
+    day_check(S, Code, Ctx, T3).
 
+% P.127c boards cite their own article (B.27c, via catalog_sign); R.412 signs cite D.14.
 lane_restricting(Code) :- lane_board(Code).
-lane_restricting(Code) :- lane_reserved_sign(Code).
+lane_restricting(Code) :- lane_reserved_sign(Code), cite(r_lane_reserved).
 
 leaf(lane_reserved_sign(_)).
 lane_reserved_sign(Code) :- lane_reserved(Code, _), !.

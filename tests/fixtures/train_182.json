@@ -30,6 +30,5 @@
   ],
   "core_articles": ["22", "B.3", "F.10"],
   "not_core": {"41": "auxiliary-plate article; rules cite F.10 for time plates, not art. 41"},
-  "notes": "Same image and scene as train_181.",
-  "citation_xfail": "A 'permitted' (yes) result has no proof, so nothing is cited; the gold cites P.103a's articles (B.3 says two-wheelers are excepted)."
+  "notes": "Same image and scene as train_181."
 }

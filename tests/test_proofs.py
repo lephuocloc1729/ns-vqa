@@ -25,10 +25,14 @@ def test_proof_tree_shape(engine):
     assert "cite r_time_plate" in explain.render(root)
 
 
-def test_permitted_has_no_reasons(engine):
+def test_permitted_answer_has_a_clearing_proof(engine):
     a = engine.answer(scene(sign("s1", "P.104")),
                       Permitted(action="enter", vehicle=V("passenger_car")))
-    assert a.verdict == Verdict.yes and a.reasons == [] and a.citations == []
+    assert a.verdict == Verdict.yes
+    [r] = a.reasons
+    assert (r.sign_id, r.truth, r.detail) == ("s1", "false", "vehicle_not_covered")
+    assert r.proof.goal.startswith("clears(enter,")
+    assert {"22", "B.4"} <= {c.article_id for c in a.citations}
 
 
 def test_meta_interpreter_directly(engine):

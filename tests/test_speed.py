@@ -91,7 +91,8 @@ def test_lanes_by_vehicle(engine):
     # "Xe tải có khối lượng chuyên chở 3,4 tấn được đi ở làn nào?"
     a = engine.answer(sc, LanesFor(vehicle=V("truck", load_t=3.4)))
     assert a.value["lanes"] == [2]
-    assert {"B.27c", "D.14"} <= articles(a)
+    # a P.127c board cites its own article; D.14 is for R.412 signs
+    assert "B.27c" in articles(a) and "D.14" not in articles(a)
     assert engine.answer(sc, LanesFor(vehicle=V("motorbike"))).value["lanes"] == [3]
     assert engine.answer(sc, LanesFor(vehicle=V("passenger_car"), speed_kmh=90)).value["lanes"] == [1]
 

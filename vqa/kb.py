@@ -126,10 +126,12 @@ class Catalog(_M):
             e = s.effect
             out.append(Term("catalog_sign", c, atom(s.category),
                             atom(s.source.law_id), atom(s.source.article_id)))
+            by_action: dict[str, list] = {}
             for p in e.prohibits:
                 for a in p.actions:
-                    for v in p.vehicles:
-                        out.append(Term("prohibits", c, atom(a.value), spec_term(v)))
+                    by_action.setdefault(a.value, []).extend(spec_term(v) for v in p.vehicles)
+            for a, specs in by_action.items():
+                out.append(Term("prohibits", c, atom(a), specs))
             for x in e.except_:
                 out.append(Term("catalog_except", c, atom(x.value)))
             if not e.priority_exempt:

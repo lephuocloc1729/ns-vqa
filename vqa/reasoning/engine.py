@@ -186,7 +186,7 @@ class Engine:
             out = self.call(Term("q_lane", vehicle_term(p.vehicle), lane,
                                  atom("none") if speed is None else speed, _ctx(p.when, scene)))
             per_lane.append({"lane": lane, "verdict": out["verdict"]})
-            reasons += [_reason(r) for r in out["reasons"]]
+            reasons += _supporting(out)
         want = "yes" if isinstance(p, LanesFor) or p.ok else "no"
         value = {
             "lanes": [x["lane"] for x in per_lane if x["verdict"] == want],
@@ -202,6 +202,7 @@ class Engine:
         self.load_scene(scene, selection)
         out = self.call(Term("q_ban_times", atom(p.action.value), vehicle_term(p.vehicle)))
         items, reasons = [], []
+        clears = [_reason(c) for c in out["clears"]]
         for it in out["items"]:
             if it["truth"] == "false":
                 continue
@@ -215,8 +216,9 @@ class Engine:
             if isinstance(it.get("proof"), dict):
                 reasons.append(Reason(sign_id=it["sign_id"], truth=it["truth"],
                                       proof=explain.to_node(it["proof"])))
+        support = reasons if items else clears
         return Answer(verdict=Verdict.value, value={"bans": items, "banned": bool(items)},
-                      reasons=reasons, citations=_cites(reasons))
+                      reasons=reasons + clears, citations=_cites(support))
 
     def _meaning(self, scene: SceneGraph, p: Meaning) -> Answer:
         ids = self.resolve(scene, p.sign)
@@ -248,9 +250,17 @@ class Engine:
             reasons.append(Reason(sign_id=it["sign_id"], truth=it["truth"],
                                   detail=f"{it['vehicle_id']}:{it['kind']}", proof=proof))
             found.append(it["truth"])
+        clears = []
+        for c in out["clears"]:
+            r = _reason(c)
+            if c.get("vehicle_id"):
+                r.detail = f"{c['vehicle_id']}:{c['kind']}:{c['why']}"
+            clears.append(r)
         verdict = (Verdict.yes if "true" in found
                    else Verdict.unknown if "unknown" in found else Verdict.no)
-        return Answer(verdict=verdict, reasons=reasons, citations=_cites(reasons),
+        want = {"yes": "true", "unknown": "unknown"}.get(verdict.value)
+        support = [r for r in reasons if r.truth == want] if want else clears
+        return Answer(verdict=verdict, reasons=reasons + clears, citations=_cites(support),
                       value={"violations": [r.detail for r in reasons if r.truth == "true"]})
 
     def _verify(self, scene: SceneGraph, p: Verify) -> Answer:
@@ -274,8 +284,20 @@ def scene_lane_count(scene: SceneGraph) -> int | None:
 
 
 def _reason(r: dict[str, Any]) -> Reason:
-    return Reason(sign_id=r.get("sign_id"), truth=r["truth"],
-                  proof=explain.to_node(r["proof"]) if r.get("proof") else None)
+    """A reason against the claim (truth true/unknown) or a clearing one (truth false, why)."""
+    proof = r.get("proof")
+    return Reason(sign_id=r.get("sign_id") or None, truth=r["truth"], detail=r.get("why"),
+                  proof=explain.to_node(proof) if isinstance(proof, dict) else None)
+
+
+def _supporting(out: dict[str, Any]) -> list[Reason]:
+    """The reasons that back the verdict: clears for yes, true reasons for no,
+    unknown reasons for unknown."""
+    v = out["verdict"]
+    if v == "yes":
+        return [_reason(c) for c in out["clears"]]
+    want = "true" if v == "no" else "unknown"
+    return [_reason(r) for r in out["reasons"] if r["truth"] == want]
 
 
 def _cites(reasons: list[Reason]):
@@ -283,8 +305,9 @@ def _cites(reasons: list[Reason]):
 
 
 def _verdict_answer(out: dict[str, Any]) -> Answer:
-    reasons = [_reason(r) for r in out["reasons"]]
-    return Answer(verdict=Verdict(out["verdict"]), reasons=reasons, citations=_cites(reasons))
+    reasons = [_reason(r) for r in out["reasons"]] + [_reason(c) for c in out["clears"]]
+    return Answer(verdict=Verdict(out["verdict"]), reasons=reasons,
+                  citations=_cites(_supporting(out)))
 
 
 def _same(a: Answer, b: Answer) -> bool:

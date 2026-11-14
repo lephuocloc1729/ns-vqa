@@ -52,7 +52,8 @@ def test_every_source_exists_in_law_db(catalog):
 
 def test_catalog_facts_cover_effects(catalog):
     facts = {str(f) for f in catalog.facts()}
-    assert "prohibits(p104, enter, spec(motorbike, []))" in facts
+    assert "prohibits(p104, enter, [spec(motorbike, [])])" in facts
+    assert "prohibits(p106a, enter, [spec(truck, []), spec(tractor, []), spec(special_machine, [])])" in facts
     assert "catalog_except(p107a, city_bus)" in facts
     assert "value_cond(p106b, truck, load_t, gt)" in facts
     assert "catalog_days(p131c, even)" in facts

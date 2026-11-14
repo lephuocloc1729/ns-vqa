@@ -26,6 +26,7 @@ rule_source(r_lane_plate,          'QCVN 41:2024/BGTVT', 'F.4').
 rule_source(r_max_speed,           'QCVN 41:2024/BGTVT', 'B.27').
 rule_source(r_min_speed,           'QCVN 41:2024/BGTVT', 'D.6').
 rule_source(r_lane_reserved,       'QCVN 41:2024/BGTVT', 'D.14').
+rule_source(r_aux_plate,           'QCVN 41:2024/BGTVT', '41').
 
 % --------------------------------------------------------------------------
 % Three-valued logic (leaves: evaluated directly, shown as one proof node)
@@ -92,18 +93,23 @@ any_spec_match(Specs, Veh, T) :-
     or3(Ts, T).
 
 leaf(sign_specs(_, _, _, _)).
-%!  sign_specs(+S, +Code, +Spec0, -Spec) is det.
-%   Add the condition read from the sign's number (catalog value_cond/4) to Spec0.
+%!  sign_specs(+S, +Code, +Specs0, -Specs) is det.
+%   Add the condition read from the sign's number (catalog value_cond/4) to each spec.
 %   A sign that should carry a number but has none gives an `unknown` condition.
-sign_specs(S, Code, spec(C, Conds0), spec(C, Conds)) :- !,
+sign_specs(S, Code, Specs0, Specs) :-
+    maplist(sign_spec(S, Code), Specs0, Specs).
+
+sign_spec(S, Code, spec(C, Conds0), spec(C, Conds)) :- !,
     findall(c(A, Op, V), ( value_cond(Code, VC, A, Op),
                            subclass_of(C, VC),
                            ( sign_value(S, V) -> true ; V = unknown ) ), Extra),
     append(Conds0, Extra, Conds).
-sign_specs(_, _, Spec, Spec).
+sign_spec(_, _, Spec, Spec).
 
 % --------------------------------------------------------------------------
-% Exceptions and vehicle plates
+% Checks. Each returns a truth value instead of failing, so the same checks
+% explain both why a sign applies (forbids) and why it does not (clears).
+% A check is "true" when it lets the sign apply.
 % --------------------------------------------------------------------------
 
 leaf(exception_truth(_, _, _, _)).
@@ -118,21 +124,27 @@ exception_truth(S, Code, Veh, T) :-
     append(T1, T2, Ts),
     or3(Ts, T).
 
-%!  not_excepted(+S, +Code, +Veh, -T) is semidet.  Fails when Veh is surely excepted.
-not_excepted(S, Code, Veh, T) :-
+%!  exception_check(+S, +Code, +Veh, -T) is det.  true = Veh is not excepted.
+exception_check(S, Code, Veh, T) :-
+    (   has_except_plate(S)
+    ->  cite(r_aux_plate), cite(r_exception_plate)
+    ;   true
+    ),
     exception_truth(S, Code, Veh, E),
-    not3(E, T),
-    T \== false.
+    not3(E, T).
 
-%!  plate_scope(+S, +Veh, -T) is semidet.  An S.505a plate limits the sign to its vehicles.
-plate_scope(S, _, true) :-
+leaf(has_except_plate(_)).
+has_except_plate(S) :- plate_except(S, _), !.
+
+%!  plate_check(+S, +Veh, -T) is det.  An S.505a plate limits the sign to its vehicles.
+plate_check(S, _, true) :-
     \+ plate_vehicle(S, _).
-plate_scope(S, Veh, T) :-
+plate_check(S, Veh, T) :-
     has_vehicle_plate(S),
+    cite(r_aux_plate),
     cite(r_vehicle_plate),
     vehicle_plate_specs(S, Specs),
-    any_spec_match(Specs, Veh, T),
-    T \== false.
+    any_spec_match(Specs, Veh, T).
 
 leaf(has_vehicle_plate(_)).
 has_vehicle_plate(S) :- plate_vehicle(S, _), !.
@@ -140,22 +152,14 @@ has_vehicle_plate(S) :- plate_vehicle(S, _), !.
 leaf(vehicle_plate_specs(_, _)).
 vehicle_plate_specs(S, Specs) :- findall(Sp, plate_vehicle(S, Sp), Specs).
 
-% --------------------------------------------------------------------------
-% When is a sign in force (rule family: time-window plates)
-% --------------------------------------------------------------------------
+% ---- rule family: time-window plates (S.508, F.10)
 
-%!  in_force(+S, +Code, +Ctx, -T) is semidet.  Fails when the sign is surely not in force.
-in_force(S, Code, Ctx, T) :-
-    time_in_force(S, Ctx, T1),
-    day_in_force(S, Code, Ctx, T2),
-    scope_open(Code, T3),
-    and3([T1, T2, T3], T),
-    T \== false.
-
-time_in_force(S, _, true) :-
+%!  time_check(+S, +Ctx, -T) is det.  true = inside a time window (or no time plate).
+time_check(S, _, true) :-
     \+ plate_time(S, _, _).
-time_in_force(S, ctx(M, _), T) :-
+time_check(S, ctx(M, _), T) :-
     has_time_plate(S),
+    cite(r_aux_plate),
     cite(r_time_plate),
     window_truth(S, M, T).
 
@@ -175,11 +179,22 @@ window_truth(S, M, T) :-
 in_window(M, F, T) :- F =< T, M >= F, M =< T.
 in_window(M, F, T) :- F > T, ( M >= F ; M =< T ).
 
-day_in_force(S, Code, _, true) :-
+%!  day_check(+S, +Code, +Ctx, -T) is det.  true = right day parity (or none required).
+day_check(S, Code, _, true) :-
     \+ sign_days(S, Code, _).
-day_in_force(S, Code, ctx(_, D), T) :-
+day_check(S, Code, ctx(_, D), T) :-
+    has_day_plate(S),
+    cite(r_aux_plate),
+    cite(r_time_plate),
     sign_days(S, Code, P),
     day_truth(D, P, T).
+day_check(S, Code, ctx(_, D), T) :-
+    \+ plate_days(S, _),
+    catalog_days(Code, P),
+    day_truth(D, P, T).
+
+leaf(has_day_plate(_)).
+has_day_plate(S) :- plate_days(S, _), !.
 
 sign_days(S, _, P)    :- plate_days(S, P).
 sign_days(S, Code, P) :- \+ plate_days(S, _), catalog_days(Code, P).
@@ -189,12 +204,12 @@ day_truth(D, _, unknown) :- D == unknown, !.
 day_truth(D, even, T) :- ( D mod 2 =:= 0 -> T = true ; T = false ).
 day_truth(D, odd, T)  :- ( D mod 2 =:= 1 -> T = true ; T = false ).
 
-%!  scope_open(+Code, -T) is det.
+%!  scope_check(+Code, -T) is det.
 %   A still image cannot show whether we are before or after an end-of-restriction
 %   sign that is visible together with the restriction, so that case is unknown.
-scope_open(Code, true) :-
+scope_check(Code, true) :-
     \+ ended_in_scene(Code, _).
-scope_open(Code, unknown) :-
+scope_check(Code, unknown) :-
     ended_once(Code).
 
 ended_in_scene(Code, E) :-
@@ -204,38 +219,76 @@ ended_in_scene(Code, E) :-
 leaf(ended_once(_)).
 ended_once(Code) :- ended_in_scene(Code, _), !.
 
-% --------------------------------------------------------------------------
-% Lanes
-% --------------------------------------------------------------------------
+% ---- lanes
 
 leaf(lane_truth(_, _, _)).
 %!  lane_truth(+AskedLane, +SignLane, -T) is det.  AskedLane may be unknown.
 lane_truth(L, _, unknown) :- L == unknown, !.
 lane_truth(L, L1, T) :- ( L =:= L1 -> T = true ; T = false ).
 
-%!  lane_scope(+S, +Lane, -T) is semidet.
-%   A sign over one lane (S.504 plate, or mounted over that lane) applies only there.
-lane_scope(S, _, true) :-
+%!  lane_check(+S, +Lane, -T) is det.
+%   A sign over some lanes (S.504 plate, or mounted over them) applies only there.
+lane_check(S, _, true) :-
     \+ sign_lane(S, _, _).
-lane_scope(S, Lane, T) :-
-    sign_lane(S, L, Origin),
-    lane_origin(Origin),
-    lane_truth(Lane, L, T),
-    T \== false.
+lane_check(S, Lane, T) :-
+    has_sign_lane(S),
+    (   has_lane_plate(S)
+    ->  cite(r_aux_plate), cite(r_lane_plate)
+    ;   true
+    ),
+    sign_lanes_truth(S, Lane, T).
 
-lane_origin(plate) :- cite(r_lane_plate).
-lane_origin(position).
+leaf(has_sign_lane(_)).
+has_sign_lane(S) :- sign_lane(S, _, _), !.
+
+leaf(has_lane_plate(_)).
+has_lane_plate(S) :- sign_lane(S, _, plate), !.
+
+leaf(sign_lanes_truth(_, _, _)).
+sign_lanes_truth(S, Lane, T) :-
+    findall(Ti, ( sign_lane(S, L, _), lane_truth(Lane, L, Ti) ), Ts),
+    or3(Ts, T).
 
 % --------------------------------------------------------------------------
 % Applicability of one sign to one vehicle in one context
 % --------------------------------------------------------------------------
 
-%!  applies(+S, +Code, +Spec, +Veh, +Ctx, -T) is semidet.
+%!  assess(+S, +Code, +Specs, +Veh, +Ctx, -Checks) is det.
+%   Checks = [vehicle-T, exception-T, plate-T, time-T, day-T, scope-T].
+assess(S, Code, Specs0, Veh, Ctx,
+       [vehicle-T1, exception-T2, plate-T3, time-T4, day-T5, scope-T6]) :-
+    sign_specs(S, Code, Specs0, Specs),
+    any_spec_match(Specs, Veh, T1),
+    exception_check(S, Code, Veh, T2),
+    plate_check(S, Veh, T3),
+    time_check(S, Ctx, T4),
+    day_check(S, Code, Ctx, T5),
+    scope_check(Code, T6).
+
+%!  applies(+S, +Code, +Specs, +Veh, +Ctx, -T) is semidet.
 %   Fails when the sign surely does not apply; T is true or unknown otherwise.
-applies(S, Code, Spec0, Veh, Ctx, T) :-
-    sign_specs(S, Code, Spec0, Spec),
-    spec_match(Spec, Veh, T1), T1 \== false,
-    not_excepted(S, Code, Veh, T2),
-    plate_scope(S, Veh, T3),
-    in_force(S, Code, Ctx, T4),
-    and3([T1, T2, T3, T4], T).
+applies(S, Code, Specs, Veh, Ctx, T) :-
+    assess(S, Code, Specs, Veh, Ctx, Checks),
+    checks_truth(Checks, T),
+    T \== false.
+
+leaf(checks_truth(_, _)).
+checks_truth(Checks, T) :-
+    findall(Ti, member(_-Ti, Checks), Ts),
+    and3(Ts, T).
+
+leaf(first_false(_, _)).
+%!  first_false(+Checks, -Why) is semidet.  Why the sign does not apply.
+first_false(Checks, Why) :-
+    member(Name-false, Checks), !,
+    why_name(Name, Why).
+
+why_name(vehicle,     vehicle_not_covered).
+why_name(exception,   excepted).
+why_name(plate,       plate_vehicle_not_covered).
+why_name(time,        outside_time_window).
+why_name(day,         wrong_day).
+why_name(limit,       within_limit).
+why_name(lane,        lane_not_covered).
+why_name(lane_closed, vehicle_allowed_on_lane).
+why_name(direction,   direction_allowed).

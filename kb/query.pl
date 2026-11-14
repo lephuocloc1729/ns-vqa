@@ -1,18 +1,28 @@
 /*  Top-level queries called from Python (vqa/reasoning/engine.py).
 
-    Each solve_* collects every reason (sign + truth + proof) and combines the
-    truths into a verdict: any true reason decides, otherwise any unknown
-    reason makes the verdict unknown. The combination is closed-world over
-    the signs in the scene: no reason means no visible sign restricts it.
+    Each q_* returns a dict with
+      verdict  yes | no | unknown
+      reasons  signs that go against the claim (truth true or unknown), with proofs
+      clears   signs that concern the question but do not go against it, each
+               with the failed check (why) and its proof
+
+    Any true reason decides; otherwise any unknown reason makes the verdict
+    unknown. The combination is closed-world over the signs in the scene. When
+    no sign concerns the question, `clears` lists the restricting signs that are
+    about something else; when there are none, one entry says so.
 */
 
-%!  reasons(:Template, -Reasons:list(dict), -Truths:list) is det.
+:- multifile leaf/1.
+:- discontiguous leaf/1.
+
+%!  reasons(:Template, -Reasons:list(dict), -Truths:list, -Signs:list) is det.
 %   Template = S-T-Goal. Keeps the strongest reason per sign (true over unknown).
-reasons(S-T-Goal, Reasons, Truths) :-
+reasons(S-T-Goal, Reasons, Truths, Signs) :-
     findall(S-T-D, ( prove(Goal, P), proof_root(Goal, P, D) ), Raw),
     best_per_sign(Raw, Best),
     findall(R, ( member(S1-T1-D1, Best), reason_dict(S1, T1, D1, R) ), Reasons),
-    findall(T1, member(_-T1-_, Best), Truths).
+    findall(T1, member(_-T1-_, Best), Truths),
+    findall(S1, member(S1-_-_, Best), Signs).
 
 best_per_sign(Raw, Best) :-
     findall(S, member(S-_-_, Raw), Ss0), sort(Ss0, Ss),
@@ -28,37 +38,94 @@ verdict_against(Ts, no)      :- memberchk(true, Ts), !.
 verdict_against(Ts, unknown) :- memberchk(unknown, Ts), !.
 verdict_against(_, yes).
 
+%!  clears(+Groups, +Exclude, -Dicts) is det.
+%   Groups: list of groups, each a list of S-Why-Goal templates. Groups are tried
+%   in order and the first that yields anything is used. One entry per sign,
+%   skipping signs in Exclude (they go against the claim).
+clears([], Exclude, Dicts) :-
+    G = (\+ restricting_scene_sign(_)),
+    (   Exclude == [], prove(G, P)
+    ->  proof_root(G, P, D),
+        Dicts = [_{sign_id:"", truth:"false", why:"no_restricting_sign", proof:D}]
+    ;   Dicts = []
+    ).
+clears([Group|More], Exclude, Dicts) :-
+    findall(S-W-D, ( member(S-W-Goal, Group),
+                     prove(Goal, P), \+ memberchk(S, Exclude),
+                     proof_root(Goal, P, D) ), Raw),
+    first_per_sign(Raw, Firsts),
+    (   Firsts == []
+    ->  clears(More, Exclude, Dicts)
+    ;   findall(C, ( member(S1-W1-D1, Firsts), clear_dict(S1, W1, D1, C) ), Dicts)
+    ).
+
+first_per_sign(Raw, Firsts) :-
+    findall(S, member(S-_-_, Raw), Ss0), sort(Ss0, Ss),
+    findall(S-W-D, ( member(S, Ss), memberchk(S-W-D, Raw) ), Firsts).
+
+clear_dict(S, W, D, _{sign_id:SS, truth:"false", why:WS, proof:D}) :-
+    atom_string(S, SS), atom_string(W, WS).
+
+restricting_scene_sign(S) :-
+    scene_sign(S, Code),
+    catalog_sign(Code, Cat, _, _),
+    restricting_category(Cat).
+
+unrelated_speed_sign(S) :-
+    restricting_scene_sign(S),
+    scene_sign(S, Code),
+    \+ max_speed_for(Code, _),
+    \+ min_speed_for(Code, _),
+    \+ lane_board(Code).
+
+unrelated_lane_sign(S) :-
+    restricting_scene_sign(S),
+    scene_sign(S, Code),
+    \+ lane_board(Code),
+    \+ lane_reserved(Code, _).
+
 % --------------------------------------------------------------------------
 
-%!  solve_permitted(+Action, +Veh, +Ctx, -Verdict, -Reasons) is det.
-solve_permitted(Action, Veh, Ctx, Verdict, Reasons) :-
-    reasons(S-T-forbids(Action, Veh, Ctx, S, T), Reasons, Ts),
-    verdict_against(Ts, Verdict).
+permitted_clears(A, Veh, Ctx, Exclude, Cs) :-
+    clears([ [S-W-clears(A, Veh, Ctx, S, W)],
+             [S2-action_not_covered-unrelated_sign(A, S2)] ], Exclude, Cs).
 
-%!  solve_speed(+Veh, +Speed, +Lane, +Ctx, -Verdict, -Reasons) is det.
-solve_speed(Veh, Speed, Lane, Ctx, Verdict, Reasons) :-
-    reasons(S-T-speed_violation(Veh, Speed, Lane, Ctx, S, T), Reasons, Ts),
-    verdict_against(Ts, Verdict).
+q_permitted(A, Veh, Ctx, _{verdict:VS, reasons:R, clears:Cs}) :-
+    reasons(S-T-forbids(A, Veh, Ctx, S, T), R, Ts, Signs),
+    verdict_against(Ts, V), atom_string(V, VS),
+    permitted_clears(A, Veh, Ctx, Signs, Cs).
 
-%!  solve_lane(+Veh, +Lane, +Speed, +Ctx, -Verdict, -Reasons) is det.
+q_speed(Veh, Speed, Lane, Ctx, _{verdict:VS, reasons:R, clears:Cs}) :-
+    reasons(S-T-speed_violation(Veh, Speed, Lane, Ctx, S, T), R, Ts, Signs),
+    verdict_against(Ts, V), atom_string(V, VS),
+    clears([ [S1-W-speed_clears(Veh, Speed, Lane, Ctx, S1, W)],
+             [S2-not_a_speed_sign-unrelated_speed_sign(S2)] ], Signs, Cs).
+
+%!  q_lane(+Veh, +Lane, +Speed, +Ctx, -Out) is det.
 %   May Veh use Lane (at Speed, or `none` to ignore speed)?
-solve_lane(Veh, Lane, Speed, Ctx, Verdict, Reasons) :-
-    reasons(S-T-lane_block(Veh, Lane, Ctx, S, T), R1, T1),
+q_lane(Veh, Lane, Speed, Ctx, _{verdict:VS, reasons:R, clears:Cs}) :-
+    reasons(S-T-lane_block(Veh, Lane, Ctx, S, T), R1, T1, S1),
     (   Speed == none
-    ->  R2 = [], T2 = []
-    ;   reasons(S2-T3-speed_violation(Veh, Speed, Lane, Ctx, S2, T3), R2, T2)
+    ->  R2 = [], T2 = [], S2 = []
+    ;   reasons(Sb-Tb-speed_violation(Veh, Speed, Lane, Ctx, Sb, Tb), R2, T2, S2)
     ),
-    append(R1, R2, Reasons),
-    append(T1, T2, Ts),
-    verdict_against(Ts, Verdict).
+    append(R1, R2, R), append(T1, T2, Ts), append(S1, S2, Signs),
+    verdict_against(Ts, V), atom_string(V, VS),
+    LaneT = Sc-Wc-lane_clears(Veh, Lane, Ctx, Sc, Wc),
+    (   Speed == none
+    ->  First = [LaneT]
+    ;   First = [LaneT, Sd-Wd-speed_clears(Veh, Speed, Lane, Ctx, Sd, Wd)]
+    ),
+    clears([ First, [Su-not_a_lane_sign-unrelated_lane_sign(Su)] ], Signs, Cs).
 
-%!  solve_ban_times(+Action, +Veh, -Items) is det.
+%!  q_ban_times(+Action, +Veh, -Out) is det.
 %   For every sign that may forbid Action for Veh: its time windows and whether
 %   the ban holds inside them (true) or still depends on something else (unknown).
-solve_ban_times(Action, Veh, Items) :-
+q_ban_times(Action, Veh, _{items:Items, clears:Cs}) :-
     findall(S, prove(forbids(Action, Veh, ctx(unknown, unknown), S, _), _), Ss0),
     sort(Ss0, Ss),
-    findall(I, ( member(S, Ss), ban_item(Action, Veh, S, I) ), Items).
+    findall(I, ( member(S, Ss), ban_item(Action, Veh, S, I) ), Items),
+    permitted_clears(Action, Veh, ctx(unknown, unknown), Ss, Cs).
 
 ban_item(Action, Veh, S, _{sign_id:SS, windows:Ws, days:DS, truth:TS, proof:D}) :-
     atom_string(S, SS),
@@ -73,10 +140,16 @@ ban_item(Action, Veh, S, _{sign_id:SS, windows:Ws, days:DS, truth:TS, proof:D}) 
     ;   TS = "false", D = null
     ).
 
-%!  solve_violations(+Ctx, -Items) is det.
-%   One item per observed vehicle and rule it may break.
-solve_violations(Ctx, Items) :-
-    findall(I, violation_item(Ctx, I), Items).
+%!  q_violations(+Ctx, -Out) is det.
+%   items: one per observed vehicle and rule it may break.
+%   clears: for each observed vehicle, the signs it does not break.
+q_violations(Ctx, _{items:Items, clears:Cs}) :-
+    findall(I, violation_item(Ctx, I), Items),
+    findall(C, violation_clear(Ctx, C), Cs0),
+    (   Cs0 == []
+    ->  clears([], [], Cs)
+    ;   Cs = Cs0
+    ).
 
 violation_item(Ctx, _{vehicle_id:VS, kind:"action", sign_id:SS, truth:TS, proof:D}) :-
     scene_vehicle(V, C, _, Act, _),
@@ -105,6 +178,28 @@ violation_item(Ctx, _{vehicle_id:VS, kind:"unknown_action", sign_id:SS, truth:"u
     once(( action(A), forbids(A, veh(C, []), Ctx, S, _) )),
     atom_string(V, VS), atom_string(S, SS).
 
+violation_clear(Ctx, C) :-
+    scene_vehicle(V, Cl, _, Act, _),
+    action(Act),
+    permitted_clears(Act, veh(Cl, []), Ctx, [], Cs),
+    vehicle_clear(V, "action", Cs, C).
+violation_clear(Ctx, C) :-
+    scene_vehicle(V, Cl, Lane, _, Speed),
+    number(Speed),
+    clears([ [S1-W-speed_clears(veh(Cl, []), Speed, Lane, Ctx, S1, W)],
+             [S2-not_a_speed_sign-unrelated_speed_sign(S2)] ], [], Cs),
+    vehicle_clear(V, "speed", Cs, C).
+violation_clear(Ctx, C) :-
+    scene_vehicle(V, Cl, Lane, _, _),
+    integer(Lane),
+    clears([ [S-W-lane_clears(veh(Cl, []), Lane, Ctx, S, W)] ], [], Cs),
+    vehicle_clear(V, "lane", Cs, C).
+
+vehicle_clear(V, Kind, Cs, C) :-
+    atom_string(V, VS),
+    member(C0, Cs),
+    C = C0.put(_{vehicle_id:VS, kind:Kind}).
+
 %!  solve_text(+Text, -Out) is det.  Entry point used by Python: Text is a goal term.
 solve_text(Text, Out) :-
     term_string(Goal, Text),
@@ -112,15 +207,3 @@ solve_text(Text, Out) :-
     append(Args, [Out], Args1),
     G1 =.. [Name|Args1],
     call(G1).
-
-% Wrappers with a single output dict, so Python reads one binding.
-q_permitted(A, Veh, Ctx, _{verdict:VS, reasons:R}) :-
-    solve_permitted(A, Veh, Ctx, V, R), atom_string(V, VS).
-q_speed(Veh, Speed, Lane, Ctx, _{verdict:VS, reasons:R}) :-
-    solve_speed(Veh, Speed, Lane, Ctx, V, R), atom_string(V, VS).
-q_lane(Veh, Lane, Speed, Ctx, _{verdict:VS, reasons:R}) :-
-    solve_lane(Veh, Lane, Speed, Ctx, V, R), atom_string(V, VS).
-q_ban_times(A, Veh, _{items:I}) :-
-    solve_ban_times(A, Veh, I).
-q_violations(Ctx, _{items:I}) :-
-    solve_violations(Ctx, I).

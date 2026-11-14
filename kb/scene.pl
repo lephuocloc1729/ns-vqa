@@ -5,7 +5,7 @@
 
 % ---- catalog facts (one set per process)
 :- dynamic catalog_sign/4,       % catalog_sign(Code, Category, LawId, ArticleId)
-           prohibits/3,          % prohibits(Code, Action, spec(Class, Conds))
+           prohibits/3,          % prohibits(Code, Action, [spec(Class, Conds), ...])
            catalog_except/2,     % catalog_except(Code, Class)
            no_priority_exempt/1, % no_priority_exempt(Code)
            value_cond/4,         % value_cond(Code, Class, Attr, Op)
