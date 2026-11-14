@@ -170,8 +170,9 @@ Claude turns the user's question (in Vietnamese) into a small typed query progra
 | placement and scope | "Nếu biển đặt sau nơi đường giao nhau, có bắt buộc rẽ phải ngay không?" | `required(turn_right, placement=after_intersection)` |
 | violation | "Trong hình không phát hiện hành vi vi phạm, đúng hay sai?" | `verify(exists_violation, expect=false)` |
 | sign identity | "Đây là biển báo cấm vượt. Đúng hay sai?" | `is_sign(select(only), meaning=no_overtaking)` (or `code=P.125`, or `category=prohibitory`) |
-| compound claim | "Các loại xe được dừng và đỗ vào lúc 12 giờ trưa đúng hay sai?" | `verify(all_of([permitted(stop, vehicle, 12:00), permitted(park, vehicle, 12:00)]))` |
+| compound claim | "Biển này là biển cấm vượt và xe tải bị cấm vượt, đúng hay sai?" | `verify(all_of([is_sign(select(only), meaning=no_overtaking), forbidden(overtake, truck)]))` |
 | which vehicles | "Đối tượng nào không được phép đi lại trên phần đường này?" | `which_vehicles(enter, status=banned)` |
+| every vehicle | "Các loại xe được dừng và đỗ vào lúc 12 giờ trưa đúng hay sai?" | `verify(all_of([permitted(stop, every_vehicle, 12:00), permitted(park, every_vehicle, 12:00)]))` |
 | lane by vehicle, lane slot | "Xe ô tô đi vào 2 làn bên phải lúc 10 giờ có bị phạm luật không?" | `forbidden(enter, car, lane=3, when=10:00)` |
 | vehicles on a lane | "Làn bên trái dành cho những xe nào?" | `lane_vehicles(lane=1, status=allowed)` |
 | speed limit value | "Tốc độ tối đa trên cả 3 làn đường là bao nhiêu?" | `speed_limit(motor_vehicle, kind=max)` (per lane when there is a lane board) |
@@ -189,6 +190,11 @@ The pieces the table uses:
 - **`required`** uses the placement the question gives, else the sign's placement in the scene, else its standard placement from QCVN 41 D.1a.
 - **`is_sign`** checks the selected sign against a catalog code, meaning or category. A family code ("W.221") matches its variants, and the proof cites the actual sign's article.
 - **`all_of` / `any_of`** combine claims with three-valued AND/OR.
+- **`every_vehicle`** is a vehicle value for "các loại xe" / "mọi phương tiện" (every vehicle). The claim is checked for every vehicle class (pedestrians are not vehicles) and combined with AND.
+  - The result is "no" if some class is a counterexample, reported at the broadest level with proofs.
+  - `forbidden(..., every_vehicle)` means forbidden for every class. It is not "not permitted for every vehicle".
+  - The class `vehicle` still means "a vehicle of unknown kind".
+  - A class whose answer depends on its own weight or seats counts as unknown, not as a counterexample.
 - **`which_vehicles` and `lane_vehicles`** check every vehicle class. They report the broadest class that holds as a whole (P.104 → motorbike), plus conditional classes whose answer depends on their own attributes (P.106b → truck).
 - **`speed_limit`** returns the binding limit (the lowest certain maximum), plus stricter limits that may apply.
 

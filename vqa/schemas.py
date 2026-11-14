@@ -60,6 +60,13 @@ class VehicleClass(str, Enum):
     # The law names no such class; proofs that use it cite it as an interpretation.
     similar_rudimentary = "similar_rudimentary"
     pedestrian = "pedestrian"            # người đi bộ (a road user, not a vehicle)
+    # Not an ontology class: "các loại xe" / "mọi phương tiện". A claim about
+    # every_vehicle holds only if it holds for every vehicle class. Unlike `vehicle`
+    # (a vehicle of unknown kind).
+    every_vehicle = "every_vehicle"
+
+
+ONTOLOGY_CLASSES = [c for c in VehicleClass if c is not VehicleClass.every_vehicle]
 
 
 class Action(str, Enum):

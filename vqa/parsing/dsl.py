@@ -30,16 +30,24 @@ def _permitted(f: Forbidden) -> Permitted:
                      lane=f.lane)
 
 
+def _every(p) -> bool:
+    v = getattr(p, "vehicle", None)
+    return v is not None and v.cls.value == "every_vehicle"
+
+
 def normalize(p: Program) -> Program:
-    """Rewrite Forbidden into Verify(Permitted, expect=False), recursively."""
-    if isinstance(p, Forbidden):
+    """Rewrite Forbidden into Verify(Permitted, expect=False), recursively.
+
+    Forbidden about every_vehicle is left alone: "forbidden for every vehicle" is not
+    "not permitted for every vehicle", so the engine expands it per class first."""
+    if isinstance(p, Forbidden) and not _every(p):
         return Verify(claim=_permitted(p), expect=False)
-    if isinstance(p, Verify) and isinstance(p.claim, Forbidden):
+    if isinstance(p, Verify) and isinstance(p.claim, Forbidden) and not _every(p.claim):
         return Verify(claim=_permitted(p.claim), expect=not p.expect)
     if isinstance(p, Choose):
         opts = []
         for o in p.options:
-            if isinstance(o.claim, Forbidden):
+            if isinstance(o.claim, Forbidden) and not _every(o.claim):
                 opts.append(ChoiceOption(label=o.label, claim=_permitted(o.claim),
                                          expect=not o.expect))
             else:

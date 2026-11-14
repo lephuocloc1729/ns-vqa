@@ -97,6 +97,9 @@ swipl -q -g "consult('kb/load.pl'), halt"
   - Proofs show `local_plate(...)` and `cite(r_non_standard_plate_not_in_qcvn41)`, which has no law source.
   - Answers get `basis: ["non_standard_plate"]`.
   - Standalone local signs (no standard main sign) are not modelled.
+  - **Assumptions to re-check against real failures:**
+    - **Condition groups narrow the sign's vehicles.** A vehicle no group mentions loses the sign's ban, e.g. tractors under train_7_15's truck-only plate on P.106a. The alternative: groups qualify only the vehicles they name, and the rest keep the sign's own effect.
+    - **Replacement keeps the pictogram's weight condition.** When a local plate replaces the sign's vehicles (e.g. "CẤM CÁC LOẠI XE TẢI" under a 1.25 t P.106b), the number on the pictogram still applies through `value_cond`, so only trucks above 1.25 t are banned. The alternative: the plate's wording wins and every truck is banned.
 - **Catalog family rows carry their variants in QCVN notation** (`W.207(a,b,...)`). `Catalog.get("W.207c")` resolves to the family row.
 - **Sign codes in Prolog** are lowercase with no dots: `P.127b` becomes `p127b`, `S.H,6` becomes `sh_6`. See `vqa.kb.code_atom`.
 - **Lanes are numbered from 1**, with lane 1 the leftmost. Time windows include both ends and may run past midnight.
@@ -104,9 +107,9 @@ swipl -q -g "consult('kb/load.pl'), halt"
 
 ## Phase 2 notes (parser)
 
-- **"Các loại xe" / "mọi phương tiện" (every vehicle) is not `vehicle`.** The class `vehicle` means "a vehicle of unknown kind": against a motor-vehicle ban it gives unknown.
-  - The parser should write a universal claim over classes instead, e.g. `all_of` over the classes in question, or `which_vehicles`.
-  - A dedicated "for every vehicle" form may be worth adding.
+- **"Các loại xe" / "mọi phương tiện" (every vehicle) maps to `every_vehicle`, not `vehicle`.**
+  - `every_vehicle` makes a claim hold only if it holds for every vehicle class.
+  - `vehicle` means "a vehicle of unknown kind": against a motor-vehicle ban it gives unknown.
 
 - **The parser fills in values the question leaves out, and records that it did** (e.g. `defaults_applied: ["year", "vehicle"]` next to `missing_slots`):
   - year: the current year in the question's context;

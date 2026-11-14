@@ -19,8 +19,8 @@ from vqa.parsing.dsl import normalize
 from vqa.schemas import (
     AllOf, Answer, AnyOf, BanTimes, Choose, ExistsViolation, IsSign, LanesFor, LanesWhere,
     LaneVehicles, Meaning, Permitted, SpeedLimit,
-    Program, QueryProgram, Reason, Required, SceneGraph, Selector, SpeedOk, Vehicle,
-    VehicleClass, Verdict, Verify, When, WhichVehicles,
+    ONTOLOGY_CLASSES, Forbidden, Program, QueryProgram, Reason, Required, SceneGraph, Selector,
+    SpeedOk, Vehicle, VehicleClass, Verdict, Verify, When, WhichVehicles,
 )
 
 try:
@@ -163,6 +163,9 @@ class Engine:
 
     # ------------------------------------------------------------------ per program
     def _run(self, scene: SceneGraph, p: Program) -> Answer:
+        v = getattr(p, "vehicle", None)
+        if v is not None and v.cls is VehicleClass.every_vehicle:
+            return self._for_every_vehicle(scene, p)
         when = getattr(p, "when", None)
         if when is not None and when.is_interval and not isinstance(p, Permitted):
             return Answer(verdict=Verdict.unknown,
@@ -350,8 +353,46 @@ class Engine:
                        and all(verdict(k) == "unknown" for k in children.get(c, []))
                        and not (c in parents and verdict(parents[c]) == "unknown"
                                 and all(verdict(k) == "unknown" for k in children.get(parents[c], [])))]
-        order = [c.value for c in VehicleClass]
+        order = [c.value for c in ONTOLOGY_CLASSES]
         return sorted(hits, key=order.index), sorted(conditional, key=order.index)
+
+    def _for_every_vehicle(self, scene: SceneGraph, p: Program) -> Answer:
+        """A claim about every_vehicle: run it for every vehicle class (pedestrians are
+        not vehicles) and combine with AND. No if some class gives no (reported at
+        the broadest level, with proofs), unknown if some class is unknown, else yes.
+        A class whose answer depends on its own attributes (weight, seats) counts as
+        unknown, not as a counterexample."""
+        if not isinstance(p, (Permitted, Forbidden, SpeedOk, Required)):
+            raise EngineError("every_vehicle is for claims: permitted, forbidden, speed_ok, required")
+        results: dict[str, tuple[str, Answer]] = {}
+        for c in ONTOLOGY_CLASSES:
+            if c is VehicleClass.pedestrian:
+                continue
+            q = p.model_copy(update={"vehicle": p.vehicle.model_copy(update={"cls": c})})
+            a = self._run(scene, normalize(q))
+            v = a.verdict.value if a.verdict.value in ("yes", "no") else "unknown"
+            results[c.value] = (v, a)
+        verdicts = {v for v, _ in results.values()}
+        verdict = "no" if "no" in verdicts else "unknown" if "unknown" in verdicts else "yes"
+        counter, _ = self.report_classes(results, "no")
+        _, unknown = self.report_classes(results, "unknown")  # the classes whose own answer is open
+        if verdict == "unknown" and not unknown:
+            unknown = [c for c, (v, _) in results.items() if v == "unknown"]
+        decisive = {"no": counter, "unknown": unknown, "yes": list(results)}[verdict]
+        support = [results[c][1] for c in decisive]
+        seen, reasons = set(), []
+        for a in support:
+            for r in a.reasons:
+                k = (r.sign_id, r.truth, r.detail)
+                if k not in seen:
+                    seen.add(k)
+                    reasons.append(r)
+        return Answer(verdict=Verdict(verdict),
+                      value={"every_vehicle": verdict, "counterexamples": counter,
+                             "unknown": unknown,
+                             "per_class": {c: v for c, (v, _) in results.items()}},
+                      reasons=reasons, citations=[c for a in support for c in a.citations],
+                      basis=sorted({b for a in support for b in a.basis}))
 
     def _which_vehicles(self, scene: SceneGraph, p: WhichVehicles) -> Answer:
         selection = None
@@ -362,7 +403,7 @@ class Engine:
         self.load_scene(scene, selection)
         ctx = _ctx(p.when, scene)
         results = {}
-        for c in VehicleClass:
+        for c in ONTOLOGY_CLASSES:
             out = self.call(Term("q_permitted", atom(p.action.value), Term("veh", atom(c.value), []), ctx))
             results[c.value] = (out["verdict"], out)
         want = "no" if p.status == "banned" else "yes"
@@ -381,7 +422,7 @@ class Engine:
         ctx = _ctx(p.when, scene, p.lane)
         speed = atom("none") if p.speed_kmh is None else float(p.speed_kmh)
         results = {}
-        for c in VehicleClass:
+        for c in ONTOLOGY_CLASSES:
             out = self.call(Term("q_lane", Term("veh", atom(c.value), []), p.lane, speed, ctx))
             results[c.value] = (out["verdict"], out)
         hits, conditional = self.report_classes(results, "yes" if p.status == "allowed" else "no")

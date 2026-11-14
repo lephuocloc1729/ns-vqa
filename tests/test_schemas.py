@@ -69,8 +69,8 @@ def test_prolog_term_writer_quotes():
 
 def test_vehicle_enum_matches_prolog_ontology(engine):
     import janus_swi as janus
-    from vqa.schemas import VehicleClass
+    from vqa.schemas import ONTOLOGY_CLASSES
 
     in_prolog = {c for c in janus.query_once(
         "findall(_C, (is_a(_C, _) ; is_a(_, _C) ; _C = pedestrian), _L0), sort(_L0, L)")["L"]}
-    assert in_prolog == {c.value for c in VehicleClass}
+    assert in_prolog == {c.value for c in ONTOLOGY_CLASSES}

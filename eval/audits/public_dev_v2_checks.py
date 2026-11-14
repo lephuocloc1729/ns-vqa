@@ -111,8 +111,8 @@ CHECKS = [
      lambda a: a.verdict.value == "yes"),
     ("public_natural_0042", "Đúng",
      sc(s("s1", "P.130", plates=[{"kind": "time", "time_windows": win(("06:00", "09:00"), ("16:00", "19:00"))}])),
-     Verify(claim=AllOf(claims=[Permitted(action="stop", vehicle=V("vehicle"), when=T(12)),
-                                Permitted(action="park", vehicle=V("vehicle"), when=T(12))])),
+     Verify(claim=AllOf(claims=[Permitted(action="stop", vehicle=V("every_vehicle"), when=T(12)),
+                                Permitted(action="park", vehicle=V("every_vehicle"), when=T(12))])),
      lambda a: a.verdict.value == "yes"),
     # A in v1 through meaning(); now a proper speed_limit query
     ("public_natural_0009", "60km/h", sc(s("s1", "P.127", value=60)),

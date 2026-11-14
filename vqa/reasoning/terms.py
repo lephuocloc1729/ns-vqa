@@ -101,6 +101,8 @@ def _interval(lo: float | None, hi: float | None, integer: bool) -> Term:
 def vehicle_term(v: Any) -> Term:
     """Vehicle -> veh(Class, [a(Attr, Value), ...]); unset attributes are left out (unknown).
     Value is a number, or iv(Lo, LoIn, Hi, HiIn) when only bounds are known."""
+    if v.cls.value == "every_vehicle":
+        raise ValueError("every_vehicle is expanded per class by the engine, never sent to Prolog")
     attrs = []
     for name in ("load_t", "gross_t", "seats", "height_m", "width_m", "length_m"):
         val = getattr(v, name)

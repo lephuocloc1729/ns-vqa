@@ -20,7 +20,7 @@ public_natural_0036	A	A	-	0	unchanged	P.131b; meaning(only)
 public_natural_0037	A	A	-	0	unchanged	P.131b; permitted(park, motor_vehicle, date 5/11); year not given (any year works for parity); vehicle defaults to motor_vehicle
 public_natural_0038	A	A	-	0	unchanged	same as 0037, 6/11
 public_natural_0041	A	A	-	0	unchanged	"P.131a; verify(permitted(park, motorbike)); red local plate + ""xe buýt được phép"" plate present, not needed"
-public_natural_0042	A	C	-	0	all_of(permitted(stop), permitted(park)) at 12h	"P.130 + time plate 6-9/16-19; ""may stop and park at 12h""; two separate verifies would work"
+public_natural_0042	A	C	-	0	all_of(permitted(stop, every_vehicle), permitted(park, every_vehicle)) at 12h	"P.130 + time plate 6-9/16-19; ""may stop and park at 12h""; two separate verifies would work"
 public_natural_0043	C	C	DSL: time windows of a sign (no vehicle given); scene: composite image (two photos)	0	phase 1.7 (sign time windows without a vehicle); composite image	two P.107 photos side by side; answer is the right one's three windows
 public_natural_0044	A	C	-	0	is_sign on IE.465 (meaning rows)	green expressway distance signs
 public_natural_0045	A	A	-	0	unchanged	P.125; meaning(only)
