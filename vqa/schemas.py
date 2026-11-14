@@ -480,10 +480,48 @@ class ExistsViolation(_Model):
     when: When | None = None
 
 
+SignCategory = Literal["prohibitory", "mandatory", "warning", "information", "auxiliary",
+                       "end_of_restriction"]
+
+
+class IsSign(_Model):
+    """ "Đây là biển X, đúng hay sai?": the selected sign is X, given as a catalog code
+    (a family code like "W.221" also matches its variants), a catalog meaning
+    (key or tag), or a category ("biển cấm" = prohibitory, ...). Exactly one."""
+
+    intent: Literal["is_sign"] = "is_sign"
+    sign: Selector
+    code: str | None = None
+    meaning: str | None = None
+    category: SignCategory | None = None
+
+    @model_validator(mode="after")
+    def _one_target(self) -> "IsSign":
+        if sum(x is not None for x in (self.code, self.meaning, self.category)) != 1:
+            raise ValueError("is_sign needs exactly one of code, meaning, category")
+        return self
+
+
+class AllOf(_Model):
+    """A and B (and ...): yes when every claim holds."""
+
+    intent: Literal["all_of"] = "all_of"
+    claims: Annotated[list["Claim"], Field(min_length=2)]
+
+
+class AnyOf(_Model):
+    """A or B (or ...): yes when some claim holds."""
+
+    intent: Literal["any_of"] = "any_of"
+    claims: Annotated[list["Claim"], Field(min_length=2)]
+
+
 Claim = Annotated[
-    Union[Permitted, Forbidden, SpeedOk, Required, ExistsViolation],
+    Union[Permitted, Forbidden, SpeedOk, Required, ExistsViolation, IsSign, AllOf, AnyOf],
     Field(discriminator="intent"),
 ]
+AllOf.model_rebuild()
+AnyOf.model_rebuild()
 
 
 class Verify(_Model):
@@ -509,7 +547,7 @@ class Choose(_Model):
 
 Program = Annotated[
     Union[Permitted, Forbidden, SpeedOk, LanesFor, LanesWhere, BanTimes, Meaning, Required,
-          ExistsViolation, Verify, Choose],
+          ExistsViolation, Verify, Choose, IsSign, AllOf, AnyOf],
     Field(discriminator="intent"),
 ]
 
@@ -567,6 +605,8 @@ class Answer(_Model):
     citations: list[Citation] = []
     uncertain_signs: list[str] = []
     note: str | None = None
+    # What the answer rests on beyond QCVN 41 / Law 36, e.g. "non_standard_plate".
+    basis: list[str] = []
 
     @field_validator("citations")
     @classmethod

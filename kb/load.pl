@@ -12,4 +12,5 @@
 :- ensure_loaded('rules/prohibitions').
 :- ensure_loaded('rules/speed').
 :- ensure_loaded('rules/mandatory').
+:- ensure_loaded('rules/identity').
 :- ensure_loaded(query).

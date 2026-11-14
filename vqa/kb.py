@@ -138,6 +138,16 @@ class Catalog(_M):
             raise ValueError("a tag must not reuse a catalog key")
         return self
 
+    def codes_matching(self, code: str) -> list[str]:
+        """Catalog codes a claimed code stands for: the code itself, or every row of a
+        family ("W.221" matches W.221a and W.221b). Raises KeyError if none."""
+        if self.has(code):
+            return [code]
+        fam = [s.code for s in self.signs if re.fullmatch(re.escape(code) + r"[a-z]", s.code)]
+        if not fam:
+            raise KeyError(f"unknown sign code {code!r}")
+        return fam
+
     def codes_for_meaning(self, meaning: str) -> list[str]:
         """Codes whose key or tags match ``meaning``. Raises KeyError if none do."""
         codes = [s.code for s in self.signs if s.key == meaning or meaning in s.tags]
@@ -168,6 +178,8 @@ class Catalog(_M):
             e = s.effect
             out.append(Term("catalog_sign", c, atom(s.category),
                             atom(s.source.law_id), atom(s.source.article_id)))
+            out.append(Term("catalog_key", c, atom(s.key)))
+            out += [Term("catalog_tag", c, atom(t)) for t in s.tags]
             by_action: dict[str, list] = {}
             for p in e.prohibits:
                 for a in p.actions:

@@ -27,6 +27,7 @@ rule_source(r_max_speed,           'QCVN 41:2024/BGTVT', 'B.27').
 rule_source(r_min_speed,           'QCVN 41:2024/BGTVT', 'D.6').
 rule_source(r_lane_reserved,       'QCVN 41:2024/BGTVT', 'D.14').
 rule_source(r_aux_plate,           'QCVN 41:2024/BGTVT', '41').
+rule_source(r_sign_groups,         'QCVN 41:2024/BGTVT', '11').
 
 % --------------------------------------------------------------------------
 % Three-valued logic (leaves: evaluated directly, shown as one proof node)

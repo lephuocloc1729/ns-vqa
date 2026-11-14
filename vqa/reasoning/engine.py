@@ -17,7 +17,8 @@ from vqa.reasoning.facts import reading_variants, scene_facts
 from vqa.reasoning.terms import Term, atom, to_prolog, vehicle_term
 from vqa.parsing.dsl import normalize
 from vqa.schemas import (
-    Answer, BanTimes, Choose, ExistsViolation, LanesFor, LanesWhere, Meaning, Permitted,
+    AllOf, Answer, AnyOf, BanTimes, Choose, ExistsViolation, IsSign, LanesFor, LanesWhere,
+    Meaning, Permitted,
     Program, QueryProgram, Reason, Required, SceneGraph, Selector, SpeedOk, Verdict,
     Verify, When,
 )
@@ -168,6 +169,10 @@ class Engine:
                           note="time intervals are supported for permitted/forbidden only")
         if isinstance(p, Choose):
             return self._choose(scene, p)
+        if isinstance(p, IsSign):
+            return self._is_sign(scene, p)
+        if isinstance(p, (AllOf, AnyOf)):
+            return self._connective(scene, p)
         if isinstance(p, Verify):
             return self._verify(scene, p)
         if isinstance(p, Permitted):
@@ -311,6 +316,54 @@ class Engine:
             support = [_reason(c) for c in out["clears"]]
         return Answer(verdict=Verdict(v), value={"signs": out["details"]}, reasons=reasons,
                       citations=_cites(support))
+
+    def _is_sign(self, scene: SceneGraph, p: IsSign) -> Answer:
+        ids = self.resolve(scene, p.sign)
+        if not ids:
+            return Answer(verdict=Verdict.unknown, note="no sign in the scene matches the selector")
+        if p.sign.only and len(ids) != 1:
+            return Answer(verdict=Verdict.unknown, value={"candidates": ids},
+                          note="expected exactly one sign in the scene")
+        unread = [i for i in ids if not self.catalog.has(scene.sign(i).code)]
+        if unread:
+            return Answer(verdict=Verdict.unknown, uncertain_signs=unread,
+                          note="the sign could not be identified, so the claim cannot be checked")
+        try:
+            if p.code:
+                target = Term("codes", [atom(self.catalog.get(c).atom)
+                                        for c in self.catalog.codes_matching(p.code)])
+            elif p.meaning:
+                self.catalog.codes_for_meaning(p.meaning)  # rejects unknown meanings
+                target = Term("meaning", atom(p.meaning))
+            else:
+                target = Term("category", atom(p.category))
+        except KeyError as e:
+            raise EngineError(str(e)) from None
+        self.load_scene(scene, ids)
+        out = self.call(Term("q_is_sign", target))
+        reasons = [_reason(r) for r in out["reasons"]]
+        actual = [{"sign_id": i, "code": self.catalog.get(scene.sign(i).code).code,
+                   "name_vi": self.catalog.get(scene.sign(i).code).name_vi} for i in ids]
+        return Answer(verdict=Verdict(out["verdict"]), value={"signs": actual},
+                      reasons=reasons, citations=_cites(reasons))
+
+    def _connective(self, scene: SceneGraph, p: AllOf | AnyOf) -> Answer:
+        """Three-valued AND / OR over claims. Citations come from the parts that decide."""
+        parts = [self._run(scene, normalize(c)) for c in p.claims]
+        vs = [a.verdict if a.verdict in (Verdict.yes, Verdict.no) else Verdict.unknown
+              for a in parts]
+        decide, other = ((Verdict.no, Verdict.yes) if isinstance(p, AllOf)
+                         else (Verdict.yes, Verdict.no))
+        if decide in vs:
+            verdict, support = decide, [a for a, v in zip(parts, vs) if v == decide]
+        elif Verdict.unknown in vs:
+            verdict, support = Verdict.unknown, [a for a, v in zip(parts, vs) if v == Verdict.unknown]
+        else:
+            verdict, support = other, parts
+        return Answer(verdict=verdict, value={"parts": [v.value for v in vs]},
+                      reasons=[r for a in parts for r in a.reasons],
+                      citations=[c for a in support for c in a.citations],
+                      basis=sorted({b for a in parts for b in a.basis}))
 
     def _choose(self, scene: SceneGraph, p: Choose) -> Answer:
         options, reasons, cites = [], [], []

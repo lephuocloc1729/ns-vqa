@@ -205,6 +205,22 @@ vehicle_clear(V, Kind, Cs, C) :-
     C = C0.put(_{vehicle_id:VS, kind:Kind}).
 
 % --------------------------------------------------------------------------
+% Sign identity
+% --------------------------------------------------------------------------
+
+%!  q_is_sign(+Target, -Out) is det.  Over the selected signs: yes if every one is
+%   the named sign, no if some is not.
+q_is_sign(Target, _{verdict:VS, reasons:Rs}) :-
+    findall(S-T-D, ( G = sign_identity(S, Target, T), prove(G, P), proof_root(G, P, D) ), Raw),
+    findall(R, ( member(S1-T1-D1, Raw), reason_dict(S1, T1, D1, R) ), Rs),
+    findall(T1, member(_-T1-_, Raw), Ts),
+    (   Ts == [] -> V = unknown
+    ;   memberchk(false, Ts) -> V = no
+    ;   V = yes
+    ),
+    atom_string(V, VS).
+
+% --------------------------------------------------------------------------
 % Required directions (R.301 family, by placement)
 % --------------------------------------------------------------------------
 

@@ -19,7 +19,9 @@
            ends/2,               % ends(EndCode, EndedCode)
            standard_placement/2, % standard_placement(Code, before_intersection|after_intersection)
            placement_effect/4,   % placement_effect(Code, Placement, Directions, Scope)
-           class_interpretation/3. % class_interpretation(Class, LawId, ArticleId)
+           class_interpretation/3, % class_interpretation(Class, LawId, ArticleId)
+           catalog_key/2,        % catalog_key(Code, Key)
+           catalog_tag/2.        % catalog_tag(Code, Tag)
 
 % ---- scene facts (replaced for every query)
 :- dynamic sign/3,               % sign(S, Code, Confidence)
@@ -55,7 +57,7 @@ catalog_fact(no_priority_exempt/1). catalog_fact(value_cond/4). catalog_fact(cat
 catalog_fact(max_speed_for/2). catalog_fact(min_speed_for/2). catalog_fact(lane_board/1).
 catalog_fact(lane_reserved/2). catalog_fact(direction_sign/1). catalog_fact(only_direction/2).
 catalog_fact(ends/2). catalog_fact(standard_placement/2). catalog_fact(placement_effect/4).
-catalog_fact(class_interpretation/3).
+catalog_fact(class_interpretation/3). catalog_fact(catalog_key/2). catalog_fact(catalog_tag/2).
 
 clear_scene :-
     forall(scene_fact(N/A), (functor(H, N, A), retractall(H))).
