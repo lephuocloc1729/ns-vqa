@@ -1,0 +1,1215 @@
+# Meaning-only catalog rows: warning (W.2xx), information (I.4xx) and expressway
+# information (IE.4xx) signs. Drafted by tools/draft_catalog_rows.py from QCVN 41
+# art. 28, 36 and 47 and appendix C/E; every row cites its article.
+# These rows carry no rule effect: they let the engine name a sign, check
+# identity claims and report sign categories. Review list:
+# kb/review/meaning_rows_review.md. reviewed: false until a person checks a row.
+
+signs:
+  - code: W.201a
+    key: cho_ngoat_nguy_hiem_vong_ben_trai
+    name_vi: "Chỗ ngoặt nguy hiểm vòng bên trái"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.1"}
+
+  - code: W.201b
+    key: cho_ngoat_nguy_hiem_vong_ben_phai
+    name_vi: "Chỗ ngoặt nguy hiểm vòng bên phải"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.1"}
+
+  - code: W.201(c,d)
+    key: cho_ngoat_nguy_hiem_co_nguy_co_lat_xe
+    name_vi: "Chỗ ngoặt nguy hiểm có nguy cơ lật xe"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    variants: [c, d]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.1a"}
+
+  - code: W.202(a,b)
+    key: nhieu_cho_ngoat_nguy_hiem_lien_tiep
+    name_vi: "Nhiều chỗ ngoặt nguy hiểm liên tiếp"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    variants: [a, b]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.2"}
+
+  - code: W.203(a,b,c)
+    key: duong_bi_thu_hep
+    name_vi: "Đường bị thu hẹp"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    variants: [a, b, c]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.3"}
+
+  - code: W.204
+    key: duong_hai_chieu
+    name_vi: "Đường hai chiều"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.4"}
+
+  - code: W.205(a,b,c,d,e)
+    key: duong_giao_nhau
+    name_vi: "Đường giao nhau"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    variants: [a, b, c, d, e]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.5"}
+
+  - code: W.206
+    key: giao_nhau_chay_theo_vong_xuyen
+    name_vi: "Giao nhau chạy theo vòng xuyến"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.6"}
+
+  - code: W.207(a,b,c,d,e,f,g,h,i,k,l)
+    key: giao_nhau_voi_duong_khong_uu_tien_duong_nhanh
+    name_vi: "Giao nhau với đường không ưu tiên (đường nhánh)"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    variants: [a, b, c, d, e, f, g, h, i, k, l]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.7"}
+
+  - code: W.208
+    key: giao_nhau_voi_duong_uu_tien_duong_chinh
+    name_vi: "Giao nhau với đường ưu tiên (đường chính)"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.8"}
+
+  - code: W.209
+    key: giao_nhau_co_tin_hieu_den
+    name_vi: "Giao nhau có tín hiệu đèn"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.9"}
+
+  - code: W.210
+    key: giao_nhau_voi_duong_sat_co_rao_chan
+    name_vi: "Giao nhau với đường sắt có rào chắn"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.10"}
+
+  - code: W.211
+    key: giao_nhau_voi_duong_sat_khong_co_rao_chan
+    name_vi: "Giao nhau với đường sắt không có rào chắn"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.11"}
+
+  - code: W.212
+    key: cau_hep
+    name_vi: "Cầu hẹp"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.12"}
+
+  - code: W.213
+    key: cau_tam
+    name_vi: "Cầu tạm"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.13"}
+
+  - code: W.214
+    key: cau_quay_cau_cat
+    name_vi: "Cầu quay - cầu cất"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.14"}
+
+  - code: W.215a
+    key: ke_vuc_sau_phia_truoc
+    name_vi: "Kè, vực sâu phía trước"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.15"}
+
+  - code: W.215b
+    key: ke_vuc_sau_ben_duong_phia_ben_phai
+    name_vi: "Kè, vực sâu bên đường phía bên phải"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.15"}
+
+  - code: W.215c
+    key: ke_vuc_sau_ben_duong_phia_ben_trai
+    name_vi: "Kè, vực sâu bên đường phía bên trái"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.15"}
+
+  - code: W.216a
+    key: duong_ngam
+    name_vi: "Đường ngầm"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.16"}
+
+  - code: W.216b
+    key: duong_ngam_03_nguy_co_lu_quet
+    name_vi: "Đường ngầm 03 nguy cơ lũ quét"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.16"}
+
+  - code: W.217
+    key: ben_pha
+    name_vi: "Bến phà"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.17"}
+
+  - code: W.218
+    key: cua_chui
+    name_vi: "Cửa chui"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.18"}
+
+  - code: W.219
+    key: doc_xuong_nguy_hiem
+    name_vi: "Dốc xuống nguy hiểm"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.19"}
+
+  - code: W.220
+    key: doc_len_nguy_hiem
+    name_vi: "Dốc lên nguy hiểm"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.20"}
+
+  - code: W.221a
+    key: duong_loi_lom
+    name_vi: "Đường lồi lõm"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.21"}
+
+  - code: W.221b
+    key: duong_co_go_giam_toc
+    name_vi: "Đường có gồ giảm tốc"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.21"}
+
+  - code: W.222a
+    key: duong_tron
+    name_vi: "Đường trơn"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.22"}
+
+  - code: W.222b
+    key: le_duong_nguy_hiem
+    name_vi: "Lề đường nguy hiểm"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.22"}
+
+  - code: W.223(a,b)
+    key: vach_nui_nguy_hiem
+    name_vi: "Vách núi nguy hiểm"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    variants: [a, b]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.23"}
+
+  - code: W.224
+    key: duong_nguoi_di_bo_cat_ngang
+    name_vi: "Đường người đi bộ cắt ngang"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.24"}
+
+  - code: W.225
+    key: tre_em
+    name_vi: "Trẻ em"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.25"}
+
+  - code: W.226
+    key: duong_nguoi_di_xe_dap_cat_ngang
+    name_vi: "Đường người đi xe đạp cắt ngang"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.26"}
+
+  - code: W.227
+    key: cong_truong
+    name_vi: "Công trường"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.27"}
+
+  - code: W.228(a,b)
+    key: da_lo
+    name_vi: "Đá lở"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    variants: [a, b]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.28"}
+
+  - code: W.228c
+    key: soi_da_ban_len
+    name_vi: "Sỏi đá bắn lên"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.28"}
+
+  - code: W.228d
+    key: nen_duong_yeu
+    name_vi: "Nền đường yếu"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.28"}
+
+  - code: W.229
+    key: dai_may_bay_len_xuong
+    name_vi: "Dải máy bay lên xuống"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.29"}
+
+  - code: W.230
+    key: gia_suc
+    name_vi: "Gia súc"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.30"}
+
+  - code: W.231
+    key: thu_rung_vuot_qua_duong
+    name_vi: "Thú rừng vượt qua đường"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.31"}
+
+  - code: W.232
+    key: gio_ngang
+    name_vi: "Gió ngang"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.32"}
+
+  - code: W.233
+    key: nguy_hiem_khac
+    name_vi: "Nguy hiểm khác"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.33"}
+
+  - code: W.234
+    key: giao_nhau_voi_duong_hai_chieu
+    name_vi: "Giao nhau với đường hai chiều"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.34"}
+
+  - code: W.235
+    key: duong_doi
+    name_vi: "Đường đôi"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.35"}
+
+  - code: W.236
+    key: ket_thuc_duong_doi
+    name_vi: "Kết thúc đường đôi"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.36"}
+
+  - code: W.237
+    key: cau_vong
+    name_vi: "Cầu vồng"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.37"}
+
+  - code: W.238
+    key: duong_cao_toc_phia_truoc
+    name_vi: "Đường cao tốc phía trước"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.38"}
+
+  - code: W.239a
+    key: duong_cap_dien_o_phia_tren
+    name_vi: "Đường cáp điện ở phía trên"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.39"}
+
+  - code: W.239b
+    key: chieu_cao_tinh_khong_thuc_te
+    name_vi: "Chiều cao tĩnh không thực tế"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.39"}
+
+  - code: W.240
+    key: duong_ham
+    name_vi: "Đường hầm"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.40"}
+
+  - code: W.241
+    key: un_tac_giao_thong
+    name_vi: "Ùn tắc giao thông"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.41"}
+
+  - code: W.242(a,b)
+    key: noi_duong_sat_giao_vuong_goc_voi_duong_bo
+    name_vi: "Nơi đường sắt giao vuông góc với đường bộ"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    variants: [a, b]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.42"}
+
+  - code: W.243(a,b,c)
+    key: noi_duong_sat_giao_khong_vuong_goc_voi_duong_bo
+    name_vi: "Nơi đường sắt giao không vuông góc với đường bộ"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    variants: [a, b, c]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.43"}
+
+  - code: W.244
+    key: doan_duong_hay_xay_ra_tai_nan
+    name_vi: "Đoạn đường hay xảy ra tai nạn"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.44"}
+
+  - code: W.245a
+    key: di_cham
+    name_vi: "Đi chậm"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.45"}
+
+  - code: W.245b
+    key: di_cham_co_chi_dan_tieng_anh
+    name_vi: "Đi chậm có chỉ dẫn tiếng Anh"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.45"}
+
+  - code: W.246(a,b,c)
+    key: chu_y_chuong_ngai_vat
+    name_vi: "Chú ý chướng ngại vật"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    variants: [a, b, c]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.46"}
+
+  - code: W.247
+    key: chu_y_xe_do
+    name_vi: "Chú ý xe đỗ"
+    category: warning
+    visual: {shape: triangle, border: red, background: yellow}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.47"}
+
+  - code: I.401
+    key: bat_dau_duong_uu_tien
+    name_vi: "Bắt đầu đường ưu tiên"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.1"}
+
+  - code: I.402
+    key: het_doan_duong_uu_tien
+    name_vi: "Hết đoạn đường ưu tiên"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.2"}
+
+  - code: I.405(a,b,c)
+    key: duong_cut
+    name_vi: "Đường cụt"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    variants: [a, b, c]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.5"}
+
+  - code: I.406
+    key: duoc_uu_tien_qua_duong_hep
+    name_vi: "Được ưu tiên qua đường hẹp"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.6"}
+
+  - code: I.407(a,b,c)
+    key: duong_mot_chieu
+    name_vi: "Đường một chiều"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    variants: [a, b, c]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.7"}
+
+  - code: I.408
+    key: noi_do_xe
+    name_vi: "Nơi đỗ xe"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.8"}
+
+  - code: I.408a
+    key: noi_do_xe_mot_phan_tren_he_pho
+    name_vi: "Nơi đỗ xe một phần trên hè phố"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.8a"}
+
+  - code: I.409
+    key: cho_quay_xe
+    name_vi: "Chỗ quay xe"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.9"}
+
+  - code: I.410
+    key: khu_vuc_quay_xe
+    name_vi: "Khu vực quay xe"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.10"}
+
+  - code: I.413a
+    key: duong_phia_truoc_co_lan_duong_danh_cho_o_to_khach
+    name_vi: "Đường phía trước có làn đường dành cho ô tô khách"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.13"}
+
+  - code: I.413(b,c)
+    key: re_ra_duong_co_lan_duong_danh_cho_o_to_khach
+    name_vi: "Rẽ ra đường có làn đường dành cho ô tô khách"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    variants: [b, c]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.13"}
+
+  - code: I.414(a,b,c,d)
+    key: chi_huong_duong
+    name_vi: "Chỉ hướng đường"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    variants: [a, b, c, d]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.14"}
+
+  - code: I.415
+    key: mui_ten_chi_huong_di
+    name_vi: "Mũi tên chỉ hướng đi"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.15"}
+
+  - code: I.416
+    key: duong_tranh
+    name_vi: "Đường tránh"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.16"}
+
+  - code: I.417(a,b,c)
+    key: chi_huong_duong_phai_di_cho_tung_loai_xe
+    name_vi: "Chỉ hướng đường phải đi cho từng loại xe"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    variants: [a, b, c]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.17"}
+
+  - code: I.418
+    key: loi_di_o_nhung_vi_tri_cam_re
+    name_vi: "Lối đi ở những vị trí cấm rẽ"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.18"}
+
+  - code: I.419a
+    key: chi_dan_dia_gioi
+    name_vi: "Chỉ dẫn địa giới"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.19"}
+
+  - code: I.419b
+    key: chi_dan_dia_gioi_tren_tuyen_duong_doi_ngoai
+    name_vi: "Chỉ dẫn địa giới trên tuyến đường đối ngoại"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.19"}
+
+  - code: I.422a
+    key: di_tich_lich_su
+    name_vi: "Di tích lịch sử"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.22"}
+
+  - code: I.422b
+    key: di_tich_lich_su_tren_tuyen_duong_doi_ngoai
+    name_vi: "Di tích lịch sử trên tuyến đường đối ngoại"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.22"}
+
+  - code: I.423(a,b)
+    key: vi_tri_nguoi_di_bo_sang_ngang
+    name_vi: "Vị trí người đi bộ sang ngang"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    variants: [a, b]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.23a"}
+
+  - code: I.423c
+    key: diem_bat_dau_duong_di_bo
+    name_vi: "Điểm bắt đầu đường đi bộ"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.23b"}
+
+  - code: I.424(a,b)
+    key: cau_vuot_qua_duong_cho_nguoi_di_bo
+    name_vi: "Cầu vượt qua đường cho người đi bộ"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    variants: [a, b]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.24"}
+
+  - code: I.424(c,d)
+    key: ham_chui_qua_duong_cho_nguoi_di_bo
+    name_vi: "Hầm chui qua đường cho người đi bộ"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    variants: [c, d]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.25"}
+
+  - code: I.425
+    key: benh_vien
+    name_vi: "Bệnh viện"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.26"}
+
+  - code: I.426
+    key: tram_cap_cuu
+    name_vi: "Trạm cấp cứu"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.27"}
+
+  - code: I.427a
+    key: tram_sua_chua
+    name_vi: "Trạm sửa chữa"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.28"}
+
+  - code: I.427b
+    key: cong_trinh_kiem_soat_tai_trong_xe
+    name_vi: "Công trình kiểm soát tải trọng xe"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.29"}
+
+  - code: I.428
+    key: cua_hang_xang_dau
+    name_vi: "Cửa hàng xăng dầu"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.30"}
+
+  - code: I.429
+    key: noi_rua_xe
+    name_vi: "Nơi rửa xe"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.31"}
+
+  - code: I.430
+    key: dien_thoai
+    name_vi: "Điện thoại"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.32"}
+
+  - code: I.431
+    key: tram_dung_nghi
+    name_vi: "Trạm dừng nghỉ"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.33"}
+
+  - code: I.432
+    key: khach_san
+    name_vi: "Khách sạn"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.34"}
+
+  - code: I.433a
+    key: noi_nghi_mat
+    name_vi: "Nơi nghỉ mát"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.35a"}
+
+  - code: I.433(b,c,d)
+    key: bao_hieu_noi_cam_trai_nha_nghi_luu_dong
+    name_vi: "Báo hiệu nơi cắm trại, nhà nghỉ lưu động"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    variants: [b, c, d]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.35b"}
+
+  - code: I.433e
+    key: bao_hieu_nha_tro
+    name_vi: "Báo hiệu nhà trọ"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.35c"}
+
+  - code: I.434a
+    key: ben_xe_buyt
+    name_vi: "Bến xe buýt"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.36"}
+
+  - code: I.434b
+    key: ben_xe_tai
+    name_vi: "Bến xe tải"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.37"}
+
+  - code: I.435
+    key: ben_xe_dien
+    name_vi: "Bến xe điện"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.38"}
+
+  - code: I.436
+    key: tram_canh_sat_giao_thong
+    name_vi: "Trạm cảnh sát giao thông"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.39"}
+
+  - code: I.439
+    key: ten_cau
+    name_vi: "Tên cầu"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.42"}
+
+  - code: I.440
+    key: doan_duong_thi_cong
+    name_vi: "Đoạn đường thi công"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.43"}
+
+  - code: I.441(a,b,c)
+    key: bao_hieu_phia_truoc_co_cong_truong_thi_cong
+    name_vi: "Báo hiệu phía trước có công trường thi công"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    variants: [a, b, c]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.44"}
+
+  - code: I.442
+    key: cho
+    name_vi: "Chợ"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.45"}
+
+  - code: I.443
+    key: xe_keo_ro_mooc
+    name_vi: "Xe kéo rơ-moóc"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.46"}
+
+  - code: I.444(a,b,c,d,e,f,g,h,i,j,k,l,m)
+    key: bien_bao_chi_dan_dia_diem
+    name_vi: "Biển báo chỉ dẫn địa điểm"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    variants: [a, b, c, d, e, f, g, h, i, j, k, l, m]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.47"}
+
+  - code: I.445(a,b,c,d,e,f,g,h)
+    key: bien_bao_kieu_mo_ta_tinh_trang_duong
+    name_vi: "Biển báo kiểu mô tả tình trạng đường"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    variants: [a, b, c, d, e, f, g, h]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.48"}
+
+  - code: I.446
+    key: noi_do_xe_danh_cho_nguoi_khuyet_tat
+    name_vi: "Nơi đỗ xe dành cho người khuyết tật"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.49"}
+
+  - code: I.447(a,b,c,d)
+    key: cau_vuot_lien_thong
+    name_vi: "Cầu vượt liên thông"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    variants: [a, b, c, d]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.50"}
+
+  - code: I.448
+    key: lan_duong_cuu_nan_hay_lan_dung_xe_khan_cap
+    name_vi: "Làn đường cứu nạn hay làn dừng xe khẩn cấp"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.51"}
+
+  - code: I.449
+    key: bien_ten_duong
+    name_vi: "Biển tên đường"
+    category: information
+    visual: {shape: rectangle, border: none, background: blue}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.52"}
+
+  - code: IE.450a
+    key: chi_dan_khoang_cach_den_nut_giao_voi_duong_dan_vao_duong_cao
+    name_vi: "Chỉ dẫn khoảng cách đến nút giao với đường dẫn vào đường cao tốc"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.450b
+    key: chi_dan_so_do_den_duong_dan_vao_duong_cao_toc
+    name_vi: "Chỉ dẫn sơ đồ đến đường dẫn vào đường cao tốc"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.451a
+    key: chi_dan_khoang_cach_den_loi_vao_duong_cao_toc
+    name_vi: "Chỉ dẫn khoảng cách đến lối vào đường cao tốc"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.451b
+    key: chi_dan_loi_vao_duong_cao_toc
+    name_vi: "Chỉ dẫn lối vào đường cao tốc"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.452
+    key: chi_dan_bat_dau_duong_cao_toc
+    name_vi: "Chỉ dẫn bắt đầu đường cao tốc"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.453a
+    key: chi_dan_khoang_cach_den_diem_ket_thuc_duong_cao_toc
+    name_vi: "Chỉ dẫn khoảng cách đến điểm kết thúc đường cao tốc"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.453b
+    key: chi_dan_diem_ket_thuc_duong_cao_toc
+    name_vi: "Chỉ dẫn điểm kết thúc đường cao tốc"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.453c
+    key: het_duong_cao_toc
+    name_vi: "Hết đường cao tốc"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.454
+    key: chi_dan_khoang_cach_den_loi_ra_phia_truoc
+    name_vi: "Chỉ dẫn khoảng cách đến lối ra phía trước"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.455
+    key: chi_dan_khoang_cach_den_cac_loi_ra_tiep_theo
+    name_vi: "Chỉ dẫn khoảng cách đến các lối ra tiếp theo"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.456a
+    key: thong_bao_khoang_cach_den_tram_dung_nghi
+    name_vi: "Thông báo khoảng cách đến trạm dừng nghỉ"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.456b
+    key: chi_dan_huong_re_vao_tram_dung_nghi
+    name_vi: "Chỉ dẫn hướng rẽ vào trạm dừng nghỉ"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.456c
+    key: chi_dan_loi_vao_tram_dung_nghi
+    name_vi: "Chỉ dẫn lối vào trạm dừng nghỉ"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.457a
+    key: chi_dan_khoang_cach_den_noi_do_xe_trong_tram_dung_nghi
+    name_vi: "Chỉ dẫn khoảng cách đến nơi đỗ xe trong trạm dừng nghỉ"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.457b
+    key: chi_dan_huong_re_den_vi_tri_bai_do_xe_trong_tram_dung_nghi
+    name_vi: "Chỉ dẫn hướng rẽ đến vị trí bãi đỗ xe trong trạm dừng nghỉ"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.458
+    key: chi_dan_khoang_cach_den_cac_tram_dung_nghi_tiep_theo
+    name_vi: "Chỉ dẫn khoảng cách đến các trạm dừng nghỉ tiếp theo"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.459a
+    key: thong_bao_khoang_cach_den_khu_tham_quan_du_lich
+    name_vi: "Thông báo khoảng cách đến khu tham quan, du lịch"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.459b
+    key: chi_dan_huong_re_vao_khu_tham_quan_du_lich
+    name_vi: "Chỉ dẫn hướng rẽ vào khu tham quan, du lịch"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.460
+    key: chi_dan_cot_kilomet_tren_duong_cao_toc
+    name_vi: "Chỉ dẫn cột kilômét trên đường cao tốc"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.461
+    key: chi_dan_khoang_cach_va_huong_den_khu_dich_vu_cong_cong_giai
+    name_vi: "Chỉ dẫn khoảng cách và hướng đến khu dịch vụ công cộng, giải trí"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.462
+    key: chi_dan_tan_so_tren_song_radio
+    name_vi: "Chỉ dẫn tần số trên sóng radio"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.463a
+    key: chi_dan_khoang_cach_den_cong_trinh_kiem_soat_tai_trong_xe
+    name_vi: "Chỉ dẫn khoảng cách đến Công trình kiểm soát tải trọng xe"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.463b
+    key: chi_dan_huong_re_vao_noi_dat_cong_trinh_kiem_soat_tai_trong
+    name_vi: "Chỉ dẫn hướng rẽ vào nơi đặt Công trình kiểm soát tải trọng xe"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.463c
+    key: chi_loi_vao_cong_trinh_kiem_soat_tai_trong_xe
+    name_vi: "Chỉ lối vào Công trình kiểm soát tải trọng xe"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.464
+    key: chi_dan_dia_diem_va_phuong_huong
+    name_vi: "Chỉ dẫn địa điểm và phương hướng"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.464b
+    key: chi_dan_huong_ra_tai_loi_ra
+    name_vi: "Chỉ dẫn hướng ra tại lối ra"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.465
+    key: chi_dan_dia_diem_va_khoang_cach
+    name_vi: "Chỉ dẫn địa điểm và khoảng cách"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.466
+    key: chi_dan_so_do_loi_ra_mot_chieu_tai_tat_ca_cac_nut_giao_tren
+    name_vi: "Chỉ dẫn sơ đồ lối ra một chiều tại tất cả các nút giao trên đường cao tốc"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.467
+    key: chi_dan_vi_tri_nhap_lan
+    name_vi: "Chỉ dẫn vị trí nhập làn"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.467a
+    key: chi_dan_vi_tri_nhap_lan_xe_tai_cac_vi_tri_nut_giao_thong_co
+    name_vi: "Chỉ dẫn vị trí nhập làn xe tại các vị trí nút giao thông có lưu lượng xe lớn"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.468a
+    key: chi_dan_di_theo_huong_ben_trai
+    name_vi: "Chỉ dẫn đi theo hướng bên trái"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.468b
+    key: chi_dan_di_duoc_ca_hai_huong
+    name_vi: "Chỉ dẫn đi được cả hai hướng"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.468c
+    key: chi_dan_di_theo_huong_ben_phai
+    name_vi: "Chỉ dẫn đi theo hướng bên phải"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.469
+    key: chi_dan_huong_re
+    name_vi: "Chỉ dẫn hướng rẽ"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.470
+    key: chi_dan_so_dien_thoai_khan_cap
+    name_vi: "Chỉ dẫn số điện thoại khẩn cấp"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.471
+    key: chi_dan_giu_khoang_cach_lai_xe_an_toan
+    name_vi: "Chỉ dẫn giữ khoảng cách lái xe an toàn"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.472(a,b)
+    key: chi_dan_khoang_cach_den_tram_thu_phi
+    name_vi: "Chỉ dẫn khoảng cách đến trạm thu phí"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    variants: [a, b]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.473
+    key: canh_bao_cho_nguoi_dieu_khien_phuong_tien_chu_y_lai_xe_va_gi
+    name_vi: "Cảnh báo cho người điều khiển phương tiện chú ý lái xe và giảm tốc độ tại khu vực có"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
+
+  - code: IE.474
+    key: chi_dan_loi_ra
+    name_vi: "Chỉ dẫn lối ra"
+    category: information
+    visual: {shape: rectangle, border: none, background: green}
+    meaning_only: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}

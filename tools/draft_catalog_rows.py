@@ -1,0 +1,264 @@
+"""Draft meaning-only catalog rows for warning (W), information (I) and expressway
+information (IE) signs from the dataset's law_db, with citations.
+
+Authoring tool, run by hand; the output is reviewed and committed as
+kb/sign_catalog_meaning.yaml. Not inference code.
+
+    .venv/bin/python tools/draft_catalog_rows.py            # writes the YAML and a review list
+    .venv/bin/python tools/draft_catalog_rows.py --dry-run  # prints stats only
+
+Sources:
+  W.2xx  names from QCVN 41 art. 28 list, cited to the appendix C article that
+         describes the sign (fallback: art. 28)
+  I.4xx  names from art. 36 list, cited to the appendix E article (fallback: art. 36)
+  IE.4xx names from the descriptions in art. 47, cited to art. 47
+
+A row is flagged for review when the variant letters are not described one by
+one in the text (they may differ only in a figure), when no appendix article
+was found, or when an expressway name had to be cut from a longer sentence.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import random
+import re
+import unicodedata
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+LAW = Path(os.environ.get("VQA_DATASET_DIR", ROOT / "VLSP2025-MLQA-Natural")) / "dataset" / "law_db" / "vlsp2025_law.json"
+OUT = ROOT / "kb" / "sign_catalog_meaning.yaml"
+REVIEW = ROOT / "kb" / "review" / "meaning_rows_review.md"
+QCVN = "QCVN 41:2024/BGTVT"
+
+# Expressway rows whose name cannot be cut from the text automatically. Each name is
+# taken from QCVN 41 art. 47 as written (sentence or figure caption).
+IE_OVERRIDES = {
+    "IE.463a": ("Chỉ dẫn khoảng cách đến Công trình kiểm soát tải trọng xe", []),
+    "IE.463b": ("Chỉ dẫn hướng rẽ vào nơi đặt Công trình kiểm soát tải trọng xe", []),
+    "IE.464b": ("Chỉ dẫn hướng ra tại lối ra",
+                ["name from figure caption Hình 11', which prints the code as 'E.464b'"]),
+}
+# Families described only as a whole, with lettered variants in a figure.
+IE_FAMILIES = {
+    "IE.472": ("Chỉ dẫn khoảng cách đến trạm thu phí", ["a", "b"],
+               ["variant letters a,b are shown only in figure Hình 31"]),
+}
+IE_DROP = {"IE.472a"}  # picked up from a figure label, not a description
+
+VISUAL = {
+    "warning": {"shape": "triangle", "border": "red", "background": "yellow"},
+    "information": {"shape": "rectangle", "border": "none", "background": "blue"},
+    "expressway": {"shape": "rectangle", "border": "none", "background": "green"},
+}
+
+
+def fold(s: str) -> str:
+    s = s.replace("đ", "d").replace("Đ", "D")
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    return re.sub(r"[^a-z0-9]+", "_", s.lower()).strip("_")
+
+
+def clean(t: str) -> str:
+    t = re.sub(r"<<TABLE:.*?>>", " ", t, flags=re.S)
+    return re.sub(r"<<IMAGE:[^>]*>>", " ", t)
+
+
+def norm_code(c: str) -> str:
+    return re.sub(r"\s+", "", c)
+
+
+def appendix_article(articles: dict, prefix: str, family: str) -> str | None:
+    """The appendix article (C.x / E.x) whose title names this code family."""
+    fam = norm_code(family)
+    for aid, a in articles.items():
+        if not aid.startswith(prefix):
+            continue
+        title = norm_code(a["title"]).replace("W", "W").replace(" ", "")
+        if re.search(re.escape(fam) + r"(?![0-9])", title):
+            return aid
+    return None
+
+
+def bullet_names(text: str, family: str) -> dict[str, str]:
+    """'- Biển số W.201a chỗ ngoặt nguy hiểm vòng bên trái;' -> {'a': '...'}."""
+    out = {}
+    fam = re.escape(family)
+    for m in re.finditer(r"^\s*-\s*Biển số\s*" + fam + r"([a-z])\s*[:“\"]?\s*([^;\n]+)",
+                         text, flags=re.M):
+        name = m.group(2).strip().strip('”"').strip()
+        if name and not name.lower().startswith(("đặt", "dùng", "được")):
+            out[m.group(1)] = name
+    return out
+
+
+def list_rows(articles: dict, art: str, kind: str, appendix: str) -> list[dict]:
+    rows = []
+    for line in clean(articles[art]["text"]).split("\n"):
+        m = re.match(r"\s*-\s*Biển số\s*((?:W|I)\.\s?\d+)\s*(\(([a-z,\s]+)\)|([a-z]))?\s*:\s*(.+?)[;.]?\s*$",
+                     line)
+        if not m:
+            continue
+        family = norm_code(m.group(1))
+        letters = ([x.strip() for x in m.group(3).split(",") if x.strip()] if m.group(3)
+                   else [m.group(4)] if m.group(4) else [])
+        names = [n.strip() for n in m.group(5).split(";") if n.strip()]
+        tries = ([f"{family}({','.join(letters)})"] if len(letters) > 1 else []) \
+            + ([family + letters[0]] if letters else []) + [family]
+        aid = next((a for a in (appendix_article(articles, appendix, t) for t in tries) if a), None)
+        source = aid or art
+        base_flags = [] if aid else [f"no appendix article found; cited to art. {art}"]
+        text = clean(articles[aid]["text"]) if aid else ""
+        if len(letters) <= 1:
+            rows.append(row(family + (letters[0] if letters else ""), names[0], kind, source, base_flags))
+            continue
+        per = {}
+        if len(names) == len(letters):
+            per = dict(zip(letters, names))
+        else:
+            bn = bullet_names(text, family)
+            if all(l in bn for l in letters):
+                per = {l: bn[l] for l in letters}
+        if not per and len(names) == 1:
+            # "Đi chậm (a), Đi chậm có chỉ dẫn tiếng Anh (b)"
+            tagged = dict((l, n.strip(" ,")) for n, l in
+                          re.findall(r"([^()]+?)\s*\(([a-z])\)", names[0]))
+            if set(tagged) == set(letters):
+                per = tagged
+        if per:
+            for l in letters:
+                rows.append(row(family + l, per[l], kind, source, base_flags))
+        else:
+            rows.append(row(f"{family}({','.join(letters)})", names[0], kind, source,
+                            base_flags + ["variant letters " + ",".join(letters)
+                                          + " are not described one by one in the text"],
+                            variants=letters))
+    return rows
+
+
+def expressway_rows(articles: dict) -> list[dict]:
+    text = clean(articles["47"]["text"])
+    seen: dict[str, dict] = {}
+    for m in re.finditer(r"Biển số\s*(IE\.\s?\d+[a-z]?)\s*([“\"]([^”\"]+)[”\"]|([^.;(\n]+))", text):
+        code = norm_code(m.group(1))
+        if code in seen:
+            continue
+        name = (m.group(3) or m.group(4) or "").strip()
+        name = re.split(r"\s+(?:dùng để|được đặt|đặt|Biển này|bao gồm|được sử dụng|để báo|"
+                        r"được bố trí|được lắp đặt|\(Hình)", name)[0].strip(" ,:")
+        if not name or name.lower().startswith(("tại", "sử dụng", "(")) or len(name.split()) < 2:
+            continue
+        flags = []
+        if len(name.split()) > 20:
+            name = " ".join(name.split()[:20])
+            flags.append("name cut from a longer sentence")
+        seen[code] = row(code, name, "expressway", "47", flags)
+    for code, (name, flags) in IE_OVERRIDES.items():
+        seen[code] = row(code, name, "expressway", "47", flags)
+    for code, (name, letters, flags) in IE_FAMILIES.items():
+        seen[code] = row(f"{code}({','.join(letters)})", name, "expressway", "47", flags,
+                         variants=letters)
+    for code in IE_DROP:
+        seen.pop(code, None)
+    # a family row is dropped when two or more lettered rows exist (it repeats a caption)
+    bases = [re.sub(r"[a-z]$", "", c) for c in seen if re.search(r"\d[a-z]$", c)]
+    lettered = {b for b in bases if bases.count(b) >= 2}
+    out = [r for c, r in seen.items() if c not in lettered]
+    return sorted(out, key=lambda r: r["code"])
+
+
+def row(code: str, name: str, kind: str, source: str, flags: list[str],
+        variants: list[str] | None = None) -> dict:
+    name = re.sub(r"\s+", " ", name).strip().strip('“”"').rstrip(".;")
+    name = name[:1].upper() + name[1:]
+    return {"code": code, "name_vi": name, "kind": kind, "source": source,
+            "flags": flags, "variants": variants or []}
+
+
+def to_yaml(rows: list[dict]) -> str:
+    out = [
+        "# Meaning-only catalog rows: warning (W.2xx), information (I.4xx) and expressway",
+        "# information (IE.4xx) signs. Drafted by tools/draft_catalog_rows.py from QCVN 41",
+        "# art. 28, 36 and 47 and appendix C/E; every row cites its article.",
+        "# These rows carry no rule effect: they let the engine name a sign, check",
+        "# identity claims and report sign categories. Review list:",
+        "# kb/review/meaning_rows_review.md. reviewed: false until a person checks a row.",
+        "",
+        "signs:",
+    ]
+    keys = set()
+    for r in rows:
+        key = fold(r["name_vi"])[:60].strip("_")
+        if key in keys:
+            key = f"{key}_{fold(r['code'])}"
+        keys.add(key)
+        cat = "warning" if r["kind"] == "warning" else "information"
+        v = VISUAL[r["kind"]]
+        out += [
+            f"  - code: {r['code']}",
+            f"    key: {key}",
+            f"    name_vi: {json.dumps(r['name_vi'], ensure_ascii=False)}",
+            f"    category: {cat}",
+            f"    visual: {{shape: {v['shape']}, border: {v['border']}, background: {v['background']}}}",
+            "    meaning_only: true",
+        ]
+        if r["variants"]:
+            out.append(f"    variants: [{', '.join(r['variants'])}]")
+        out.append(f"    source: {{law_id: \"{QCVN}\", article_id: \"{r['source']}\"}}")
+        out.append("")
+    return "\n".join(out)
+
+
+def review_md(rows: list[dict], seed: int = 1611) -> str:
+    flagged = [r for r in rows if r["flags"]]
+    clean_rows = [r for r in rows if not r["flags"]]
+    k = max(1, round(len(clean_rows) * 0.10))
+    sample = sorted(random.Random(seed).sample(clean_rows, k), key=lambda r: rows.index(r))
+    lines = [
+        "# Meaning-only rows: review list",
+        "",
+        f"{len(rows)} rows drafted ({sum(r['kind']=='warning' for r in rows)} W, "
+        f"{sum(r['kind']=='information' for r in rows)} I, "
+        f"{sum(r['kind']=='expressway' for r in rows)} IE). "
+        f"{len(flagged)} flagged, plus a random 10% sample ({k}) of the unflagged rows "
+        f"(seed {seed}) to spot-check.",
+        "",
+        "## Flagged rows",
+        "",
+        "| Code | Name (vi) | Cited | Why flagged |",
+        "| --- | --- | --- | --- |",
+    ]
+    for r in flagged:
+        lines.append(f"| {r['code']} | {r['name_vi']} | {r['source']} | {'; '.join(r['flags'])} |")
+    lines += ["", "## Random sample of unflagged rows", "",
+              "| Code | Name (vi) | Cited |", "| --- | --- | --- |"]
+    for r in sample:
+        lines.append(f"| {r['code']} | {r['name_vi']} | {r['source']} |")
+    return "\n".join(lines) + "\n"
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dry-run", action="store_true")
+    args = ap.parse_args()
+    law = json.loads(LAW.read_text(encoding="utf-8"))
+    qcvn = {a["id"]: a for a in law[0]["articles"]}
+    rows = (list_rows(qcvn, "28", "warning", "C.") + list_rows(qcvn, "36", "information", "E.")
+            + expressway_rows(qcvn))
+    print(f"{len(rows)} rows, {sum(bool(r['flags']) for r in rows)} flagged")
+    if args.dry_run:
+        for r in rows:
+            print(r["code"], r["variants"], r["source"], r["name_vi"][:60], r["flags"])
+        return
+    OUT.write_text(to_yaml(rows), encoding="utf-8")
+    REVIEW.parent.mkdir(parents=True, exist_ok=True)
+    REVIEW.write_text(review_md(rows), encoding="utf-8")
+    print(f"-> {OUT.relative_to(ROOT)}, {REVIEW.relative_to(ROOT)}")
+
+
+if __name__ == "__main__":
+    main()

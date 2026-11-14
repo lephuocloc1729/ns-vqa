@@ -26,7 +26,9 @@ def test_every_row_has_an_effect_or_is_auxiliary(catalog):
         e = s.effect
         has_effect = any([e.prohibits, e.max_speed, e.min_speed, e.lane_board,
                           e.lane_reserved, e.only_directions, e.ends])
-        assert has_effect or s.category == "auxiliary", s.code
+        assert has_effect or s.category == "auxiliary" or s.meaning_only, s.code
+        if s.meaning_only:
+            assert not has_effect and s.category in ("warning", "information"), s.code
 
 
 def test_code_atoms():
@@ -44,7 +46,7 @@ def test_every_source_exists_in_law_db(catalog):
         assert key in articles, f"{s.code}: {key} not in law_db"
         # Appendix articles name the code they describe ("Biển số P.104 ...").
         if s.source.article_id[0] in "BCDEF":
-            base = s.code.rstrip("abcdefgh") if s.code[-1].isalpha() else s.code
+            base = s.base.rstrip("abcdefghijklm") if s.base[-1].isalpha() else s.base
             text = articles[key]["title"] + articles[key]["text"]
             assert base.replace(" ", "") in text.replace(" ", ""), \
                 f"{s.code} not mentioned in {key}"

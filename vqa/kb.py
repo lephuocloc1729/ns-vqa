@@ -15,8 +15,9 @@ from vqa.reasoning.terms import Term, atom, cond_term, spec_term
 
 KB_DIR = Path(__file__).resolve().parent.parent / "kb"
 CATALOG_PATH = KB_DIR / "sign_catalog.yaml"
+MEANING_PATH = KB_DIR / "sign_catalog_meaning.yaml"  # meaning-only rows (W, I, IE)
 
-_CODE_RE = re.compile(r"^(P|DP|R|W|I|S)\.[0-9A-Za-z,()]+$")
+_CODE_RE = re.compile(r"^(P|DP|R|W|IE|I|S)\.[0-9A-Za-z,()]+$")
 
 
 def code_atom(code: str) -> str:
@@ -90,17 +91,27 @@ class Visual(_M):
 
 
 class CatalogSign(_M):
-    code: str
+    code: str  # "P.104", or a family with its variants in QCVN notation: "W.207(a,b,c)"
     key: str
     tags: list[str] = []
     name_vi: str
-    name_en: str
+    name_en: str | None = None
     category: Literal["prohibitory", "mandatory", "warning", "information", "auxiliary",
                       "end_of_restriction"]
     visual: Visual
     effect: Effect = Effect()
+    meaning_only: bool = False  # names the sign; carries no rule effect
+    variants: list[str] = []    # letters a family row stands for
     source: Citation
     reviewed: bool = False
+
+    @property
+    def base(self) -> str:
+        return self.code.split("(")[0]
+
+    def answers_to(self, code: str) -> bool:
+        """True for the row's own code, or base + one of its variant letters."""
+        return code == self.code or any(code == self.base + v for v in self.variants)
 
     @model_validator(mode="after")
     def _check(self) -> "CatalogSign":
@@ -142,8 +153,9 @@ class Catalog(_M):
         """Catalog codes a claimed code stands for: the code itself, or every row of a
         family ("W.221" matches W.221a and W.221b). Raises KeyError if none."""
         if self.has(code):
-            return [code]
-        fam = [s.code for s in self.signs if re.fullmatch(re.escape(code) + r"[a-z]", s.code)]
+            return [self.get(code).code]
+        fam = [s.code for s in self.signs
+               if re.fullmatch(re.escape(code) + r"[a-z]", s.code) or s.base == code]
         if not fam:
             raise KeyError(f"unknown sign code {code!r}")
         return fam
@@ -156,13 +168,17 @@ class Catalog(_M):
         return codes
 
     def get(self, code: str) -> CatalogSign:
+        """The row for a code; a variant code ("W.207c") resolves to its family row."""
         for s in self.signs:
             if s.code == code:
+                return s
+        for s in self.signs:
+            if s.answers_to(code):
                 return s
         raise KeyError(code)
 
     def has(self, code: str) -> bool:
-        return any(s.code == code for s in self.signs)
+        return any(s.answers_to(code) for s in self.signs)
 
     def by_atom(self, a: str) -> CatalogSign:
         for s in self.signs:
@@ -226,9 +242,14 @@ class Catalog(_M):
 
 
 @lru_cache(maxsize=4)
-def load_catalog(path: str | Path = CATALOG_PATH) -> Catalog:
+def load_catalog(path: str | Path = CATALOG_PATH,
+                 meaning_path: str | Path | None = MEANING_PATH) -> Catalog:
+    """The rule catalog, plus the meaning-only rows when that file exists."""
     with open(path, encoding="utf-8") as f:
         raw = yaml.safe_load(f)
+    if meaning_path and Path(meaning_path).exists():
+        with open(meaning_path, encoding="utf-8") as f:
+            raw["signs"] = raw["signs"] + yaml.safe_load(f)["signs"]
     return Catalog.model_validate(raw)
 
 

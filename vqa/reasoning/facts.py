@@ -40,7 +40,8 @@ def sign_facts(sign: Sign, catalog: Catalog) -> list[Term]:
     if sign.code == UNKNOWN_CODE:
         return []
     s = atom(sign.id)
-    code = atom(code_atom(sign.code))
+    # a variant code ("W.207c") uses its family row's atom
+    code = atom(catalog.get(sign.code).atom if catalog.has(sign.code) else code_atom(sign.code))
     out: list[Term] = [Term("sign", s, code, atom(sign.confidence.value))]
     if sign.value is not None:
         out.append(Term("sign_value", s, float(sign.value)))
