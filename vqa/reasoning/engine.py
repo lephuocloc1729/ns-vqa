@@ -18,7 +18,7 @@ from vqa.reasoning.terms import Term, atom, to_prolog, vehicle_term
 from vqa.parsing.dsl import normalize
 from vqa.schemas import (
     AllOf, Answer, AnyOf, BanTimes, Choose, ExistsViolation, IsSign, LanesFor, LanesWhere,
-    Meaning, Permitted,
+    LaneVehicles, Meaning, Permitted, SpeedLimit,
     Program, QueryProgram, Reason, Required, SceneGraph, Selector, SpeedOk, Vehicle,
     VehicleClass, Verdict, Verify, When, WhichVehicles,
 )
@@ -68,7 +68,7 @@ def _minute(t: dt.time) -> int:
     return t.hour * 60 + t.minute
 
 
-def _ctx(when: When | None, scene: SceneGraph) -> Term:
+def _ctx(when: When | None, scene: SceneGraph, lane: int | None = None) -> Term:
     minute: int | None = None
     day: int | None = None
     if when is not None:
@@ -79,7 +79,7 @@ def _ctx(when: When | None, scene: SceneGraph) -> Term:
     elif scene.context.datetime is not None:
         t: dt.datetime = scene.context.datetime
         minute, day = t.hour * 60 + t.minute, t.day
-    return Term("ctx", minute, day)
+    return Term("ctx", minute, day, lane)
 
 
 def _fmt_min(m: int) -> str:
@@ -173,6 +173,10 @@ class Engine:
             return self._is_sign(scene, p)
         if isinstance(p, WhichVehicles):
             return self._which_vehicles(scene, p)
+        if isinstance(p, LaneVehicles):
+            return self._lane_vehicles(scene, p)
+        if isinstance(p, SpeedLimit):
+            return self._speed_limit(scene, p)
         if isinstance(p, (AllOf, AnyOf)):
             return self._connective(scene, p)
         if isinstance(p, Verify):
@@ -182,7 +186,7 @@ class Engine:
         if isinstance(p, SpeedOk):
             self.load_scene(scene)
             out = self.call(Term("q_speed", vehicle_term(p.vehicle), float(p.speed_kmh),
-                                 p.lane, _ctx(p.when, scene)))
+                                 p.lane, _ctx(p.when, scene, p.lane)))
             return _verdict_answer(out)
         if isinstance(p, (LanesFor, LanesWhere)):
             return self._lanes(scene, p)
@@ -206,13 +210,13 @@ class Engine:
         if p.when is not None and p.when.is_interval:
             d1, d2 = _days(p.when)
             out = self.call(Term("q_permitted_iv", atom(p.action.value), vehicle_term(p.vehicle),
-                                 _minute(p.when.start), _minute(p.when.end), d1, d2,
+                                 _minute(p.when.start), _minute(p.when.end), d1, d2, p.lane,
                                  atom(p.when.quantifier.value)))
             ans = _verdict_answer(out)
             return ans.model_copy(update={"value": {
                 "decided_at": _fmt_min(out["minute"]), "moments_checked": out["checked"]}})
         out = self.call(Term("q_permitted", atom(p.action.value), vehicle_term(p.vehicle),
-                             _ctx(p.when, scene)))
+                             _ctx(p.when, scene, p.lane)))
         return _verdict_answer(out)
 
     def _lanes(self, scene: SceneGraph, p: LanesFor | LanesWhere) -> Answer:
@@ -224,7 +228,8 @@ class Engine:
         per_lane, reasons = [], []
         for lane in range(1, n + 1):
             out = self.call(Term("q_lane", vehicle_term(p.vehicle), lane,
-                                 atom("none") if speed is None else speed, _ctx(p.when, scene)))
+                                 atom("none") if speed is None else speed,
+                                 _ctx(p.when, scene, lane)))
             per_lane.append({"lane": lane, "verdict": out["verdict"]})
             reasons += _supporting(out)
         want = "yes" if isinstance(p, LanesFor) or p.ok else "no"
@@ -367,6 +372,54 @@ class Engine:
                       value={p.status: hits, "conditional": conditional,
                              "per_class": {c: v for c, (v, _) in results.items()}},
                       reasons=support, citations=_cites(support), basis=_basis(support))
+
+    def _lane_vehicles(self, scene: SceneGraph, p: LaneVehicles) -> Answer:
+        n = scene_lane_count(scene)
+        if n and p.lane > n:
+            return Answer(verdict=Verdict.unknown, note=f"the scene shows {n} lanes")
+        self.load_scene(scene)
+        ctx = _ctx(p.when, scene, p.lane)
+        speed = atom("none") if p.speed_kmh is None else float(p.speed_kmh)
+        results = {}
+        for c in VehicleClass:
+            out = self.call(Term("q_lane", Term("veh", atom(c.value), []), p.lane, speed, ctx))
+            results[c.value] = (out["verdict"], out)
+        hits, conditional = self.report_classes(results, "yes" if p.status == "allowed" else "no")
+        support = [r for c in hits + conditional for r in _supporting(results[c][1])]
+        return Answer(verdict=Verdict.value,
+                      value={p.status: hits, "conditional": conditional, "lane": p.lane},
+                      reasons=support, citations=_cites(support), basis=_basis(support))
+
+    def _speed_limit(self, scene: SceneGraph, p: SpeedLimit) -> Answer:
+        self.load_scene(scene)
+        veh = vehicle_term(p.vehicle)
+
+        def limit(lane: int | None) -> tuple[dict[str, Any], list[Reason]]:
+            out = self.call(Term("q_speed_limit", veh, atom(p.kind), _ctx(p.when, scene, lane)))
+            return out, [_reason(r) for r in out["reasons"]]
+
+        def first(xs: list) -> Any:
+            return xs[0] if xs else None
+
+        out, reasons = limit(p.lane)
+        value: dict[str, Any] = {"kind": p.kind, "lane": p.lane, "limit": first(out["limit"]),
+                                 "sign_id": first(out["sign_id"]), "conditional": out["conditional"]}
+        has_board = any(self.catalog.has(s.code) and self.catalog.get(s.code).effect.lane_board
+                        for s in scene.signs)
+        if p.lane is None and has_board and (n := scene_lane_count(scene)):
+            value["per_lane"] = []
+            for lane in range(1, n + 1):
+                o, r = limit(lane)
+                value["per_lane"].append({"lane": lane, "limit": first(o["limit"]),
+                                          "conditional": o["conditional"]})
+                reasons += r
+        found = value["limit"] is not None or any(x["limit"] is not None
+                                                 for x in value.get("per_lane", []))
+        if not found and not out["conditional"]:
+            return Answer(verdict=Verdict.unknown, value=value,
+                          note="no speed sign applies; limits by road type are not modelled")
+        return Answer(verdict=Verdict.value, value=value, reasons=reasons,
+                      citations=_cites(reasons), basis=_basis(reasons))
 
     def _is_sign(self, scene: SceneGraph, p: IsSign) -> Answer:
         ids = self.resolve(scene, p.sign)

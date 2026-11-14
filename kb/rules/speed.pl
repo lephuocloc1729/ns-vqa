@@ -48,7 +48,8 @@ speed_violation(Veh, Speed, Lane, Ctx, S, T) :-
     applies(S, Code, [Spec], Veh, Ctx, T1),
     and3([T0, T1], T).
 
-max_speed_sign(Veh, Speed, Lane, Ctx, S, [limit-T0, lane-T1|Checks]) :-
+% Lane is the lane in Ctx; assess/6 checks it against the lanes the sign covers.
+max_speed_sign(Veh, Speed, _Lane, Ctx, S, [limit-T0|Checks]) :-
     scene_sign(S, Code),
     max_speed_for(Code, Class),
     cite(r_prohibition),
@@ -56,18 +57,49 @@ max_speed_sign(Veh, Speed, Lane, Ctx, S, [limit-T0, lane-T1|Checks]) :-
     catalog_sign(Code, _, _, _),
     limit_value(S, Max),
     cmp_truth(gt, Speed, Max, T0),
-    lane_check(S, Lane, T1),
     assess(S, Code, [spec(Class, [])], Veh, Ctx, Checks).
 
-min_speed_sign(Veh, Speed, Lane, Ctx, S, [limit-T0, lane-T1|Checks]) :-
+min_speed_sign(Veh, Speed, _Lane, Ctx, S, [limit-T0|Checks]) :-
     scene_sign(S, Code),
     min_speed_for(Code, Class),
     cite(r_min_speed),
     catalog_sign(Code, _, _, _),
     limit_value(S, Min),
     cmp_truth(lt, Speed, Min, T0),
-    lane_check(S, Lane, T1),
     assess(S, Code, [spec(Class, [])], Veh, Ctx, Checks).
+
+% ---- the binding limit (rule family: speed limits, value query)
+
+%!  limit_candidate(+Veh, +Ctx, +Kind, -S, -V, -T) is nondet.
+%   Sign S sets a Kind (max | min) limit V for Veh in Ctx (T = true or unknown).
+limit_candidate(Veh, Ctx, max, S, V, T) :-
+    scene_sign(S, Code),
+    max_speed_for(Code, Class),
+    cite(r_prohibition),
+    cite(r_max_speed),
+    catalog_sign(Code, _, _, _),
+    sign_value(S, V),
+    applies(S, Code, [spec(Class, [])], Veh, Ctx, T).
+limit_candidate(Veh, Ctx, min, S, V, T) :-
+    scene_sign(S, Code),
+    min_speed_for(Code, Class),
+    cite(r_min_speed),
+    catalog_sign(Code, _, _, _),
+    sign_value(S, V),
+    applies(S, Code, [spec(Class, [])], Veh, Ctx, T).
+limit_candidate(Veh, Ctx, Kind, S, V, T) :-
+    scene_sign(S, Code),
+    lane_board(Code),
+    catalog_sign(Code, _, _, _),
+    cite(r_prohibition),
+    board_limit(Kind, S, L, Spec, V),
+    Ctx = ctx(_, _, Lane),
+    lane_truth(Lane, L, T0), T0 \== false,
+    applies(S, Code, [Spec], Veh, Ctx, T1),
+    and3([T0, T1], T).
+
+board_limit(max, S, L, Spec, V) :- lane_limit(S, L, Spec, V).
+board_limit(min, S, L, Spec, V) :- lane_min(S, L, Spec, V).
 
 leaf(limit_value(_, _)).
 %!  limit_value(+S, -V) is det.  The number on the sign, or unknown if it was not read.

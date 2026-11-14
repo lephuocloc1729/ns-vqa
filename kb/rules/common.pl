@@ -6,8 +6,9 @@
     unknown, never false (DESIGN.md, "Symbolic scene graph").
 
     Vehicles are veh(Class, Attrs) with Attrs a list of a(Attr, Value); an
-    attribute that is not listed is unknown. Contexts are ctx(Minute, Day):
-    minute of the day and day of the month, either may be `unknown`.
+    attribute that is not listed is unknown. Contexts are ctx(Minute, Day, Lane):
+    minute of the day, day of the month and the lane asked about (1 = leftmost);
+    any of them may be `unknown`.
 */
 
 :- multifile leaf/1.
@@ -176,7 +177,7 @@ vehicle_plate_specs(S, Specs) :- findall(Sp, plate_vehicle(S, Sp), Specs).
 %!  time_check(+S, +Ctx, -T) is det.  true = inside a time window (or no time plate).
 time_check(S, _, true) :-
     \+ plate_time(S, _, _).
-time_check(S, ctx(M, _), T) :-
+time_check(S, ctx(M, _, _), T) :-
     has_time_plate(S),
     cite(r_aux_plate),
     cite(r_time_plate),
@@ -201,13 +202,13 @@ in_window(M, F, T) :- F > T, ( M >= F ; M =< T ).
 %!  day_check(+S, +Code, +Ctx, -T) is det.  true = right day parity (or none required).
 day_check(S, Code, _, true) :-
     \+ sign_days(S, Code, _).
-day_check(S, Code, ctx(_, D), T) :-
+day_check(S, Code, ctx(_, D, _), T) :-
     has_day_plate(S),
     cite(r_aux_plate),
     cite(r_time_plate),
     sign_days(S, Code, P),
     day_truth(D, P, T).
-day_check(S, Code, ctx(_, D), T) :-
+day_check(S, Code, ctx(_, D, _), T) :-
     \+ plate_days(S, _),
     catalog_days(Code, P),
     day_truth(D, P, T).
@@ -273,15 +274,17 @@ sign_lanes_truth(S, Lane, T) :-
 % --------------------------------------------------------------------------
 
 %!  assess(+S, +Code, +Specs, +Veh, +Ctx, -Checks) is det.
-%   Checks = [vehicle-T, exception-T, plate-T, time-T, day-T, scope-T].
+%   Checks = [vehicle-T, exception-T, plate-T, time-T, day-T, scope-T, lane-T].
 assess(S, Code, Specs0, Veh, Ctx,
-       [vehicle-T1, exception-T2, plate-T3, time-T4, day-T5, scope-T6]) :-
+       [vehicle-T1, exception-T2, plate-T3, time-T4, day-T5, scope-T6, lane-T7]) :-
     sign_specs(S, Code, Specs0, Specs),
     vehicle_basis(Veh),
     any_spec_match(Specs, Veh, T1),
     exception_check(S, Code, Veh, T2),
     conditions_check(S, Code, Veh, Ctx, T3, T4, T5),
-    scope_check(Code, T6).
+    scope_check(Code, T6),
+    Ctx = ctx(_, _, Lane),
+    lane_check(S, Lane, T7).
 
 %!  conditions_check(+S, +Code, +Veh, +Ctx, -Tvehicle, -Ttime, -Tday) is det.
 %   Plates, or the sign's condition groups when it has them.
@@ -309,7 +312,7 @@ leaf(groups_truth(_, _, _, _, _, _, _)).
 %   The sign applies when some group matches both vehicle and time (and day).
 %   Tv: some group's vehicles match; Tt: some group matches vehicle and time;
 %   Td: some group matches vehicle, time and day. Td is the exact answer.
-groups_truth(S, Code, Veh, ctx(M, D), Tv, Tt, Td) :-
+groups_truth(S, Code, Veh, ctx(M, D, _), Tv, Tt, Td) :-
     findall(V-T-Dy, ( group(S, G),
                       group_vehicle_truth(S, G, Veh, V),
                       group_time_truth(S, G, M, T),

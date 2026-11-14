@@ -30,6 +30,13 @@ forbids(Action, Veh, Ctx, S, T) :-
     cite(r_mandatory_direction),
     applies(S, Code, [spec(vehicle, [])], Veh, Ctx, T).
 
+% With a lane asked about, a lane open only to other vehicles (P.127c, R.412,
+% R.415a) forbids entering it.
+forbids(enter, Veh, Ctx, S, T) :-
+    Ctx = ctx(_, _, Lane),
+    integer(Lane),
+    lane_block(Veh, Lane, Ctx, S, T).
+
 % ---- why a sign that concerns the action does not forbid it
 
 clears(Action, Veh, Ctx, S, Why) :-
@@ -48,6 +55,11 @@ clears(Action, Veh, Ctx, S, Why) :-
     direction_check(Code, Action, T0),
     assess(S, Code, [spec(vehicle, [])], Veh, Ctx, Checks),
     first_false([direction-T0|Checks], Why).
+
+clears(enter, Veh, Ctx, S, Why) :-
+    Ctx = ctx(_, _, Lane),
+    integer(Lane),
+    lane_clears(Veh, Lane, Ctx, S, Why).
 
 %!  direction_check(+Code, +Action, -T) is det.  true = the sign forbids this direction.
 direction_check(Code, Action, false) :-

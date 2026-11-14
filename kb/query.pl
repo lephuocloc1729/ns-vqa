@@ -122,10 +122,10 @@ q_lane(Veh, Lane, Speed, Ctx, _{verdict:VS, reasons:R, clears:Cs}) :-
 %   For every sign that may forbid Action for Veh: its time windows and whether
 %   the ban holds inside them (true) or still depends on something else (unknown).
 q_ban_times(Action, Veh, _{items:Items, clears:Cs}) :-
-    findall(S, prove(forbids(Action, Veh, ctx(unknown, unknown), S, _), _), Ss0),
+    findall(S, prove(forbids(Action, Veh, ctx(unknown, unknown, unknown), S, _), _), Ss0),
     sort(Ss0, Ss),
     findall(I, ( member(S, Ss), ban_item(Action, Veh, S, I) ), Items),
-    permitted_clears(Action, Veh, ctx(unknown, unknown), Ss, Cs).
+    permitted_clears(Action, Veh, ctx(unknown, unknown, unknown), Ss, Cs).
 
 ban_item(Action, Veh, S, _{sign_id:SS, windows:Ws, days:DS, truth:TS, proof:D}) :-
     atom_string(S, SS),
@@ -138,7 +138,7 @@ ban_item(Action, Veh, S, _{sign_id:SS, windows:Ws, days:DS, truth:TS, proof:D}) 
     ( sign_days(S, Code, Day) -> atom_string(Day, DS) ; DS = "" ),
     (   Ws = [[F0, _]|_] -> M = F0 ; M = unknown ),
     (   Day == even -> DayN = 2 ; Day == odd -> DayN = 1 ; DayN = unknown ),
-    G = forbids(Action, Veh, ctx(M, DayN), S, T),
+    G = forbids(Action, Veh, ctx(M, DayN, unknown), S, T),
     (   prove(G, P)
     ->  atom_string(T, TS), proof_root(G, P, D)
     ;   TS = "false", D = null
@@ -205,6 +205,33 @@ vehicle_clear(V, Kind, Cs, C) :-
     C = C0.put(_{vehicle_id:VS, kind:Kind}).
 
 % --------------------------------------------------------------------------
+% Speed limit value
+% --------------------------------------------------------------------------
+
+%!  q_speed_limit(+Veh, +Kind, +Ctx, -Out) is det.
+%   The binding limit: the lowest certain maximum (or highest certain minimum).
+%   Limits that may apply (truth unknown) and would be stricter are listed too.
+%   limit and sign_id are lists: [Value] / [SignId], or [] when no limit is certain.
+q_speed_limit(Veh, Kind, Ctx, _{limit:LimL, sign_id:SIdL, conditional:Cond, reasons:Rs}) :-
+    findall(S-V-T-D, ( G = limit_candidate(Veh, Ctx, Kind, S, V, T),
+                       prove(G, P), proof_root(G, P, D) ), Raw),
+    findall(V-S-D, member(S-V-true-D, Raw), Sure0),
+    (   Kind == max -> keysort(Sure0, Sure) ; keysort(Sure0, Up), reverse(Up, Sure) ),
+    (   Sure = [Lim-S0-D0|_]
+    ->  atom_string(S0, SId), Bind = [S0-true-D0], LimL = [Lim], SIdL = [SId]
+    ;   Lim = none, Bind = [], LimL = [], SIdL = []
+    ),
+    findall(_{sign_id:SS, value:V}-(S-unknown-D),
+            ( member(S-V-unknown-D, Raw), stricter(Kind, V, Lim), atom_string(S, SS) ), CondPairs),
+    pairs_keys_values(CondPairs, Cond, CondR),
+    append(Bind, CondR, All),
+    findall(R, ( member(S1-T1-D1, All), reason_dict(S1, T1, D1, R) ), Rs).
+
+stricter(_, _, none) :- !.
+stricter(max, V, Lim) :- V < Lim.
+stricter(min, V, Lim) :- V > Lim.
+
+% --------------------------------------------------------------------------
 % Sign identity
 % --------------------------------------------------------------------------
 
@@ -240,18 +267,18 @@ q_required(A, Veh, P0, Ctx, _{verdict:VS, reasons:R, clears:Cs, details:Ds}) :-
 % Time intervals with a quantifier (When.start..end, all | any)
 % --------------------------------------------------------------------------
 
-%!  q_permitted_iv(+A, +Veh, +From, +To, +Day1, +Day2, +Quant, -Out) is det.
+%!  q_permitted_iv(+A, +Veh, +From, +To, +Day1, +Day2, +Lane, +Quant, -Out) is det.
 %   Is A permitted for Veh at every (all) / some (any) moment of From..To?
 %   The interval may run past midnight; minutes after midnight are on Day2.
 %   Truth can only change at window edges, so the interval is checked at its ends,
 %   at midnight, and at each window edge and the minutes next to it. The answer
 %   carries the proof from the moment that decides it.
-q_permitted_iv(A, Veh, From, To, D1, D2, Quant, Out) :-
-    interval_points(From, To, D1, D2, Pts),
+q_permitted_iv(A, Veh, From, To, D1, D2, Lane, Quant, Out) :-
+    interval_points(From, To, D1, D2, Lane, Pts),
     findall(Ctx-O, ( member(Ctx, Pts), q_permitted(A, Veh, Ctx, O) ), Rs),
     findall(V, ( member(_-O, Rs), atom_string(V, O.verdict) ), Vs),
     quantified(Quant, Vs, Verdict),
-    decisive(Quant, Verdict, Rs, ctx(M, D)-O0),
+    decisive(Quant, Verdict, Rs, ctx(M, D, _)-O0),
     length(Pts, N),
     atom_string(Verdict, VS),
     Out = O0.put(_{verdict:VS, minute:M, day:D, checked:N}).
@@ -268,22 +295,22 @@ decisive(_, Verdict, Rs, R) :-
     atom_string(Verdict, VS),
     member(R, Rs), R = _-O, O.verdict == VS, !.
 
-interval_points(From, To, D1, D2, Pts) :-
+interval_points(From, To, D1, D2, L, Pts) :-
     (   From =< To
-    ->  segment_points(From, To, D1, Pts)
-    ;   segment_points(From, 1439, D1, P1),
-        segment_points(0, To, D2, P2),
+    ->  segment_points(From, To, D1, L, Pts)
+    ;   segment_points(From, 1439, D1, L, P1),
+        segment_points(0, To, D2, L, P2),
         append(P1, P2, Pts)
     ).
 
-segment_points(A, B, D, Pts) :-
+segment_points(A, B, D, L, Pts) :-
     findall(E, ( plate_time(_, F, T), member(E, [F, T]) ;
                  group_time(_, _, F, T), member(E, [F, T]) ), Edges),
     findall(M, ( member(M, [A, B])
                ; member(E, Edges), member(Dx, [-1, 0, 1]), M is E + Dx ), Ms0),
     include(between_(A, B), Ms0, Ms1),
     sort(Ms1, Ms),
-    findall(ctx(M, D), member(M, Ms), Pts).
+    findall(ctx(M, D, L), member(M, Ms), Pts).
 
 between_(A, B, M) :- M >= A, M =< B.
 

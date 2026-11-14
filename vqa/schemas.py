@@ -441,6 +441,7 @@ class Permitted(_Model):
     vehicle: Vehicle
     when: When | None = None
     sign: Selector | None = None
+    lane: Annotated[int, Field(ge=1)] | None = None  # 1 = leftmost; lane rules then apply too
 
 
 class Forbidden(_Model):
@@ -452,6 +453,7 @@ class Forbidden(_Model):
     vehicle: Vehicle
     when: When | None = None
     sign: Selector | None = None
+    lane: Annotated[int, Field(ge=1)] | None = None
 
 
 class SpeedOk(_Model):
@@ -478,6 +480,28 @@ class LanesWhere(_Model):
     vehicle: Vehicle
     speed_kmh: float
     ok: bool = True
+    when: When | None = None
+
+
+class LaneVehicles(_Model):
+    """ "Làn N dành cho những xe nào?": the vehicle classes allowed (or banned) on a lane,
+    optionally at a speed."""
+
+    intent: Literal["lane_vehicles"] = "lane_vehicles"
+    lane: Annotated[int, Field(ge=1)]
+    status: Literal["allowed", "banned"] = "allowed"
+    speed_kmh: float | None = None
+    when: When | None = None
+
+
+class SpeedLimit(_Model):
+    """ "Tốc độ tối đa (tối thiểu) là bao nhiêu?": the binding limit for a vehicle,
+    on a lane or (with no lane) overall and per lane."""
+
+    intent: Literal["speed_limit"] = "speed_limit"
+    vehicle: Vehicle = Field(default_factory=lambda: Vehicle(**{"class": "motor_vehicle"}))
+    lane: Annotated[int, Field(ge=1)] | None = None
+    kind: Literal["max", "min"] = "max"
     when: When | None = None
 
 
@@ -584,7 +608,8 @@ class Choose(_Model):
 
 Program = Annotated[
     Union[Permitted, Forbidden, SpeedOk, LanesFor, LanesWhere, BanTimes, Meaning, Required,
-          ExistsViolation, Verify, Choose, IsSign, AllOf, AnyOf, WhichVehicles],
+          ExistsViolation, Verify, Choose, IsSign, AllOf, AnyOf, WhichVehicles, LaneVehicles,
+          SpeedLimit],
     Field(discriminator="intent"),
 ]
 

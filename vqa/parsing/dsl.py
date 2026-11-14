@@ -26,7 +26,8 @@ def _flip(when: When | None) -> When | None:
 
 
 def _permitted(f: Forbidden) -> Permitted:
-    return Permitted(action=f.action, vehicle=f.vehicle, when=_flip(f.when), sign=f.sign)
+    return Permitted(action=f.action, vehicle=f.vehicle, when=_flip(f.when), sign=f.sign,
+                     lane=f.lane)
 
 
 def normalize(p: Program) -> Program:

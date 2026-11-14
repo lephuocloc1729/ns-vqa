@@ -803,6 +803,30 @@ signs:
     effect: {lane_reserved: [rudimentary]}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.14"}
 
+  - code: R.415a
+    key: lanes_by_vehicle
+    tags: [lane_board]
+    name_vi: Biển gộp làn đường theo phương tiện
+    name_en: Lanes by vehicle type
+    category: mandatory
+    visual: {shape: rectangle, border: none, background: blue}
+    effect:
+      # D.16 a: shows the vehicles allowed on each lane (SceneGraph Sign.lanes, no speeds).
+      # "Biển không áp dụng với các xe chuyển làn để ra vào hoặc dừng, đỗ bên đường."
+      lane_board: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.16"}
+
+  - code: R.415b
+    key: end_of_lanes_by_vehicle
+    tags: [end_of_restriction]
+    name_vi: Kết thúc làn đường theo phương tiện
+    name_en: End of lanes by vehicle type
+    category: end_of_restriction
+    visual: {shape: rectangle, border: none, background: blue}
+    effect:
+      ends: [R.415a]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.16"}
+
   # ------------------------------------------------------------------ auxiliary plates
   - code: S.504
     key: lane_plate
