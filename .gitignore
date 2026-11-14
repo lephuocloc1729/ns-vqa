@@ -1,0 +1,8 @@
+# Dataset is read-only and lives outside version control (VLSP data agreement)
+VLSP2025-MLQA-Natural/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.DS_Store
