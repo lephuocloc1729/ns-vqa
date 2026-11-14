@@ -1,6 +1,6 @@
 # Neuro-symbolic traffic sign VQA
 
-DESIGN.md is the full design. Read it before you change architecture. We build it phase by phase, following its roadmap. **Current phase: 1.5, closing the phase 1 gaps before phase 2** (no Claude API calls). The scene graph and DSL are at schema 1.2.
+DESIGN.md is the full design. Read it before you change architecture. We build it phase by phase, following its roadmap. **Current phase: 2, "Question parser"** (Claude API calls allowed, behind the spend guard). The scene graph and DSL are at schema 1.2.
 
 ## Setup
 
@@ -72,9 +72,16 @@ swipl -q -g "consult('kb/load.pl'), halt"
 
 - **The rule engine owns every legal conclusion.** Python resolves selectors, loops over lanes and reading variants, and packages results. It never decides what is permitted.
 - **Three-valued logic.** Truth values are `true`, `false` and `unknown`. A missing fact (time, weight, lane, exact vehicle subtype) makes the result `unknown`, never `false`. Verdicts: `yes`, `no`, `unknown`, `uncertain` (alternative readings disagree), or `value`.
-- **An unreadable sign makes closed-world answers unknown.** "Unreadable" means the code is UNKNOWN or not in the catalog.
-  - Affected: a "yes" from `permitted`/`speed_ok`, or a "no" from `required`/`exists_violation`, since the sign might say otherwise. The answer lists that sign in `uncertain_signs`.
-  - Not affected: answers decided by a readable sign.
+- **An unreadable sign makes closed-world answers unknown, but only if it could bear on the claim.** "Unreadable" means the code is UNKNOWN or not in the catalog.
+  - **Affected verdicts:** a "yes" from `permitted`/`speed_ok`, or a "no" from `required`/`exists_violation`. The answer lists the sign in `uncertain_signs`.
+  - **Relevance comes from the sign's visible category** (`Engine.visual_category`, `could_matter`):
+    - red-bordered circle (prohibitory): permissions, speed, violations;
+    - blue circle (mandatory): directions, speed, `required`;
+    - blue/green/white rectangle (board): speed, or a claim about a given lane;
+    - triangle (warning) and end-of-restriction signs: never;
+    - nothing recorded: always.
+  - **Not affected:** answers decided by a readable sign.
+  - **In the full pipeline**, an answer that is unknown because of an unreadable sign goes to the fallback.
 - **`every_vehicle` claims quantify over members, not just classes.** A class whose answer depends on unstated weight or seats is tried at the scene's thresholds. A failing member makes the class a counterexample, reported with its condition.
 - **Every rule and catalog row cites its source** as `law_id` + `article_id`, using the dataset's `relevant_articles` format, e.g. `QCVN 41:2024/BGTVT` + `B.25`.
   - Generic rules use `cite(r_...)` with a `rule_source/3` fact in `kb/rules/common.pl`.

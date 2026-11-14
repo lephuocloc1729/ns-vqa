@@ -171,12 +171,64 @@ class Engine:
     def unreadable_signs(self, scene: SceneGraph) -> list[str]:
         return [sg.id for sg in scene.signs if not self.catalog.has(sg.code)]
 
+    @staticmethod
+    def visual_category(sign) -> str:
+        """What an unreadable sign could be, from how it looks (QCVN 41 sign groups):
+        red_circle (prohibitory, incl. P.130/P.131 on blue), blue_circle (mandatory),
+        board (blue/green/white rectangle: information, lane boards, plates),
+        warning (triangle), octagon (R.122 stop), or unknown (nothing recorded)."""
+        shape = sign.shape.value if sign.shape else None
+        border = sign.border.value if sign.border else None
+        bg = sign.background.value if sign.background else None
+        if shape == "circle" and border == "red":
+            return "red_circle"
+        if shape == "circle" and bg == "blue":
+            return "blue_circle"
+        if shape in ("rectangle", "square"):
+            return "board"
+        if shape in ("triangle", "diamond"):
+            return "warning"
+        if shape == "octagon":
+            return "octagon"
+        if shape == "circle" and border == "black":
+            return "end_of_restriction"   # lifts restrictions; cannot add one
+        return "unknown"
+
+    @staticmethod
+    def could_matter(category: str, p: Program) -> bool:
+        """Could an unreadable sign of this category overturn a closed-world verdict
+        for program p? Conservative: an unknown category always could."""
+        if category == "unknown":
+            return True
+        if category in ("warning", "end_of_restriction"):
+            return False
+        lane = getattr(p, "lane", None)
+        if isinstance(p, Permitted):
+            if category == "red_circle":
+                return True
+            if category == "blue_circle":   # mandatory directions (R.301), R.302 ...
+                return p.action.value in ("go_straight", "turn_left", "turn_right", "u_turn")
+            if category == "board":          # lane boards: P.127c, R.412, R.415a
+                return lane is not None
+            if category == "octagon":
+                return p.action.value == "stop"
+        if isinstance(p, SpeedOk):           # P.127 (red circle), R.306 (blue), lane boards
+            return category in ("red_circle", "blue_circle", "board")
+        if isinstance(p, Required):
+            return category in ("blue_circle", "octagon")
+        if isinstance(p, ExistsViolation):
+            return True
+        return False
+
     def _run(self, scene: SceneGraph, p: Program) -> Answer:
-        """Dispatch, then: a closed-world verdict becomes unknown when the scene has a
-        sign the engine cannot read, since that sign might say otherwise."""
+        """Dispatch, then: a closed-world verdict becomes unknown when the scene has an
+        unreadable sign whose visible category could bear on the claim, since that
+        sign might say otherwise. Others (e.g. a blue information board for a turn
+        question) are ignored."""
         ans = self._dispatch(scene, p)
         cw = self._CLOSED_WORLD.get(type(p))
-        unread = self.unreadable_signs(scene)
+        unread = [sid for sid in self.unreadable_signs(scene)
+                  if self.could_matter(self.visual_category(scene.sign(sid)), p)]
         if cw is not None and unread and ans.verdict == cw:
             ans = ans.model_copy(update={
                 "verdict": Verdict.unknown,
