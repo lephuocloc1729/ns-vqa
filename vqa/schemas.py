@@ -622,9 +622,21 @@ Program = Annotated[
 
 
 class QueryProgram(_Model):
-    program: Program
+    """What the parser returns. A question no DSL intent can express comes back as
+    out_of_scope with no program, so it can go to the fallback."""
+
+    program: Program | None = None
     missing_slots: list[str] = []
     out_of_scope: bool = False
+    out_of_scope_reason: str | None = None
+    # values the question left out and the parser filled in, e.g. ["year", "vehicle"]
+    defaults_applied: list[str] = []
+
+    @model_validator(mode="after")
+    def _program_xor_out_of_scope(self) -> "QueryProgram":
+        if self.out_of_scope == (self.program is not None):
+            raise ValueError("give a program, or out_of_scope=true with no program")
+        return self
 
 
 # --------------------------------------------------------------------------- #

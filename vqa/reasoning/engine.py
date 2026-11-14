@@ -143,6 +143,9 @@ class Engine:
 
     # ------------------------------------------------------------------ entry point
     def answer(self, scene: SceneGraph, query: QueryProgram | Program) -> Answer:
+        if isinstance(query, QueryProgram) and query.out_of_scope:
+            return Answer(verdict=Verdict.unknown, note="out of scope for the rules: "
+                          + (query.out_of_scope_reason or "no DSL intent fits"))
         program = normalize(query.program if isinstance(query, QueryProgram) else query)
         variants = reading_variants(scene)
         answers = [(picked, self._run(sc, program)) for sc, picked in variants]

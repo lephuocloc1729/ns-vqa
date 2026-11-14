@@ -53,6 +53,16 @@ swipl -q -g "consult('kb/load.pl'), halt"
   - `kb/sign_catalog_meaning.yaml`: meaning-only W/I/IE rows drafted by `tools/draft_catalog_rows.py`. Their review list is `kb/review/meaning_rows_review.md`.
 - `tools/`: offline authoring tools. They may read law_db; inference code may not.
 - `vqa/parsing/dsl.py`: rewrites run before the engine. `Forbidden` becomes `Verify(Permitted, expect=False)` with the quantifier flipped.
+- `vqa/parsing/`, the question parser (phase 2):
+  - `wire.py`: the depth-limited structured-output schema, since the API rejects recursive schemas. It converts to `QueryProgram` and applies the defaults.
+  - `validator.py`: semantic checks, plus a dry run on an empty scene.
+  - `prompt.py`: builds the cached system prompt from `prompts/parser/<version>/` (`spec.md`, `fewshot.jsonl`) and the catalog.
+  - `claude_parser.py`: one call, with one retry that includes the error.
+- `vqa/llm/`, Claude API access:
+  - `client.py`: structured calls.
+  - `pricing.py`.
+  - `spend.py`: the spend guard (default $2, `VQA_SPEND_LIMIT` or `--max-spend`) and the usage log `logs/api_calls.jsonl` (gitignored).
+  - The key comes from `ANTHROPIC_API_KEY` only and is never committed.
 - `vqa/reasoning/`:
   - `terms.py`: Python values to Prolog text.
   - `facts.py`: SceneGraph to scene facts, plus the variants for alternative sign readings.
