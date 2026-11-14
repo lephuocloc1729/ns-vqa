@@ -21,7 +21,7 @@
 % ---- scene facts (replaced for every query)
 :- dynamic sign/3,               % sign(S, Code, Confidence)
            sign_value/2,         % sign_value(S, Number)
-           sign_lane/2,          % sign_lane(S, Lane)          position.lane or S.504 plate
+           sign_lane/3,          % sign_lane(S, Lane, plate|position)  S.504 plate or position.lane
            plate_time/3,         % plate_time(S, FromMin, ToMin)   S.508, minutes after midnight
            plate_days/2,         % plate_days(S, even|odd)     S.508
            plate_vehicle/2,      % plate_vehicle(S, Spec)      S.505a
@@ -33,7 +33,7 @@
            selected/1,           % selected(S): restrict reasoning to these signs
            selection_active/0.
 
-scene_fact(sign/3).        scene_fact(sign_value/2).   scene_fact(sign_lane/2).
+scene_fact(sign/3).        scene_fact(sign_value/2).   scene_fact(sign_lane/3).
 scene_fact(plate_time/3).  scene_fact(plate_days/2).   scene_fact(plate_vehicle/2).
 scene_fact(plate_except/2). scene_fact(lane_limit/4).  scene_fact(lane_min/4).
 scene_fact(lane_vehicle/3). scene_fact(scene_vehicle/5).

@@ -138,3 +138,22 @@ def test_speeding_vehicle_is_a_violation(engine):
                vehicles=[{"id": "v1", "class": "passenger_car", "speed_kmh": 70}])
     a = engine.answer(sc, ExistsViolation())
     assert a.verdict == Verdict.yes and a.value["violations"] == ["v1:speed"]
+
+
+def test_speed_citations_include_article_22(engine):
+    # P.127, P.127b, P.127c are listed in QCVN 41 art. 22.1 (prohibitory signs)
+    a = speed_ok(engine, scene(sign("s1", "P.127", value=50)), V("passenger_car"), 60)
+    assert {"22", "B.27"} <= articles(a)
+    a = speed_ok(engine, lane_board(), V("passenger_car"), 90, lane=2)
+    assert {"22", "B.27b"} <= articles(a)
+
+
+def test_lane_plate_cited_only_for_s504_plate(engine):
+    over_lane = scene(sign("s1", "P.127", value=80, position={"lane": 2}), lanes=2)
+    a = speed_ok(engine, over_lane, V("passenger_car"), 90, lane=2)
+    assert a.verdict == Verdict.no and "F.4" not in articles(a)
+    assert speed_ok(engine, over_lane, V("passenger_car"), 90, lane=1).verdict == Verdict.yes
+    with_plate = scene(sign("s1", "P.127", value=80,
+                            plates=[{"kind": "lane", "lanes": [2]}]), lanes=2)
+    a = speed_ok(engine, with_plate, V("passenger_car"), 90, lane=2)
+    assert a.verdict == Verdict.no and "F.4" in articles(a)

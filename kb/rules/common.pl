@@ -213,14 +213,18 @@ leaf(lane_truth(_, _, _)).
 lane_truth(L, _, unknown) :- L == unknown, !.
 lane_truth(L, L1, T) :- ( L =:= L1 -> T = true ; T = false ).
 
-%!  lane_scope(+S, +Lane, -T) is semidet.  A sign over one lane (S.504) applies only there.
+%!  lane_scope(+S, +Lane, -T) is semidet.
+%   A sign over one lane (S.504 plate, or mounted over that lane) applies only there.
 lane_scope(S, _, true) :-
-    \+ sign_lane(S, _).
+    \+ sign_lane(S, _, _).
 lane_scope(S, Lane, T) :-
-    sign_lane(S, L),
-    cite(r_lane_plate),
+    sign_lane(S, L, Origin),
+    lane_origin(Origin),
     lane_truth(Lane, L, T),
     T \== false.
+
+lane_origin(plate) :- cite(r_lane_plate).
+lane_origin(position).
 
 % --------------------------------------------------------------------------
 % Applicability of one sign to one vehicle in one context

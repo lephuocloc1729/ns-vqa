@@ -14,6 +14,7 @@
 speed_violation(Veh, Speed, Lane, Ctx, S, T) :-
     scene_sign(S, Code),
     max_speed_for(Code, Class),
+    cite(r_prohibition),
     cite(r_max_speed),
     catalog_sign(Code, _, _, _),
     limit_value(S, Max),
@@ -38,6 +39,7 @@ speed_violation(Veh, Speed, Lane, Ctx, S, T) :-
     scene_sign(S, Code),
     lane_board(Code),
     catalog_sign(Code, _, _, _),
+    cite(r_prohibition),
     lane_limit(S, L, Spec, Max),
     Speed > Max,
     lane_truth(Lane, L, T0), T0 \== false,
@@ -49,6 +51,7 @@ speed_violation(Veh, Speed, Lane, Ctx, S, T) :-
     scene_sign(S, Code),
     lane_board(Code),
     catalog_sign(Code, _, _, _),
+    cite(r_prohibition),
     lane_min(S, L, Spec, Min),
     Speed < Min,
     lane_truth(Lane, L, T0), T0 \== false,

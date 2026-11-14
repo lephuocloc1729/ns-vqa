@@ -11,13 +11,14 @@ from vqa.schemas import Confidence, PlateKind, SceneGraph, Sign
 UNKNOWN_CODE = "UNKNOWN"
 
 
-def _sign_lanes(sign: Sign) -> list[int]:
+def _sign_lanes(sign: Sign) -> list[tuple[int, str]]:
+    """(lane, origin) pairs; origin is 'plate' for an S.504 plate, else 'position'."""
     lanes = []
     if sign.position.lane is not None:
-        lanes.append(sign.position.lane)
+        lanes.append((sign.position.lane, "position"))
     for p in sign.plates:
         if p.kind == PlateKind.lane:
-            lanes.extend(p.lanes)
+            lanes.extend((ln, "plate") for ln in p.lanes)
     return sorted(set(lanes))
 
 
@@ -34,7 +35,7 @@ def sign_facts(sign: Sign, catalog: Catalog) -> list[Term]:
     reserves_lane = bool(entry and entry.effect.lane_reserved)
     if not reserves_lane:
         # For R.412 signs the lane says which lane is reserved, not where the sign applies.
-        out += [Term("sign_lane", s, ln) for ln in lanes]
+        out += [Term("sign_lane", s, ln, atom(origin)) for ln, origin in lanes]
 
     for p in sign.plates:
         if p.kind == PlateKind.time:
@@ -64,7 +65,7 @@ def sign_facts(sign: Sign, catalog: Catalog) -> list[Term]:
             v = entry.effect.value
             value_conds = [(set(c.value for c in v.applies_to), Term(
                 "c", atom(v.attr.value), atom(v.op.value), float(sign.value)))]
-        for ln in lanes:
+        for ln in sorted({ln for ln, _ in lanes}):
             for cls in entry.effect.lane_reserved:
                 conds = [c for classes, c in value_conds if cls.value in classes]
                 out.append(Term("lane_vehicle", s, ln, Term("spec", atom(cls.value), conds)))
