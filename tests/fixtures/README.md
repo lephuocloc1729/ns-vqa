@@ -13,7 +13,7 @@ Fields:
   - `expect.value` (optional): a subset that must match `Answer.value`. Dicts match on their listed keys; lists must have the same length and match element by element.
 - `core_articles`: the article ids from the question's `relevant_articles` that the cited set must contain, taken together over all cases.
 - `not_core`: article ids from `relevant_articles` left out of `core_articles`, each with the reason.
-- `notes` (optional): workarounds in the scene or program, so known gaps stay visible.
+- `notes` (optional): what was left out of the scene and why, so known gaps stay visible.
 - `citation_xfail` (optional): the reason the citation check is expected to fail, used for known engine gaps.
 
 The citation test is marked `xfail` only when `citation_xfail` is set. It is strict, so it starts failing once the gap is fixed, and then the marker should be removed.

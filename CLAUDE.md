@@ -1,6 +1,6 @@
 # Neuro-symbolic traffic sign VQA
 
-DESIGN.md is the full design. Read it before you change architecture. We build it phase by phase, following its roadmap. **Current phase: 1, "Contracts and KB core"** (no Claude API calls).
+DESIGN.md is the full design. Read it before you change architecture. We build it phase by phase, following its roadmap. **Current phase: 1.5, closing the phase 1 gaps before phase 2** (no Claude API calls). The scene graph and DSL are at schema 1.2.
 
 ## Setup
 
@@ -29,6 +29,7 @@ swipl -q -g "consult('kb/load.pl'), halt"
 
 - `vqa/schemas.py`: contracts: SceneGraph, QueryProgram (the DSL), Answer. Any vocabulary that reaches Prolog is an enum here.
 - `vqa/kb.py`: loads `kb/sign_catalog.yaml` and turns it into Prolog facts.
+- `vqa/parsing/dsl.py`: rewrites run before the engine. `Forbidden` becomes `Verify(Permitted, expect=False)` with the quantifier flipped.
 - `vqa/reasoning/`:
   - `terms.py`: Python values to Prolog text.
   - `facts.py`: SceneGraph to scene facts, plus the variants for alternative sign readings.
@@ -39,9 +40,10 @@ swipl -q -g "consult('kb/load.pl'), halt"
   - `meta.pl`: meta-interpreter that builds the proof tree.
   - `scene.pl`: declarations for the fact predicates.
   - `ontology.pl`: vehicle hierarchy.
-  - `rules/*.pl`: one file per rule family.
+  - `rules/*.pl`: one file per rule family: `prohibitions`, `speed` (speed limits and lanes), and `mandatory` (R.301 by placement). Shared checks are in `common.pl`.
   - `query.pl`: the `q_*` entry points.
 - `tests/`: one file per rule family, using hand-written scene graphs and programs.
+  - `tests/integration/` runs train questions from `tests/fixtures/train_*.json` (format in `tests/fixtures/README.md`).
 
 ## Conventions
 
@@ -50,11 +52,21 @@ swipl -q -g "consult('kb/load.pl'), halt"
 - **Every rule and catalog row cites its source** as `law_id` + `article_id`, using the dataset's `relevant_articles` format, e.g. `QCVN 41:2024/BGTVT` + `B.25`.
   - Generic rules use `cite(r_...)` with a `rule_source/3` fact in `kb/rules/common.pl`.
   - Catalog facts are cited automatically through `catalog_sign/4`.
+  - A proof step that uses an auxiliary plate cites art. 41 next to the plate's own article (F.10, F.5, F.17, F.4).
+- **Every answer has a proof and citations, "yes" included.**
+  - The checks in `assess/6` return a truth value and never fail.
+  - `forbids` and the other "against" rules use them to show why a sign applies.
+  - `clears`, `speed_clears`, `lane_clears` and `requirement_clears` use them to name the check that failed (`vehicle_not_covered`, `outside_time_window`, ...).
+  - Citations follow the verdict: clears for yes, true reasons for no, unknown reasons for unknown.
 - **Catalog rows are drafts until a person checks them.** Each row has `reviewed: false` until then. Quote the article text in a YAML comment wherever an effect depends on a specific phrase, such as "kể cả xe được ưu tiên".
 - **Prolog rules may not contain cuts.** The meta-interpreter does not implement cut, so use if-then-else or mutually exclusive clauses. Small deterministic helpers are marked `leaf(...)`: they run natively and show up as one proof node, and they may cut.
 - **Vehicle classes live in two places.** They are `VehicleClass` in `vqa/schemas.py` and `is_a/2` in `kb/ontology.pl`. `tests/test_schemas.py` checks that the two stay in sync.
   - "xe khách" means `coach`, a bus that is not a city bus.
   - "xe ba bánh" / "xe lam" means `motor_tricycle`, which falls under B.11, not P.104.
+  - "xe 4 bánh thô sơ" means `similar_rudimentary`, our interpretation of Law 36 art. 34(2)(e). Interpretations like this are listed under `vehicle_interpretations` in the catalog and shown in proofs.
+- **Vehicle attributes are exact or bounded** (`seats_gt=29`), never both. In Prolog a bounded attribute is an interval `iv(Lo, LoIn, Hi, HiIn)`.
+- **Time intervals need a quantifier** (`all` or `any`), which applies to what the program states. For a ban, write `Forbidden`, not `Verify(Permitted, expect=False)`.
+- **A sign with several (vehicle, time) pairs uses condition groups (`Sign.rules`)**, not separate vehicle and time plates.
 - **Sign codes in Prolog** are lowercase with no dots: `P.127b` becomes `p127b`, `S.H,6` becomes `sh_6`. See `vqa.kb.code_atom`.
 - **Lanes are numbered from 1**, with lane 1 the leftmost. Time windows include both ends and may run past midnight.
 - Add a test with every new rule. Write test scenes by hand and model them on train questions. Do not copy them from dataset files.
@@ -63,8 +75,18 @@ swipl -q -g "consult('kb/load.pl'), halt"
 
 - Claude parser, perception, answer writer, faithfulness guard, eval runner.
 - Rules not yet covered:
-  - `Required` questions and placement relative to intersections.
   - Signal-priority order.
   - Default speed limits by road type (needs a source).
   - Which vehicle is being overtaken (the B.25 exception for two-wheelers).
   - Dashed vs. solid bus-lane markings.
+  - Time intervals for intents other than `permitted` / `forbidden`. They answer `unknown` for now.
+
+## TODO
+
+- QCVN 41 art. 26: where and how far prohibitory signs take effect.
+  - 26.6: P.123 applies in the area of the sign.
+  - 26.7: P.124 applies at the intersection.
+  - 26.8: P.125–P.131 apply up to the next intersection or the end sign.
+
+  `Required` with placement covers only the R.301 family (D.1a).
+- Plates that do not follow the standard form (e.g. the red "CẤM XE 3 BÁNH VÀ 4 BÁNH THÔ SƠ" plate on train_2_26) are not modelled. Decide how to represent the vehicles they list.

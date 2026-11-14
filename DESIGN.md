@@ -154,20 +154,43 @@ permitted(Action, Vehicle, Scene) :-
 
 Claude turns the user's question (in Vietnamese) into a small typed query program. It never answers the question at this stage. The parser sees only the question and the list of sign codes in the scene, not the image, so it can't slip in its own visual reading.
 
-**Query DSL (v1), built from the dataset's question types**
+**Query DSL (schema 1.2), built from the dataset's question types**
 
 | Intent | Example from the data | Program |
 | --- | --- | --- |
-| verify a claim | "Vào lúc 8 giờ ngày 2/9/2025, xe ô tô con … được phép rẽ trái. Đúng hay sai?" | `verify(permitted(turn_left, car, at=2025-09-02T08:00))` |
-| permission | "Biển cấm xe máy trong ảnh có cho phép xe ba bánh đi qua không?" | `permitted(enter, three_wheeler, sign=select(meaning=no_motorbikes))` |
+| verify a claim | "Vào lúc 8 giờ ngày 2/9/2025, xe ô tô con … được phép rẽ trái. Đúng hay sai?" | `verify(permitted(turn_left, passenger_car, when=(2025-09-02, 08:00)))` |
+| ban over a time window | "Xe ô tô không được phép di chuyển trên đoạn đường này trong khung giờ từ 6:00 đến 22:00, đúng hay sai?" | `forbidden(enter, car, when=(06:00..22:00, all))` |
+| permission | "Biển cấm xe máy trong ảnh có cho phép xe ba bánh đi qua không?" | `permitted(enter, motor_tricycle, sign=select(meaning=no_motorbikes))` |
 | lane by vehicle | "Xe tải có khối lượng chuyên chở 3,4 tấn được đi ở làn nào?" | `lanes_for(truck(load_t=3.4))` |
-| lane by speed | "Ô tô chạy 65 km/h không được sử dụng làn nào?" | `lanes_where(not(speed_ok(car, 65)))` |
-| value | "Xe khách trên 29 chỗ bị cấm vào những khoảng thời gian nào?" | `ban_times(bus(seats_gt=29))` |
+| lane by speed | "Ô tô chạy 65 km/h không được sử dụng làn nào?" | `lanes_where(car, 65, ok=false)` |
+| value | "Xe khách trên 29 chỗ bị cấm vào những khoảng thời gian nào?" | `ban_times(coach(seats_gt=29))` |
+| choice | "Trong các mức 30, 35, 40 và 45 km/h, mức nào vi phạm?" | `choose([{label: "45 km/h", claim: speed_ok(motor_vehicle, 45), expect: false}, ...])` |
+| choice over a window | "Xe có trọng tải 500 kg, 1 tấn, 1,5 tấn và 2 tấn, trường hợp nào không được lưu thông từ 6 giờ đến 21 giờ?" | `choose([{label: "2 tấn", claim: forbidden(enter, truck(gross_t=2), when=(06:00..21:00, all))}, ...])` |
 | identity / meaning | "Đây là biển báo gì?" | `meaning(select(only))` |
-| placement and scope | "Nếu biển đặt sau nơi đường giao nhau, có bắt buộc rẽ phải ngay không?" | `verify(required(turn_right, any, placement=after_intersection))` |
-| violation | "Trong hình không phát hiện hành vi vi phạm, đúng hay sai?" | `verify(not(exists(violation)))` |
+| placement and scope | "Nếu biển đặt sau nơi đường giao nhau, có bắt buộc rẽ phải ngay không?" | `required(turn_right, placement=after_intersection)` |
+| violation | "Trong hình không phát hiện hành vi vi phạm, đúng hay sai?" | `verify(exists_violation, expect=false)` |
 
-Selectors such as `select(border=red, background=white, position=top)` resolve against the visual attributes in the scene graph. Times carry a full date, so rules like "cấm đỗ ngày chẵn" (no parking on even days) can be checked.
+The pieces the table uses:
+
+- **Selectors** resolve against the scene graph: by appearance and position (`select(border=red, background=white, position=top)`), by code, or by meaning. A meaning is a catalog `key` (`no_motorbikes`) or tag (`speed_limit`).
+- **Vehicles** are a class plus attributes. An attribute is exact (`load_t=3.4`) or bounded by strict comparisons (`seats_gt=29`, `load_lt=2`, `gross_gt=1.5`), never both. "xe 4 bánh thô sơ" is `similar_rudimentary`, our interpretation of Law 36 art. 34(2)(e) ("xe tương tự"); proofs cite it as an interpretation.
+- **Times** carry a full date when known, so rules like "cấm đỗ ngày chẵn" (no parking on even days) can be checked.
+  - `when` is a moment or an interval `start..end`. An interval may run past midnight; after midnight the next day's date is used.
+  - An interval needs a quantifier that applies to what the program states: `all` means it holds at every moment, `any` at some moment.
+  - `forbidden(..., when=(a..b, all))` is "banned for the whole window", and `any` is "banned at some point in it".
+  - `forbidden` compiles to `verify(permitted(...), expect=false)` with the quantifier flipped, so the parser never writes the double negative.
+- **`choose`** returns the options that hold (an option holds when its claim's answer matches `expect`), the ones that don't, and the unknown ones.
+- **`required`** uses the placement the question gives, else the sign's placement in the scene, else its standard placement from QCVN 41 D.1a.
+
+Every answer comes with a proof and citations, including "yes" answers:
+
+| Answer | What its proof shows |
+| --- | --- |
+| "no" | the sign that forbids |
+| "yes" | each relevant sign and why it does not apply (vehicle not covered, excepted, outside its time window, wrong day, ...) |
+| "unknown" | what it depends on |
+
+In the scene graph, a sign whose plate or board lists several (vehicles, time window) pairs carries them as condition groups (`Sign.rules`). The sign applies when one group matches both the vehicle and the time.
 
 **Implementation**
 

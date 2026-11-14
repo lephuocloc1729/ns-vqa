@@ -5,36 +5,139 @@
   "scene": {
     "scene_id": "train_2_26",
     "signs": [
-      {"id": "s1", "code": "P.127", "value": 50, "shape": "circle", "border": "red",
-       "background": "white", "position": {"rank_top_down": 1, "side": "right"}},
-      {"id": "s2", "code": "P.130", "shape": "circle", "border": "red",
-       "background": "blue", "position": {"rank_top_down": 2, "side": "right"}},
       {
-        "id": "s3", "code": "P.111d", "shape": "circle", "border": "red",
-        "background": "white", "position": {"rank_top_down": 1, "side": "right"},
+        "id": "s1",
+        "code": "P.127",
+        "value": 50,
+        "shape": "circle",
+        "border": "red",
+        "background": "white",
+        "position": {
+          "rank_top_down": 1,
+          "side": "right"
+        }
+      },
+      {
+        "id": "s2",
+        "code": "P.130",
+        "shape": "circle",
+        "border": "red",
+        "background": "blue",
+        "position": {
+          "rank_top_down": 2,
+          "side": "right"
+        }
+      },
+      {
+        "id": "s3",
+        "code": "P.111d",
+        "shape": "circle",
+        "border": "red",
+        "background": "white",
+        "position": {
+          "rank_top_down": 1,
+          "side": "right"
+        },
         "plates": [
-          {"kind": "time", "text": "05:00-13:00 16:00-22:00",
-           "time_windows": [{"start": "05:00", "end": "13:00"},
-                            {"start": "16:00", "end": "22:00"}]}
+          {
+            "kind": "time",
+            "text": "05:00-13:00 16:00-22:00",
+            "time_windows": [
+              {
+                "start": "05:00",
+                "end": "13:00"
+              },
+              {
+                "start": "16:00",
+                "end": "22:00"
+              }
+            ]
+          }
         ]
       }
     ]
   },
   "cases": [
-    {"program": {"intent": "permitted", "action": "enter", "vehicle": {"class": "cyclo"},
-                 "when": {"time": "05:00"}},
-     "expect": {"verdict": "no"}},
-    {"program": {"intent": "permitted", "action": "enter", "vehicle": {"class": "cyclo"},
-                 "when": {"time": "12:00"}},
-     "expect": {"verdict": "no"}},
-    {"program": {"intent": "permitted", "action": "enter", "vehicle": {"class": "cyclo"},
-                 "when": {"time": "15:00"}},
-     "expect": {"verdict": "yes"}},
-    {"program": {"intent": "permitted", "action": "enter", "vehicle": {"class": "cyclo"},
-                 "when": {"time": "19:00"}},
-     "expect": {"verdict": "no"}}
+    {
+      "program": {
+        "intent": "choose",
+        "options": [
+          {
+            "label": "5h",
+            "claim": {
+              "intent": "permitted",
+              "action": "enter",
+              "vehicle": {
+                "class": "cyclo"
+              },
+              "when": {
+                "time": "05:00"
+              }
+            }
+          },
+          {
+            "label": "12h",
+            "claim": {
+              "intent": "permitted",
+              "action": "enter",
+              "vehicle": {
+                "class": "cyclo"
+              },
+              "when": {
+                "time": "12:00"
+              }
+            }
+          },
+          {
+            "label": "15h",
+            "claim": {
+              "intent": "permitted",
+              "action": "enter",
+              "vehicle": {
+                "class": "cyclo"
+              },
+              "when": {
+                "time": "15:00"
+              }
+            }
+          },
+          {
+            "label": "19h",
+            "claim": {
+              "intent": "permitted",
+              "action": "enter",
+              "vehicle": {
+                "class": "cyclo"
+              },
+              "when": {
+                "time": "19:00"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "verdict": "value",
+        "value": {
+          "holding": [
+            "15h"
+          ],
+          "not_holding": [
+            "5h",
+            "12h",
+            "19h"
+          ],
+          "unknown": []
+        }
+      }
+    }
   ],
-  "core_articles": ["22", "B.11"],
-  "not_core": {"11": "sign classification article; no rule cites it"},
-  "notes": "One program per time asked (no multiple-choice intent). The sign also bans four-wheeled non-motorised vehicles, which have no vehicle class yet."
+  "core_articles": [
+    "22",
+    "B.11"
+  ],
+  "not_core": {
+    "11": "sign classification article; no rule cites it"
+  },
+  "notes": "The question asks whether the vehicles may enter, so the options are Permitted claims. The plate also names four-wheeled non-motorised vehicles; it is a red local plate, not an S.509 (QCVN 41 art. 41.3.2, F.11), so that option is left out."
 }

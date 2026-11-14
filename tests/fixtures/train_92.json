@@ -6,49 +6,157 @@
     "scene_id": "train_2_25",
     "signs": [
       {
-        "id": "s1", "code": "P.107", "shape": "circle", "border": "red", "background": "white",
-        "position": {"rank_top_down": 1, "side": "right"},
-        "plates": [
-          {"kind": "vehicle", "text": "xe tải có trọng tải toàn bộ cho phép <= 1,5T",
-           "vehicles": [{"class": "truck",
-                         "conditions": [{"attr": "gross_t", "op": "le", "value": 1.5}]}]},
-          {"kind": "time", "text": "6h00-9h00 và 16h00-19h30",
-           "time_windows": [{"start": "06:00", "end": "09:00"},
-                            {"start": "16:00", "end": "19:30"}]}
-        ]
-      },
-      {
-        "id": "s1r3", "code": "P.107", "shape": "circle", "border": "red", "background": "white",
-        "position": {"rank_top_down": 1, "side": "right"},
-        "plates": [
-          {"kind": "vehicle", "text": "xe tải có trọng tải toàn bộ cho phép > 1,5T",
-           "vehicles": [{"class": "truck",
-                         "conditions": [{"attr": "gross_t", "op": "gt", "value": 1.5}]}]},
-          {"kind": "time", "text": "6h00-21h00",
-           "time_windows": [{"start": "06:00", "end": "21:00"}]}
+        "id": "s1",
+        "code": "P.107",
+        "shape": "circle",
+        "border": "red",
+        "background": "white",
+        "position": {
+          "rank_top_down": 1,
+          "side": "right"
+        },
+        "rules": [
+          {
+            "text": "1. xe tải có trọng tải toàn bộ cho phép <= 1,5T: 6h00-9h00 và 16h00-19h30",
+            "vehicles": [
+              {
+                "class": "truck",
+                "conditions": [
+                  {
+                    "attr": "gross_t",
+                    "op": "le",
+                    "value": 1.5
+                  }
+                ]
+              }
+            ],
+            "time_windows": [
+              {
+                "start": "06:00",
+                "end": "09:00"
+              },
+              {
+                "start": "16:00",
+                "end": "19:30"
+              }
+            ]
+          },
+          {
+            "text": "3. xe tải có trọng tải toàn bộ cho phép > 1,5T: 6h00-21h00",
+            "vehicles": [
+              {
+                "class": "truck",
+                "conditions": [
+                  {
+                    "attr": "gross_t",
+                    "op": "gt",
+                    "value": 1.5
+                  }
+                ]
+              }
+            ],
+            "time_windows": [
+              {
+                "start": "06:00",
+                "end": "21:00"
+              }
+            ]
+          }
         ]
       }
     ]
   },
   "cases": [
-    {"program": {"intent": "ban_times", "vehicle": {"class": "truck", "gross_t": 0.5}},
-     "expect": {"verdict": "value",
-                "value": {"bans": [{"sign_id": "s1", "truth": "true",
-                                    "windows": [["06:00", "09:00"], ["16:00", "19:30"]]}]}}},
-    {"program": {"intent": "ban_times", "vehicle": {"class": "truck", "gross_t": 1.0}},
-     "expect": {"verdict": "value",
-                "value": {"bans": [{"sign_id": "s1", "truth": "true",
-                                    "windows": [["06:00", "09:00"], ["16:00", "19:30"]]}]}}},
-    {"program": {"intent": "ban_times", "vehicle": {"class": "truck", "gross_t": 1.5}},
-     "expect": {"verdict": "value",
-                "value": {"bans": [{"sign_id": "s1", "truth": "true",
-                                    "windows": [["06:00", "09:00"], ["16:00", "19:30"]]}]}}},
-    {"program": {"intent": "ban_times", "vehicle": {"class": "truck", "gross_t": 2.0}},
-     "expect": {"verdict": "value",
-                "value": {"bans": [{"sign_id": "s1r3", "truth": "true",
-                                    "windows": [["06:00", "21:00"]]}]}}}
+    {
+      "program": {
+        "intent": "choose",
+        "options": [
+          {
+            "label": "500 kg",
+            "claim": {
+              "intent": "forbidden",
+              "action": "enter",
+              "vehicle": {
+                "class": "truck",
+                "gross_t": 0.5
+              },
+              "when": {
+                "start": "06:00",
+                "end": "21:00",
+                "quantifier": "all"
+              }
+            }
+          },
+          {
+            "label": "1 tấn",
+            "claim": {
+              "intent": "forbidden",
+              "action": "enter",
+              "vehicle": {
+                "class": "truck",
+                "gross_t": 1.0
+              },
+              "when": {
+                "start": "06:00",
+                "end": "21:00",
+                "quantifier": "all"
+              }
+            }
+          },
+          {
+            "label": "1,5 tấn",
+            "claim": {
+              "intent": "forbidden",
+              "action": "enter",
+              "vehicle": {
+                "class": "truck",
+                "gross_t": 1.5
+              },
+              "when": {
+                "start": "06:00",
+                "end": "21:00",
+                "quantifier": "all"
+              }
+            }
+          },
+          {
+            "label": "2 tấn",
+            "claim": {
+              "intent": "forbidden",
+              "action": "enter",
+              "vehicle": {
+                "class": "truck",
+                "gross_t": 2.0
+              },
+              "when": {
+                "start": "06:00",
+                "end": "21:00",
+                "quantifier": "all"
+              }
+            }
+          }
+        ]
+      },
+      "expect": {
+        "verdict": "value",
+        "value": {
+          "holding": [
+            "2 tấn"
+          ],
+          "not_holding": [
+            "500 kg",
+            "1 tấn",
+            "1,5 tấn"
+          ],
+          "unknown": []
+        }
+      }
+    }
   ],
-  "core_articles": ["22", "B.7"],
+  "core_articles": [
+    "22",
+    "B.7"
+  ],
   "not_core": {},
-  "notes": "One physical P.107 with a board of rules. A sign cannot pair a time plate with a vehicle plate, so board rules 1 and 3 are two scene entries (s1, s1r3). Rule 2 (service trucks) is left out."
+  "notes": "Board rule 2 (service trucks) is left out. \"Banned for the whole 6h-21h\" is Forbidden with quantifier all."
 }

@@ -6,29 +6,71 @@
     "scene_id": "train_1_3",
     "signs": [
       {
-        "id": "s1", "code": "P.107a", "value": 29, "unit": "seats",
-        "shape": "circle", "border": "red", "background": "white",
-        "position": {"rank_top_down": 1, "side": "right"},
+        "id": "s1",
+        "code": "P.107a",
+        "value": 29,
+        "unit": "seats",
+        "shape": "circle",
+        "border": "red",
+        "background": "white",
+        "position": {
+          "rank_top_down": 1,
+          "side": "right"
+        },
         "plates": [
-          {"kind": "time", "text": "06:30-08:00 16:30-18:30",
-           "time_windows": [{"start": "06:30", "end": "08:00"},
-                            {"start": "16:30", "end": "18:30"}]}
+          {
+            "kind": "time",
+            "text": "06:30-08:00 16:30-18:30",
+            "time_windows": [
+              {
+                "start": "06:30",
+                "end": "08:00"
+              },
+              {
+                "start": "16:30",
+                "end": "18:30"
+              }
+            ]
+          }
         ]
       }
     ]
   },
   "cases": [
     {
-      "program": {"intent": "ban_times", "vehicle": {"class": "coach", "seats": 30}},
+      "program": {
+        "intent": "ban_times",
+        "vehicle": {
+          "class": "coach",
+          "seats_gt": 29
+        }
+      },
       "expect": {
         "verdict": "value",
-        "value": {"banned": true,
-                  "bans": [{"sign_id": "s1", "truth": "true",
-                            "windows": [["06:30", "08:00"], ["16:30", "18:30"]]}]}
+        "value": {
+          "banned": true,
+          "bans": [
+            {
+              "sign_id": "s1",
+              "truth": "true",
+              "windows": [
+                [
+                  "06:30",
+                  "08:00"
+                ],
+                [
+                  "16:30",
+                  "18:30"
+                ]
+              ]
+            }
+          ]
+        }
       }
     }
   ],
-  "core_articles": ["22"],
-  "not_core": {},
-  "notes": "\"more than 29 seats\" is written as seats=30: Vehicle takes exact values only."
+  "core_articles": [
+    "22"
+  ],
+  "not_core": {}
 }
