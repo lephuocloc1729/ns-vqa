@@ -9,3 +9,9 @@ __pycache__/
 
 # local API usage logs (tokens, cost); never committed
 logs/
+
+# gold-intent working files hold dataset question text: local only (gold keeps ids + programs)
+data/annotations/gold_intents_v1/questions.jsonl
+data/annotations/gold_intents_v1/drafts.jsonl
+data/annotations/gold_intents_v1/review.csv
+data/annotations/gold_intents_v1/batch.json
