@@ -813,21 +813,32 @@ def _sign_key(s: dict) -> str:
 
 
 def anchoring(final: list[dict], draft: dict | None) -> dict | None:
-    """How many final signs equal a draft sign exactly (the pre-fill anchoring figure)."""
+    """The pre-fill anchoring figure for one image, counted sign by sign.
+
+    Each draft sign goes through the sheet's clean-up (clean_sign) and is
+    validated on its own, so a draft that is invalid as a whole still counts the
+    signs that were valid. A final sign is kept if it equals one of those draft
+    signs exactly (each draft sign is used once). Returns None without a draft."""
     if not draft:
         return None
-    rec, errs = check_label({"image_id": "draft", "split": "train", "status": "done",
-                             "signs": draft.get("signs", [])})
-    if errs:
-        return {"draft_signs": len(draft.get("signs", [])), "kept_unchanged": 0, "draft_valid": False}
-    pool = [_sign_key(s) for s in rec["signs"]]
+    raw_signs = draft.get("signs") or []
+    pool, invalid = [], 0
+    for raw in raw_signs:
+        clean, _, _ = clean_sign(raw)
+        rec, errs = check_label({"image_id": "draft", "split": "train", "status": "done",
+                                 "signs": [clean]})
+        if errs:
+            invalid += 1
+            continue
+        pool.append(_sign_key(rec["signs"][0]))
     kept = 0
     for s in final:
         k = _sign_key(s)
         if k in pool:
             pool.remove(k)
             kept += 1
-    return {"draft_signs": len(rec["signs"]), "kept_unchanged": kept, "draft_valid": True}
+    return {"draft_signs": len(raw_signs), "draft_signs_invalid": invalid,
+            "final_signs": len(final), "kept": kept, "changed_or_added": len(final) - kept}
 
 
 def import_labels(private: bool = False, labels_dir: Path | None = None,

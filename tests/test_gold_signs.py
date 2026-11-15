@@ -190,8 +190,29 @@ def test_import_refuses_private_labels_in_the_public_folder(work):
 def test_anchoring_counts_signs_kept_from_the_draft(work):
     rec, _ = gs.check_label(label())
     draft = {"signs": [label()["signs"][0], sign()]}
-    assert gs.anchoring(rec["signs"], draft) == {"draft_signs": 2, "kept_unchanged": 1, "draft_valid": True}
+    assert gs.anchoring(rec["signs"], draft) == {"draft_signs": 2, "draft_signs_invalid": 0,
+                                                 "final_signs": 1, "kept": 1, "changed_or_added": 0}
     assert gs.anchoring(rec["signs"], None) is None
+
+
+def test_anchoring_counts_kept_signs_of_an_invalid_draft():
+    """A draft invalid as a whole (one bad sign) still counts the 2 of 3 signs kept."""
+    a, b = sign(code="P.123a"), sign(code="P.104", position={"rank_top_down": 2, "side": "left"})
+    draft = {"signs": [a, b, sign(code="LOCAL")]}
+    assert gs.check_label(label(signs=draft["signs"]))[1]               # invalid as a whole
+    final, _ = gs.check_label(label(signs=[a, b, sign(code="P.102")]))
+    assert gs.anchoring(final["signs"], draft) == {"draft_signs": 3, "draft_signs_invalid": 1,
+                                                   "final_signs": 3, "kept": 2, "changed_or_added": 1}
+
+
+def test_anchoring_compares_against_the_cleaned_draft():
+    """The sheet turned "car" into {class: car} and moved notes out; such a sign, kept
+    as the sheet wrote it, counts as kept."""
+    raw = sign(notes="ghi chú", plates=[{"kind": "exception", "vehicles": ["car"]}])
+    clean, _, _ = gs.clean_sign(raw)
+    final, errs = gs.check_label(label(signs=[clean]))
+    assert errs == []
+    assert gs.anchoring(final["signs"], {"signs": [raw]})["kept"] == 1
 
 
 def test_private_labels_go_only_to_the_ignored_private_path(tmp_path):
@@ -362,9 +383,9 @@ def test_import_records_each_labels_draft_model(work, monkeypatch):
     gold = {g["image_id"]: g for g in gs.import_labels(out=work / "gold.jsonl")}
     assert gold["train_1_3"]["draft_model"] == "claude-opus-5-5"
     assert gold["train_1_3"]["prefill_version"] == "p1"
-    assert gold["train_1_3"]["anchoring"]["kept_unchanged"] == 1
+    assert gold["train_1_3"]["anchoring"]["kept"] == 1
     assert gold["train_1_8"]["draft_model"] == "claude-haiku-5-5"
-    assert gold["train_1_8"]["anchoring"]["kept_unchanged"] == 0
+    assert gold["train_1_8"]["anchoring"]["kept"] == 0
     assert gold["train_1_9"]["draft_model"] is None and gold["train_1_9"]["anchoring"] is None
 
 
