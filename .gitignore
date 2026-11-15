@@ -24,3 +24,6 @@ data/annotations/gold_signs_private/
 
 # D10 visual review page (links dataset and law_db images; local only)
 data/annotations/visual_review/
+
+# scene cache: model outputs only, keyed by image sha256 + model + effort + prompt version
+cache/scenes/

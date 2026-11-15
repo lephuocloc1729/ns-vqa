@@ -48,7 +48,7 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
 
 - **At inference, the pipeline never uses hand-made scene graphs, test fixtures, gold labels or train QA for an image.**
   - It never looks up train (or any split's) data by image hash or image similarity.
-  - The only cache is the scene cache. It holds model outputs only, keyed by image hash plus model id plus prompt version.
+  - The only cache is the scene cache (`vqa/perception/cache.py`, `cache/scenes/`, gitignored). It holds model outputs only, keyed by image hash plus model id plus effort plus prompt version.
 - **Inference code means `vqa/` and `app/`.** It must not import from `tests`, `conftest` or `eval`. It must not mention fixture, annotation, audit, split or duplicate files, or the dataset's QA files.
   - `tests/test_leakage_guard.py` enforces this.
   - Few-shot examples built from train go into versioned prompt files under `prompts/`. They are never selected per image.
