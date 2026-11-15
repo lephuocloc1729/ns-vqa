@@ -118,7 +118,7 @@ class Engine:
                 raise EngineError(str(e)) from None
         out = []
         for s in signs:
-            if sel.code and s.code != sel.code:
+            if sel.code and not self.catalog.code_selects(sel.code, s.code):
                 continue
             if codes is not None and s.code not in codes:
                 continue

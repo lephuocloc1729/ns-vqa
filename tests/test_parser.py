@@ -188,6 +188,8 @@ FROZEN_PROMPTS = {
            "fewshot.jsonl": "f644a21c024865bf4bbe55c00a44542e6ded14d84a3dfc383421856f2a1c04a5"},
     "v3": {"spec.md": "235ea70bcfe685420a145e6cf7f0bbe671137c38ec4f210a17c76644978f1583",
            "fewshot.jsonl": "f644a21c024865bf4bbe55c00a44542e6ded14d84a3dfc383421856f2a1c04a5"},
+    "v4": {"spec.md": "a51cc692eb41120595183bf1ebde5dfac805bfea223e1b71326ff3ce0ab1beb1",
+           "fewshot.jsonl": "f644a21c024865bf4bbe55c00a44542e6ded14d84a3dfc383421856f2a1c04a5"},
 }
 
 
@@ -241,7 +243,8 @@ def test_fewshots_come_from_train_or_public_dev_only(version):
 
 @pytest.mark.parametrize("code", ["P.125", "W.207(a,b,c,d,e,f,g,h,i,k,l)",   # row codes
                                   "W.207c", "W.207l",                       # variants
-                                  "W.207", "W.201"])                         # family stems
+                                  "W.207", "W.201",                          # family stems
+                                  "W.221", "P.124", "P.106"])                # stems of separate rows
 def test_sign_code_forms_accepted(code):
     w = WParse.model_validate({"program": {"intent": "is_sign", "sign": {"only": True},
                                            "code": code}})
@@ -249,10 +252,9 @@ def test_sign_code_forms_accepted(code):
 
 
 @pytest.mark.parametrize("code,closest", [
-    ("W.221", ["W.221a", "W.221b"]),         # separate rows, not a family
-    ("P.124", ["P.124a", "P.124b", "P.124c", "P.124d"]),
     ("W.207j", ["W.207"]),                    # QCVN skips j in this family
     ("P.999", []),
+    ("UNKNOWN", []),
 ])
 def test_sign_code_rejected_with_closest_valid_codes(code, closest):
     with pytest.raises(ValidationError) as e:
@@ -262,8 +264,36 @@ def test_sign_code_rejected_with_closest_valid_codes(code, closest):
     assert code in msg and len(msg) < 300
     for c in closest:
         assert c in msg
-    if code in ("W.221", "P.124"):
-        assert "not a family row" in msg
+
+
+@pytest.mark.parametrize("code", ["P.125", "W.207c", "W.207", "W.221", "P.124", "P.106",
+                                  "W.207j", "P.999", "UNKNOWN", "P.107"])
+def test_wire_accepts_exactly_what_the_catalog_resolves(engine, code):
+    try:
+        engine.catalog.codes_matching(code)
+        resolves = True
+    except KeyError:
+        resolves = False
+    try:
+        WParse.model_validate({"program": {"intent": "is_sign", "sign": {"only": True},
+                                           "code": code}})
+        accepted = True
+    except ValidationError:
+        accepted = False
+    assert accepted == resolves, code
+
+
+def test_selector_stem_gives_the_same_verdict_as_the_exact_code(engine):
+    sc = scene(sign("s1", "P.124c"), sign("s2", "P.127", value=50))
+    answers = []
+    for code in ("P.124", "P.124c"):
+        w = WParse.model_validate({"program": {"intent": "forbidden", "action": "u_turn",
+                                               "vehicle": {"vehicle_class": "car"},
+                                               "sign": {"code": code}}})
+        answers.append(engine.answer(sc, to_query(w, 2026)))
+    a, b = answers
+    assert a.verdict == b.verdict == Verdict.yes
+    assert articles(a) == articles(b) and "B.24" in articles(a)
 
 
 def test_parsed_variant_and_stem_reach_the_engine(engine):

@@ -45,38 +45,33 @@ VehicleClassLit = Literal[tuple(c.value for c in VehicleClass)]  # type: ignore[
 ActionLit = Literal[tuple(a.value for a in Action)]  # type: ignore[valid-type]
 _MEANINGS = frozenset({s.key for s in _CATALOG.signs} | {t for s in _CATALOG.signs for t in s.tags})
 
-# Sign codes a program may name, all resolved by the catalog the engine uses:
-#   (a) a row code as written in the catalog ("P.125", "W.207(a,b,c,d,e,f,g,h,i,k,l)");
-#   (b) a variant code that Catalog.get resolves to its family row ("W.207c");
-#   (c) the bare stem of a family row ("W.207").
-# A stem shared by separate rows ("W.221": rows W.221a and W.221b) is not a family
-# and is rejected. The value is kept as written: is_sign resolves every accepted
-# form through Catalog.codes_matching / get, while a selector compares the code
-# with the scene sign's code as a string, so rewriting "W.207c" to the row code
-# would stop it matching a scene sign recorded as "W.207c".
-_ROW_CODES = frozenset(s.code for s in _CATALOG.signs)
-_FAMILY_STEMS = frozenset(s.base for s in _CATALOG.signs if s.variants)
-_VARIANT_CODES = frozenset(s.base + v for s in _CATALOG.signs for v in s.variants)
-_VALID_CODES = _ROW_CODES | _FAMILY_STEMS | _VARIANT_CODES
+# A program may name any sign code the engine resolves: Catalog.codes_matching is
+# the single source of truth (a row code, a variant such as "W.207c", the stem of a
+# family row such as "W.207", or a stem of separate rows such as "W.221" = W.221a or
+# W.221b). The value is kept as written; the engine resolves it the same way in
+# is_sign targets and in selectors (Catalog.code_selects).
+def _resolves(code: str) -> bool:
+    try:
+        _CATALOG.codes_matching(code)
+    except KeyError:
+        return False
+    return True
 
 
-def _closest_codes(v: str, n: int = 5) -> list[str]:
-    """Valid codes to suggest for a rejected one: the separate rows a stem stands
-    for ("W.221" -> W.221a, W.221b), else the nearest codes by spelling."""
-    rows = sorted(c for c in _ROW_CODES if re.fullmatch(re.escape(v) + r"[a-z]", c))
-    if rows:
-        return rows[:n]
-    return difflib.get_close_matches(v, sorted(_VALID_CODES), n=n, cutoff=0.6)
+# Candidates for the "closest valid codes" hint only (acceptance never uses this):
+# every row and variant code, and every stem, kept if the catalog resolves it.
+_SUGGESTIONS = sorted(c for c in (
+    {s.code for s in _CATALOG.signs}
+    | {s.base + v for s in _CATALOG.signs for v in s.variants}
+    | {s.base for s in _CATALOG.signs}
+    | {re.sub(r"[a-z]$", "", s.code) for s in _CATALOG.signs}) if _resolves(c))
 
 
 def _known_code(v: str) -> str:
-    if v in _VALID_CODES:
+    if _resolves(v):
         return v
-    near = _closest_codes(v)
+    near = difflib.get_close_matches(v, _SUGGESTIONS, n=5, cutoff=0.6)
     hint = f"; closest valid codes: {', '.join(near)}" if near else ""
-    if near and all(re.fullmatch(re.escape(v) + r"[a-z]", c) for c in near):
-        raise ValueError(f"sign code {v!r} is not a family row (its signs are separate "
-                         f"rows){hint}")
     raise ValueError(f"unknown sign code {v!r}: use a code from the sign catalog table{hint}")
 
 
