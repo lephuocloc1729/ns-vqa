@@ -8,11 +8,12 @@ No public_holdout or private questions: those are scored end to end only.
 
     .venv/bin/python eval/gold_intents.py select [--train N]  # write questions.jsonl
     .venv/bin/python eval/gold_intents.py estimate            # cost estimate, no spend
-    .venv/bin/python eval/gold_intents.py submit --max-spend N  # send the batch
-    .venv/bin/python eval/gold_intents.py collect             # write drafts.jsonl + review.csv
+    .venv/bin/python eval/gold_intents.py run --max-spend N     # sequential, cached (recommended)
+    .venv/bin/python eval/gold_intents.py submit --max-spend N  # or: send a batch (half price,
+    .venv/bin/python eval/gold_intents.py collect             #   caching best effort), then collect
     .venv/bin/python eval/gold_intents.py import              # review.csv -> gold_intents_v1.jsonl
 
-questions.jsonl, drafts.jsonl, review.csv and batch.json hold dataset question
+questions.jsonl, drafts.jsonl, review.csv, run_progress.jsonl and batch.json hold dataset question
 text and stay local (gitignored); gold_intents_v1.jsonl keeps ids and programs.
 
 Review CSV columns: id, split, question, draft_status, draft_program, verdict,
@@ -48,6 +49,10 @@ OUT = ROOT / "data" / "annotations" / "gold_intents_v1"
 MODEL = "claude-opus-5-5"
 EFFORT = "medium"
 MAX_TOKENS = 4000
+# exact count (2026-11-15) was 36,817 prompt tokens per request against a rough 17,210:
+# Vietnamese text and the JSON schema take far more tokens than bytes / 3.5 suggests
+ROUGH_PROMPT_CALIBRATION = 2.14
+MIN_CACHE_SHARE = 0.9   # sequential run: share of the prompt that must come from the cache
 SEED = 20261115
 TRAIN_SAMPLE = 40
 PROMPT_VERSION = "v2"
@@ -160,8 +165,9 @@ def estimate(sdk=None) -> dict:
         method = "exact (messages.count_tokens)"
     else:
         base = rough_tokens(system) + rough_tokens(json.dumps(json_schema()))
-        counts = [base + rough_tokens(user_text(r["question"])) for r in rows]
-        method = "rough (no API key: ~3.5 bytes per token, +-30%)"
+        counts = [int((base + rough_tokens(user_text(r["question"]))) * ROUGH_PROMPT_CALIBRATION)
+                  for r in rows]
+        method = f"rough (no API key: bytes / 3.5 x {ROUGH_PROMPT_CALIBRATION}, +-30%)"
     n, prompt = len(rows), sum(counts)
     sys_tokens = min(counts) - 20
     out = expected_output_tokens() * n
@@ -169,12 +175,18 @@ def estimate(sdk=None) -> dict:
     # batch caching is best-effort: one write, then reads for the shared system prompt
     cached = cost_usd(MODEL, cache_write_tokens=sys_tokens, cache_read_tokens=sys_tokens * (n - 1),
                       input_tokens=prompt - sys_tokens * n, output_tokens=out, batch=True)
+    # sequential run: full price, one cache write, every later call reads the shared prompt
+    sequential = cost_usd(MODEL, cache_write_tokens=sys_tokens, cache_read_tokens=sys_tokens * (n - 1),
+                          input_tokens=prompt - sys_tokens * n, output_tokens=out)
     worst = sum(worst_case_usd(MODEL, c, MAX_TOKENS, batch=True) for c in counts)
     est = {"method": method, "requests": n, "prompt_tokens_total": prompt,
            "prompt_tokens_per_request": round(prompt / n), "expected_output_tokens_total": out,
            "expected_usd_no_cache_hits": round(no_cache, 2),
            "expected_usd_all_cache_hits": round(cached, 2),
-           "worst_case_usd": round(worst, 2), "model": MODEL, "effort": EFFORT,
+           "worst_case_usd": round(worst, 2),
+           "sequential_expected_usd": round(sequential, 2),
+           "sequential_expected_usd_double_output": round(
+               sequential + cost_usd(MODEL, output_tokens=out), 2), "model": MODEL, "effort": EFFORT,
            "max_tokens": MAX_TOKENS}
     return est
 
@@ -212,13 +224,50 @@ def reviewed_rows(path: Path) -> int:
         return sum(1 for row in csv.DictReader(f) if (row.get("verdict") or "").strip())
 
 
+def parse_draft(rec: dict, text: str, engine) -> dict:
+    """Fill a draft record from the model's JSON text: draft program, validator
+    errors, and draft_status (ok | out_of_scope | invalid)."""
+    try:
+        w = WParse.model_validate(json.loads(text))
+        rec["draft"] = compact(w)
+        rec["errors"] = validator.check(to_query(w, CONTEXT_YEAR), engine)
+        rec["draft_status"] = "invalid" if rec["errors"] else (
+            "out_of_scope" if w.out_of_scope else "ok")
+    except Exception as e:  # noqa: BLE001 - recorded for the reviewer
+        rec["draft_status"], rec["errors"] = "invalid", [str(e)]
+    return rec
+
+
+def write_outputs(drafts: dict[str, dict]) -> None:
+    """drafts.jsonl and review.csv in question order; questions without a draft
+    are marked missing."""
+    qs = {r["id"]: r for r in load_questions()}
+    order = list(qs)
+    with open(OUT / "drafts.jsonl", "w", encoding="utf-8") as f:
+        for rid in order:
+            f.write(json.dumps(drafts.get(rid, {**qs[rid], "draft_status": "missing"}),
+                               ensure_ascii=False) + "\n")
+    with open(OUT / "review.csv", "w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["id", "split", "question", "draft_status", "draft_program", "verdict",
+                    "corrected_program", "also_accept", "notes"])
+        for rid in order:
+            d = drafts.get(rid, {})
+            w.writerow([rid, qs[rid]["split"], qs[rid]["question"], d.get("draft_status", "missing"),
+                        json.dumps(d.get("draft"), ensure_ascii=False) if d.get("draft") else "",
+                        "", "", "", "; ".join(d.get("errors", []))])
+
+
+def refuse_if_reviewed() -> None:
+    if n := reviewed_rows(OUT / "review.csv"):
+        raise SystemExit(f"review.csv already has {n} reviewed rows; move it aside before "
+                         "writing new drafts")
+
+
 def collect(wait: bool = False) -> None:
     import anthropic
 
-    if n := reviewed_rows(OUT / "review.csv"):
-        raise SystemExit(f"review.csv already has {n} reviewed rows; move it aside before "
-                         "collecting a new batch")
-
+    refuse_if_reviewed()
     sdk = anthropic.Anthropic()
     batch_id = json.loads((OUT / "batch.json").read_text())["batch_id"]
     while True:
@@ -251,30 +300,79 @@ def collect(wait: bool = False) -> None:
             if msg.stop_reason == "refusal":
                 rec["draft_status"] = "refused"
             else:
-                try:
-                    w = WParse.model_validate(json.loads(text))
-                    rec["draft"] = compact(w)
-                    rec["errors"] = validator.check(to_query(w, CONTEXT_YEAR), engine)
-                    rec["draft_status"] = "invalid" if rec["errors"] else (
-                        "out_of_scope" if w.out_of_scope else "ok")
-                except Exception as e:  # noqa: BLE001 - recorded for the reviewer
-                    rec["draft_status"], rec["errors"] = "invalid", [str(e)]
+                parse_draft(rec, text, engine)
         drafts[rid] = rec
-    order = [r["id"] for r in load_questions()]
-    with open(OUT / "drafts.jsonl", "w", encoding="utf-8") as f:
-        for rid in order:
-            f.write(json.dumps(drafts.get(rid, {**qs[rid], "draft_status": "missing"}),
-                               ensure_ascii=False) + "\n")
-    with open(OUT / "review.csv", "w", encoding="utf-8", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["id", "split", "question", "draft_status", "draft_program", "verdict",
-                    "corrected_program", "also_accept", "notes"])
-        for rid in order:
-            d = drafts.get(rid, {})
-            w.writerow([rid, qs[rid]["split"], qs[rid]["question"], d.get("draft_status", "missing"),
-                        json.dumps(d.get("draft"), ensure_ascii=False) if d.get("draft") else "",
-                        "", "", "", "; ".join(d.get("errors", []))])
+    write_outputs(drafts)
     print(f"collected {len(drafts)} drafts, cost ${total:.2f} -> {OUT}")
+
+
+# --------------------------------------------------------------------------- run (sequential)
+
+class CacheMiss(SystemExit):
+    pass
+
+
+def run(max_spend: float, sdk=None, engine=None, check_at: int = 2,
+        min_cache_share: float = MIN_CACHE_SHARE) -> dict:
+    """Draft the questions one call at a time (full price, but the shared prompt is
+    written to the cache once and read back by every later call).
+
+    - The spend guard checks each call's worst case before it is sent.
+    - After the `check_at`-th call of this invocation, at least `min_cache_share` of
+      the prompt must have come from the cache; otherwise the run stops (CacheMiss),
+      since every later call would pay full price for the prompt.
+    - Progress is appended to run_progress.jsonl, so an interrupted run resumes
+      where it stopped. drafts.jsonl and review.csv are rewritten after every call.
+    """
+    from vqa.llm.client import LLMClient, LLMError, LLMRefusal, LLMTruncated
+
+    refuse_if_reviewed()
+    if engine is None:
+        from vqa.reasoning.engine import Engine
+        engine = Engine()
+    client = LLMClient(model=MODEL, guard=SpendGuard(max_spend), sdk=sdk)
+    progress = OUT / "run_progress.jsonl"
+    drafts = {}
+    if progress.exists():
+        for line in progress.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                rec = json.loads(line)
+                drafts[rec["id"]] = rec
+    system, schema = system_prompt(PROMPT_VERSION), json_schema()
+    todo = [q for q in load_questions() if q["id"] not in drafts]
+    print(f"{len(drafts)} already drafted, {len(todo)} to go (limit ${max_spend:.2f})")
+    for n, q in enumerate(todo, 1):
+        rec = {**q, "draft": None, "errors": []}
+        try:
+            res = client.structured(system=system, user=user_text(q["question"]), schema=schema,
+                                    max_tokens=MAX_TOKENS, effort=EFFORT,
+                                    purpose="gold-intent draft (sequential)")
+            parse_draft(rec, res.raw_text, engine)
+        except LLMRefusal:
+            rec["draft_status"] = "refused"
+        except LLMTruncated as e:
+            rec["draft_status"], rec["errors"] = "invalid", [str(e)]
+        except LLMError as e:
+            rec["draft_status"], rec["errors"] = "invalid", [str(e)]
+        rec["usage"] = client.last_usage
+        drafts[q["id"]] = rec
+        with open(progress, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        write_outputs(drafts)
+        u = client.last_usage or {}
+        print(f"[{n}/{len(todo)}] {q['id']}: {rec['draft_status']}  "
+              f"spent ${client.guard.spent:.2f}")
+        if n == check_at:
+            prompt = u.get("input_tokens", 0) + u.get("cache_read_tokens", 0) + u.get("cache_write_tokens", 0)
+            share = u.get("cache_read_tokens", 0) / prompt if prompt else 0.0
+            if share < min_cache_share:
+                raise CacheMiss(
+                    f"call {n} read only {share:.0%} of its {prompt} prompt tokens from the cache "
+                    f"(need {min_cache_share:.0%}); stopped after ${client.guard.spent:.2f}. "
+                    "Progress is saved; consider the batch path instead.")
+            print(f"cache check passed: {share:.0%} of the prompt read from the cache")
+    print(f"done: {len(drafts)} drafts, this run spent ${client.guard.spent:.2f} -> {OUT}")
+    return drafts
 
 
 # --------------------------------------------------------------------------- import
@@ -323,6 +421,8 @@ def main() -> None:
     sub.add_parser("estimate")
     s = sub.add_parser("submit")
     s.add_argument("--max-spend", type=float, required=True)
+    r = sub.add_parser("run")
+    r.add_argument("--max-spend", type=float, required=True)
     c = sub.add_parser("collect")
     c.add_argument("--wait", action="store_true")
     i = sub.add_parser("import")
@@ -338,6 +438,8 @@ def main() -> None:
         print(json.dumps(estimate(sdk), indent=2))
     elif a.cmd == "submit":
         submit(a.max_spend)
+    elif a.cmd == "run":
+        run(a.max_spend)
     elif a.cmd == "collect":
         collect(a.wait)
     elif a.cmd == "import":

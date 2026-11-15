@@ -15,3 +15,4 @@ data/annotations/gold_intents_v1/questions.jsonl
 data/annotations/gold_intents_v1/drafts.jsonl
 data/annotations/gold_intents_v1/review.csv
 data/annotations/gold_intents_v1/batch.json
+data/annotations/gold_intents_v1/run_progress.jsonl

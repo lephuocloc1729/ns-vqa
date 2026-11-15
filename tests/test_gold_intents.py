@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 import eval.gold_intents as gi
+from vqa.llm.spend import SpendLimitExceeded
 
 
 @pytest.fixture
@@ -97,3 +98,85 @@ def test_spread_sample_covers_categories_and_images():
     assert len(picked) == 5 and len({gi.category(t["question"]) for t in picked}) == 5
     assert len({t["image_id"] for t in picked}) == 5
     assert gi.spread_sample(pool, 5) == picked          # seeded, reproducible
+
+
+# --------------------------------------------------------------------------- sequential run
+
+GOOD = json.dumps({"program": {"intent": "meaning", "sign": {"only": True}}})
+
+
+class SeqSDK:
+    """Fake anthropic client for run(): every call answers GOOD with the given usage."""
+
+    def __init__(self, usages, prompt_tokens=30_000):
+        self.usages, self.prompt_tokens, self.sent = list(usages), prompt_tokens, []
+        self.messages = self
+
+    def count_tokens(self, **kw):
+        return SimpleNamespace(input_tokens=self.prompt_tokens)
+
+    def create(self, **kw):
+        self.sent.append(kw)
+        u = self.usages.pop(0) if self.usages else {"cache_read_input_tokens": 29_990}
+        return SimpleNamespace(
+            content=[SimpleNamespace(type="text", text=u.pop("text", GOOD))],
+            stop_reason=u.pop("stop", "end_turn"), stop_details=None, _request_id="req",
+            usage=SimpleNamespace(**{"input_tokens": 10, "output_tokens": 900,
+                                     "cache_read_input_tokens": 0,
+                                     "cache_creation_input_tokens": 0, **u}))
+
+
+@pytest.fixture
+def seq_out(tmp_out, tmp_path, monkeypatch):
+    monkeypatch.setenv("VQA_LOG_DIR", str(tmp_path / "logs"))
+    rows = [{"id": f"q{i}", "split": "public_dev", "question": f"Câu {i}?"} for i in range(4)]
+    (tmp_out / "questions.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    return tmp_out
+
+
+def test_run_drafts_everything_when_the_cache_works(seq_out, engine):
+    sdk = SeqSDK([{"cache_creation_input_tokens": 29_990}])        # then cache reads
+    drafts = gi.run(5.0, sdk=sdk, engine=engine)
+    assert len(sdk.sent) == 4 and all(d["draft_status"] == "ok" for d in drafts.values())
+    req = sdk.sent[0]
+    assert req["model"] == "claude-opus-5-5" and req["output_config"]["effort"] == "medium"
+    assert req["system"][0]["cache_control"] == {"type": "ephemeral"}
+    with open(seq_out / "review.csv", encoding="utf-8") as f:
+        assert [r["draft_status"] for r in csv.DictReader(f)] == ["ok"] * 4
+    log = (seq_out / "logs" / "api_calls.jsonl").read_text().splitlines()
+    assert len(log) == 4
+
+
+def test_run_stops_when_the_prompt_is_not_cached(seq_out, engine):
+    sdk = SeqSDK([{"cache_creation_input_tokens": 15_000, "input_tokens": 15_000},
+                  {"cache_read_input_tokens": 15_000, "input_tokens": 15_000}])
+    with pytest.raises(gi.CacheMiss, match="50%"):
+        gi.run(5.0, sdk=sdk, engine=engine)
+    assert len(sdk.sent) == 2
+    assert len((seq_out / "run_progress.jsonl").read_text().splitlines()) == 2
+
+
+def test_run_resumes_and_records_failures(seq_out, engine):
+    sdk = SeqSDK([{"cache_creation_input_tokens": 29_990}, {"stop": "max_tokens",
+                                                             "cache_read_input_tokens": 29_990}])
+    with pytest.raises(SpendLimitExceeded):              # spend limit after two calls
+        gi.run(0.40, sdk=sdk, engine=engine)
+    done = [json.loads(l) for l in (seq_out / "run_progress.jsonl").read_text().splitlines()]
+    assert [d["draft_status"] for d in done] == ["ok", "invalid"]
+    assert "max_tokens" in done[1]["errors"][0]
+    sdk2 = SeqSDK([{"cache_creation_input_tokens": 29_990}])
+    drafts = gi.run(5.0, sdk=sdk2, engine=engine)
+    assert len(sdk2.sent) == 2 and len(drafts) == 4      # only the two left were sent
+
+
+def test_run_refuses_a_reviewed_csv(seq_out, engine):
+    write_review(seq_out / "review.csv", [{"id": "q0", "split": "public_dev", "question": "Q",
+                                          "verdict": "ok"}])
+    with pytest.raises(SystemExit, match="reviewed rows"):
+        gi.run(5.0, sdk=SeqSDK([]), engine=engine)
+
+
+def test_estimate_reports_sequential_cost(tmp_out):
+    est = gi.estimate(CountSDK())
+    assert est["expected_usd_all_cache_hits"] < est["sequential_expected_usd"] \
+        < est["sequential_expected_usd_double_output"]

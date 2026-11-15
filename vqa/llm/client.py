@@ -51,6 +51,7 @@ class LLMClient:
     guard: SpendGuard = field(default_factory=SpendGuard)
     sdk: Any = None
     run_id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
+    last_usage: dict[str, int] | None = field(default=None, init=False)  # of the latest call, even if it raised
 
     def __post_init__(self) -> None:
         if self.sdk is None:
@@ -87,6 +88,7 @@ class LLMClient:
             "cache_read_tokens": getattr(u, "cache_read_input_tokens", 0) or 0,
             "cache_write_tokens": getattr(u, "cache_creation_input_tokens", 0) or 0,
         }
+        self.last_usage = usage
         cost = cost_usd(self.model, **usage)
         self.guard.add(cost)
         rid = getattr(resp, "_request_id", None)

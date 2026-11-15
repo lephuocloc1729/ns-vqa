@@ -42,15 +42,17 @@ Last updated 2026-11-15. Branch `phase-2` (not merged), on top of `main` at `926
 - `49169db` Parser: depth-limited wire schema, validator, Claude parser with one retry, `prompts/parser/v1` (spec plus 16 train few-shots).
 - `b7e648c` Gold-intent tool: select, estimate, submit, collect, import.
 
-Full test suite: 222 passed. No API calls have been made yet.
+Full test suite: 227 passed. No API calls have been made yet.
 
 ## Next steps, in order
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
-2. **Gold drafting: 48 public_dev and 40 train questions** (the owner's change of 2026-11-15). `select` has already written the 88 questions. The three public_dev few-shots are not drafted. Drafting uses prompt `v2`. With `ANTHROPIC_API_KEY` set:
-   1. Run `eval/gold_intents.py estimate` to get exact token counts. The rough estimate is $1.07–3.93 expected and $7.35 worst case.
-   2. Run `submit --max-spend 8` (Opus 5.5, medium effort, Batch API).
-   3. Run `collect --wait`, which writes `review.csv` for the owner. `collect` refuses to overwrite a `review.csv` that already has verdicts.
+2. **Gold drafting: 48 public_dev and 40 train questions** (the owner's change of 2026-11-15). `select` has already written the 88 questions. The three public_dev few-shots are not drafted. Drafting uses prompt `v2`, Opus 5.5 at medium effort. The exact count is 36,817 prompt tokens per request, so the owner chose sequential calls with caching over the batch: a batch's caching is best effort, so it could cost anywhere from $1.29 to $7.35, with $11.62 of headroom needed up front. With `ANTHROPIC_API_KEY` set:
+   1. Run `eval/gold_intents.py run --max-spend 5`. It is expected to cost about $2.60, or $4.34 if outputs run twice as long.
+      - The spend guard checks every call before it is sent.
+      - After call 2, at least 90% of the prompt must have been read from the cache. If not, the run stops after about $0.50. It isn't known yet whether the JSON schema, about half the prompt, is cached.
+      - The run resumes where it stopped (`run_progress.jsonl`). It rewrites `review.csv` after every call, and refuses to touch one that already has verdicts.
+   2. If the cache check fails, run `submit --max-spend 12` and then `collect --wait` (batch).
 3. **Build `eval/parser_eval.py`.** It reports:
    - program exact match, after normalization, against the gold or any `also_accept` program;
    - slot F1;

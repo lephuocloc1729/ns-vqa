@@ -30,6 +30,7 @@ Before phase 2 started, two fixes were made, each in its own commit:
    - **Changed by the owner on 2026-11-15:** the train sample went from 150 random questions to 40, to save API budget. The owner has rewritten the train questions to read more naturally. The 40 are spread evenly over rough question categories, one per image where possible (`spread_sample`).
    - It writes `drafts.jsonl` and `review.csv` (question, draft program, owner verdict or correction).
    - The cost estimate is shown before running. The run is waiting for the owner's go-ahead.
+   - **Changed by the owner on 2026-11-15:** drafting goes one call at a time with prompt caching (`run`), not through the Batch API, because a batch's caching is best effort. The run stops after call 2 if less than 90% of the prompt was read from the cache. The batch path (`submit` / `collect`) stays as the fallback.
    - No gold intents for public_holdout or private: those are scored end to end only.
 5. **Eval script** (`eval/parser_eval.py`, to do): program exact match, slot F1, and out-of-scope precision and recall on the reviewed gold. Also the gate score with a 95% CI, and the effort comparison.
 
