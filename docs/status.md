@@ -354,6 +354,14 @@ Full test suite: 394 passed. Prolog loads.
   - `test_review_provenance` now pins 55 human visual reviews (35 rule, 20 meaning) and the four fixed values. The 5 `assistant` rows are unchanged: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. None of them is on the D10 list.
   - **Prompt hashes:** the parser's built prompt is unchanged at 2d0ec50e3611, since its catalog table has no visuals. The gold pre-fill prompt goes from ee8106d9539c to 73022496646a; existing drafts keep their recorded hash. `prompts/scene/v1` doesn't exist yet and will be built on the reviewed catalog.
 
+- `f9998a1` Gold: all 12 P.102 signs set to `border: none`. This was the owner's convention decision and the one label edit the owner authorized; no other label field changed. The recomputed anchoring moved on 3 images whose drafts said red: public_test_7_4, 7_12 and 8_2, 4 kept signs fewer in all, all Haiku-drafted. Opus stays at 22 of 39 kept; Haiku goes from 71 to 67 of 273.
+- **Phase 3 item 3, first chunk** (no API calls):
+  - `03cf04b` `vqa/perception/image.py`: EXIF orientation, RGB, native size, scale factor, sha256 of the original bytes. Pillow is now a main dependency.
+  - `354138c` `json_reply` accepts image and text content blocks; the parser's string turn is unchanged.
+  - `3282a94` `vqa/perception/wire.py`: the reply format to `SceneGraph`, in strict and final modes.
+  - `d2b3ccd` `vqa/perception/cache.py`: the key is image sha256 + model + effort + prompt version (D5), and records hold model outputs only. `cache/scenes/` is gitignored, and CLAUDE.md is updated.
+  - `8d10df4` Leakage guard: the phase-3 strings, and checks on the cache key and record fields.
+
 ## Next steps, in order
 
 0. **Phase 3 item 3, the scene call:** the D10 visual check is done, so `prompts/scene/v1` can be written on the reviewed catalog.
