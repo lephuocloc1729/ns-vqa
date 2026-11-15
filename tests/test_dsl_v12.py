@@ -221,3 +221,13 @@ def test_choose_with_forbidden_options(engine):
         for h in (5, 7, 12)]))
     assert a.value["holding"] == ["7h"]
     assert a.value["not_holding"] == ["5h", "12h"]
+
+
+def test_width_limit_p118(engine):
+    """P.118 bans vehicles wider than the value, priority vehicles included (B.18 b)."""
+    sc = scene(sign("s1", "P.118", value=2.5))
+    wide = permitted(engine, sc, "enter", V("truck", width_m=2.8))
+    assert wide.verdict == Verdict.no and "B.18" in articles(wide)
+    assert permitted(engine, sc, "enter", V("car", width_m=1.8)).verdict == Verdict.yes
+    assert permitted(engine, sc, "enter", V("truck", width_m=2.8, priority=True)).verdict == Verdict.no
+    assert permitted(engine, sc, "enter", V("truck")).verdict == Verdict.unknown

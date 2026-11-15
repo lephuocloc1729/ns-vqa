@@ -295,6 +295,20 @@ signs:
       value: {attr: height_m, op: gt, unit: m, applies_to: [vehicle]}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.17"}
 
+  # B.18 b): "có hiệu lực cấm các xe (cơ giới và thô sơ) kể cả các xe được ưu tiên
+  # theo quy định có chiều ngang (kể cả xe và hàng hóa) vượt quá trị số ghi trên biển"
+  - code: P.118
+    key: width_limit
+    name_vi: Hạn chế chiều ngang xe
+    name_en: Width limit
+    category: prohibitory
+    visual: {shape: circle, border: red, background: white}
+    effect:
+      prohibits: [{actions: [enter], vehicles: [{class: vehicle}]}]
+      priority_exempt: false   # "kể cả các xe được ưu tiên theo quy định"
+      value: {attr: width_m, op: gt, unit: m, applies_to: [vehicle]}
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.18"}
+
   - code: P.123a
     key: no_left_turn
     tags: [turn_ban]

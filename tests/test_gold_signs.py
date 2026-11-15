@@ -430,7 +430,7 @@ def test_cleanup_moves_extra_text_fields_into_comments_verbatim():
     (sign(code="LOCAL"), "unknown sign code 'LOCAL'"),
     (sign(code="P.UNKNOWN"), "unknown sign code"),
     (sign(code="W.201(a,b)"), "unknown sign code"),
-    (sign(code="P.118"), "unknown sign code 'P.118'"),
+    (sign(code="P.116"), "unknown sign code 'P.116'"),   # not in the catalog yet
     (sign(plates=[{"kind": "time", "days": ["even"]}]), "days"),
     (sign(lanes=[{"lane": 1, "vehicles": [{"class": "truck", "conditions": [
         {"attr": "gross_t", "op": "lte", "value": 5}]}]}]), "op"),
