@@ -247,9 +247,35 @@ Full test suite: 373 passed.
 - Most causes are format slips, which the reviewer would fix by hand. P.116 and P.118 are a catalog gap (P.118 / P.119 size limits are already a phase 1.7 open item).
 - **Pre-fill total so far: $0.3545** (stage 1 Opus $0.2946 + stage 2 Haiku $0.0599). `logs/api_calls.jsonl`: 663 lines.
 
+- `48a594c` `sheet` cleans up the format of each draft as it writes the label YAML, and flags what it doesn't fix. The owner chose this instead of a re-draft or a p3.
+  - Two lossless fixes: a vehicle given as a bare `VehicleClass` string becomes `{class: ...}`; a sign's extra text fields (`notes`, `notes_text`, `notes_on_sign`, `text`, ...) move verbatim into a YAML comment above that sign.
+  - Everything else stays as drafted, with a `# needs fix: ...` comment above the sign and a red line in `sheet.html`.
+  - `drafts.jsonl` is only read (same sha256 before and after); existing YAMLs are never overwritten.
+
+Full test suite: 385 passed.
+
+**Review sheet (2026-11-15, no API call):** 81 label files written: `data/annotations/gold_signs_v1/work/labels/public_dev/` (45) and `.../labels/train/` (36). Page: `data/annotations/gold_signs_v1/work/sheet.html`.
+- **33 drafts were invalid** (31 Haiku, 2 Opus). After the clean-up, **11 are valid** (all Haiku) and **22 still need a fix** (20 Haiku, 2 Opus). No draft became invalid. 53 draft text fields were moved into comments.
+- **Still to fix, by reason.** "Images" counts label files with that reason; a file can have several.
+
+  | images | flags | reason |
+  |---|---|---|
+  | 6 | 6 | family code written wrongly, or a stem of several rows (`W.201(a,b)`, `R.301(a,…,h)`, `I.444 (…)`, `R.412`) |
+  | 5 | 5 | `UNKNOWN` on a sign marked readable |
+  | 5 | 5 | made-up code (`local`, `LOCAL`, `P.UNKNOWN`) |
+  | 2 | 2 | `days` as a list |
+  | 2 | 2 | code missing from the catalog (P.116, P.118) |
+  | 2 | 3 | colour `dark` (1 image); `op: lte` (1 image) |
+  | 1 | 3 | extra non-text plate fields (`conditions`, `value`, `unit` on a plate; public_test_5_1) |
+  | 1 | 5 | vehicles that aren't class names, left as is (public_test_8_9) |
+  | 1 | 1 | condition groups together with a vehicle/time plate (public_test_6_5) |
+  | 1 | 1 | plate `actions` not a list (public_test_6_8) |
+
+- The last two were hidden behind other errors before the clean-up, so they are new in the list but not new errors.
+
 ## Next steps, in order
 
-0. **Phase 3 gold pre-fill: all 81 images are drafted.** The Haiku invalid rate (42.5%) is above the 30% stop line. The owner decides how to handle invalid drafts before `sheet`, review and `import`. Then the D10 visual check of the listed rows, before `prompts/scene/v1` is frozen.
+0. **Phase 3 gold review (owner):** check every label in `data/annotations/gold_signs_v1/work/sheet.html` against its image, fix the 22 files with needs-fix lines, and set `status: done`. Then `import`, and the D10 visual check of the rows it lists. Then the D10 visual check of the listed rows, before `prompts/scene/v1` is frozen.
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
 2. **Done: the parser gate.** It passed for Sonnet 5.5 at medium on prompt v6; see the results above. The rest of this step is kept as a record. **Haiku on prompt v6, medium effort, three runs:**
