@@ -206,7 +206,7 @@ def test_run_writes_predictions_with_raw_replies(fake_data, engine, monkeypatch)
     r1 = recs[0]
     assert r1["raw"] == ["not json", json.dumps(MEANING)] and r1["attempts"] == 2
     assert len(r1["usage"]) == 2 and r1["cost_usd"] > 0
-    assert (r1["model"], r1["effort"], r1["prompt_version"]) == ("claude-haiku-5-5", "low", "v4")
+    assert (r1["model"], r1["effort"], r1["prompt_version"]) == ("claude-haiku-5-5", "low", "v5")
     assert all(c["output_config"] == {"effort": "low"} and "format" not in c["output_config"]
                for c in sdk.created)
     text = path.read_text(encoding="utf-8")

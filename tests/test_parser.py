@@ -134,7 +134,7 @@ def test_parse_ok(engine):
     assert r.status == "ok" and r.attempts == 1 and r.query.program.intent == "forbidden"
     req = sdk.created[0]
     assert req["output_config"] == {"effort": "low"}
-    assert req["system"][0]["text"] == system_prompt("v4")
+    assert req["system"][0]["text"] == system_prompt("v5")
     assert r.cost_usd > 0
 
 
@@ -173,8 +173,8 @@ def test_effort_is_configurable(engine):
 # ---------------------------------------------------------------- prompt and few-shots
 
 def test_prompt_is_stable_and_has_the_catalog():
-    s = system_prompt("v4")
-    assert s == system_prompt.__wrapped__("v4")      # byte-identical rebuild (prompt cache)
+    s = system_prompt("v5")
+    assert s == system_prompt.__wrapped__("v5")      # byte-identical rebuild (prompt cache)
     assert "Reply with only the JSON object" in s and "required format" not in s
     assert '"W.207" covers its variants' in s and '"W.221"' not in s
     assert "P.104 | no_motorbikes" in s and "## Examples" in s
@@ -201,6 +201,37 @@ def test_released_prompt_versions_are_byte_identical(version):
         assert hashlib.sha256(data).hexdigest() == digest, f"{version}/{name} changed"
 
 
+V5_RULES = ["`required` has no `sign` field", "does a vehicle seen in the photo break a rule",
+            "It has no `vehicle` field", "xe thô sơ 3 bánh = cyclo", "kể cả xe ưu tiên",
+            "no `category`", "use `sign: {}`", "a sign named in words, even in quotes, is `meaning`"]
+
+
+def test_v5_is_v4_plus_spec_rules_with_the_same_fewshots():
+    d4, d5 = (ROOT / "prompts" / "parser" / v for v in ("v4", "v5"))
+    assert (d4 / "fewshot.jsonl").read_bytes() == (d5 / "fewshot.jsonl").read_bytes()
+    spec = (d5 / "spec.md").read_text()
+    assert all(r in spec for r in V5_RULES)
+    old = (d4 / "spec.md").read_text().splitlines()
+    assert sum(line not in old for line in spec.splitlines()) == 7   # 6 lines changed, 1 added
+
+
+def test_v5_spec_does_not_quote_gate_questions():
+    # rules learned from public_dev errors must not carry a gate question's wording,
+    # or it would act as an unexcluded few-shot
+    public = (Path(os.environ.get("VQA_DATASET_DIR", ROOT / "VLSP2025-MLQA-Natural"))
+              / "dataset" / "public_test data" / "vlsp_2025_public_test.json")
+    if not public.exists():
+        pytest.skip("dataset not available")
+    import eval.parser_eval as pe
+    gate = {g["id"] for g in pe.gate_rows(pe.load_gold(), "v5")}
+    spec = (ROOT / "prompts" / "parser" / "v5" / "spec.md").read_text().lower()
+    for q in json.loads(public.read_text(encoding="utf-8")):
+        if q["id"] in gate:
+            words = q["question"].lower().split()
+            for i in range(len(words) - 5):
+                assert " ".join(words[i:i + 6]) not in spec, q["id"]
+
+
 @pytest.mark.parametrize("old,new,changed", [
     ("v2", "v3", "Reply with only the JSON object"),
     ("v3", "v4", '"W.207" covers its variants'),
@@ -213,14 +244,14 @@ def test_each_version_changes_one_spec_line(old, new, changed):
     assert len(a) == len(b) and len(diff) == 1 and changed in diff[0]
 
 
-@pytest.mark.parametrize("version", ["v2", "v3", "v4"])
+@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5"])
 def test_fewshots_are_valid_programs(engine, version):
     for ex in examples(version):
         q = to_query(WParse.model_validate(ex["output"]), 2026)
         assert validator.check(q, engine) == [], ex["id"]
 
 
-@pytest.mark.parametrize("version", ["v2", "v3", "v4"])
+@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5"])
 def test_fewshots_come_from_train_or_public_dev_only(version):
     split = json.loads((ROOT / "data" / "splits" / "public_split.json").read_text())
     holdout = set(split["public_holdout"]["questions"])

@@ -60,7 +60,7 @@ ROUGH_PROMPT_CALIBRATION = 2.14
 MIN_CACHE_SHARE = 0.9   # sequential run: share of the prompt that must come from the cache
 SEED = 20261115
 TRAIN_SAMPLE = 40
-PROMPT_VERSION = "v4"
+PROMPT_VERSION = "v5"
 CONTEXT_YEAR = 2025  # questions in this dataset come from 2025; used for missing years
 
 
