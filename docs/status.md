@@ -107,7 +107,7 @@ The rules come from public_dev errors, so a v5 score on public_dev is a tuned fi
   - 0051 and 0092: its "`sign: {}` for several signs" rule spread to `ban_times` and `which_vehicles`, where the gold leaves the sign empty;
   - 0048: the claims about a sign named in quotes lost its `meaning` selector.
 - Slot F1 rose from 84.7% to 92%, so the remaining errors are smaller.
-- **Run-to-run noise:** the two v5 runs differ on two questions (0043, 0092), and one question is 2.1 points. Running the gate 3 times and reporting the mean and the range was proposed (about $0.04). It is the owner's decision and has not been made yet.
+- **Run-to-run noise:** the two v5 runs differ on two questions (0043, 0092), and one question is 2.1 points. The owner decided, before any v6 result, that from v6 on the gate is decided on the mean of three runs; the mean, the range and each run's CI are reported.
 - Without `also_accept` for 0002 and 0025, and with 0005 still a DSL gap, a run can reach at most 44/47 = 93.6%.
 
 **Prompt v6** keeps `sign: {}` to `meaning` and `is_sign`. It leaves `sign` empty for other intents that are about the road or all its signs. And a sign named in words or quotes gets its `meaning` selector on every claim, inside `all_of` / `any_of` too.
@@ -123,8 +123,8 @@ Still open: `also_accept` for the equivalent selectors (0002, 0025, 0043). This 
 ## Next steps, in order
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
-2. **Haiku on prompt v6, medium effort** (the owner runs it; about $0.01 a run):
-   - `eval/parser_eval.py run --model claude-haiku-5-5 --effort medium --max-spend 0.5`
+2. **Haiku on prompt v6, medium effort, three runs** (the owner runs them; about $0.04 in total):
+   - `eval/parser_eval.py run --model claude-haiku-5-5 --effort medium --max-spend 0.5`, three times
    - `eval/parser_eval.py score <the v5 medium files> <the v6 medium file>`
    - If it still misses 90%, run `claude-sonnet-5-5` once for comparison (about $0.20–0.30).
 

@@ -47,6 +47,7 @@ Before phase 2 started, two fixes were made, each in its own commit:
        - defaults are filled in, with context year 2025;
        - choice labels are ignored.
      - A prediction counts as correct if it equals the gold program or any `also_accept` program.
+     - *Amended by the owner on 2026-11-15, before any v6 result:* from prompt v6 on, the gate is decided on the **mean accuracy of three runs** of the same model, effort and prompt, because single runs differ by about two questions. The report gives the mean, the range and each run's Wilson CI. The v4 and v5 results stay as single-run FAILs.
 
 ## Decisions (D1–D6, accepted)
 
