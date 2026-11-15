@@ -565,3 +565,47 @@ def test_import_summary_counts_rejected_files(work, capsys):
         gs.import_labels(out=out)
     assert not out.exists()
     assert "1 done (0 accepted, 1 rejected), 1 todo, 0 skip" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------- standalone local notices
+
+NOTICE = "KHU VỰC CẤM ĐỖ Ô TÔ, XE MÁY"
+
+
+def notice(**over):
+    s = {"code": "UNKNOWN", "readable": True, "local_notice": NOTICE, "shape": "rectangle",
+         "border": "none", "background": "other", "position": {"rank_top_down": 2, "side": "right"}}
+    s.update(over)
+    return s
+
+
+def test_a_local_notice_is_accepted_and_kept():
+    rec, errs = gs.check_label(label(signs=[label()["signs"][0], notice()]))
+    assert errs == []
+    n = rec["signs"][1]
+    assert (n["code"], n["readable"], n["local_notice"]) == ("UNKNOWN", True, NOTICE)
+    assert n["position"] == {"rank_top_down": 2, "side": "right"}
+    assert "local_notice" not in rec["signs"][0]
+
+
+@pytest.mark.parametrize("over, flag", [
+    ({"local_notice": ""}, "verbatim"),
+    ({"local_notice": 5}, "verbatim"),
+    ({"readable": False}, "a local_notice is readable"),
+    ({"code": "P.131a"}, "has code: UNKNOWN"),
+    ({"plates": [{"kind": "local", "text": NOTICE}]}, "not in plates"),
+    ({"value": 40, "unit": "km/h"}, "not in value, unit"),
+])
+def test_bad_local_notices_are_rejected(over, flag):
+    _, errs = gs.check_label(label(signs=[notice(**over)]))
+    assert any(flag in e for e in errs), errs
+
+
+def test_unknown_on_a_readable_sign_still_needs_local_notice():
+    _, errs = gs.check_label(label(signs=[sign(code="UNKNOWN")]))
+    assert any("or with local_notice" in e for e in errs)
+
+
+def test_sheet_cleanup_keeps_local_notice_on_the_sign():
+    clean, comments, _ = gs.clean_sign(notice())
+    assert clean["local_notice"] == NOTICE and comments == []

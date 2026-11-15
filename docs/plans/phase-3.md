@@ -138,6 +138,7 @@ That is 12 rows known now, and about 35–60 once set T is labelled. Rows are **
 - **Sign-code F1**, micro over signs:
   - a true positive is a matched pair whose codes resolve to the same catalog row, and to the same variant when both name one;
   - precision is true positives / predictions, not counting predictions matched to `readable: false` gold signs;
+  - **standalone local notices** (gold signs with `local_notice`, added 2026-11-15 with the owner's approval, before any result) are handled like `readable: false`: out of both recall and precision, and a prediction matched to one is neither a true nor a false positive. They are counted and reported apart (how many there are, how many the system found), because the engine doesn't model them yet;
   - recall is true positives / readable gold signs.
   - A strict variant-level F1 is reported next to it, not gated.
 - **Runs:** the gate is decided on the **mean of three runs** of the same model, effort and prompt, with the range and each run's CI. This is phase 2's rule, set here before any result (D7).
@@ -231,7 +232,7 @@ Assumptions: a 12,000-token system prompt read from the cache, about 700 input t
 - **D4, output format:** plain JSON checked in Python, no schema, one retry that sends only the error, as written.
 - **D5, cache key:** effort joins the key (image sha256 + model id + effort + prompt version). CLAUDE.md's leakage-guard sentence on the cache key is updated in the same commit that implements it.
 - **D6, catalog review:** widened by the owner. Only 5 of 219 rows have any visual review (all by the assistant), and no rule row has a `reviewed_by`. Item 0 has the counts; the visual question became D10.
-- **D7, gate rules:** as written, committed as code (`GATE` in `eval/perception_eval.py`, pinned by a test) before the first paid run.
+- **D7, gate rules:** as written, committed as code (`GATE` in `eval/perception_eval.py`, pinned by a test) before the first paid run. *Added by the owner on 2026-11-15, before any result:* gold signs marked `local_notice` (standalone local notices) are scored like `readable: false` and reported apart.
 - **D8, re-run trigger:** any sign `low` or `UNKNOWN`, as written. Look mismatches lower a sign only on human-reviewed rows (D10).
 - **D9, spending:** every paid step shows its estimate and waits for a yes, under the spend guard.
 - **D10, visuals that no person has reviewed:** option (c), with the owner's change to which rows are reviewed.

@@ -89,7 +89,10 @@ NATIVE_MAX_PIXELS = 1_150_000
 SPLITS = ("train", "public_dev", "private")
 STATUSES = ("todo", "done", "skip")
 LABEL_KEYS = {"image_id", "split", "status", "violation_question", "signs", "vehicles", "notes"}
-SIGN_EXTRA_KEYS = {"readable"}
+# Gold-only sign keys, not in the scene schema. local_notice holds the verbatim text of a
+# readable standalone local notice (no QCVN 41 main sign); see docs/gold_signs_guide.md.
+SIGN_EXTRA_KEYS = {"readable", "local_notice"}
+LOCAL_NOTICE_FORBIDS = ("plates", "rules", "lanes", "value", "unit")
 VIOLATION_RE = re.compile(r"vi phạm", re.I)
 
 
@@ -464,7 +467,7 @@ def label_path(image_id: str, split: str) -> Path:
 
 
 VEHICLE_CLASSES = {c.value for c in VehicleClass}
-SIGN_FIELDS = set(Sign.model_fields) | {"readable"}
+SIGN_FIELDS = set(Sign.model_fields) | SIGN_EXTRA_KEYS
 
 
 def _fix_vehicles(items: Any) -> tuple[Any, int]:
@@ -640,11 +643,14 @@ def sheet() -> dict:
 
 # --------------------------------------------------------------------------- validation
 
-def check_sign_code(code: Any, readable: bool) -> str | None:
+def check_sign_code(code: Any, readable: bool, local_notice: bool = False) -> str | None:
     if not isinstance(code, str) or not code:
         return "code is missing"
+    if local_notice:
+        return None if code == "UNKNOWN" else "a local_notice has code: UNKNOWN (it is not a QCVN 41 sign)"
     if code == "UNKNOWN":
-        return None if not readable else "UNKNOWN is only allowed with readable: false"
+        return None if not readable else ("UNKNOWN is only allowed with readable: false, or with "
+                                          "local_notice for a standalone local notice")
     cat = load_catalog()
     if cat.has(code):
         return None
@@ -690,7 +696,16 @@ def check_label(doc: dict) -> tuple[dict | None, list[str]]:
         if not isinstance(readable, bool):
             errs.append(f"{where}: readable must be true or false")
             readable = True
-        if e := check_sign_code(raw.get("code"), readable):
+        notice = raw.get("local_notice")
+        if notice is not None:
+            if not isinstance(notice, str) or not notice.strip():
+                errs.append(f"{where}: local_notice must be the notice's text, verbatim")
+            if not readable:
+                errs.append(f"{where}: a local_notice is readable; use readable: false without it")
+            if bad := [f for f in LOCAL_NOTICE_FORBIDS if raw.get(f)]:
+                errs.append(f"{where}: a local_notice keeps its text in local_notice, "
+                            f"not in {', '.join(bad)}")
+        if e := check_sign_code(raw.get("code"), readable, notice is not None):
             errs.append(f"{where}: {e}")
         if (raw.get("position") or {}).get("box") is not None:
             errs.append(f"{where}: gold has no pixel boxes")
@@ -701,6 +716,7 @@ def check_label(doc: dict) -> tuple[dict | None, list[str]]:
             errs += [f"{where}: {_loc(x)}{x['msg']}" for x in e.errors()]
             continue
         out_signs.append({"readable": readable,
+                          **({"local_notice": str(notice).strip()} if notice is not None else {}),
                           **s.model_dump(mode="json", by_alias=True, exclude_defaults=True)})
     if vehicles and doc.get("split") == "private":
         errs.append(f"{iid}: private labels have no vehicles")

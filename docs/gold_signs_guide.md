@@ -14,7 +14,8 @@ public_holdout is never labelled.
 
 ## What counts as a sign
 
-- **Listed:** every QCVN 41 sign that faces the road the camera is on: prohibitory, mandatory, warning, information and guide signs, lane boards, and auxiliary plates. Non-standard local plates (for example a red text plate "CẤM ĐỖ XE …") are listed too.
+- **Listed:** every QCVN 41 sign that faces the road the camera is on: prohibitory, mandatory, warning, information and guide signs, lane boards, and auxiliary plates. Non-standard local plates (for example a red text plate "CẤM ĐỖ XE …") are listed too, under their main sign.
+- **A standalone local notice** (a readable board or plate with no QCVN 41 main sign above it, such as "KHU VỰC CẤM ĐỖ Ô TÔ, XE MÁY" or "ĐÈN ĐỎ ĐƯỢC PHÉP ĐI THẲNG") is listed with `code: UNKNOWN`, `readable: true` and its text in `local_notice` (see below). Notices that only say something about the road for drivers' information (camera notices, variable-message boards) count too.
 - **Left out:** adverts, shop signs, street-name plates, house numbers, signs facing away from the camera or for another road, traffic lights, and road markings.
 - **One entry per physical sign.** Two identical signs on the left and the right are two entries.
 - **A plate is not a sign of its own.** It goes under `plates` of the sign directly above it (or the sign it is clearly mounted with).
@@ -22,6 +23,8 @@ public_holdout is never labelled.
 - **A board with several (vehicle, time) pairs** uses condition groups (`rules`), not separate vehicle and time plates.
 
 ## Readable or not
+
+- `local_notice: "<text verbatim>"` marks a standalone local notice. It goes with `code: UNKNOWN` and `readable: true`, and keeps its look and position. It has no `plates`, `rules`, `lanes`, `value` or `unit`: the whole text is in `local_notice`. The engine doesn't model these notices yet (CLAUDE.md), so they are counted and reported apart, and neither help nor hurt the system's recall and precision.
 
 - `readable: true` (the default): you can tell the code, and its number or text if it has one.
 - `readable: false`: you can see a sign is there but can't read it (too far, blurred, cut off, hidden). Give your best `code` or `UNKNOWN`, and its look if you can see it. These signs count neither for nor against the system's recall and precision.
@@ -33,8 +36,9 @@ Write what you **see**, not what the catalog says the sign should look like.
 
 | field | rule |
 |---|---|
-| `code` | the catalog code; the variant when it is visible (`W.207c`, `P.127b`), else the family row exactly as the catalog writes it (`W.207(a,b,c,d,e,f,g,h,i,k,l)`) or its stem (`W.207`). A stem shared by separate rows (`W.201`, `R.412`) is not enough: give the variant. `UNKNOWN` only with `readable: false`. |
+| `code` | the catalog code; the variant when it is visible (`W.207c`, `P.127b`), else the family row exactly as the catalog writes it (`W.207(a,b,c,d,e,f,g,h,i,k,l)`) or its stem (`W.207`). A stem shared by separate rows (`W.201`, `R.412`) is not enough: give the variant. `UNKNOWN` only with `readable: false`, or with `local_notice`. |
 | `readable` | `true` or `false`, as above. |
+| `local_notice` | only for a standalone local notice: its text, verbatim. |
 | `value`, `unit` | the number on the sign and its unit: `km/h`, `t`, `m`, `seats`. Lane boards put speeds in `lanes`, not here. |
 | `shape` | circle, triangle, rectangle, square, octagon, diamond, other. |
 | `border` | red, white, blue, yellow, black, green, none, other. |
