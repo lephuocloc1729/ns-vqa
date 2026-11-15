@@ -11,8 +11,6 @@ __pycache__/
 logs/
 
 # gold-intent working files hold dataset question text: local only (gold keeps ids + programs)
-data/annotations/gold_intents_v1/questions.jsonl
-data/annotations/gold_intents_v1/drafts.jsonl
-data/annotations/gold_intents_v1/review.csv
-data/annotations/gold_intents_v1/batch.json
-data/annotations/gold_intents_v1/run_progress.jsonl
+# (the whole folder, so copies such as review.backup.csv stay local too)
+data/annotations/gold_intents_v1/*
+!data/annotations/gold_intents_v1/gold_intents_v1.jsonl
