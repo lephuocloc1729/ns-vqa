@@ -12,6 +12,8 @@
 - Every request is logged to logs/api_calls.jsonl with a status: ok, refusal,
   max_tokens, bad_json, or http_error (cost 0: nothing was billed).
 - refusal and max_tokens stop reasons raise, each with its own message.
+- The user turn is text (the parser) or a list of content blocks, text and image
+  (the scene call). Text is sent unchanged, as the parser always sent it.
 """
 
 from __future__ import annotations
@@ -98,12 +100,25 @@ class LLMClient:
         log_call({"run_id": self.run_id, "purpose": purpose, "model": self.model, "batch": False,
                   "effort": effort, "status": status, **rec})
 
-    def json_reply(self, *, system: str, user: str, max_tokens: int = 4096,
+    @staticmethod
+    def check_user_content(user: str | list[dict[str, Any]]) -> None:
+        """A user turn is a string, or a non-empty list of text and image blocks."""
+        if isinstance(user, str):
+            return
+        if not isinstance(user, list) or not user:
+            raise TypeError("user must be a string or a non-empty list of content blocks")
+        for b in user:
+            if not isinstance(b, dict) or b.get("type") not in ("text", "image"):
+                raise TypeError(f"unsupported content block: {b!r:.80}")
+
+    def json_reply(self, *, system: str, user: str | list[dict[str, Any]], max_tokens: int = 4096,
                    effort: str | None = None, purpose: str = "",
                    extra_messages: list[dict] | None = None) -> CallResult:
         """One call whose reply must be a JSON object. Raises LLMRefusal,
         LLMTruncated, LLMBadJSON (after logging and counting the cost), or the
         SDK's own error for HTTP failures (logged with cost 0)."""
+        self.check_user_content(user)
+        images = 0 if isinstance(user, str) else sum(b["type"] == "image" for b in user)
         messages = [{"role": "user", "content": user}] + (extra_messages or [])
         sys_blocks = self.system_blocks(system)
         kw: dict[str, Any] = {"output_config": {"effort": effort}} if effort else {}
@@ -149,7 +164,7 @@ class LLMClient:
             except LLMBadJSON as e:
                 status, err = "bad_json", e
         self._log(purpose, effort, status, request_id=rid, stop_reason=resp.stop_reason,
-                  **usage, cost_usd=round(cost, 6))
+                  **({"images": images} if images else {}), **usage, cost_usd=round(cost, 6))
         if err is not None:
             err.raw_text = text            # type: ignore[attr-defined]
             err.cost_usd = cost            # type: ignore[attr-defined]
