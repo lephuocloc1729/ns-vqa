@@ -404,9 +404,35 @@ Full test suite: 394 passed. Prolog loads.
   - **Catalog gap:** none (no uncatalogued code after the retry).
   - **Matching artefact:** train_7_23's two P.127 values (100, 80) show as swapped. The model ranked the green board first, so its ranks are off by one, and the pinned matching puts rank above side. Both values were read correctly.
 
+**Owner decisions after the first set-T run (2026-11-15):**
+- `677a87b` **Border convention:** a thin white rim on a blue sign is `border: none`, as in the catalog. The guide says so. 69 blue-background gold signs in 23 images went from white to none (the owner authorized this label edit). The gold diff is exactly those 69 values plus recomputed anchoring on 7 images.
+- `6258779` **Look check (D10 refinement):** on a human-reviewed row, only a shape or background mismatch lowers a sign; a border-only mismatch is recorded. Plan updated, with tests.
+- `b722247` **Matching:** same side now comes before closest rank. The gate is now `perception_gate_v2`, changed before any public_dev result; v1 is in `1c6dc57`. Plan updated, pin test updated.
+- **Re-scoring run c11b768af950 (no new calls), set T, development:**
+
+  | | gold | recall | code F1 | strict F1 | value acc. | border acc. |
+  |---|---|---|---|---|---|---|
+  | v1 matching | as at the run | 86.7% | 60.8% | 59.9% | 80.0% | 81.7% |
+  | v1 matching | border convention applied | 86.7% | 60.8% | 59.9% | 80.0% | 96.2% |
+  | **v2 matching** | border convention applied | **86.7%** | **60.8%** | 59.9% | **93.3%** | 96.2% |
+
+  Non-duplicates under v2: recall 82.2%, code F1 59.8%, value accuracy 100%. The CIs are unchanged.
+- **IE.451b, IE.464:** the owner re-checks them. I.415 stays.
+- **Possible gold errors on set T (reported, not changed):**
+  - **train_7_23 s4: gold R.307 (40).** The sign is a white disc with a thin blue-grey ring, outlined digits and a hatched diagonal. That matches the DP.134 "Hết tốc độ tối đa cho phép" figure (B.34, image174); R.307's figure (D.7, image308) is a blue disc with a white number and a red slash. The model read P.127 40, which is also wrong.
+  - **train_7_46 s2: gold P.103a, readable: true.** It is a small distant sign; the model said UNKNOWN. Check whether it is readable.
+  - **train_8_32: gold P.124c (bottom right, cut off by the frame).** The model read P.124a. The image shows too little to decide.
+  - **train_7_25 s3–s6: gold I.407c ×4.** The model read I.415 for all four. These are blue rectangular arrow boards on barriers; I.407 is "Đường một chiều" and I.415 "Mũi tên chỉ hướng đi". It's the owner's reading to confirm.
+  - Checked against the images and **found right**: P.117 (train_8_32), P.127b (6_41), P.127c (2_11), P.131a (7_37), P.111b (2_11), P.103c (7_46), and P.106b 2.5 t (7_37, the number is faint).
+- `19bd70c` **Prompt v2** (`scene/v2@26be620fb386`): proposed changes 1–6. The pictogram notes quote catalog names only (tested). v1 is pinned by sha256. `perception_eval.py` takes `--version`.
+- **Estimates for set T, 1 run, v2 (no API call), 12,148 system tokens:**
+  - **Haiku 5.5: $0.031** with no re-runs to **$0.061** if every image is re-run. Worst case $0.41. v1's real cost was $0.053, at a 58% re-run rate.
+  - **Sonnet 5.5: $0.58** with no re-runs to **$1.14** if every image is re-run, about $2.10 if outputs double. Worst case $8.23 ($0.114 per call); the spend guard caps it at the limit.
+- Full test suite: 535 passed.
+
 ## Next steps, in order
 
-0. **Owner decisions after the first set-T run:** the v2 prompt changes; the matching tie-break (a gate change, still possible before any public_dev result); the border convention for blue boards; and the IE.451b / IE.464 / I.415 visual fixes that disagree with the gold.
+0. **Next paid run (owner's yes needed):** set T with prompt v2: Haiku (`--version v2 --max-spend 0.5`), and/or Sonnet (`--max-spend 1.5`). Then the owner checks the possible gold errors listed above.
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
 2. **Done: the parser gate.** It passed for Sonnet 5.5 at medium on prompt v6; see the results above. The rest of this step is kept as a record. **Haiku on prompt v6, medium effort, three runs:**
