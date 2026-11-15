@@ -58,31 +58,30 @@ Last updated 2026-11-15. Branch `phase-2` (not merged), on top of `main` at `926
     - UNKNOWN or uncatalogued scene codes never match.
   - v1 to v4 prompts are pinned by sha256.
 
-Full test suite: 297 passed. Three API requests have been sent (gold drafting, 2026-11-15). All three were rejected with a 400 before the model ran, so nothing was billed.
+- `cf5afe6` Gold intents v1: 87 reviewed programs, 47 public_dev and 40 train (ids and programs only).
+- `ecadd29` `eval/parser_eval.py` (`run`, `score`; gate fixed before any Haiku result). Raw replies are now kept for every parser call and in gold drafting's `run_progress.jsonl`.
+
+Full test suite: 319 passed. API use so far (gold drafting, 2026-11-15):
+- Three requests were rejected with a 400 before the model ran, so nothing was billed.
+- The sequential gold run then made 88 calls with Opus 5.5 at medium effort on prompt v4. It cost **$0.53**, against an estimate of $1.86.
+  - Every call after the first read the whole prompt from the cache.
+  - Outputs averaged 104 tokens, with a maximum of 503.
+  - Results: 63 ok, 19 out of scope, 6 invalid. Four of the six were `meaning` or `is_sign` with no `sign`.
+- The owner's review covered 87 rows: 80 ok, 7 fix and 1 skip (public_natural_0096). Rows marked ok include the 18 out-of-scope drafts that were kept.
 
 ## Next steps, in order
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
-2. **Gold drafting: 48 public_dev and 40 train questions** (the owner's change of 2026-11-15). `select` has already written the 88 questions. The three public_dev few-shots are not drafted. Drafting uses prompt `v4`, Opus 5.5 at medium effort, sequential calls with caching. The owner chose sequential over batch because a batch's caching is best effort. With `ANTHROPIC_API_KEY` set:
-   1. Run `eval/gold_intents.py estimate` in the owner's terminal. It is free and gives the exact count for `v4`. The offline rough figure is 18.4k prompt tokens per request: about $1.94 sequential, or $3.45 if outputs run twice as long. The owner decides the `--max-spend` from the exact figure.
-   2. Run `eval/gold_intents.py run --max-spend N`.
-      - The spend guard checks every call before it is sent.
-      - After call 2, at least 90% of the prompt must have been read from the cache, or the run stops.
-      - The run resumes where it stopped (`run_progress.jsonl`). It rewrites `review.csv` after every call, and refuses to touch one that already has verdicts.
-      - A reply that is not a single JSON object becomes an `invalid` row with the reason. Gold drafting does not retry.
-   3. If the cache check fails, use the batch path instead: `submit`, then `collect --wait`.
-   - **Why there is no schema.** Three requests on 2026-11-15 were rejected with "The compiled grammar is too large", and none was billed. Two attempts to shrink the schema failed first: strings for codes and meanings (`734135e`), then a flat schema (`7ff868d`). The documented limits explain why: at most 24 optional parameters and 16 union-typed parameters (`anyOf` or nullable) across all strict schemas in a request. The DSL has about 60 optional fields. Since `c1addf3`, the reply is plain JSON checked by the typed wire models.
-3. **Build `eval/parser_eval.py`.** It reports:
-   - program exact match, after normalization, against the gold or any `also_accept` program;
-   - slot F1;
-   - out-of-scope precision and recall;
-   - the gate score with a 95% CI, computed per split.
+2. **Haiku runs on the gate set** (the owner runs them). Prompt v4, 47 questions. The estimate is about $0.012 per run if outputs match Opus's (~104 tokens), $0.035 at ten times that, and at most about $0.37 in the worst case. With `ANTHROPIC_API_KEY` set:
+   1. `eval/parser_eval.py run --model claude-haiku-5-5 --effort low --max-spend 0.5`
+   2. `eval/parser_eval.py run --model claude-haiku-5-5 --effort medium --max-spend 0.5` (medium is Haiku 5.5's default)
+   3. `eval/parser_eval.py score <both prediction files>`. It gives the per-run scores, the gate, all and non-duplicate images, and the effort table.
+3. **After the Haiku results: a v5 spec, if the errors call for it.** The gold drafts point to three rules to add:
+   - use `sign: {}` when a question covers several signs ("các biển", "hai biển");
+   - `required` and `which_vehicles` take no `sign` or `vehicle` filter;
+   - pick the final few-shots from the reviewed gold (D3).
 
-   Few-shot questions are excluded from scoring.
-4. **After the owner's review of `review.csv`:**
-   1. Run `eval/gold_intents.py import`.
-   2. Run Haiku 5.5 on public_dev at `low` and at the default effort, and report accuracy and cost for each.
-   3. Check the gate: ≥ 90% program accuracy on reviewed public_dev intents, with a 95% CI.
+   A v5 means a new prompt version and new Haiku runs, scored against the same gold. Any few-shots taken from public_dev leave the gate set.
 
 ## Open items
 
@@ -99,7 +98,11 @@ Full test suite: 297 passed. Three API requests have been sent (gold drafting, 2
   - counting signs by category;
   - the B.25 overtaking exception (two-wheelers);
   - expressway rules (Law 36);
-  - P.118 / P.119 size limits.
+  - P.118 / P.119 size limits (public_natural_0096 was skipped in gold v1 until then);
+  - an "only for X" claim, e.g. "làn bên trái chỉ dành cho xe ô tô" (public_natural_0005; gold v1 keeps the car-and-motorbike approximation);
+  - `ban_times` without a vehicle (public_natural_0043; gold v1 keeps the draft with no vehicle).
+
+  When these land, re-label the affected rows in a new gold version (`gold_intents_v2.jsonl`), not in v1.
 
   The target is ≥ 80% rule coverage after phase 1.7.
 - **Local-plate assumptions** (CLAUDE.md, to re-check against real failures):

@@ -35,7 +35,18 @@ Before phase 2 started, two fixes were made, each in its own commit:
    - The cost estimate is shown before running. The run is waiting for the owner's go-ahead.
    - **Changed by the owner on 2026-11-15:** drafting goes one call at a time with prompt caching (`run`), not through the Batch API, because a batch's caching is best effort. The run stops after call 2 if less than 90% of the prompt was read from the cache. The batch path (`submit` / `collect`) stays as the fallback.
    - No gold intents for public_holdout or private: those are scored end to end only.
-5. **Eval script** (`eval/parser_eval.py`, to do): program exact match, slot F1, and out-of-scope precision and recall on the reviewed gold. Also the gate score with a 95% CI, and the effort comparison.
+5. **Eval script** (`eval/parser_eval.py`, done: `ecadd29`): program exact match, slot F1, and out-of-scope precision and recall on the reviewed gold. Also the gate score with a 95% CI, the effort comparison, and every accuracy on all images and on non-duplicate images.
+   - **Gate definition, fixed on 2026-11-15 before any Haiku result:**
+     - The gate set is the public_dev rows of `gold_intents_v1.jsonl`, minus the prompt's public_dev few-shots (public_natural_0026, 0097, 0082) and the rows the owner skipped. That leaves 47 rows, 8 of them out of scope.
+     - Out-of-scope gold rows count. A prediction matches one only if it is out of scope too.
+     - A parse failure after the retry, or a missing prediction, counts as wrong.
+     - The gate passes if the point estimate of program accuracy is ≥ 90%. It is reported with a 95% Wilson CI.
+     - Both sides are normalized before comparing:
+       - Forbidden is compiled, inside all_of / any_of too;
+       - `verify(expect=true)` is treated as the bare claim;
+       - defaults are filled in, with context year 2025;
+       - choice labels are ignored.
+     - A prediction counts as correct if it equals the gold program or any `also_accept` program.
 
 ## Decisions (D1–D6, accepted)
 
