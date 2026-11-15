@@ -64,7 +64,7 @@ That is 12 rows known now, and about 35–60 once set T is labelled. Rows are **
   - `sheet` writes a local HTML review page (the image next to its draft) and one editable YAML file per image;
   - `import` validates every label against the `Sign` schema and the catalog and writes `data/annotations/gold_signs_v1/gold_signs_v1.jsonl` (image ids and labels only).
   - Working files are gitignored. The public_dev and set-T gold is committed; private labels (C2) go to a separate gitignored folder and are never committed.
-- **Pre-fill anchoring.** A labeller who corrects Opus drafts tends to keep Opus's readings. The owner's correction rate is recorded. Opus's own score in the model comparison is marked as anchored (D2).
+- **Pre-fill anchoring.** A labeller who corrects drafts tends to keep the drafter's readings. The owner's correction rate is recorded. Each label records the model that drafted it, and a model's gate score is marked as anchored on the images that model drafted (D2).
 
 ### 2. Gold labels (owner's work; D1 decided)
 
@@ -72,7 +72,7 @@ That is 12 rows known now, and about 35–60 once set T is labelled. Rows are **
 - **Set T** (30–40 train images): for prompt development. Picked by `gold_signs.py select` from train images that are in no duplicate group with a public_dev image (read from `data/splits/duplicates.json` by the eval tool), spread over rough sign categories. Labels committed.
 - **Private** (C2): labelled blind to the questions and answers, only after the benchmark run. Labels are kept local in a gitignored folder and never committed. No vehicles are labelled there, since the violation images can't be told apart without the questions.
 - **public_holdout:** not labelled.
-- Opus 5.5 pre-fills (D2), then the owner reviews every sign. Each pre-fill shows its cost estimate first and waits for the go-ahead.
+- The first 8 public_dev images were pre-filled by Opus 5.5 (prompt p1); the other 73 by Haiku 5.5 (p2, the same prompt text), after the owner's change to D2. The owner then reviews every sign. Each pre-fill shows its cost estimate first and waits for the go-ahead.
 
 ### 3. The scene call
 
@@ -156,7 +156,8 @@ That is 12 rows known now, and about 35–60 once set T is labelled. Rows are **
 ### 6. Runs and the model choice
 
 1. Haiku 5.5, three runs on the gate set.
-2. If Haiku fails: Sonnet 5.5, three runs. Opus 5.5 once, for comparison only, its score marked as anchored, since Opus pre-filled the gold (D2).
+   Haiku drafted most of the gold, so Haiku's gate score is reported as **"anchored (Haiku pre-fill)"**, with its score on the Opus-drafted and the Haiku-drafted images shown apart (D2).
+2. If Haiku fails: Sonnet 5.5, three runs. Opus 5.5 once, for comparison only, its score marked as anchored on the 8 images Opus drafted (D2).
 3. Keep the cheapest model that passes (DESIGN.md). The owner makes the final choice, as in phase 2.
 
 Each step shows its estimate first and waits for the go-ahead.
@@ -221,7 +222,11 @@ Assumptions: a 12,000-token system prompt read from the cache, about 700 input t
 ### Decided by the owner (2026-11-15)
 
 - **D1, gold labels:** public **A** (public_dev only) plus **T** (30–40 train images in no duplicate group with public_dev; prompt tuning happens on T; public_dev is scored only at fixed checkpoints). No holdout labels (neither B1 nor B2). Private **C2**: labelled blind to questions and answers after the benchmark run, kept local and gitignored, never committed.
-- **D2, pre-fill model:** Opus 5.5. Opus's score in the model comparison is labelled as anchored.
+- **D2, pre-fill model:** Opus 5.5 at first. **Changed by the owner on 2026-11-15, after stage 1:** the remaining 73 drafts use Haiku 5.5; the owner reviews every label by hand.
+  - The 8 Opus drafts from stage 1 (public_test_2_1, 2_10, 2_11, 2_2, 2_3, 2_4, 2_8, 3_1) stay as they are.
+  - Haiku drafts are prompt version p2. The prompt text is the same as p1; the version marks the model change.
+  - Consequence: the gold for Haiku-drafted images is anchored to Haiku, the first gate candidate. Haiku's gate score is reported as "anchored (Haiku pre-fill)".
+  - Anchoring is labelled per image, by draft model: `import` records each label's `draft_model`, and the gate report splits the anchored images by drafter.
 - **D3, first scene model:** Haiku 5.5 at its default effort, as written.
 - **D4, output format:** plain JSON checked in Python, no schema, one retry that sends only the error, as written.
 - **D5, cache key:** effort joins the key (image sha256 + model id + effort + prompt version). CLAUDE.md's leakage-guard sentence on the cache key is updated in the same commit that implements it.

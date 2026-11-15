@@ -295,3 +295,92 @@ def test_prefill_logs_http_errors_and_reraises(work, monkeypatch, tmp_path, fail
     assert rec["request_id"] == ("req_count" if fail_on == "count_tokens" else "req_create")
     assert rec["error"] in ("overloaded", "bad request") and rec["image_id"] == "train_1_3"
     assert not gs.drafts_path().exists()   # nothing recorded as a draft
+
+
+# ---------------------------------------------------------------- drafter model (plan D2 change)
+
+class OkSDK:
+    """Answers every call with one valid sign; records the models it was asked for."""
+
+    def __init__(self):
+        self.messages = self
+        self.models = []
+
+    def count_tokens(self, **kw):
+        self.models.append(("count", kw["model"]))
+        return SimpleNamespace(input_tokens=10_000)
+
+    def create(self, **kw):
+        self.models.append(("create", kw["model"]))
+        reply = json.dumps({"signs": [sign()], "vehicles": [], "notes": ""})
+        return SimpleNamespace(
+            content=[SimpleNamespace(type="text", text=reply)], stop_reason="end_turn",
+            usage=SimpleNamespace(input_tokens=500, output_tokens=300, cache_read_input_tokens=9_500,
+                                  cache_creation_input_tokens=0))
+
+
+def fake_images(monkeypatch, tmp_path, ids):
+    monkeypatch.setattr(gs, "targets", lambda: [(i, "train") for i in ids])
+    monkeypatch.setattr(gs, "violation_images", lambda: set())
+    monkeypatch.setattr(gs, "image_block", lambda p: {"type": "text", "text": "img"})
+    monkeypatch.setattr(gs, "image_path", lambda i, s: tmp_path / "x.jpg")
+
+
+def test_prefill_model_flag_is_used_and_recorded(work, monkeypatch, tmp_path):
+    fake_images(monkeypatch, tmp_path, ["train_1_3", "train_1_8"])
+    logged = []
+    monkeypatch.setattr(gs, "log_call", logged.append)
+    gs.drafts_path().parent.mkdir(parents=True, exist_ok=True)
+    gs.drafts_path().write_text(json.dumps({"image_id": "train_1_3", "model": "claude-opus-5-5",
+                                            "prefill_version": "p1", "draft": None}) + "\n")
+    sdk = OkSDK()
+    drafts = gs.prefill(1.0, sdk=sdk, model="claude-haiku-5-5", check_at=99)
+    assert sdk.models == [("count", "claude-haiku-5-5"), ("create", "claude-haiku-5-5")]
+    assert drafts["train_1_3"]["model"] == "claude-opus-5-5"         # earlier draft kept, not redone
+    new = drafts["train_1_8"]
+    assert (new["model"], new["prefill_version"], new["status"]) == ("claude-haiku-5-5", "p2", "ok")
+    assert logged[0]["model"] == "claude-haiku-5-5" and logged[0]["prefill_version"] == "p2"
+    assert gs.PREFILL_VERSIONS == {"claude-opus-5-5": "p1", "claude-haiku-5-5": "p2"}
+    assert gs.MODEL == "claude-opus-5-5"                              # the default is unchanged
+
+
+def test_prefill_rejects_an_unknown_model(work):
+    with pytest.raises(SystemExit, match="unknown pre-fill model"):
+        gs.prefill(1.0, sdk=OkSDK(), model="claude-sonnet-5-5")
+
+
+def test_import_records_each_labels_draft_model(work, monkeypatch):
+    monkeypatch.setattr(gs, "set_t_images", lambda: ["train_1_3", "train_1_8", "train_1_9"])
+    drafts = [{"image_id": "train_1_3", "model": "claude-opus-5-5", "prefill_version": "p1",
+               "draft": {"signs": [label()["signs"][0]]}},
+              {"image_id": "train_1_8", "model": "claude-haiku-5-5", "prefill_version": "p2",
+               "draft": {"signs": [sign()]}}]
+    gs.drafts_path().parent.mkdir(parents=True, exist_ok=True)
+    gs.drafts_path().write_text("".join(json.dumps(d) + "\n" for d in drafts))
+    for iid in ("train_1_3", "train_1_8", "train_1_9"):
+        write_yaml(work / f"work/labels/train/{iid}.yaml", label(image_id=iid))
+    gold = {g["image_id"]: g for g in gs.import_labels(out=work / "gold.jsonl")}
+    assert gold["train_1_3"]["draft_model"] == "claude-opus-5-5"
+    assert gold["train_1_3"]["prefill_version"] == "p1"
+    assert gold["train_1_3"]["anchoring"]["kept_unchanged"] == 1
+    assert gold["train_1_8"]["draft_model"] == "claude-haiku-5-5"
+    assert gold["train_1_8"]["anchoring"]["kept_unchanged"] == 0
+    assert gold["train_1_9"]["draft_model"] is None and gold["train_1_9"]["anchoring"] is None
+
+
+def test_estimate_prices_each_call_on_its_own(work, monkeypatch, tmp_path):
+    """73 Haiku calls of ~10K prompt tokens are not one 750K-token request: the
+    long-prompt rate must not apply to the summed totals."""
+    from PIL import Image
+    ids = [f"train_1_{k}" for k in range(1, 74)]
+    fake_images(monkeypatch, tmp_path, ids)
+    Image.new("RGB", (700, 476)).save(tmp_path / "x.jpg")
+    monkeypatch.setattr(gs, "measured_system_tokens", lambda model=None: 9_690)
+    est = gs.estimate(model="claude-haiku-5-5")
+    per_image_tokens = 9_690 + gs.image_tokens(700, 476) + gs.rough_tokens(gs.user_text(False))
+    assert est["prompt_tokens_total"] == 73 * per_image_tokens
+    # short-prompt rates: $0.10 / $0.50 per M, cache read $0.01, write $0.125
+    expected = (9_690 * 0.125 + 72 * 9_690 * 0.01 + 73 * (per_image_tokens - 9_690) * 0.10
+                + 73 * 1_500 * 0.50) / 1e6
+    assert est["sequential_expected_usd"] == pytest.approx(expected, abs=1e-4)
+    assert est["sequential_expected_usd"] < 0.1

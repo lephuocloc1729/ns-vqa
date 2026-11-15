@@ -5,8 +5,8 @@ The rules a labeller follows are in docs/gold_signs_guide.md; the pre-fill reads
 that file as its instructions.
 
     .venv/bin/python eval/gold_signs.py select [--n 36]      # set T -> data/splits/gold_signs_set_t.json
-    .venv/bin/python eval/gold_signs.py estimate [--count]   # pre-fill cost, no spend
-    .venv/bin/python eval/gold_signs.py prefill --max-spend N  # sequential, cached, spend-guarded
+    .venv/bin/python eval/gold_signs.py estimate [--model M] [--remaining] [--count]  # no spend
+    .venv/bin/python eval/gold_signs.py prefill --max-spend N [--model M]  # sequential, cached, guarded
     .venv/bin/python eval/gold_signs.py sheet                # one YAML per image + sheet.html
     .venv/bin/python eval/gold_signs.py import               # done YAMLs -> gold_signs_v1.jsonl
     .venv/bin/python eval/gold_signs.py import --private     # private labels -> gitignored folder
@@ -67,10 +67,14 @@ GOLD = OUT / "gold_signs_v1.jsonl"       # committed
 PRIVATE_OUT = ROOT / "data" / "annotations" / "gold_signs_private"   # gitignored, whole folder
 PRIVATE_GOLD = PRIVATE_OUT / "gold_signs_private.jsonl"
 
-MODEL = "claude-opus-5-5"
+MODEL = "claude-opus-5-5"              # default drafter (plan D2)
+MODELS = ("claude-opus-5-5", "claude-haiku-5-5")
 EFFORT = "medium"
 MAX_TOKENS = 8000          # a dense scene's JSON (~1,500 tokens) plus adaptive thinking
-PREFILL_VERSION = "p1"     # bump when the pre-fill prompt text changes
+# Bump when the pre-fill prompt text changes. p2 is p1's text drafted by Haiku 5.5:
+# the version marks the owner's change of drafter (plan D2, 2026-11-15).
+PREFILL_VERSIONS = {"claude-opus-5-5": "p1", "claude-haiku-5-5": "p2"}
+PREFILL_VERSION = PREFILL_VERSIONS[MODEL]
 SEED = 20261115
 SET_T_SIZE = 36            # plan: 30-40
 MIN_CACHE_SHARE = 0.9
@@ -262,45 +266,76 @@ def rough_tokens(text: str) -> int:
 
 # --------------------------------------------------------------------------- estimate
 
-def estimate(sdk=None) -> dict:
-    """Pre-fill cost for public_dev + set T. With an SDK client, prompt sizes come
-    from messages.count_tokens (free, but an API call); without, from bytes and
-    image sizes. Never sends a message."""
+def measured_system_tokens(model: str | None = None) -> int | None:
+    """The system prompt's size as a cache read in an earlier draft with the current
+    prompt (by any model if `model` is None; tokenizers may differ by model)."""
+    reads = [d["usage"]["cache_read_tokens"] for d in load_drafts().values()
+             if d.get("prompt_sha") == prompt_hash() and (model is None or d.get("model") == model)
+             and (d.get("usage") or {}).get("cache_read_tokens")]
+    return max(reads) if reads else None
+
+
+def estimate(sdk=None, model: str = MODEL, remaining: bool = False) -> dict:
+    """Pre-fill cost for public_dev + set T (only the images not drafted yet, with
+    `remaining`). With an SDK client, prompt sizes come from messages.count_tokens
+    (free, but an API call); without, the system prompt's size is taken from an
+    earlier draft's cache read when there is one, else from its bytes, and images
+    from their pixel size. Never sends a message."""
     from PIL import Image
 
     system = prefill_system()
     sys_blocks = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
     viol = violation_images()
+    drafted = load_drafts() if remaining else {}
+    todo = [(i, s) for i, s in targets() if i not in drafted]
+    measured = measured_system_tokens()
+    sys_rough = measured or rough_tokens(system)
     counts = []
-    for image_id, split in targets():
+    for image_id, split in todo:
         path = image_path(image_id, split)
         if sdk is not None:
             msg = [{"role": "user", "content": [image_block(path),
                                                 {"type": "text", "text": user_text(image_id in viol)}]}]
-            counts.append(sdk.messages.count_tokens(model=MODEL, system=sys_blocks, messages=msg,
+            counts.append(sdk.messages.count_tokens(model=model, system=sys_blocks, messages=msg,
                                                     output_config={"effort": EFFORT}).input_tokens)
         else:
             with Image.open(path) as im:
                 w, h = im.size
-            counts.append(rough_tokens(system) + image_tokens(w, h) + rough_tokens(user_text(image_id in viol)))
-    method = ("exact (messages.count_tokens)" if sdk is not None else
-              f"rough (system: bytes / {BYTES_PER_TOKEN}; images: w x h / 750 at native size)")
+            counts.append(sys_rough + image_tokens(w, h) + rough_tokens(user_text(image_id in viol)))
+    if sdk is not None:
+        method = "exact (messages.count_tokens)"
+    elif measured:
+        method = (f"rough (system: {measured} tokens, measured as a cache read in an earlier draft; "
+                  "images: w x h / 750 at native size)")
+    else:
+        method = f"rough (system: bytes / {BYTES_PER_TOKEN}; images: w x h / 750 at native size)"
     n, prompt = len(counts), sum(counts)
-    sys_tokens = rough_tokens(system) if sdk is None else min(counts) - 400
+    sys_tokens = sys_rough if sdk is None else min(counts) - 400
     out = EXPECTED_OUTPUT_TOKENS * n
-    sequential = cost_usd(MODEL, cache_write_tokens=sys_tokens, cache_read_tokens=sys_tokens * (n - 1),
-                          input_tokens=prompt - sys_tokens * n, output_tokens=out)
+    # Priced call by call: Haiku 5.5's long-prompt rate applies per request (> 100K
+    # prompt tokens), so pricing summed totals as one request would wrongly trigger it.
+    o = EXPECTED_OUTPUT_TOKENS
+
+    def call(k: int, c: int, out_tokens: int) -> float:
+        cached = {"cache_write_tokens": sys_tokens} if k == 0 else {"cache_read_tokens": sys_tokens}
+        return cost_usd(model, input_tokens=c - sys_tokens, output_tokens=out_tokens, **cached)
+
+    sequential = sum(call(k, c, o) for k, c in enumerate(counts))
+    double = sum(call(k, c, 2 * o) for k, c in enumerate(counts))
+    no_cache = sum(cost_usd(model, input_tokens=c, output_tokens=o) for c in counts)
     return {
-        "method": method, "model": MODEL, "effort": EFFORT, "max_tokens": MAX_TOKENS,
-        "prefill_version": PREFILL_VERSION, "prompt_sha": prompt_hash(),
-        "images": n, "public_dev": sum(s == "public_dev" for _, s in targets()),
-        "set_t": sum(s == "train" for _, s in targets()),
+        "method": method, "model": model, "effort": EFFORT, "max_tokens": MAX_TOKENS,
+        "prefill_version": PREFILL_VERSIONS[model], "prompt_sha": prompt_hash(),
+        "images": n, "already_drafted": len(drafted),
+        "public_dev": sum(s == "public_dev" for _, s in todo), "set_t": sum(s == "train" for _, s in todo),
         "system_tokens": sys_tokens, "prompt_tokens_total": prompt,
-        "expected_output_tokens_total": out,
-        "sequential_expected_usd": round(sequential, 2),
-        "sequential_expected_usd_double_output": round(sequential + cost_usd(MODEL, output_tokens=out), 2),
-        "no_cache_usd": round(cost_usd(MODEL, input_tokens=prompt, output_tokens=out), 2),
-        "worst_case_usd": round(sum(worst_case_usd(MODEL, c, MAX_TOKENS) for c in counts), 2),
+        "expected_output_tokens_total": out, "expected_output_tokens_per_image": EXPECTED_OUTPUT_TOKENS,
+        "sequential_expected_usd": round(sequential, 4),
+        "sequential_expected_usd_double_output": round(double, 4),
+        "no_cache_usd": round(no_cache, 4),
+        "worst_case_usd": round(sum(worst_case_usd(model, c, MAX_TOKENS) for c in counts), 4),
+        "worst_case_usd_per_call": round(max((worst_case_usd(model, c, MAX_TOKENS) for c in counts),
+                                             default=0.0), 4),
     }
 
 
@@ -332,20 +367,24 @@ def _usage(u) -> dict:
             "cache_write_tokens": getattr(u, "cache_creation_input_tokens", 0) or 0}
 
 
-def _log_http_error(run_id: str, image_id: str, call: str, e: Exception) -> None:
+def _log_http_error(run_id: str, image_id: str, call: str, e: Exception, model: str = MODEL) -> None:
     """Log a failed request with cost 0, as LLMClient.json_reply does."""
-    log_call({"run_id": run_id, "purpose": "gold-sign pre-fill", "model": MODEL, "batch": False,
+    log_call({"run_id": run_id, "purpose": "gold-sign pre-fill", "model": model, "batch": False,
               "effort": EFFORT, "status": "http_error", "image_id": image_id, "call": call,
               "cost_usd": 0.0, "http_status": getattr(e, "status_code", None),
               "request_id": getattr(e, "request_id", None), "error": str(e)[:500]})
 
 
 def prefill(max_spend: float, sdk=None, check_at: int = 2,
-            min_cache_share: float = MIN_CACHE_SHARE) -> dict[str, dict]:
+            min_cache_share: float = MIN_CACHE_SHARE, model: str = MODEL) -> dict[str, dict]:
     """Draft labels one image at a time (public_dev and set T only), like
     gold_intents.run: each call's worst case is checked by the spend guard before it
     is sent, every call is logged, progress resumes, and the run stops after call
-    `check_at` if less than `min_cache_share` of the prompt came from the cache."""
+    `check_at` if less than `min_cache_share` of the prompt came from the cache.
+    Images drafted earlier, by any model, are not drafted again."""
+    if model not in PREFILL_VERSIONS:
+        raise SystemExit(f"unknown pre-fill model {model!r}; one of {', '.join(MODELS)}")
+    version = PREFILL_VERSIONS[model]
     if sdk is None:
         import anthropic
         sdk = anthropic.Anthropic()
@@ -358,28 +397,29 @@ def prefill(max_spend: float, sdk=None, check_at: int = 2,
     viol = violation_images()
     done = load_drafts()
     todo = [(i, s) for i, s in targets() if i not in done]
-    print(f"{len(done)} already drafted, {len(todo)} to go (limit ${max_spend:.2f})")
+    print(f"{len(done)} already drafted, {len(todo)} to go with {model} ({version}, "
+          f"limit ${max_spend:.2f})")
     for n, (image_id, split) in enumerate(todo, 1):
         msg = [{"role": "user", "content": [image_block(image_path(image_id, split)),
                                             {"type": "text", "text": user_text(image_id in viol)}]}]
         try:
-            counted = sdk.messages.count_tokens(model=MODEL, system=sys_blocks, messages=msg, **kw)
+            counted = sdk.messages.count_tokens(model=model, system=sys_blocks, messages=msg, **kw)
         except Exception as e:
-            _log_http_error(run_id, image_id, "count_tokens", e)
+            _log_http_error(run_id, image_id, "count_tokens", e, model)
             raise
-        guard.check(worst_case_usd(MODEL, counted.input_tokens, MAX_TOKENS), f"pre-fill {image_id}")
+        guard.check(worst_case_usd(model, counted.input_tokens, MAX_TOKENS), f"pre-fill {image_id}")
         try:
-            resp = sdk.messages.create(model=MODEL, max_tokens=MAX_TOKENS, system=sys_blocks,
+            resp = sdk.messages.create(model=model, max_tokens=MAX_TOKENS, system=sys_blocks,
                                        messages=msg, **kw)
         except Exception as e:
-            _log_http_error(run_id, image_id, "create", e)
+            _log_http_error(run_id, image_id, "create", e, model)
             raise
         usage = _usage(resp.usage)
-        cost = cost_usd(MODEL, **usage)
+        cost = cost_usd(model, **usage)
         guard.add(cost)
         text = next((b.text for b in resp.content if b.type == "text"), "")
-        rec: dict[str, Any] = {"image_id": image_id, "split": split, "model": MODEL,
-                               "prefill_version": PREFILL_VERSION, "prompt_sha": prompt_hash(),
+        rec: dict[str, Any] = {"image_id": image_id, "split": split, "model": model,
+                               "prefill_version": version, "prompt_sha": prompt_hash(),
                                "stop_reason": resp.stop_reason, "raw_reply": text, "usage": usage,
                                "draft": None, "errors": []}
         if resp.stop_reason == "refusal":
@@ -397,8 +437,8 @@ def prefill(max_spend: float, sdk=None, check_at: int = 2,
                 rec["status"] = "invalid" if rec["errors"] else "ok"
             except LLMBadJSON as e:
                 rec["status"], rec["errors"] = "bad_json", [str(e)]
-        log_call({"run_id": run_id, "purpose": "gold-sign pre-fill", "model": MODEL, "batch": False,
-                  "effort": EFFORT, "status": rec["status"], "image_id": image_id,
+        log_call({"run_id": run_id, "purpose": "gold-sign pre-fill", "model": model, "batch": False,
+                  "effort": EFFORT, "status": rec["status"], "prefill_version": version, "image_id": image_id,
                   "request_id": getattr(resp, "_request_id", None), "stop_reason": resp.stop_reason,
                   **usage, "cost_usd": round(cost, 6)})
         with open(drafts_path(), "a", encoding="utf-8") as f:
@@ -604,8 +644,10 @@ def import_labels(private: bool = False, labels_dir: Path | None = None,
         if errs:
             problems += errs
             continue
-        rec["anchoring"] = None if private else anchoring(
-            rec["signs"], (drafts.get(rec["image_id"]) or {}).get("draft"))
+        d = {} if private else (drafts.get(rec["image_id"]) or {})
+        rec["draft_model"] = d.get("model")              # None: labelled without a draft
+        rec["prefill_version"] = d.get("prefill_version")
+        rec["anchoring"] = anchoring(rec["signs"], d.get("draft")) if d else None
         gold.append(rec)
     if problems:
         raise SystemExit("labels have problems:\n" + "\n".join(problems))
@@ -657,10 +699,13 @@ def main() -> None:
     s = sub.add_parser("select")
     s.add_argument("--n", type=int, default=SET_T_SIZE)
     e = sub.add_parser("estimate")
+    e.add_argument("--model", choices=MODELS, default=MODEL)
+    e.add_argument("--remaining", action="store_true", help="only images not drafted yet")
     e.add_argument("--count", action="store_true",
                    help="exact prompt sizes from messages.count_tokens (needs ANTHROPIC_API_KEY)")
     p = sub.add_parser("prefill")
     p.add_argument("--max-spend", type=float, required=True)
+    p.add_argument("--model", choices=MODELS, default=MODEL)
     sub.add_parser("sheet")
     i = sub.add_parser("import")
     i.add_argument("--private", action="store_true")
@@ -672,9 +717,9 @@ def main() -> None:
         if a.count:
             import anthropic
             sdk = anthropic.Anthropic()
-        print(json.dumps(estimate(sdk), indent=2))
+        print(json.dumps(estimate(sdk, model=a.model, remaining=a.remaining), indent=2))
     elif a.cmd == "prefill":
-        prefill(a.max_spend)
+        prefill(a.max_spend, model=a.model)
     elif a.cmd == "sheet":
         sheet()
     elif a.cmd == "import":
