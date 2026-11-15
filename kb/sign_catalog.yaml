@@ -2,7 +2,7 @@
 #
 # Every row is drafted from the QCVN 41:2024/BGTVT appendix article named in
 # `source` and has to be checked by a person before you rely on it
-# (`reviewed: false` until it is).
+# (`reviewed_by: none` until it is; `human` or `assistant` says who checked it).
 #
 # Fields
 #   code, name_vi, name_en, category    identity (category: prohibitory | mandatory | warning

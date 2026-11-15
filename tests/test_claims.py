@@ -50,6 +50,47 @@ def test_family_code_matches_variants(engine):
     assert is_sign(engine, sc, code="P.123").verdict == Verdict.no
 
 
+def test_variant_code_and_family_stem_of_a_family_row(engine):
+    # W.207 is one catalog row, "W.207(a,b,c,d,e,f,g,h,i,k,l)" (QCVN 41 C.7); the
+    # parser may name it by a variant ("W.207c") or by the stem ("W.207")
+    sc = scene(sign("s1", "W.207c"))
+    for code in ("W.207c", "W.207"):
+        a = is_sign(engine, sc, code=code)
+        assert a.verdict == Verdict.yes and "C.7" in articles(a), code
+        assert a.value["signs"][0]["code"] == "W.207(a,b,c,d,e,f,g,h,i,k,l)"
+    other = is_sign(engine, scene(sign("s1", "W.201c")), code="W.207")
+    assert other.verdict == Verdict.no and "C.1a" in articles(other)   # cites the actual sign
+
+
+# ---------------------------------------------------------------- code selectors
+
+def _sel_scene():
+    return scene(sign("w7c", "W.207c"), sign("w7a", "W.207a"), sign("p24c", "P.124c"),
+                 sign("unk", "UNKNOWN"))
+
+
+@pytest.mark.parametrize("code,selected", [
+    ("W.207c", ["w7c"]),                                   # equal codes only
+    ("W.207a", ["w7a"]),
+    ("W.207", ["w7c", "w7a"]),                             # family stem
+    ("W.207(a,b,c,d,e,f,g,h,i,k,l)", ["w7c", "w7a"]),      # full family row code
+    ("P.124", ["p24c"]),                                   # stem of separate rows
+    ("P.124c", ["p24c"]),
+    ("P.124a", []),                                        # another row of the stem
+    ("UNKNOWN", []),                                       # never selects an unread sign
+    ("P.999", []),
+])
+def test_code_selector_resolution(engine, code, selected):
+    assert engine.resolve(_sel_scene(), Selector(code=code)) == selected
+
+
+def test_unknown_or_uncatalogued_scene_signs_never_match_a_code(engine):
+    cat = engine.catalog
+    for sel in ("UNKNOWN", "P.999", "W.207", "P.124"):
+        assert not cat.code_selects(sel, "UNKNOWN") and not cat.code_selects(sel, "P.999")
+    assert not cat.code_selects("W.207c", "W.207a") and not cat.code_selects("W.207a", "W.207c")
+
+
 def test_identity_by_category_cites_art_11(engine):
     a = is_sign(engine, scene(sign("s1", "R.301b")), category="mandatory")
     assert a.verdict == Verdict.yes and {"11", "D.1a"} <= articles(a)

@@ -132,3 +132,40 @@ def test_day_plate_cites_41(engine):
     a = permitted(engine, sc, "park", V("passenger_car"),
                   When(date=dt.date(2025, 9, 3), time=dt.time(8)))
     assert a.verdict == Verdict.no and {"41", "F.10", "B.31"} <= articles(a)
+
+
+def test_unreadable_sign_turns_closed_world_answers_unknown(engine):
+    from vqa.schemas import Required
+    # an unreadable red-bordered circle could be a prohibition
+    sc = scene(sign("s1", "P.104"), sign("s2", "UNKNOWN", shape="circle", border="red"))
+    a = permitted(engine, sc, "enter", V("passenger_car"))
+    assert a.verdict == Verdict.unknown and a.uncertain_signs == ["s2"]
+    # a ban the engine can read stands
+    assert permitted(engine, sc, "enter", V("motorbike")).verdict == Verdict.no
+    assert engine.answer(sc, SpeedOk(vehicle=V("car"), speed_kmh=50)).verdict == Verdict.unknown
+    # nothing recorded about how it looks: assume it could matter
+    bare = scene(sign("s1", "P.104"), sign("s2", "UNKNOWN"))
+    assert permitted(engine, bare, "enter", V("passenger_car")).verdict == Verdict.unknown
+
+
+def test_unreadable_sign_that_cannot_matter_is_ignored(engine):
+    from vqa.schemas import Required
+    board = sign("s2", "UNKNOWN", shape="rectangle", background="blue")
+    sc = scene(sign("s1", "P.104"), board, lanes=2)
+    # a blue rectangular board cannot ban turning or entering the road ...
+    assert permitted(engine, sc, "enter", V("passenger_car")).verdict == Verdict.yes
+    assert permitted(engine, sc, "turn_left", V("passenger_car")).verdict == Verdict.yes
+    # ... but it could be a lane board, so it matters for a lane or a speed
+    assert engine.answer(sc, Permitted(action="enter", vehicle=V("passenger_car"),
+                                       lane=1)).verdict == Verdict.unknown
+    assert engine.answer(sc, SpeedOk(vehicle=V("car"), speed_kmh=50)).verdict == Verdict.unknown
+    # a warning triangle never restricts
+    tri = scene(sign("s1", "P.104"), sign("s2", "UNKNOWN", shape="triangle", border="red"))
+    assert permitted(engine, tri, "enter", V("passenger_car")).verdict == Verdict.yes
+    # a blue circle (mandatory) matters for directions and "required", not for parking
+    blue = scene(sign("s2", "UNKNOWN", shape="circle", background="blue"))
+    assert permitted(engine, blue, "turn_left", V("car")).verdict == Verdict.unknown
+    assert permitted(engine, blue, "park", V("car")).verdict == Verdict.yes
+    assert engine.answer(blue, Required(action="turn_right")).verdict == Verdict.unknown
+    assert engine.answer(scene(sign("s1", "P.104")),
+                         Required(action="turn_right")).verdict == Verdict.no

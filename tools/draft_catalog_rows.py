@@ -71,8 +71,10 @@ VISUAL_OVERRIDES = {
     "IE.473": {"shape": "rectangle", "border": "black", "background": "yellow"},
 }
 
-# Rows checked in review on 2026-11-14 (all flagged rows and the 12-row sample):
-# reviewed: true. The other rows stay reviewed: false.
+# Rows the project owner checked on 2026-11-14 (all flagged rows and the 12-row sample):
+# reviewed_by: human. The other rows stay reviewed_by: none. The visual corrections in
+# VISUAL_OVERRIDES came from an assistant review of the figures: visual_reviewed_by:
+# assistant until the owner checks them.
 REVIEWED = {
     "W.201(c,d)", "W.202(a,b)", "W.203(a,b,c)", "W.205(a,b,c,d,e)",
     "W.207(a,b,c,d,e,f,g,h,i,k,l)", "W.223(a,b)", "W.228(a,b)", "W.242(a,b)", "W.243(a,b,c)",
@@ -221,7 +223,9 @@ def to_yaml(rows: list[dict]) -> str:
         "# art. 28, 36 and 47 and appendix C/E; every row cites its article.",
         "# These rows carry no rule effect: they let the engine name a sign, check",
         "# identity claims and report sign categories. Review list:",
-        "# kb/review/meaning_rows_review.md. reviewed: false until a person checks a row.",
+        "# kb/review/meaning_rows_review.md. reviewed_by: human | assistant | none says who",
+        "# checked the name, letters and citation; visual_reviewed_by does the same for the",
+        "# visual attributes.",
         "",
         "signs:",
     ]
@@ -246,8 +250,9 @@ def to_yaml(rows: list[dict]) -> str:
         if r.get("note"):
             out.append(f"    note: {json.dumps(r['note'], ensure_ascii=False)}")
         out.append(f"    source: {{law_id: \"{QCVN}\", article_id: \"{r['source']}\"}}")
-        if r["code"] in REVIEWED:
-            out.append("    reviewed: true")
+        out.append(f"    reviewed_by: {'human' if r['code'] in REVIEWED else 'none'}")
+        if r["code"] in VISUAL_OVERRIDES:
+            out.append("    visual_reviewed_by: assistant")
         out.append("")
     return "\n".join(out)
 

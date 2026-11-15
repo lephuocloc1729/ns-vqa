@@ -104,7 +104,10 @@ class CatalogSign(_M):
     note: str | None = None     # e.g. where a meaning is our reading rather than QCVN wording
     variants: list[str] = []    # letters a family row stands for
     source: Citation
-    reviewed: bool = False
+    # Who checked the row's name, letters and citation; visual attributes are tracked
+    # separately because corrections there may come from a different reviewer.
+    reviewed_by: Literal["human", "assistant", "none"] = "none"
+    visual_reviewed_by: Literal["human", "assistant", "none"] = "none"
 
     @property
     def base(self) -> str:
@@ -160,6 +163,29 @@ class Catalog(_M):
         if not fam:
             raise KeyError(f"unknown sign code {code!r}")
         return fam
+
+    def code_selects(self, selector: str, scene_code: str) -> bool:
+        """Does a selector's code pick out a scene sign with ``scene_code``? Sign
+        selection only, not a legal decision.
+
+        - Equal codes match ("W.207c" selects W.207c, and not W.207a).
+        - A family stem or the full family row code selects every variant of the
+          family ("W.207" and "W.207(a,...)" select W.207c).
+        - A stem of separate rows selects each of them ("P.124" selects P.124c).
+        - A scene code that is UNKNOWN or not in the catalog never matches, nor does
+          a selector code the catalog cannot resolve.
+        """
+        if not self.has(scene_code):
+            return False
+        if selector == scene_code:
+            return True
+        try:
+            targets = self.codes_matching(selector)
+        except KeyError:
+            return False
+        if self.has(selector) and self.get(selector).code != selector:
+            return False                    # a variant code selects only itself
+        return self.get(scene_code).code in targets
 
     def codes_for_meaning(self, meaning: str) -> list[str]:
         """Codes whose key or tags match ``meaning``. Raises KeyError if none do."""

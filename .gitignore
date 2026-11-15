@@ -6,3 +6,12 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 .DS_Store
+
+# local API usage logs (tokens, cost); never committed
+logs/
+
+# gold-intent working files hold dataset question text: local only (gold keeps ids + programs)
+# (the whole folder, so copies such as review.backup.csv stay local too)
+data/annotations/gold_intents_v1/*
+!data/annotations/gold_intents_v1/gold_intents_v1.jsonl
+!data/annotations/gold_intents_v1/gold_intents_v2.jsonl

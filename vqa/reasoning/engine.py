@@ -9,6 +9,7 @@ packs the results into an Answer.
 from __future__ import annotations
 
 import datetime as dt
+import itertools
 from typing import Any
 
 from vqa.kb import KB_DIR, Catalog, load_catalog
@@ -117,7 +118,7 @@ class Engine:
                 raise EngineError(str(e)) from None
         out = []
         for s in signs:
-            if sel.code and s.code != sel.code:
+            if sel.code and not self.catalog.code_selects(sel.code, s.code):
                 continue
             if codes is not None and s.code not in codes:
                 continue
@@ -142,6 +143,9 @@ class Engine:
 
     # ------------------------------------------------------------------ entry point
     def answer(self, scene: SceneGraph, query: QueryProgram | Program) -> Answer:
+        if isinstance(query, QueryProgram) and query.out_of_scope:
+            return Answer(verdict=Verdict.unknown, note="out of scope for the rules: "
+                          + (query.out_of_scope_reason or "no DSL intent fits"))
         program = normalize(query.program if isinstance(query, QueryProgram) else query)
         variants = reading_variants(scene)
         answers = [(picked, self._run(sc, program)) for sc, picked in variants]
@@ -162,7 +166,80 @@ class Engine:
         )
 
     # ------------------------------------------------------------------ per program
+    # Claims whose verdict rests on "no visible sign says otherwise" (closed world):
+    # the verdict that an unreadable sign could overturn.
+    _CLOSED_WORLD = {Permitted: Verdict.yes, SpeedOk: Verdict.yes,
+                     Required: Verdict.no, ExistsViolation: Verdict.no}
+
+    def unreadable_signs(self, scene: SceneGraph) -> list[str]:
+        return [sg.id for sg in scene.signs if not self.catalog.has(sg.code)]
+
+    @staticmethod
+    def visual_category(sign) -> str:
+        """What an unreadable sign could be, from how it looks (QCVN 41 sign groups):
+        red_circle (prohibitory, incl. P.130/P.131 on blue), blue_circle (mandatory),
+        board (blue/green/white rectangle: information, lane boards, plates),
+        warning (triangle), octagon (R.122 stop), or unknown (nothing recorded)."""
+        shape = sign.shape.value if sign.shape else None
+        border = sign.border.value if sign.border else None
+        bg = sign.background.value if sign.background else None
+        if shape == "circle" and border == "red":
+            return "red_circle"
+        if shape == "circle" and bg == "blue":
+            return "blue_circle"
+        if shape in ("rectangle", "square"):
+            return "board"
+        if shape in ("triangle", "diamond"):
+            return "warning"
+        if shape == "octagon":
+            return "octagon"
+        if shape == "circle" and border == "black":
+            return "end_of_restriction"   # lifts restrictions; cannot add one
+        return "unknown"
+
+    @staticmethod
+    def could_matter(category: str, p: Program) -> bool:
+        """Could an unreadable sign of this category overturn a closed-world verdict
+        for program p? Conservative: an unknown category always could."""
+        if category == "unknown":
+            return True
+        if category in ("warning", "end_of_restriction"):
+            return False
+        lane = getattr(p, "lane", None)
+        if isinstance(p, Permitted):
+            if category == "red_circle":
+                return True
+            if category == "blue_circle":   # mandatory directions (R.301), R.302 ...
+                return p.action.value in ("go_straight", "turn_left", "turn_right", "u_turn")
+            if category == "board":          # lane boards: P.127c, R.412, R.415a
+                return lane is not None
+            if category == "octagon":
+                return p.action.value == "stop"
+        if isinstance(p, SpeedOk):           # P.127 (red circle), R.306 (blue), lane boards
+            return category in ("red_circle", "blue_circle", "board")
+        if isinstance(p, Required):
+            return category in ("blue_circle", "octagon")
+        if isinstance(p, ExistsViolation):
+            return True
+        return False
+
     def _run(self, scene: SceneGraph, p: Program) -> Answer:
+        """Dispatch, then: a closed-world verdict becomes unknown when the scene has an
+        unreadable sign whose visible category could bear on the claim, since that
+        sign might say otherwise. Others (e.g. a blue information board for a turn
+        question) are ignored."""
+        ans = self._dispatch(scene, p)
+        cw = self._CLOSED_WORLD.get(type(p))
+        unread = [sid for sid in self.unreadable_signs(scene)
+                  if self.could_matter(self.visual_category(scene.sign(sid)), p)]
+        if cw is not None and unread and ans.verdict == cw:
+            ans = ans.model_copy(update={
+                "verdict": Verdict.unknown,
+                "uncertain_signs": sorted(set(ans.uncertain_signs) | set(unread)),
+                "note": "a sign in the scene could not be read; it may change this answer"})
+        return ans
+
+    def _dispatch(self, scene: SceneGraph, p: Program) -> Answer:
         v = getattr(p, "vehicle", None)
         if v is not None and v.cls is VehicleClass.every_vehicle:
             return self._for_every_vehicle(scene, p)
@@ -356,21 +433,115 @@ class Engine:
         order = [c.value for c in ONTOLOGY_CLASSES]
         return sorted(hits, key=order.index), sorted(conditional, key=order.index)
 
+    # ------------------------------------------------------------------ every vehicle
+    def _thresholds(self, scene: SceneGraph) -> dict[str, list[float]]:
+        """Every number the scene's rules compare a vehicle attribute with: sign values
+        (catalog value_cond), plate / group / local-plate / lane-row conditions, and
+        fixed catalog conditions (P.126: load > 3.5 t)."""
+        out: dict[str, set[float]] = {}
+
+        def add(attr: str, v: float) -> None:
+            out.setdefault(attr, set()).add(float(v))
+
+        def specs(vs) -> None:
+            for vs_ in vs:
+                for c in vs_.conditions:
+                    add(c.attr.value, c.value)
+
+        for sg in scene.signs:
+            if self.catalog.has(sg.code):
+                e = self.catalog.get(sg.code).effect
+                if e.value and sg.value is not None:
+                    add(e.value.attr.value, sg.value)
+                for pr in e.prohibits:
+                    specs(pr.vehicles)
+            for pl in sg.plates:
+                specs(pl.vehicles)
+                for g in pl.rules:
+                    specs(g.vehicles)
+            for g in sg.rules:
+                specs(g.vehicles)
+            for row in sg.lanes:
+                specs(row.vehicles)
+        return {a: sorted(v) for a, v in out.items()}
+
+    _INT_ATTRS = {"seats"}
+    _ATTR_FIELD = {"seats": "seats", "load_t": "load_t", "gross_t": "gross_t",
+                   "height_m": "height_m", "width_m": "width_m", "length_m": "length_m"}
+
+    def _witnesses(self, vehicle: Vehicle, thresholds: dict[str, list[float]]) -> list[dict]:
+        """Attribute values on both sides of (and at) each threshold, for the attributes
+        the question leaves unstated. One dict per combination (capped)."""
+        axes = []
+        for attr, ts in thresholds.items():
+            field = self._ATTR_FIELD[attr]
+            if getattr(vehicle, field) is not None or any(
+                    getattr(vehicle, f, None) is not None for f in (f"{attr.split('_')[0]}_gt",
+                                                                    f"{attr.split('_')[0]}_lt")):
+                continue  # the question fixes this attribute
+            step = 1 if attr in self._INT_ATTRS else 0.01
+            vals = sorted({max(0.0, round(t + d, 2)) for t in ts for d in (-step, 0, step)})
+            if attr in self._INT_ATTRS:
+                vals = sorted({int(v) for v in vals})
+            axes.append([(field, v) for v in vals])
+        combos = [dict(c) for c in itertools.islice(itertools.product(*axes), 256)] if axes else []
+        return combos
+
+    @staticmethod
+    def _region(witness: dict, thresholds: dict[str, list[float]]) -> str:
+        """Describe the attribute region a witness falls in, e.g. 'seats > 29'."""
+        parts = []
+        for field, v in witness.items():
+            ts = thresholds.get(field, [])
+            lo = max((t for t in ts if t < v), default=None)
+            hi = min((t for t in ts if t > v), default=None)
+            if v in ts:
+                parts.append(f"{field} = {v:g}")
+            elif lo is not None and hi is not None:
+                parts.append(f"{lo:g} < {field} < {hi:g}")
+            elif lo is not None:
+                parts.append(f"{field} > {lo:g}")
+            elif hi is not None:
+                parts.append(f"{field} < {hi:g}")
+        return ", ".join(parts)
+
     def _for_every_vehicle(self, scene: SceneGraph, p: Program) -> Answer:
-        """A claim about every_vehicle: run it for every vehicle class (pedestrians are
-        not vehicles) and combine with AND. No if some class gives no (reported at
-        the broadest level, with proofs), unknown if some class is unknown, else yes.
-        A class whose answer depends on its own attributes (weight, seats) counts as
-        unknown, not as a counterexample."""
+        """A claim about every_vehicle: it must hold for every member of every vehicle
+        class (pedestrians are not vehicles), combined with AND.
+
+        A class whose answer depends on unstated weight / seats has members on both
+        sides, so its members are tried at the scene's thresholds: if some member
+        fails, the class is a counterexample, reported with its condition (e.g.
+        "seats > 29"). The answer is unknown only when it depends on something unknown
+        in the scene (time, day, lane, an unreadable sign), not on attribute ranges."""
         if not isinstance(p, (Permitted, Forbidden, SpeedOk, Required)):
             raise EngineError("every_vehicle is for claims: permitted, forbidden, speed_ok, required")
+        thresholds = self._thresholds(scene)
+
+        def run(c: VehicleClass, attrs: dict | None = None) -> Answer:
+            veh = p.vehicle.model_copy(update={"cls": c, **(attrs or {})})
+            a = self._run(scene, normalize(p.model_copy(update={"vehicle": veh})))
+            return a
+
+        def short(a: Answer) -> str:
+            return a.verdict.value if a.verdict.value in ("yes", "no") else "unknown"
+
         results: dict[str, tuple[str, Answer]] = {}
+        conditions: dict[str, str] = {}
         for c in ONTOLOGY_CLASSES:
             if c is VehicleClass.pedestrian:
                 continue
-            q = p.model_copy(update={"vehicle": p.vehicle.model_copy(update={"cls": c})})
-            a = self._run(scene, normalize(q))
-            v = a.verdict.value if a.verdict.value in ("yes", "no") else "unknown"
+            a = run(c)
+            v = short(a)
+            if v == "unknown":
+                tried = [(w, run(c, w)) for w in self._witnesses(p.vehicle, thresholds)]
+                failing = [(w, b) for w, b in tried if short(b) == "no"]
+                if failing:
+                    w, a = failing[0]
+                    v = "no"
+                    conditions[c.value] = self._region(w, thresholds)
+                elif tried and all(short(b) == "yes" for _, b in tried):
+                    v, a = "yes", tried[0][1]
             results[c.value] = (v, a)
         verdicts = {v for v, _ in results.values()}
         verdict = "no" if "no" in verdicts else "unknown" if "unknown" in verdicts else "yes"
@@ -388,7 +559,9 @@ class Engine:
                     seen.add(k)
                     reasons.append(r)
         return Answer(verdict=Verdict(verdict),
-                      value={"every_vehicle": verdict, "counterexamples": counter,
+                      value={"every_vehicle": verdict,
+                             "counterexamples": [{"class": c, "condition": conditions.get(c)}
+                                                 for c in counter],
                              "unknown": unknown,
                              "per_class": {c: v for c, (v, _) in results.items()}},
                       reasons=reasons, citations=[c for a in support for c in a.citations],
