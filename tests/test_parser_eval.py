@@ -228,3 +228,27 @@ def test_run_refuses_when_the_worst_case_exceeds_the_limit(fake_data, engine):
 def test_estimate_expected_below_worst():
     est = pe.estimate("claude-haiku-5-5", [15_000] * 47)
     assert 0 < est["expected_usd"] < est["worst_case_usd"] < 0.5
+
+
+def _run_score(right, version="v6"):
+    gold = [gold_row(f"q{i}", MEANING) for i in range(10)]
+    sc = score([pred(f"q{i}", MEANING if i < right else OOS) for i in range(10)], gold)
+    sc["prompt_version"] = version
+    return sc
+
+
+def test_gate_is_decided_on_the_mean_of_three_runs():
+    # runs of 9, 9 and 8 of 10: mean 86.7% fails although two runs reach 90%
+    text = pe.run_groups([_run_score(9), _run_score(9), _run_score(8)])
+    assert "mean of 3 runs 86.7%" in text and "range 80.0%-90.0%" in text and "FAIL" in text
+    assert "PASS" in pe.run_groups([_run_score(9), _run_score(10), _run_score(9)])
+
+
+def test_fewer_than_three_runs_do_not_decide_the_gate():
+    text = pe.run_groups([_run_score(10), _run_score(10)])
+    assert "not decided (2 of 3 runs)" in text and "PASS" not in text
+
+
+def test_runs_are_grouped_by_prompt_version():
+    text = pe.run_groups([_run_score(8, "v5"), _run_score(10, "v6")])
+    assert text.count("mean of 1 runs") == 2

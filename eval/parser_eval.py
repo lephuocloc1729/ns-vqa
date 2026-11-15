@@ -24,6 +24,11 @@ Gate (fixed on 2026-11-15, before any Haiku result):
   prediction, counts as wrong.
 - Program accuracy = exact matches / gate rows. The gate passes if the point
   estimate is >= 90%. It is reported with a 95% Wilson CI.
+- Amended by the owner on 2026-11-15, before any v6 result: single runs differ by
+  about two questions, so from prompt v6 on the gate is decided on the mean
+  accuracy of three runs of the same model, effort and prompt. `score` reports the
+  mean, the range (lowest and highest run) and each run's Wilson CI. The v4 and v5
+  results stay as single-run FAILs.
 
 Normalization before comparing (both gold and prediction, per the plan):
 - both become QueryPrograms with the parser's defaults filled (context year 2025,
@@ -253,17 +258,43 @@ def format_scores(sc: dict) -> str:
 
 
 def comparison_table(scores: list[dict]) -> str:
-    head = "| model | effort | n | accuracy | 95% CI | slot F1 | OOS P | OOS R | cost | per question |"
-    rows = [head, "|" + "---|" * 10]
+    head = "| model | effort | prompt | n | accuracy | 95% CI | slot F1 | OOS P | OOS R | cost | per question |"
+    rows = [head, "|" + "---|" * 11]
     for sc in scores:
         s = sc["splits"].get("public_dev")
         if not s:
             continue
         lo, hi = s["ci95"]
-        rows.append(f"| {sc['model']} | {sc['effort']} | {s['n']} | {_pct(s['accuracy'])} | "
+        rows.append(f"| {sc['model']} | {sc['effort']} | {sc['prompt_version']} | {s['n']} | {_pct(s['accuracy'])} | "
                     f"{_pct(lo)}-{_pct(hi)} | {_pct(s['slot_f1'])} | {_pct(s['oos_precision'])} | "
                     f"{_pct(s['oos_recall'])} | ${s['cost_usd']:.4f} | ${s['cost_usd'] / s['n']:.5f} |")
     return "\n".join(rows)
+
+
+GATE_RUNS = 3
+
+
+def run_groups(scores: list[dict]) -> str:
+    """Mean of runs per (model, effort, prompt version): the gate from v6 on is
+    decided on the mean of GATE_RUNS runs."""
+    groups: dict[tuple, list[dict]] = {}
+    for sc in scores:
+        if "public_dev" in sc["splits"]:
+            groups.setdefault((sc["model"], sc["effort"], sc["prompt_version"]), []).append(
+                sc["splits"]["public_dev"])
+    lines = []
+    for (model, effort, version), runs in groups.items():
+        accs = [r["accuracy"] for r in runs]
+        mean = sum(accs) / len(accs)
+        k = len(runs)
+        if k >= GATE_RUNS:
+            verdict = "PASS" if mean >= GATE else "FAIL"
+        else:
+            verdict = f"not decided ({k} of {GATE_RUNS} runs)"
+        lines.append(f"{model} {effort} {version}: mean of {k} runs {_pct(mean)} "
+                     f"(range {_pct(min(accs))}-{_pct(max(accs))}); "
+                     f"gate on the mean of {GATE_RUNS} runs: {verdict}")
+    return "\n".join(lines)
 
 
 def load_predictions(path: Path) -> list[dict]:
@@ -278,7 +309,7 @@ def score_files(paths: list[Path], gold_path: Path | None = None) -> str:
     text = "\n\n".join(format_scores(s) for s in scores)
     if len(scores) > 1:
         text += "\n\n" + comparison_table(scores)
-    return text
+    return text + "\n\n" + run_groups(scores)
 
 
 # --------------------------------------------------------------------------- run
