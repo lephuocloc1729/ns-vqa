@@ -18,7 +18,7 @@ Given several prediction files it adds an effort-comparison table.
 Gate (fixed on 2026-11-15, before any Haiku result):
 - Gate set: the public_dev rows of data/annotations/gold_intents_v1/gold_intents_v1.jsonl,
   excluding the public_dev few-shot ids of the prompt (public_natural_0026, 0097,
-  0082 in v4 and v5) and rows the owner skipped (skipped rows are not in the gold file).
+  0082 in v4 to v6) and rows the owner skipped (skipped rows are not in the gold file).
 - Out-of-scope gold rows count. A prediction matches one only if it is out_of_scope.
 - A parse failure after the retry (status invalid or error), or a missing
   prediction, counts as wrong.
@@ -71,7 +71,7 @@ SPLIT_FILE = ROOT / "data" / "splits" / "public_split.json"
 GOLD_FILE = ROOT / "data" / "annotations" / "gold_intents_v1" / "gold_intents_v1.jsonl"
 OUT_DIR = ROOT / "logs" / "parser_eval"
 
-PROMPT_VERSION = "v5"
+PROMPT_VERSION = "v6"
 CONTEXT_YEAR = 2025          # as in gold drafting: the dataset's questions are from 2025
 MAX_TOKENS = 4096
 GATE = 0.90

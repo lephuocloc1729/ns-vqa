@@ -134,7 +134,7 @@ def test_parse_ok(engine):
     assert r.status == "ok" and r.attempts == 1 and r.query.program.intent == "forbidden"
     req = sdk.created[0]
     assert req["output_config"] == {"effort": "low"}
-    assert req["system"][0]["text"] == system_prompt("v5")
+    assert req["system"][0]["text"] == system_prompt("v6")
     assert r.cost_usd > 0
 
 
@@ -173,8 +173,8 @@ def test_effort_is_configurable(engine):
 # ---------------------------------------------------------------- prompt and few-shots
 
 def test_prompt_is_stable_and_has_the_catalog():
-    s = system_prompt("v5")
-    assert s == system_prompt.__wrapped__("v5")      # byte-identical rebuild (prompt cache)
+    s = system_prompt("v6")
+    assert s == system_prompt.__wrapped__("v6")      # byte-identical rebuild (prompt cache)
     assert "Reply with only the JSON object" in s and "required format" not in s
     assert '"W.207" covers its variants' in s and '"W.221"' not in s
     assert "P.104 | no_motorbikes" in s and "## Examples" in s
@@ -189,6 +189,8 @@ FROZEN_PROMPTS = {
     "v3": {"spec.md": "235ea70bcfe685420a145e6cf7f0bbe671137c38ec4f210a17c76644978f1583",
            "fewshot.jsonl": "f644a21c024865bf4bbe55c00a44542e6ded14d84a3dfc383421856f2a1c04a5"},
     "v4": {"spec.md": "a51cc692eb41120595183bf1ebde5dfac805bfea223e1b71326ff3ce0ab1beb1",
+           "fewshot.jsonl": "f644a21c024865bf4bbe55c00a44542e6ded14d84a3dfc383421856f2a1c04a5"},
+    "v5": {"spec.md": "447471827b3df0f2f9d598f0a643685c6410cee81224042ed7ab86cc6eb0f91d",
            "fewshot.jsonl": "f644a21c024865bf4bbe55c00a44542e6ded14d84a3dfc383421856f2a1c04a5"},
 }
 
@@ -215,7 +217,18 @@ def test_v5_is_v4_plus_spec_rules_with_the_same_fewshots():
     assert sum(line not in old for line in spec.splitlines()) == 7   # 6 lines changed, 1 added
 
 
-def test_v5_spec_does_not_quote_gate_questions():
+def test_v6_is_v5_with_the_sign_rules_narrowed():
+    d5, d6 = (ROOT / "prompts" / "parser" / v for v in ("v5", "v6"))
+    assert (d5 / "fewshot.jsonl").read_bytes() == (d6 / "fewshot.jsonl").read_bytes()
+    a, b = ((d / "spec.md").read_text().splitlines() for d in (d5, d6))
+    diff = [y for x, y in zip(a, b) if x != y]
+    assert len(a) == len(b) and len(diff) == 2
+    assert "except `meaning` and `is_sign`" in diff[0]
+    assert "put that selector on every claim about the sign" in diff[1]
+
+
+@pytest.mark.parametrize("version", ["v5", "v6"])
+def test_spec_does_not_quote_gate_questions(version):
     # rules learned from public_dev errors must not carry a gate question's wording,
     # or it would act as an unexcluded few-shot
     public = (Path(os.environ.get("VQA_DATASET_DIR", ROOT / "VLSP2025-MLQA-Natural"))
@@ -223,8 +236,8 @@ def test_v5_spec_does_not_quote_gate_questions():
     if not public.exists():
         pytest.skip("dataset not available")
     import eval.parser_eval as pe
-    gate = {g["id"] for g in pe.gate_rows(pe.load_gold(), "v5")}
-    spec = (ROOT / "prompts" / "parser" / "v5" / "spec.md").read_text().lower()
+    gate = {g["id"] for g in pe.gate_rows(pe.load_gold(), version)}
+    spec = (ROOT / "prompts" / "parser" / version / "spec.md").read_text().lower()
     for q in json.loads(public.read_text(encoding="utf-8")):
         if q["id"] in gate:
             words = q["question"].lower().split()
@@ -244,14 +257,14 @@ def test_each_version_changes_one_spec_line(old, new, changed):
     assert len(a) == len(b) and len(diff) == 1 and changed in diff[0]
 
 
-@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5"])
+@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6"])
 def test_fewshots_are_valid_programs(engine, version):
     for ex in examples(version):
         q = to_query(WParse.model_validate(ex["output"]), 2026)
         assert validator.check(q, engine) == [], ex["id"]
 
 
-@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5"])
+@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6"])
 def test_fewshots_come_from_train_or_public_dev_only(version):
     split = json.loads((ROOT / "data" / "splits" / "public_split.json").read_text())
     holdout = set(split["public_holdout"]["questions"])

@@ -46,7 +46,7 @@ class ParseResult:
 
 class ClaudeParser:
     def __init__(self, *, llm: LLMClient | None = None, model: str = DEFAULT_MODEL,
-                 effort: str | None = DEFAULT_EFFORT, prompt_version: str = "v5",
+                 effort: str | None = DEFAULT_EFFORT, prompt_version: str = "v6",
                  context_year: int | None = None, engine: Engine | None = None,
                  guard: SpendGuard | None = None, max_tokens: int = 4096) -> None:
         self.llm = llm or LLMClient(model=model, guard=guard or SpendGuard())
