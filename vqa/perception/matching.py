@@ -6,7 +6,9 @@ There are no pixel boxes in gold, so pairs are chosen by a fixed score:
 - a pair is allowed only if both codes resolve to the same catalog row, or the two
   signs have the same visual category (shape plus border and background group);
 - among allowed pairs: same catalog row first, then same visual category, then the
-  closest rank top-down, then the same side, then order in the lists.
+  same side, then the closest rank top-down, then order in the lists. (Side comes
+  before rank since perception_gate_v2: a model that ranks one board differently
+  shifts every rank by one, and rank-first then pairs signs across the road.)
 Pairs are taken greedily by that score, which is deterministic.
 
 Signs are plain mappings with "code", "shape", "border", "background", "rank"
@@ -69,7 +71,7 @@ def _score(a: dict, b: dict, catalog: Catalog) -> tuple | None:
     rk_a, rk_b = a.get("rank"), b.get("rank")
     rank_gap = abs(rk_a - rk_b) if isinstance(rk_a, int) and isinstance(rk_b, int) else 99
     same_side = a.get("side") not in (None, "unknown") and a.get("side") == b.get("side")
-    return (same_row, same_cat, -rank_gap, same_side)
+    return (same_row, same_cat, same_side, -rank_gap)
 
 
 def match(left: Iterable[dict], right: Iterable[dict],

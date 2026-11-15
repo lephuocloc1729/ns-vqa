@@ -15,8 +15,8 @@ from eval.report import bootstrap_ci
 
 def test_gate_is_pinned():
     assert pe.GATE == {
-        "name": "perception_gate_v1",
-        "fixed": "2026-11-15, before any perception result",
+        "name": "perception_gate_v2",
+        "fixed": "2026-11-15, before any public_dev result (v1: before any perception result)",
         "gate_set": "public_dev",
         "excluded_images": [],
         "sign_recall_min": 0.90,
@@ -27,7 +27,7 @@ def test_gate_is_pinned():
         "excluded_gold": ["readable_false", "local_notice"],
         "code_level": "catalog_row",
         "unknown_prediction": "counts as found for recall, never a code true positive",
-        "matching": "one-to-one; same catalog row or same visual category; then rank, side, order",
+        "matching": "one-to-one; same catalog row or same visual category; then side, rank, order",
         "ci": {"method": "bootstrap", "unit": "image", "resamples": 10_000, "seed": 20261115, "level": 0.95},
         "reported_on": ["all_images", "non_duplicate_images"],
     }
@@ -178,3 +178,12 @@ def test_estimate_makes_no_call(fake_set):
     est = pe.estimate("public_dev", "claude-haiku-5-5", runs=3)
     assert est["images"] == 2 and est["runs"] == 3 and est["total_usd_range"][0] < est["total_usd_range"][1]
     assert est["prompt_id"].startswith("scene/v1@")
+
+
+def test_side_comes_before_rank_when_ranks_are_shifted():
+    """train_7_23's case (gate v2): the model ranked a board first, so its P.127 ranks
+    are one higher; side keeps the left 100 with the left 100."""
+    gold = [g("P.127", 1, "left", value=100), g("P.127", 2, "right", value=80)]
+    pred = [p("P.127", 2, "left", value=100), p("P.127", 3, "right", value=80)]
+    c = pe.score_image(gold, pred)
+    assert (c["tp"], c["value_pairs"], c["value_ok"]) == (2, 2, 2)

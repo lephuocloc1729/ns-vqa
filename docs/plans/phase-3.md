@@ -133,6 +133,7 @@ That is 12 rows known now, and about 35–60 once set T is labelled. Rows are **
   Any other public_dev score needs the owner's go-ahead and is labelled as an extra checkpoint.
 - **Matching, per image, one to one.** Gold has no boxes, so pairs are chosen by a fixed score:
   - same catalog row, then same visual category (shape plus border and background group), then the closest rank top-down;
+  - *Changed by the owner on 2026-11-15, after the first set-T run and before any public_dev result:* same side comes before closest rank (`perception_gate_v2`). On train_7_23 the model ranked a board first, every rank shifted by one, and rank-first paired the left 100 with the right 80;
   - a pair is allowed only if the code is the same row or the visual category is the same;
   - ties are broken by side, then by order in the list.
 - **Sign recall** = matched readable gold signs / readable gold signs. An `UNKNOWN` prediction counts as found.

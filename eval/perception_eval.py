@@ -43,9 +43,12 @@ RUNS = ROOT / "eval" / "runs" / "perception"
 
 # ---------------------------------------------------------------- the gate (plan D7)
 
+# perception_gate_v1 (1c6dc57) matched on rank before side. The owner changed it to
+# side before rank on 2026-11-15, after the first set-T run and before any public_dev
+# result: perception_gate_v2. Everything else is unchanged.
 GATE = {
-    "name": "perception_gate_v1",
-    "fixed": "2026-11-15, before any perception result",
+    "name": "perception_gate_v2",
+    "fixed": "2026-11-15, before any public_dev result (v1: before any perception result)",
     "gate_set": "public_dev",
     "excluded_images": [],              # images used in the scene prompt (none from public_dev)
     "sign_recall_min": 0.90,
@@ -56,7 +59,7 @@ GATE = {
     "excluded_gold": ["readable_false", "local_notice"],   # out of recall and precision
     "code_level": "catalog_row",        # variant must also match when both name one
     "unknown_prediction": "counts as found for recall, never a code true positive",
-    "matching": "one-to-one; same catalog row or same visual category; then rank, side, order",
+    "matching": "one-to-one; same catalog row or same visual category; then side, rank, order",
     "ci": {"method": "bootstrap", "unit": "image", "resamples": 10_000, "seed": 20261115, "level": 0.95},
     "reported_on": ["all_images", "non_duplicate_images"],
 }
