@@ -578,6 +578,36 @@ signs:
       min_speed: [motor_vehicle]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.6"}
 
+  # D.11 l): "Ngoài các loại phương tiện quy định trên biển được đi lại, các loại phương
+  # tiện giao thông khác không được phép đi vào đoạn đường có đặt các biển số R.403a,
+  # R 403b, ..." law_db has no article D.11: its text is merged into the end of D.10,
+  # so the rows cite D.10. Only the variants seen in the gold (a, b) are added.
+  - code: R.403a
+    key: car_road
+    tags: [vehicle_ban]
+    name_vi: Đường dành cho xe ô tô
+    name_en: Road for cars
+    category: mandatory
+    visual: {shape: rectangle, border: white, background: blue}
+    effect:
+      # a): "Để báo hiệu bắt đầu đường dành cho các loại ô tô đi lại"
+      prohibits: [{actions: [enter], vehicles: [{class: vehicle}]}]
+      except: [car]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.10"}
+
+  - code: R.403b
+    key: car_and_motorbike_road
+    tags: [vehicle_ban]
+    name_vi: Đường dành cho xe ô tô, xe máy
+    name_en: Road for cars and motorbikes
+    category: mandatory
+    visual: {shape: rectangle, border: white, background: blue}
+    effect:
+      # b): "Để báo hiệu bắt đầu đường dành cho các loại ô tô, xe máy đi lại"
+      prohibits: [{actions: [enter], vehicles: [{class: vehicle}]}]
+      except: [car, motorbike]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.10"}
+
   # ------------------------------------------------------------------ end of restriction
   - code: DP.127
     key: end_of_per_lane_speed_limits
@@ -622,6 +652,31 @@ signs:
     effect:
       ends: [P.121, P.125, P.126, P.127, P.128, P.130, P.131a, P.131b, P.131c]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.35"}
+
+  # D.7 b): "hiệu lực của biển số R.306 hết tác dụng, kể từ biển này các xe được phép
+  # chạy chậm hơn trị số ghi trên biển nhưng không được gây cản trở các xe khác"
+  - code: R.307
+    key: end_of_minimum_speed
+    tags: [end_of_restriction]
+    name_vi: Hết tốc độ tối thiểu
+    name_en: End of minimum speed
+    category: end_of_restriction
+    visual: {shape: circle, border: none, background: blue}
+    effect:
+      ends: [R.306]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.7"}
+
+  # D.12 a): "Đến hết đoạn đường dành cho ô tô đi lại, đặt biển số R404a"
+  - code: R.404a
+    key: end_of_car_road
+    tags: [end_of_restriction]
+    name_vi: Hết đoạn đường dành cho xe ô tô
+    name_en: End of road for cars
+    category: end_of_restriction
+    visual: {shape: rectangle, border: white, background: blue}
+    effect:
+      ends: [R.403a]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.12"}
 
   # ------------------------------------------------------------------ mandatory directions
   - code: R.301a

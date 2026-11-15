@@ -158,3 +158,12 @@ def test_lane_plate_cited_only_for_s504_plate(engine):
                             plates=[{"kind": "lane", "lanes": [2]}]), lanes=2)
     a = speed_ok(engine, with_plate, V("passenger_car"), 90, lane=2)
     assert a.verdict == Verdict.no and "F.4" in articles(a)
+
+
+def test_end_of_min_speed_r307(engine):
+    """R.307 ends R.306 (D.7). Seen together, the minimum may or may not still apply."""
+    sc = scene(sign("s1", "R.306", value=60), sign("s2", "R.307", value=60))
+    assert speed_ok(engine, sc, V("passenger_car"), 50).verdict == Verdict.unknown
+    assert speed_ok(engine, sc, V("passenger_car"), 70).verdict == Verdict.yes
+    alone = scene(sign("s1", "R.307", value=60))
+    assert speed_ok(engine, alone, V("passenger_car"), 30).verdict == Verdict.yes
