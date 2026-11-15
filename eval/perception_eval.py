@@ -3,6 +3,7 @@
     .venv/bin/python eval/perception_eval.py estimate --set T --model claude-haiku-5-5 [--runs 1] [--version v2]
     .venv/bin/python eval/perception_eval.py run --set T --model claude-haiku-5-5 --max-spend 0.5 [--version v2]
     .venv/bin/python eval/perception_eval.py score eval/runs/perception/<run>.jsonl [...]
+    .venv/bin/python eval/perception_eval.py rescore --reverify <run>.jsonl [...]   # no API call
 
 Sets: T (36 train images, for prompt tuning, scored as often as needed) and
 public_dev (the gate set). A public_dev run is a recorded checkpoint (plan item 5)
@@ -114,6 +115,19 @@ def same_variant(a: str, b: str) -> bool:
     return a == b or "(" in a or "(" in b
 
 
+def rule_bearing(code: str | None, catalog) -> bool:
+    """A sign the rule engine acts on: a catalog row with an effect, not meaning-only,
+    not effect_unmodelled, not an auxiliary plate (reported metric only, not gated)."""
+    r = row_of(code, catalog)
+    if r is None:
+        return False
+    s = catalog.get(r)
+    e = s.effect
+    has = any([e.prohibits, e.max_speed, e.min_speed, e.lane_board, e.lane_reserved,
+               e.only_directions, e.ends])
+    return has and not s.meaning_only and not s.effect_unmodelled and s.category != "auxiliary"
+
+
 def score_image(gold: list[dict], pred: list[dict], catalog=None) -> dict[str, int]:
     """Counts for one image (gold signs and predicted signs as dicts)."""
     catalog = catalog or load_catalog()
@@ -122,7 +136,8 @@ def score_image(gold: list[dict], pred: list[dict], catalog=None) -> dict[str, i
     matched_pred = {j: i for i, j in pairs}
     c = {"gold": 0, "found": 0, "tp": 0, "tp_strict": 0, "pred": 0,
          "local_notice": 0, "local_notice_found": 0, "readable_false": 0,
-         "value_pairs": 0, "value_ok": 0, "look_pairs": 0, "shape_ok": 0, "border_ok": 0, "background_ok": 0}
+         "value_pairs": 0, "value_ok": 0, "look_pairs": 0, "shape_ok": 0, "border_ok": 0, "background_ok": 0,
+         "gold_rule": 0, "tp_rule": 0, "pred_rule": 0}
     for i, g in enumerate(gold):
         ex = excluded(g)
         if ex:
@@ -131,6 +146,8 @@ def score_image(gold: list[dict], pred: list[dict], catalog=None) -> dict[str, i
                 c["local_notice_found"] += 1
             continue
         c["gold"] += 1
+        g_rule = rule_bearing(g["code"], catalog)
+        c["gold_rule"] += g_rule
         if i not in by_gold:
             continue
         c["found"] += 1
@@ -138,6 +155,7 @@ def score_image(gold: list[dict], pred: list[dict], catalog=None) -> dict[str, i
         rg, rp = row_of(g["code"], catalog), row_of(p.get("code"), catalog)
         if rp is not None and rg == rp:
             c["tp"] += 1
+            c["tp_rule"] += g_rule
             c["tp_strict"] += same_variant(g["code"], p["code"])
             if g.get("value") is not None:
                 c["value_pairs"] += 1
@@ -149,6 +167,7 @@ def score_image(gold: list[dict], pred: list[dict], catalog=None) -> dict[str, i
         if j in matched_pred and excluded(gold[matched_pred[j]]):
             continue                                   # neither a true nor a false positive
         c["pred"] += 1
+        c["pred_rule"] += rule_bearing(pred[j].get("code"), catalog)
     return c
 
 
@@ -175,6 +194,15 @@ def code_f1(units, strict: bool = False):
     return 2 * p * r / (p + r) if p + r else 0.0
 
 
+def code_f1_rule(units):
+    s = _sum(units)
+    if not s.get("gold_rule"):
+        return None
+    p = s["tp_rule"] / s["pred_rule"] if s["pred_rule"] else 0.0
+    r = s["tp_rule"] / s["gold_rule"]
+    return 2 * p * r / (p + r) if p + r else 0.0
+
+
 def metrics(units: list[dict], with_ci: bool) -> dict[str, Any]:
     s = _sum(units) if units else {}
     out: dict[str, Any] = {"images": len(units), "gold_signs": s.get("gold", 0), "predicted": s.get("pred", 0),
@@ -186,6 +214,9 @@ def metrics(units: list[dict], with_ci: bool) -> dict[str, Any]:
         for k in ("shape", "border", "background"):
             out[f"{k}_accuracy"] = s[f"{k}_ok"] / s["look_pairs"] if s["look_pairs"] else None
         out["local_notice"] = {"gold": s["local_notice"], "found": s["local_notice_found"]}
+        # reported, not gated: code F1 on the signs the rule engine acts on
+        out["sign_code_f1_rule_bearing"] = code_f1_rule(units)
+        out["rule_bearing_gold_signs"] = s["gold_rule"]
         out["readable_false_gold"] = s["readable_false"]
     if with_ci and units:
         ci = GATE["ci"]
@@ -324,6 +355,50 @@ def score(paths: list[Path]) -> dict[str, Any]:
     return out
 
 
+# ---------------------------------------------------------------- rescore --reverify
+
+
+class _NoCalls:
+    """Stands in for LLMClient during a re-verify: any call is refused, so nothing is
+    sent. perceive() treats the refusal of a re-run as "the first reading stands"."""
+
+    def __init__(self, model: str):
+        self.model, self.last_usage = model, None
+
+    def json_reply(self, **kw):
+        from vqa.llm.client import LLMRefusal
+        raise LLMRefusal("re-verify makes no API calls")
+
+
+def reverify_run(path: Path) -> Path:
+    """Rebuild a run's scenes from the cached raw replies with the current wire,
+    verification and re-run pairing (no API call), into <run>.reverified.jsonl."""
+    from vqa.perception.scene import perceive
+
+    head, rows = load_run(path)
+    version = head["prompt_id"].split("/", 1)[1].split("@", 1)[0]
+    if scene_prompt.prompt_id(version) != head["prompt_id"]:
+        raise SystemExit(f"{path.name}: prompt {head['prompt_id']} is not the current "
+                         f"{scene_prompt.prompt_id(version)}; its cache can't be replayed")
+    split_of = dict(set_images(head["set"]))
+    out = Path(path).with_suffix(".reverified.jsonl")
+    with open(out, "w", encoding="utf-8") as f:
+        f.write(json.dumps({**head, "reverified_from": Path(path).name,
+                            "reverified": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}) + "\n")
+        for r in rows:
+            res = perceive(gs.image_path(r["image_id"], split_of[r["image_id"]]), model=head["model"],
+                           version=version, client=_NoCalls(head["model"]), use_cache=True)
+            if not res.cache_hit:
+                raise SystemExit(f"{r['image_id']}: no cached reply for this run; can't re-verify")
+            f.write(json.dumps({"image_id": r["image_id"], "ok": res.ok, "error": res.error,
+                                "retried": res.retried, "cost_usd": r["cost_usd"],
+                                "reran": any(x["pass"] == "rerun" for x in res.replies),
+                                "issues": res.issues, "raw_codes": res.raw_codes,
+                                "scene": res.scene.model_dump(mode="json", by_alias=True) if res.scene else None},
+                               ensure_ascii=False) + "\n")
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -339,11 +414,17 @@ def main() -> None:
     r.add_argument("--version", default="v1", help="scene prompt version (prompts/scene/<version>)")
     s = sub.add_parser("score")
     s.add_argument("files", nargs="+", type=Path)
+    rs = sub.add_parser("rescore", help="score runs again; --reverify rebuilds scenes from the cache first")
+    rs.add_argument("files", nargs="+", type=Path)
+    rs.add_argument("--reverify", action="store_true")
     a = ap.parse_args()
     if a.cmd == "estimate":
         print(json.dumps(estimate(a.set, a.model, a.runs, version=a.version), indent=2))
     elif a.cmd == "run":
         run(a.set, a.model, a.max_spend, version=a.version)
+    elif a.cmd == "rescore":
+        files = [reverify_run(f) for f in a.files] if a.reverify else a.files
+        print(json.dumps(score(files), indent=2, default=str))
     else:
         print(json.dumps(score(a.files), indent=2, default=str))
 

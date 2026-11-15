@@ -200,3 +200,41 @@ def test_overhead_sides_fall_back_to_rank_already():
     assert c["tp"] == 2 and c["value_ok"] == 0                      # paired across the road
     pred_sides = [p("P.127", 2, "left", value=100), p("P.127", 3, "right", value=80)]
     assert pe.score_image(gold, pred_sides)["value_ok"] == 2         # real sides fix it
+
+
+def test_rule_bearing_code_f1_is_reported_not_gated():
+    from vqa.kb import load_catalog
+    cat = load_catalog()
+    assert pe.rule_bearing("P.127", cat) and pe.rule_bearing("DP.134", cat)
+    assert not pe.rule_bearing("W.207c", cat)          # meaning-only
+    assert not pe.rule_bearing("R.303", cat)           # effect_unmodelled
+    assert not pe.rule_bearing("S.508a", cat) and not pe.rule_bearing("UNKNOWN", cat)
+    tri = dict(shape="triangle", border="red", background="yellow")
+    units = [pe.score_image([g("P.104", 1), g("W.207c", 2, **tri)],
+                            [p("P.104", 1), p("W.207b", 2, **tri)]),
+             pe.score_image([g("P.123a", 1)], [p("P.123b", 1)])]
+    m = pe.metrics(units, with_ci=False)
+    # rule-bearing: gold P.104, P.123a; predicted P.104, P.123b; 1 right -> P = R = 1/2
+    assert m["sign_code_f1_rule_bearing"] == pytest.approx(0.5) and m["rule_bearing_gold_signs"] == 2
+    assert "rule_bearing" not in json.dumps(pe.GATE)
+
+
+def test_reverify_rebuilds_from_the_cache_without_calls(fake_set):
+    out = pe.run("public_dev", "claude-haiku-5-5", 1.0, sdk=FakeSDK(2), out_dir=fake_set / "runs")
+    rev = pe.reverify_run(out)
+    head, rows = pe.load_run(rev)
+    assert head["reverified_from"] == out.name and len(rows) == 2 and all(r["ok"] for r in rows)
+    assert [r["scene"]["signs"][0]["code"] for r in rows] == ["P.104", "P.104"]
+    assert pe.score([rev])["runs"][0]["all_images"]["sign_recall"] == pytest.approx(2 / 3)
+
+
+def test_reverify_refuses_a_run_without_cached_replies(fake_set, monkeypatch, tmp_path):
+    out = pe.run("public_dev", "claude-haiku-5-5", 1.0, sdk=FakeSDK(2), out_dir=fake_set / "runs")
+    monkeypatch.setenv("VQA_SCENE_CACHE_DIR", str(tmp_path / "empty"))
+    with pytest.raises(SystemExit, match="no cached reply"):
+        pe.reverify_run(out)
+
+
+def test_reverify_makes_no_call():
+    with pytest.raises(Exception, match="no API calls"):
+        pe._NoCalls("claude-haiku-5-5").json_reply(system="s", user="u")
