@@ -184,7 +184,7 @@ def merge_rerun(first: SceneGraph, second: SceneGraph,
     catalog = catalog or load_catalog()
     issues: list[str] = []
     a, b = list(first.signs), list(second.signs)
-    pairs = dict(match([sign_view(s) for s in a], [sign_view(s) for s in b], catalog))
+    pairs = dict(match([sign_view(s) for s in a], [sign_view(s) for s in b], catalog, relate=True))
     out = []
     for i, s in enumerate(a):
         j = pairs.get(i)

@@ -156,3 +156,31 @@ def test_end_of_limit_signs_keep_the_limit_they_end(code, v, kept):
         assert sc.signs[0].value == v and not any("takes no value" in i for i in issues)
     else:
         assert sc.signs[0].value is None and "ended speed 43" in issues[0]
+
+
+def test_rerun_pairs_an_end_sign_with_its_limit_instead_of_keeping_both():
+    """train_7_23: the first reading said DP.134 40, the re-run P.127 40. Different
+    visual categories, but one ends the other: one sign with an alternative."""
+    first = scene(sign("s1", "DP.134", 1, shape="circle", border="blue", background="white", value=40,
+                       confidence="low"))
+    second = scene(sign("s1", "P.127", 1, value=40, unit="km/h"))
+    merged, issues = merge_rerun(first, second)
+    assert len(merged.signs) == 1 and merged.signs[0].code == "DP.134"
+    assert [(a.code, a.value) for a in merged.signs[0].alternatives] == [("P.127", 40)]
+
+
+def test_rerun_pairs_family_variants():
+    first = scene(sign("s1", "P.127b", 1, shape="rectangle", border="none", background="blue", confidence="low"))
+    second = scene(sign("s1", "P.127", 1, value=80, unit="km/h"))
+    merged, _ = merge_rerun(first, second)
+    assert len(merged.signs) == 1 and merged.signs[0].alternatives[0].code == "P.127"
+
+
+def test_gate_matching_never_relates():
+    from vqa.perception.matching import related
+    cat = load_catalog()
+    assert related("DP.134", "P.127", cat) and related("R.307", "R.306", cat) and related("P.127b", "P.127", cat)
+    assert not related("P.104", "P.127", cat) and not related("UNKNOWN", "P.127", cat)
+    a = [{"code": "DP.134", "shape": "circle", "border": "blue", "background": "white", "rank": 1}]
+    b = [{"code": "P.127", "shape": "circle", "border": "red", "background": "white", "rank": 1}]
+    assert match(a, b) == [] and match(a, b, relate=True) == [(0, 0)]

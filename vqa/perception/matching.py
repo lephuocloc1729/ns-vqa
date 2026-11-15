@@ -60,29 +60,58 @@ def sign_view(sign) -> dict[str, Any]:
             "side": val(sign.position.side)}
 
 
-def _score(a: dict, b: dict, catalog: Catalog) -> tuple | None:
+def _stem(code: str | None) -> str | None:
+    """'P.127b' -> 'P.127', 'W.207(a,b)' -> 'W.207'."""
+    if not code or code == "UNKNOWN":
+        return None
+    base = code.split("(")[0]
+    return base[:-1] if base[-1:].isalpha() and base[-2:-1].isdigit() else base
+
+
+def related(a: str | None, b: str | None, catalog: Catalog) -> bool:
+    """Two readings of the same physical sign: the same catalog family (P.127 /
+    P.127b), or one ends the other (DP.134 ends P.127, R.307 ends R.306)."""
+    sa, sb = _stem(a), _stem(b)
+    if sa is None or sb is None:
+        return False
+    if sa == sb:
+        return True
+    ra, rb = row_of(a, catalog), row_of(b, catalog)
+    if ra is None or rb is None:
+        return False
+    ends_a = {row_of(c, catalog) for c in catalog.get(ra).effect.ends}
+    ends_b = {row_of(c, catalog) for c in catalog.get(rb).effect.ends}
+    return rb in ends_a or ra in ends_b
+
+
+def _score(a: dict, b: dict, catalog: Catalog, relate: bool = False) -> tuple | None:
     ra, rb = row_of(a.get("code"), catalog), row_of(b.get("code"), catalog)
     same_row = ra is not None and ra == rb
     ca = visual_category(a.get("shape"), a.get("border"), a.get("background"))
     cb = visual_category(b.get("shape"), b.get("border"), b.get("background"))
     same_cat = ca == cb and ca != "unknown"
-    if not (same_row or same_cat):
+    rel = relate and not same_row and related(a.get("code"), b.get("code"), catalog)
+    if not (same_row or same_cat or rel):
         return None
     rk_a, rk_b = a.get("rank"), b.get("rank")
     rank_gap = abs(rk_a - rk_b) if isinstance(rk_a, int) and isinstance(rk_b, int) else 99
     same_side = a.get("side") not in (None, "unknown") and a.get("side") == b.get("side")
+    if relate:     # the re-run's pairing: related readings rank just below the same row
+        return (same_row, rel, same_cat, same_side, -rank_gap)
     return (same_row, same_cat, same_side, -rank_gap)
 
 
-def match(left: Iterable[dict], right: Iterable[dict],
-          catalog: Catalog | None = None) -> list[tuple[int, int]]:
-    """Pairs (i, j) of indexes into left and right, one to one."""
+def match(left: Iterable[dict], right: Iterable[dict], catalog: Catalog | None = None,
+          relate: bool = False) -> list[tuple[int, int]]:
+    """Pairs (i, j) of indexes into left and right, one to one. With relate=True (the
+    low-confidence re-run, two readings of one image) readings in the same family or
+    an end/limit pair may also be paired; the eval's gate matching never relates."""
     catalog = catalog or load_catalog()
     left, right = list(left), list(right)
     cands = []
     for i, a in enumerate(left):
         for j, b in enumerate(right):
-            s = _score(a, b, catalog)
+            s = _score(a, b, catalog, relate)
             if s is not None:
                 cands.append((s, -i, -j, i, j))
     cands.sort(reverse=True)
