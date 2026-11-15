@@ -11,8 +11,11 @@ the audits:
                 | lanes_for | lanes_where | ban_times | meaning | which_vehicles
                 | lane_vehicles | speed_limit
 
-Enums come from the ontology (vehicle classes, actions) and the catalog (sign
-codes, meaning keys and tags), so the model can only name terms the engine knows.
+Enums come from the ontology (vehicle classes, actions). Sign codes and meaning
+keys/tags are plain strings in the JSON schema: as enums (219 codes, 232 keys)
+they made the compiled grammar too large for the API. The system prompt's catalog
+table lists them, and the Pydantic models check them against the catalog, with a
+short error the parser's retry can act on.
 Every field is required in the JSON schema sent to the API (nullable where the
 DSL makes it optional); the Pydantic models keep defaults so compact examples
 validate too.
@@ -26,9 +29,9 @@ from __future__ import annotations
 
 import copy
 import datetime as dt
-from typing import Any, Literal, Optional, Union
+from typing import Annotated, Any, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from pydantic import AfterValidator, BaseModel, ConfigDict, TypeAdapter, ValidationError
 
 from vqa.kb import load_catalog
 from vqa.schemas import Action, Colour, Program, QueryProgram, Shape, Side, VehicleClass
@@ -37,9 +40,26 @@ _CATALOG = load_catalog()
 
 VehicleClassLit = Literal[tuple(c.value for c in VehicleClass)]  # type: ignore[valid-type]
 ActionLit = Literal[tuple(a.value for a in Action)]  # type: ignore[valid-type]
-CodeLit = Literal[tuple(s.code for s in _CATALOG.signs)]  # type: ignore[valid-type]
-MeaningLit = Literal[tuple(sorted({s.key for s in _CATALOG.signs}  # type: ignore[valid-type]
-                                  | {t for s in _CATALOG.signs for t in s.tags}))]
+_CODES = frozenset(s.code for s in _CATALOG.signs)
+_MEANINGS = frozenset({s.key for s in _CATALOG.signs} | {t for s in _CATALOG.signs for t in s.tags})
+
+
+def _known_code(v: str) -> str:
+    if v not in _CODES:
+        raise ValueError(f"unknown sign code {v!r}: use a code exactly as written in the "
+                         "sign catalog table")
+    return v
+
+
+def _known_meaning(v: str) -> str:
+    if v not in _MEANINGS:
+        raise ValueError(f"unknown sign meaning {v!r}: use a key or tag exactly as written "
+                         "in the sign catalog table")
+    return v
+
+
+CodeLit = Annotated[str, AfterValidator(_known_code)]
+MeaningLit = Annotated[str, AfterValidator(_known_meaning)]
 ShapeLit = Literal[tuple(s.value for s in Shape)]  # type: ignore[valid-type]
 ColourLit = Literal[tuple(c.value for c in Colour)]  # type: ignore[valid-type]
 SideLit = Literal[tuple(s.value for s in Side)]  # type: ignore[valid-type]
@@ -249,6 +269,17 @@ def _strict(node: Any) -> Any:
     if isinstance(node, list):
         return [_strict(x) for x in node]
     return node
+
+
+def explain(e: ValidationError) -> str:
+    """A short message for a wire validation error. The program is a union, so
+    Pydantic reports a mismatch for every variant; the catalog errors (unknown code
+    or meaning) are the useful part when present."""
+    errs = e.errors()
+    values = [x["msg"].removeprefix("Value error, ") for x in errs if x["type"] == "value_error"]
+    if values:
+        return "; ".join(dict.fromkeys(values))      # the same field fails in every variant
+    return "; ".join(f"{'.'.join(str(p) for p in x['loc'])}: {x['msg']}" for x in errs[:3])
 
 
 def json_schema() -> dict[str, Any]:

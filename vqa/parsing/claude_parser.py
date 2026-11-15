@@ -20,7 +20,7 @@ from vqa.llm.client import LLMClient, LLMError
 from vqa.llm.spend import SpendGuard, SpendLimitExceeded
 from vqa.parsing import validator
 from vqa.parsing.prompt import system_prompt
-from vqa.parsing.wire import WParse, json_schema, to_query
+from vqa.parsing.wire import WParse, explain, json_schema, to_query
 from vqa.reasoning.engine import Engine
 from vqa.schemas import QueryProgram
 
@@ -61,7 +61,9 @@ class ClaudeParser:
     def _convert(self, data: dict[str, Any]) -> tuple[QueryProgram | None, list[str]]:
         try:
             q = to_query(WParse.model_validate(data), self.context_year)
-        except (ValidationError, ValueError) as e:
+        except ValidationError as e:
+            return None, [f"invalid program: {explain(e)}"]
+        except ValueError as e:
             return None, [f"invalid program: {e}"]
         errs = validator.check(q, self.engine)
         return (None, errs) if errs else (q, [])

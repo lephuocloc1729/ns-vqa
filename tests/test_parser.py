@@ -14,7 +14,9 @@ from vqa.llm.spend import SpendGuard
 from vqa.parsing import validator
 from vqa.parsing.claude_parser import ClaudeParser
 from vqa.parsing.prompt import examples, system_prompt
-from vqa.parsing.wire import WParse, json_schema, to_query
+from pydantic import ValidationError
+
+from vqa.parsing.wire import WParse, explain, json_schema, to_query
 from vqa.schemas import QueryProgram
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -86,7 +88,22 @@ def test_wire_schema_is_strict_and_not_recursive():
 
     walk(s)
     text = json.dumps(s)
-    assert "every_vehicle" in text and "no_overtaking" in text and "W.221a" in text
+    assert "every_vehicle" in text
+    # codes and meanings are strings, not enums: as enums the API's grammar was too large
+    assert "no_overtaking" not in text and "W.221a" not in text
+    enums = re.findall(r'"enum": \[([^\]]*)\]', text)
+    assert max(e.count(",") + 1 for e in enums) < 50
+    assert len(text) < 20_000
+
+
+def test_unknown_code_or_meaning_gives_a_short_error():
+    for bad, word in ((({"intent": "is_sign", "sign": {"only": True}, "code": "P.999"}), "P.999"),
+                      (({"intent": "meaning", "sign": {"meaning": "nope"}}), "nope")):
+        with pytest.raises(ValidationError) as e:
+            WParse.model_validate({"program": bad})
+        msg = explain(e.value)
+        assert word in msg and "catalog" in msg and len(msg) < 300
+    WParse.model_validate({"program": {"intent": "is_sign", "sign": {"only": True}, "code": "P.102"}})
 
 
 # ---------------------------------------------------------------- conversion

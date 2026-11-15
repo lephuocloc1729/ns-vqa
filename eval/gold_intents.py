@@ -41,7 +41,9 @@ from vqa.llm.pricing import cost_usd, worst_case_usd  # noqa: E402
 from vqa.llm.spend import SpendGuard, log_call  # noqa: E402
 from vqa.parsing import validator  # noqa: E402
 from vqa.parsing.prompt import examples, system_prompt  # noqa: E402
-from vqa.parsing.wire import WParse, compact, json_schema, to_query  # noqa: E402
+from pydantic import ValidationError  # noqa: E402
+
+from vqa.parsing.wire import WParse, compact, explain, json_schema, to_query  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 DATASET = Path(os.environ.get("VQA_DATASET_DIR", ROOT / "VLSP2025-MLQA-Natural")) / "dataset"
@@ -233,6 +235,8 @@ def parse_draft(rec: dict, text: str, engine) -> dict:
         rec["errors"] = validator.check(to_query(w, CONTEXT_YEAR), engine)
         rec["draft_status"] = "invalid" if rec["errors"] else (
             "out_of_scope" if w.out_of_scope else "ok")
+    except ValidationError as e:
+        rec["draft_status"], rec["errors"] = "invalid", [explain(e)]
     except Exception as e:  # noqa: BLE001 - recorded for the reviewer
         rec["draft_status"], rec["errors"] = "invalid", [str(e)]
     return rec
