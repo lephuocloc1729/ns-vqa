@@ -362,9 +362,20 @@ Full test suite: 394 passed. Prolog loads.
   - `d2b3ccd` `vqa/perception/cache.py`: the key is image sha256 + model + effort + prompt version (D5), and records hold model outputs only. `cache/scenes/` is gitignored, and CLAUDE.md is updated.
   - `8d10df4` Leakage guard: the phase-3 strings, and checks on the cache key and record fields.
 
+- **Phase 3 item 3, second chunk** (no API calls):
+  - `b86effc` `prompts/scene/v1` (spec, config, one train example: train_1_3) and `vqa/perception/prompt.py`. The prompt id is `scene/v1@d6be305ababc`; its hash covers the catalog. train_2_26 was left out of the examples: it is the same street as public_test_8_9, which the duplicate check missed.
+  - `d87b65d` `perceive()`: plain JSON, one retry that sends only the error (the rejected reply is not echoed), refusal / max_tokens without retry, spend guard, scene cache.
+  - `bcc636c` Verification (plan item 4) and the low-confidence re-run; `vqa/perception/matching.py` is shared with the eval.
+  - `1c6dc57` `eval/perception_eval.py`: `GATE` (perception_gate_v1, pinned), matching, image-level bootstrap in `eval/report.py`, `--set T|public_dev` (a public_dev run warns that it is a recorded checkpoint).
+  - Full test suite: 529 passed.
+- **Estimates (2026-11-15, no API call; Haiku 5.5 at medium, scene/v1):** about 10,870 system tokens and 1,300 output tokens per image.
+  - set T, 1 run (36 images): **$0.031** with no re-runs to **$0.060** if every image is re-run. Worst case $0.40 ($0.0056 per call).
+  - public_dev, 3 runs (45 images): **$0.11 to $0.22**. Worst case $1.50.
+  - Waiting for the owner's yes on the first paid run: Haiku, set T.
+
 ## Next steps, in order
 
-0. **Phase 3 item 3, the scene call:** the D10 visual check is done, so `prompts/scene/v1` can be written on the reviewed catalog.
+0. **First paid perception run (owner's yes needed):** `eval/perception_eval.py run --set T --model claude-haiku-5-5 --max-spend 0.5`, then `score`.
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
 2. **Done: the parser gate.** It passed for Sonnet 5.5 at medium on prompt v6; see the results above. The rest of this step is kept as a record. **Haiku on prompt v6, medium effort, three runs:**
