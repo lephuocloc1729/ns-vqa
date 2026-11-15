@@ -302,6 +302,18 @@ Full test suite: 394 passed. Prolog loads.
   - 1 / 3: extra non-text plate fields (public_test_5_1);
   - 1 / 5: vehicles that aren't class names (public_test_8_9).
 
+**Owner's hand review (2026-11-15): 66 of 81 label files done, 15 left as todo.** The 15 were blocked by readable QCVN 41 codes missing from the catalog and by standalone local notices.
+- `9b5b9fa` Catalog: **R.403a** "Đường dành cho xe ô tô" and **R.403b** "Đường dành cho xe ô tô, xe máy" are bans on entry for every vehicle except the classes shown (D.11 l). **R.404a** ends R.403a (D.12). **R.307** ends R.306 (D.7). All `reviewed_by: none`.
+  - law_db has no article D.11: its text sits at the end of D.10, so the R.403 rows cite D.10.
+  - Not added: **R.302(a,b,c), R.303, R.411, R.420**. They have no effect the engine can model, and `test_catalog` allows meaning-only rows only for warning and information signs (a mandatory row with no effect would turn "unknown" into a confident "yes"). They need an owner decision.
+  - Prompt hashes: parser v6 e08989d2b637 → 785ef169881f; pre-fill e9aae8315b6d → 348b93a1f952.
+- `b789ad9` Gold signs: the **`local_notice`** marker. A readable standalone local notice is `code: UNKNOWN`, `readable: true`, `local_notice: "<text>"`. Plan D7 (owner-approved, before any result): such signs are scored like `readable: false` and reported apart. Pre-fill prompt hash 348b93a1f952 → cc0bf58890b4.
+- **The 15 files now** (checked read-only; no label YAML was edited):
+  - 5 have no errors left and need only `status: done`: public_test_3_1, public_test_6_8, train_3_25, train_6_29, train_7_23;
+  - 3 need the owner to switch their notice to `local_notice`: public_test_2_1, public_test_7_10, train_6_7;
+  - 7 wait on R.302a / R.303 / R.411 / R.420: public_test_5_6, 7_4, 7_12, 8_9, train_1_6, train_6_38 (which also has a notice), train_7_18.
+- **Uncommitted, the owner's:** `reviewed_by: human` on P.118 and P.119, and a `tests/test_meaning_rows.py` edit that still expects 39 human-reviewed rows (there are 41 with those two). With the edit, that test fails; every committed state passes (407 tests).
+
 ## Next steps, in order
 
 0. **Phase 3 gold review (owner):** check every label in `data/annotations/gold_signs_v1/work/sheet.html` against its image, fix the 22 files with needs-fix lines, and set `status: done`. Then `import`, and the D10 visual check of the rows it lists. Then the D10 visual check of the listed rows, before `prompts/scene/v1` is frozen.
@@ -326,7 +338,9 @@ Full test suite: 394 passed. Prolog loads.
 ## Open items
 
 - **The parser's version key should include the catalog hash,** as the phase-3 scene prompt does. The parser prompt is built from `prompts/parser/<version>/` plus the catalog table, but only the spec and few-shot files are pinned. So a catalog change (P.118 and P.119 here) changes the prompt the parser actually sends, under the same version name.
-- **P.118 and P.119 rows wait for the owner's review** (`reviewed_by: none`).
+- **P.118 and P.119 rows wait for the owner's review** (`reviewed_by: none` in git; the owner has marked them `human` locally, not committed).
+- **R.403a, R.403b, R.404a, R.307 rows wait for the owner's review** (`reviewed_by: none`).
+- **R.302(a,b,c), R.303, R.411, R.420 are not in the catalog.** Seven todo label files need them. Options: model an effect (a new engine feature), or allow meaning-only mandatory rows that the engine treats as unreadable for closed-world claims (a `vqa/` change).
 - **Sonnet's bad_json first replies.** 16 of 141 first replies (11%) across the three v6 runs had prose around the JSON and needed the retry; Haiku had 0 of 141. One retry, on 0005 in run f20993f4ac4e, was refused with category `reasoning_extraction`.
   - The likely cause is the retry wording. `ClaudeParser.parse` sends the rejected reply back as the assistant turn, prose included, followed by "That answer is not valid: …. Reply with only the corrected JSON object."
   - Candidates for a v7: don't echo the prose back (send a placeholder or only the error); tell the model more firmly to reply with nothing but the object; or accept "prose, then one ```json fence".
