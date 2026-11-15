@@ -228,7 +228,8 @@ def metrics(units: list[dict], with_ci: bool) -> dict[str, Any]:
 # ---------------------------------------------------------------- estimate
 
 
-def estimate(set_name: str, model: str, runs: int = 1, sdk=None, version: str = "v1") -> dict[str, Any]:
+def estimate(set_name: str, model: str, runs: int = 1, sdk=None, version: str = "v1",
+             output_tokens: int | None = None, rerun_share: float | None = None) -> dict[str, Any]:
     """Cost of `runs` runs on a set, with no API call (token counting only with an
     SDK client, which is free but is an API call)."""
     from PIL import Image
@@ -255,7 +256,7 @@ def estimate(set_name: str, model: str, runs: int = 1, sdk=None, version: str = 
         counts.append(sys_tokens + int(nw * nh / 750) + 1 + 20)
     max_tokens = scene_prompt.config(version)["max_tokens"]
     effort = scene_prompt.effort_for(model, version)
-    o = EXPECTED_OUTPUT_TOKENS
+    o = output_tokens or EXPECTED_OUTPUT_TOKENS
 
     def run_cost(out_tokens: int) -> float:
         total = 0.0
@@ -271,13 +272,15 @@ def estimate(set_name: str, model: str, runs: int = 1, sdk=None, version: str = 
         "set": set_name, "images": len(images), "runs": runs, "model": model, "effort": effort,
         "prompt_id": scene_prompt.prompt_id(version), "max_tokens": max_tokens,
         "method": f"rough (system prompt bytes / {BYTES_PER_TOKEN}; images w x h / 750 at native size; "
-                  f"{o} output tokens per image)",
+                  f"{o} output tokens per image" + (", measured" if output_tokens else "") + ")",
         "system_tokens": sys_tokens, "pictogram_tokens": pict_tokens,
         "mean_prompt_tokens": round(sum(counts) / len(counts)),
         "per_run_usd_no_reruns": round(one, 4),
         "per_run_usd_all_rerun": round(one + rerun_one, 4),
         "per_run_usd_double_output_all_rerun": round(run_cost(2 * o) * 2, 4),
         "total_usd_range": [round(one * runs, 4), round((one + rerun_one) * runs, 4)],
+        **({"rerun_share": rerun_share,
+            "calibrated_usd": round((one + rerun_share * rerun_one) * runs, 4)} if rerun_share is not None else {}),
         "worst_case_per_call_usd": round(worst_call, 4),
         "worst_case_total_usd": round(worst_call * len(images) * 2 * runs, 4),
     }
@@ -418,6 +421,8 @@ def main() -> None:
     e.add_argument("--model", default="claude-haiku-5-5")
     e.add_argument("--runs", type=int, default=1)
     e.add_argument("--version", default="v1", help="scene prompt version (prompts/scene/<version>)")
+    e.add_argument("--output-tokens", type=int, help="calibrate: mean output tokens per call, as measured")
+    e.add_argument("--rerun-share", type=float, help="calibrate: share of images re-run, as measured")
     r = sub.add_parser("run")
     r.add_argument("--set", choices=["T", "public_dev"], required=True)
     r.add_argument("--model", default="claude-haiku-5-5")
@@ -430,7 +435,8 @@ def main() -> None:
     rs.add_argument("--reverify", action="store_true")
     a = ap.parse_args()
     if a.cmd == "estimate":
-        print(json.dumps(estimate(a.set, a.model, a.runs, version=a.version), indent=2))
+        print(json.dumps(estimate(a.set, a.model, a.runs, version=a.version,
+                                  output_tokens=a.output_tokens, rerun_share=a.rerun_share), indent=2))
     elif a.cmd == "run":
         run(a.set, a.model, a.max_spend, version=a.version)
     elif a.cmd == "rescore":

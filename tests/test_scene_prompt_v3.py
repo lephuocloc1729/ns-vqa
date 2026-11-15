@@ -161,3 +161,49 @@ def test_figures_come_before_the_photo_with_cache_control_on_the_last(tmp_path, 
     assert content[images[-2]]["cache_control"] == {"type": "ephemeral"}    # last figure
     assert content[images[-1]]["source"]["media_type"] == "image/jpeg"      # the photo, last
     assert "cache_control" not in content[images[-1]]
+
+
+# ---------------------------------------------------------------- v3 frozen, v4
+
+V3_SHA256 = {   # frozen after Haiku v3 on set T (f16a09d95189, 2026-11-15)
+    "spec.md": "740714dc713c1901ea24b659fdd76cfe1a9edf05b941efb6779cc54b5a872b3a",
+    "config.yaml": "3c3f60ce14afe130d0b4387eeb5f5c28295ef1acf182ce775018bd28b8efd14d",
+    "examples.jsonl": "def4618eb96f35256472f5f7f35f6543622fa1b4e125471ab8fb69b45016eb6d",
+    "pictograms.yaml": "330d14bbcfcae9b838468261587b9e4e8409b73654324aecbf8880993749c66f",
+}
+V4 = sp.PROMPTS_DIR / "v4"
+
+
+def test_v3_files_and_id_are_frozen():
+    for name, digest in V3_SHA256.items():
+        assert hashlib.sha256((V3 / name).read_bytes()).hexdigest() == digest, f"v3/{name} changed"
+    assert sp.prompt_id("v3") == "scene/v3@69d91ed6a300"
+
+
+def test_v4_uses_the_same_pictograms_as_v3():
+    m4 = yaml.safe_load((V4 / "pictograms.yaml").read_text(encoding="utf-8"))
+    assert m4["version"] == "v4" and m4["rows"] == MANIFEST["rows"]
+
+
+def test_v4_carries_the_three_changes():
+    s = sp.system_prompt("v4")
+    assert "List every sign you can see" in s and "never leave a sign out because you're unsure" in s
+    assert "Discs on their own posts or panels are separate signs" in s
+    assert "A green board with speed limits over lane arrows is P.127b" in s
+    assert sp.prompt_id("v4") not in (sp.prompt_id("v3"), sp.prompt_id("v2"))
+
+
+def test_v4_notes_quote_catalog_names_exactly():
+    import re
+    cat = sp.load_catalog()
+    notes = (V4 / "spec.md").read_text(encoding="utf-8").split("# Signs that are easy to confuse", 1)[1]
+    for code, name in re.findall(r"\b((?:P|DP|R|W|I|IE)\.\d{3}[a-z]?) \"([^\"]+)\"", notes.split("# Sign catalog")[0]):
+        [row] = cat.codes_matching(code)
+        assert cat.get(row).name_vi == name, (code, name)
+
+
+def test_v4_has_no_public_or_private_ids():
+    import re
+    for p in V4.iterdir():
+        if p.is_file():
+            assert not re.search(r"public_(test|natural)_\d|private_test", p.read_text(encoding="utf-8")), p.name
