@@ -312,6 +312,7 @@ signs:
       priority_exempt: false   # "kể cả các xe được ưu tiên theo quy định"
       value: {attr: width_m, op: gt, unit: m, applies_to: [vehicle]}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.18"}
+    reviewed_by: human
 
   # B.19 a): "Để báo đường cấm các loại xe (cơ giới và thô sơ) kể cả các xe được ưu tiên
   # theo quy định, có độ dài toàn bộ kể cả xe và hàng lớn hơn trị số ghi trên biển đi qua"
@@ -328,6 +329,7 @@ signs:
       priority_exempt: false   # "kể cả các xe được ưu tiên theo quy định"
       value: {attr: length_m, op: gt, unit: m, applies_to: [vehicle]}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.19"}
+    reviewed_by: human
 
   - code: P.123a
     key: no_left_turn

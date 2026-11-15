@@ -61,8 +61,10 @@ def test_review_provenance():
     cat = load_catalog()
     by = {s.code: s for s in cat.signs}
     human = [s.code for s in cat.signs if s.reviewed_by == "human"]
-    assert len(human) == 39 and "IE.473" in human and "IE.472b" in human
-    assert all(s.reviewed_by == "none" for s in cat.signs if not s.meaning_only)
+    # 39 meaning rows plus the owner's review of rule rows P.118 and P.119
+    assert len(human) == 41 and "IE.473" in human and "IE.472b" in human
+    assert {"P.118", "P.119"} <= set(human)
+    assert all(s.reviewed_by == "none" for s in cat.signs if not s.meaning_only and s.code not in {"P.118", "P.119"})
     visual = sorted(s.code for s in cat.signs if s.visual_reviewed_by == "assistant")
     assert visual == ["IE.451a", "IE.471", "IE.473", "W.242(a,b)", "W.243(a,b,c)"]
     assert by["IE.471"].visual.background == "yellow"
