@@ -101,7 +101,7 @@ def perceive(image_path: str | Path, *, model: str = DEFAULT_MODEL, version: str
         return res
     cached = next((r for r in res.replies if r["pass"] == "rerun"), None)
     if cached is None:
-        user = [res.image.content_block(), {"type": "text", "text": scene_prompt.user_text()}]
+        user = scene_prompt.user_content(res.image.content_block(), version)
         try:
             call = client.json_reply(system=scene_prompt.system_prompt(version), user=user,
                                      max_tokens=scene_prompt.config(version)["max_tokens"],
@@ -141,7 +141,7 @@ def _primary(image_path: str | Path, *, model: str, version: str, client: LLMCli
                                     replies=list(rec.replies), **base)
 
     system = scene_prompt.system_prompt(version)
-    user = [img.content_block(), {"type": "text", "text": scene_prompt.user_text()}]
+    user = scene_prompt.user_content(img.content_block(), version)
     max_tokens = scene_prompt.config(version)["max_tokens"]
     replies, cost = [], 0.0
 

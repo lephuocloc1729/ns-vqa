@@ -236,6 +236,16 @@ def estimate(set_name: str, model: str, runs: int = 1, sdk=None, version: str = 
     images = set_images(set_name)
     system = scene_prompt.system_prompt(version)
     sys_tokens = int(len(system.encode("utf-8")) / BYTES_PER_TOKEN) + 1
+    pict_tokens = 0                      # reference figures: part of the cached prefix
+    for b in scene_prompt.pictogram_blocks(version):
+        if b["type"] == "text":
+            pict_tokens += int(len(b["text"].encode("utf-8")) / BYTES_PER_TOKEN) + 1
+        else:
+            import base64 as _b64
+            import io as _io
+            with Image.open(_io.BytesIO(_b64.b64decode(b["source"]["data"]))) as im:
+                pict_tokens += int(im.size[0] * im.size[1] / 750) + 1
+    sys_tokens += pict_tokens
     counts = []
     for image_id, split in images:
         path = gs.image_path(image_id, split)
@@ -262,7 +272,8 @@ def estimate(set_name: str, model: str, runs: int = 1, sdk=None, version: str = 
         "prompt_id": scene_prompt.prompt_id(version), "max_tokens": max_tokens,
         "method": f"rough (system prompt bytes / {BYTES_PER_TOKEN}; images w x h / 750 at native size; "
                   f"{o} output tokens per image)",
-        "system_tokens": sys_tokens, "mean_prompt_tokens": round(sum(counts) / len(counts)),
+        "system_tokens": sys_tokens, "pictogram_tokens": pict_tokens,
+        "mean_prompt_tokens": round(sum(counts) / len(counts)),
         "per_run_usd_no_reruns": round(one, 4),
         "per_run_usd_all_rerun": round(one + rerun_one, 4),
         "per_run_usd_double_output_all_rerun": round(run_cost(2 * o) * 2, 4),

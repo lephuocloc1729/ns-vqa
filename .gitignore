@@ -30,3 +30,7 @@ cache/scenes/
 
 # perception eval runs (model scenes per image; local only)
 eval/runs/
+
+# scene prompt pictograms: resized law_db figures (dataset files), local only;
+# the committed manifest prompts/scene/<version>/pictograms.yaml pins their sha256
+prompts/scene/*/pictograms/

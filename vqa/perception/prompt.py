@@ -4,7 +4,14 @@
     prompts/scene/<version>/config.yaml    max_tokens, image prep, effort per model
     prompts/scene/<version>/examples.jsonl text-only output examples: {image, note, output}
 
-plus the sign catalog listing, generated at build time in catalog order (code,
+and, when the config names one, a pictogram manifest (prompts/scene/<version>/
+pictograms.yaml) with its local figure copies in pictograms/ (gitignored; built by
+tools/build_scene_pictograms.py, CLAUDE.md exception). The copies are checked
+against the manifest's sha256 and the version refuses to build if one is missing
+or differs. The figures go in the user turn before the photo (the API takes only
+text in the system prompt), with cache_control on the last figure.
+
+The system prompt holds the sign catalog listing, generated in catalog order (code,
 Vietnamese name, shape / border / background, whether it carries a number). The
 prompt hash covers the spec, the examples, the config and the catalog listing, so
 a catalog change is a new prompt: `prompt_id()` ("scene/v1@<sha12>") is what the
@@ -13,6 +20,7 @@ scene cache keys on. Examples are fixed per version, never chosen per image.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 from functools import lru_cache
@@ -68,10 +76,75 @@ def system_prompt(version: str = DEFAULT_VERSION) -> str:
     return (f"{spec}\n\n{catalog_listing()}\n\n# Examples\n\n" + "\n\n".join(shots) + "\n")
 
 
+class PictogramError(RuntimeError):
+    pass
+
+
+def manifest(version: str = DEFAULT_VERSION) -> dict[str, Any] | None:
+    """The pictogram manifest named in the config, or None."""
+    name = config(version).get("pictograms")
+    if not name:
+        return None
+    return yaml.safe_load((_dir(version) / name).read_text(encoding="utf-8"))
+
+
+def check_pictograms(version: str = DEFAULT_VERSION) -> list[Path]:
+    """The local figure copies, each checked against the manifest's sha256."""
+    m = manifest(version)
+    if m is None:
+        return []
+    files, seen = [], set()
+    for row in m["rows"]:
+        for fig in row["figures"]:
+            if fig["file"] in seen:
+                continue
+            seen.add(fig["file"])
+            p = _dir(version) / "pictograms" / fig["file"]
+            if not p.exists():
+                raise PictogramError(f"{version}: pictogram {fig['file']} ({row['code']}) is missing; "
+                                     f"run tools/build_scene_pictograms.py --version {version}")
+            if hashlib.sha256(p.read_bytes()).hexdigest() != fig["sha256"]:
+                raise PictogramError(f"{version}: pictogram {fig['file']} ({row['code']}) does not match "
+                                     f"the manifest; run tools/build_scene_pictograms.py --version {version}")
+            files.append(p)
+    return files
+
+
+def pictogram_blocks(version: str = DEFAULT_VERSION) -> list[dict[str, Any]]:
+    """User-turn content blocks for the reference figures: a text label (every code
+    the figure shows) then the image, figure by figure in manifest order; the last
+    block carries cache_control so the figures are part of the cached prefix."""
+    m = manifest(version)
+    if m is None:
+        return []
+    check_pictograms(version)
+    order, labels = [], {}
+    for row in m["rows"]:
+        for fig in row["figures"]:
+            if fig["file"] not in labels:
+                order.append(fig["file"])
+                labels[fig["file"]] = []
+            labels[fig["file"]].append(f"{row['code']} {row['name_vi']}")
+    blocks: list[dict[str, Any]] = [{"type": "text", "text": "Reference figures:"}]
+    for name in order:
+        data = (_dir(version) / "pictograms" / name).read_bytes()
+        blocks.append({"type": "text", "text": "; ".join(labels[name])})
+        blocks.append({"type": "image", "source": {"type": "base64", "media_type": "image/png",
+                                                   "data": base64.b64encode(data).decode("ascii")}})
+    blocks[-1] = {**blocks[-1], "cache_control": {"type": "ephemeral"}}
+    blocks.append({"type": "text", "text": "The photo:"})
+    return blocks
+
+
 def prompt_hash(version: str = DEFAULT_VERSION) -> str:
-    """sha256 of the system prompt (spec, catalog listing, examples) and the config."""
+    """sha256 of the system prompt (spec, catalog listing, examples), the config and
+    the pictogram manifest (whose sha256 values pin the figure copies)."""
     cfg = (_dir(version) / "config.yaml").read_text(encoding="utf-8")
-    return hashlib.sha256((system_prompt(version) + "\n--config--\n" + cfg).encode("utf-8")).hexdigest()
+    text = system_prompt(version) + "\n--config--\n" + cfg
+    name = config(version).get("pictograms")
+    if name:          # versions without pictograms keep the hash they had (v1, v2)
+        text += "\n--pictograms--\n" + (_dir(version) / name).read_text(encoding="utf-8")
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def prompt_id(version: str = DEFAULT_VERSION) -> str:
@@ -85,3 +158,9 @@ def effort_for(model: str, version: str = DEFAULT_VERSION) -> str | None:
 
 def user_text() -> str:
     return "Read the road signs in this photo and reply with the JSON object."
+
+
+def user_content(image_block: dict[str, Any], version: str = DEFAULT_VERSION) -> list[dict[str, Any]]:
+    """The user turn: reference figures (if the version has them), the photo, the
+    instruction. The photo is always the last image."""
+    return [*pictogram_blocks(version), image_block, {"type": "text", "text": user_text()}]

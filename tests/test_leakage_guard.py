@@ -25,7 +25,7 @@ FORBIDDEN_STRINGS = (
     "VLSP2025-MLQA-Natural", "VQA_DATASET_DIR",
     # phase 3 (plan item 8): gold labels, split halves, and the law_db figures, which
     # stay out of the scene prompt until an approved ablation
-    "gold_signs", "gold_intents", "public_dev", "public_holdout", "images.fld",
+    "gold_signs", "gold_intents", "public_dev", "public_holdout", "images.fld", "law_db",
 )
 
 
