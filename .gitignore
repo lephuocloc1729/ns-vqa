@@ -14,3 +14,4 @@ logs/
 # (the whole folder, so copies such as review.backup.csv stay local too)
 data/annotations/gold_intents_v1/*
 !data/annotations/gold_intents_v1/gold_intents_v1.jsonl
+!data/annotations/gold_intents_v1/gold_intents_v2.jsonl

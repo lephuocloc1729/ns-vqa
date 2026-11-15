@@ -1,7 +1,7 @@
 """Parser evaluation against the reviewed gold intents (phase 2, plan item 5).
 
     .venv/bin/python eval/parser_eval.py run --model claude-haiku-5-5 --effort low --max-spend 0.5
-    .venv/bin/python eval/parser_eval.py score logs/parser_eval/<predictions>.jsonl [more ...]
+    .venv/bin/python eval/parser_eval.py score logs/parser_eval/<predictions>.jsonl [more ...] [--gold FILE]
 
 `run` parses the gate questions (below) with the Claude parser and writes one
 prediction record per question to logs/parser_eval/ (gitignored): id, split,
@@ -401,11 +401,13 @@ def main() -> None:
     r.add_argument("--max-spend", type=float, required=True)
     s = sub.add_parser("score")
     s.add_argument("predictions", nargs="+", type=Path)
+    s.add_argument("--gold", type=Path, default=None,
+                   help="gold file (default: gold_intents_v1.jsonl, the one the gate was fixed on)")
     a = ap.parse_args()
     if a.cmd == "run":
         run(a.model, a.effort, a.max_spend)
     else:
-        print(score_files(a.predictions))
+        print(score_files(a.predictions, a.gold))
 
 
 if __name__ == "__main__":
