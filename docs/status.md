@@ -61,7 +61,39 @@ Last updated 2026-11-15. Branch `phase-2` (not merged), on top of `main` at `926
 - `cf5afe6` Gold intents v1: 87 reviewed programs, 47 public_dev and 40 train (ids and programs only).
 - `ecadd29` `eval/parser_eval.py` (`run`, `score`; gate fixed before any Haiku result). Raw replies are now kept for every parser call and in gold drafting's `run_progress.jsonl`.
 
-Full test suite: 319 passed. API use so far (gold drafting, 2026-11-15):
+- `c909f43` Prompt `v5` (the default): v4 plus spec rules learned from the first Haiku errors. The few-shots are unchanged, so the gate set is unchanged.
+
+Full test suite: 323 passed.
+
+### First gate result (prompt v4, 2026-11-15): FAIL
+
+| Haiku 5.5 effort | program accuracy | 95% CI | slot F1 | OOS P / R | cost |
+|---|---|---|---|---|---|
+| low | 83.0% (39/47) | 69.9–91.1% | 83.3% | 100% / 100% | $0.0134 |
+| medium (default) | **87.2% (41/47)** | 74.8–94.0% | 84.7% | 100% / 100% | $0.0133 |
+
+- Medium is better at the same cost.
+- Medium's six wrong rows:
+  - two real parser errors that flip the answer: 0011 dropped "kể cả xe ưu tiên", and 0065 wrote `permitted` for "có bị phạm luật không";
+  - three equivalent sign selectors that the strict gold does not accept: 0002, 0025, and 0043 (code P.107 instead of the meaning);
+  - one DSL gap, 0005, a phase 1.7 "only for X" claim.
+- Low also missed:
+  - 0094: "xe thô sơ 3 bánh" became `rudimentary`;
+  - 0084: `only` was missing;
+  - 0025: a `category` in a selector, which failed after the retry.
+- The non-duplicate / duplicate split (100% vs 80%) means nothing here: the parser never sees the image.
+
+**Prompt v5** adds rules for these errors:
+- "kể cả xe ưu tiên" means `all_of` with a `priority: true` claim;
+- a named vehicle plus "có vi phạm không" means `forbidden`;
+- `meaning` over `code` unless the code is written;
+- selectors have no `category`, and `sign: {}` selects several signs;
+- `required` has no `sign` and `which_vehicles` has no `vehicle`;
+- "xe thô sơ 3 bánh" is `cyclo`.
+
+The rules come from public_dev errors, so a v5 score on public_dev is a tuned figure. A test checks that the v5 spec quotes no gate question (no 6-word overlap). The unbiased figure comes from public_holdout, end to end.
+
+Still open: `also_accept` for the equivalent selectors (0002, 0025, 0043). This is the owner's decision, row by row, made after the results. If adopted, it goes into a new gold version. API use so far (gold drafting, 2026-11-15):
 - Three requests were rejected with a 400 before the model ran, so nothing was billed.
 - The sequential gold run then made 88 calls with Opus 5.5 at medium effort on prompt v4. It cost **$0.53**, against an estimate of $1.86.
   - Every call after the first read the whole prompt from the cache.
@@ -72,7 +104,12 @@ Full test suite: 319 passed. API use so far (gold drafting, 2026-11-15):
 ## Next steps, in order
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
-2. **Haiku runs on the gate set** (the owner runs them). Prompt v4, 47 questions. The estimate is about $0.012 per run if outputs match Opus's (~104 tokens), $0.035 at ten times that, and at most about $0.37 in the worst case. With `ANTHROPIC_API_KEY` set:
+2. **Haiku on prompt v5, medium effort** (the owner runs it; about $0.01):
+   - `eval/parser_eval.py run --model claude-haiku-5-5 --effort medium --max-spend 0.5`
+   - `eval/parser_eval.py score <the v4 medium file> <the v5 medium file>`
+   - If it still misses 90%, run `claude-sonnet-5-5` once for comparison (about $0.20–0.30).
+
+   Previous runs on v4: Prompt v4, 47 questions. The estimate is about $0.012 per run if outputs match Opus's (~104 tokens), $0.035 at ten times that, and at most about $0.37 in the worst case. With `ANTHROPIC_API_KEY` set:
    1. `eval/parser_eval.py run --model claude-haiku-5-5 --effort low --max-spend 0.5`
    2. `eval/parser_eval.py run --model claude-haiku-5-5 --effort medium --max-spend 0.5` (medium is Haiku 5.5's default)
    3. `eval/parser_eval.py score <both prediction files>`. It gives the per-run scores, the gate, all and non-duplicate images, and the effort table.
