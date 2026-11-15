@@ -25,6 +25,7 @@ signs:
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.1"}
     reviewed_by: none
+    visual_reviewed_by: human
 
   - code: W.201(c,d)
     key: cho_ngoat_nguy_hiem_co_nguy_co_lat_xe
@@ -55,6 +56,7 @@ signs:
     variants: [a, b, c]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.3"}
     reviewed_by: human
+    visual_reviewed_by: human
 
   - code: W.204
     key: duong_hai_chieu
@@ -74,6 +76,7 @@ signs:
     variants: [a, b, c, d, e]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.5"}
     reviewed_by: human
+    visual_reviewed_by: human
 
   - code: W.206
     key: giao_nhau_chay_theo_vong_xuyen
@@ -93,6 +96,7 @@ signs:
     variants: [a, b, c, d, e, f, g, h, i, k, l]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.7"}
     reviewed_by: human
+    visual_reviewed_by: human
 
   - code: W.208
     key: giao_nhau_voi_duong_uu_tien_duong_chinh
@@ -120,6 +124,7 @@ signs:
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.10"}
     reviewed_by: none
+    visual_reviewed_by: human
 
   - code: W.211
     key: giao_nhau_voi_duong_sat_khong_co_rao_chan
@@ -292,6 +297,7 @@ signs:
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.24"}
     reviewed_by: none
+    visual_reviewed_by: human
 
   - code: W.225
     key: tre_em
@@ -319,6 +325,7 @@ signs:
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.27"}
     reviewed_by: none
+    visual_reviewed_by: human
 
   - code: W.228(a,b)
     key: da_lo
@@ -504,6 +511,7 @@ signs:
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.44"}
     reviewed_by: none
+    visual_reviewed_by: human
 
   - code: W.245a
     key: di_cham
@@ -513,6 +521,7 @@ signs:
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.45"}
     reviewed_by: none
+    visual_reviewed_by: human
 
   - code: W.245b
     key: di_cham_co_chi_dan_tieng_anh
@@ -588,6 +597,7 @@ signs:
     variants: [a, b, c]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.7"}
     reviewed_by: human
+    visual_reviewed_by: human
 
   - code: I.408
     key: noi_do_xe
@@ -597,6 +607,7 @@ signs:
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.8"}
     reviewed_by: none
+    visual_reviewed_by: human
 
   - code: I.408a
     key: noi_do_xe_mot_phan_tren_he_pho
@@ -615,6 +626,7 @@ signs:
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.9"}
     reviewed_by: none
+    visual_reviewed_by: human
 
   - code: I.410
     key: khu_vuc_quay_xe
@@ -653,15 +665,17 @@ signs:
     variants: [a, b, c, d]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.14"}
     reviewed_by: human
+    visual_reviewed_by: human
 
   - code: I.415
     key: mui_ten_chi_huong_di
     name_vi: "Mũi tên chỉ hướng đi"
     category: information
-    visual: {shape: rectangle, border: none, background: blue}
+    visual: {shape: other, border: none, background: blue}
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.15"}
     reviewed_by: none
+    visual_reviewed_by: human
 
   - code: I.416
     key: duong_tranh
@@ -736,6 +750,7 @@ signs:
     variants: [a, b]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.23a"}
     reviewed_by: human
+    visual_reviewed_by: human
 
   - code: I.423c
     key: diem_bat_dau_duong_di_bo
@@ -1046,10 +1061,11 @@ signs:
     key: chi_dan_loi_vao_duong_cao_toc
     name_vi: "Chỉ dẫn lối vào đường cao tốc"
     category: information
-    visual: {shape: rectangle, border: none, background: green}
+    visual: {shape: rectangle, border: none, background: blue}
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
     reviewed_by: none
+    visual_reviewed_by: human
 
   - code: IE.452
     key: chi_dan_bat_dau_duong_cao_toc
@@ -1059,6 +1075,7 @@ signs:
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
     reviewed_by: none
+    visual_reviewed_by: human
 
   - code: IE.453a
     key: chi_dan_khoang_cach_den_diem_ket_thuc_duong_cao_toc
@@ -1235,10 +1252,11 @@ signs:
     key: chi_dan_dia_diem_va_phuong_huong
     name_vi: "Chỉ dẫn địa điểm và phương hướng"
     category: information
-    visual: {shape: rectangle, border: none, background: green}
+    visual: {shape: other, border: none, background: green}
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
     reviewed_by: none
+    visual_reviewed_by: human
 
   - code: IE.464b
     key: chi_dan_huong_ra_tai_loi_ra
@@ -1257,6 +1275,7 @@ signs:
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
     reviewed_by: none
+    visual_reviewed_by: human
 
   - code: IE.466
     key: chi_dan_so_do_loi_ra_mot_chieu_tai_tat_ca_cac_nut_giao_tren
@@ -1266,6 +1285,7 @@ signs:
     meaning_only: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "47"}
     reviewed_by: none
+    visual_reviewed_by: human
 
   - code: IE.467
     key: chi_dan_vi_tri_nhap_lan

@@ -347,9 +347,16 @@ Full test suite: 394 passed. Prolog loads.
   - None of the 55 is `visual_reviewed_by: human` yet.
   - **Rows only in the public_dev gold (21; record-only under D10, not on the list):** P.104, P.105, P.119, P.124b, P.126, P.128, R.403b, R.301b, R.412d, W.206, W.221b, W.239b, W.240, W.245b, I.417(a,b,c), I.419a, I.434a, I.439, I.441(a,b,c), IE.467, IE.473.
 
+- `acdeb47` `tools/draft_catalog_rows.py`: a `VISUAL_REVIEWED` set writes `visual_reviewed_by: human` (over `VISUAL_OVERRIDES`' `assistant`). With an empty set, regenerating is byte-identical.
+- **D10 visual check (owner, 2026-11-15): all 55 rows `visual_reviewed_by: human`** (51 ok, 4 fixed, 0 skipped), applied exactly as the owner's list in `data/annotations/visual_review/notes.txt` (gitignored).
+  - **35 rule rows** in `kb/sign_catalog.yaml`. One fix: **P.102 `border: none`** (background stays red). This settles the P.102 convention for the catalog. The 8 P.102 label signs the assistant had set to `border: red` were not changed back: labels record what is seen, and are the owner's to check.
+  - **20 meaning rows** through `VISUAL_REVIEWED` and regenerated. Three fixes, as `VISUAL_OVERRIDES`: **I.415 `shape: other`**, **IE.451b `background: blue`**, **IE.464 `shape: other`**.
+  - `test_review_provenance` now pins 55 human visual reviews (35 rule, 20 meaning) and the four fixed values. The 5 `assistant` rows are unchanged: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. None of them is on the D10 list.
+  - **Prompt hashes:** the parser's built prompt is unchanged at 2d0ec50e3611, since its catalog table has no visuals. The gold pre-fill prompt goes from ee8106d9539c to 73022496646a; existing drafts keep their recorded hash. `prompts/scene/v1` doesn't exist yet and will be built on the reviewed catalog.
+
 ## Next steps, in order
 
-0. **D10 visual check (owner):** the 55 rows above, before `prompts/scene/v1` is frozen. Then phase 3 item 3 (the scene call).
+0. **Phase 3 item 3, the scene call:** the D10 visual check is done, so `prompts/scene/v1` can be written on the reviewed catalog.
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
 2. **Done: the parser gate.** It passed for Sonnet 5.5 at medium on prompt v6; see the results above. The rest of this step is kept as a record. **Haiku on prompt v6, medium effort, three runs:**

@@ -68,3 +68,12 @@ def test_review_provenance():
     visual = sorted(s.code for s in cat.signs if s.visual_reviewed_by == "assistant")
     assert visual == ["IE.451a", "IE.471", "IE.473", "W.242(a,b)", "W.243(a,b,c)"]
     assert by["IE.471"].visual.background == "yellow"
+    # The owner's D10 visual check (2026-11-15): all 55 rows on the list, 35 rule rows
+    # and 20 meaning rows; four of them fixed.
+    seen = [s for s in cat.signs if s.visual_reviewed_by == "human"]
+    assert len(seen) == 55
+    assert sum(not s.meaning_only for s in seen) == 35 and sum(s.meaning_only for s in seen) == 20
+    assert by["P.102"].visual.border == "none" and by["P.102"].visual.background == "red"
+    assert by["I.415"].visual.shape == "other"
+    assert by["IE.451b"].visual.background == "blue"
+    assert by["IE.464"].visual.shape == "other"
