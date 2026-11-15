@@ -332,6 +332,14 @@ def _usage(u) -> dict:
             "cache_write_tokens": getattr(u, "cache_creation_input_tokens", 0) or 0}
 
 
+def _log_http_error(run_id: str, image_id: str, call: str, e: Exception) -> None:
+    """Log a failed request with cost 0, as LLMClient.json_reply does."""
+    log_call({"run_id": run_id, "purpose": "gold-sign pre-fill", "model": MODEL, "batch": False,
+              "effort": EFFORT, "status": "http_error", "image_id": image_id, "call": call,
+              "cost_usd": 0.0, "http_status": getattr(e, "status_code", None),
+              "request_id": getattr(e, "request_id", None), "error": str(e)[:500]})
+
+
 def prefill(max_spend: float, sdk=None, check_at: int = 2,
             min_cache_share: float = MIN_CACHE_SHARE) -> dict[str, dict]:
     """Draft labels one image at a time (public_dev and set T only), like
@@ -354,10 +362,18 @@ def prefill(max_spend: float, sdk=None, check_at: int = 2,
     for n, (image_id, split) in enumerate(todo, 1):
         msg = [{"role": "user", "content": [image_block(image_path(image_id, split)),
                                             {"type": "text", "text": user_text(image_id in viol)}]}]
-        counted = sdk.messages.count_tokens(model=MODEL, system=sys_blocks, messages=msg, **kw)
+        try:
+            counted = sdk.messages.count_tokens(model=MODEL, system=sys_blocks, messages=msg, **kw)
+        except Exception as e:
+            _log_http_error(run_id, image_id, "count_tokens", e)
+            raise
         guard.check(worst_case_usd(MODEL, counted.input_tokens, MAX_TOKENS), f"pre-fill {image_id}")
-        resp = sdk.messages.create(model=MODEL, max_tokens=MAX_TOKENS, system=sys_blocks,
-                                   messages=msg, **kw)
+        try:
+            resp = sdk.messages.create(model=MODEL, max_tokens=MAX_TOKENS, system=sys_blocks,
+                                       messages=msg, **kw)
+        except Exception as e:
+            _log_http_error(run_id, image_id, "create", e)
+            raise
         usage = _usage(resp.usage)
         cost = cost_usd(MODEL, **usage)
         guard.add(cost)

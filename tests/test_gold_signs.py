@@ -257,3 +257,41 @@ def test_prefill_stops_at_the_spend_guard(work, monkeypatch, tmp_path):
     with pytest.raises(SpendLimitExceeded):
         gs.prefill(0.01, sdk=sdk)
     assert sdk.created == 0
+
+
+class HTTPError(Exception):
+    def __init__(self, msg, status_code, request_id):
+        super().__init__(msg)
+        self.status_code, self.request_id = status_code, request_id
+
+
+@pytest.mark.parametrize("fail_on", ["count_tokens", "create"])
+def test_prefill_logs_http_errors_and_reraises(work, monkeypatch, tmp_path, fail_on):
+    monkeypatch.setattr(gs, "targets", lambda: [("train_1_3", "train")])
+    monkeypatch.setattr(gs, "violation_images", lambda: set())
+    monkeypatch.setattr(gs, "image_block", lambda p: {"type": "text", "text": "img"})
+    monkeypatch.setattr(gs, "image_path", lambda i, s: tmp_path / "x.jpg")
+    logged = []
+    monkeypatch.setattr(gs, "log_call", logged.append)
+
+    class SDK:
+        def __init__(self):
+            self.messages = self
+
+        def count_tokens(self, **kw):
+            if fail_on == "count_tokens":
+                raise HTTPError("overloaded", 529, "req_count")
+            return SimpleNamespace(input_tokens=100)
+
+        def create(self, **kw):
+            raise HTTPError("bad request", 400, "req_create")
+
+    with pytest.raises(HTTPError):
+        gs.prefill(1.0, sdk=SDK())
+    assert len(logged) == 1
+    rec = logged[0]
+    assert rec["status"] == "http_error" and rec["call"] == fail_on and rec["cost_usd"] == 0.0
+    assert rec["http_status"] == (529 if fail_on == "count_tokens" else 400)
+    assert rec["request_id"] == ("req_count" if fail_on == "count_tokens" else "req_create")
+    assert rec["error"] in ("overloaded", "bad request") and rec["image_id"] == "train_1_3"
+    assert not gs.drafts_path().exists()   # nothing recorded as a draft
