@@ -309,6 +309,22 @@ signs:
       value: {attr: width_m, op: gt, unit: m, applies_to: [vehicle]}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.18"}
 
+  # B.19 a): "Để báo đường cấm các loại xe (cơ giới và thô sơ) kể cả các xe được ưu tiên
+  # theo quy định, có độ dài toàn bộ kể cả xe và hàng lớn hơn trị số ghi trên biển đi qua"
+  # B.19 b): the value is the longest length allowed "đối với xe đơn chiếc" (for a
+  # single vehicle); combinations are not modelled separately.
+  - code: P.119
+    key: length_limit
+    name_vi: Hạn chế chiều dài xe
+    name_en: Length limit
+    category: prohibitory
+    visual: {shape: circle, border: red, background: white}
+    effect:
+      prohibits: [{actions: [enter], vehicles: [{class: vehicle}]}]
+      priority_exempt: false   # "kể cả các xe được ưu tiên theo quy định"
+      value: {attr: length_m, op: gt, unit: m, applies_to: [vehicle]}
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.19"}
+
   - code: P.123a
     key: no_left_turn
     tags: [turn_ban]

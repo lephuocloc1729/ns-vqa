@@ -231,3 +231,13 @@ def test_width_limit_p118(engine):
     assert permitted(engine, sc, "enter", V("car", width_m=1.8)).verdict == Verdict.yes
     assert permitted(engine, sc, "enter", V("truck", width_m=2.8, priority=True)).verdict == Verdict.no
     assert permitted(engine, sc, "enter", V("truck")).verdict == Verdict.unknown
+
+
+def test_length_limit_p119(engine):
+    """P.119 bans vehicles longer than the value, priority vehicles included (B.19 a)."""
+    sc = scene(sign("s1", "P.119", value=9))
+    long_ = permitted(engine, sc, "enter", V("truck", length_m=12))
+    assert long_.verdict == Verdict.no and "B.19" in articles(long_)
+    assert permitted(engine, sc, "enter", V("car", length_m=4.5)).verdict == Verdict.yes
+    assert permitted(engine, sc, "enter", V("truck", length_m=12, priority=True)).verdict == Verdict.no
+    assert permitted(engine, sc, "enter", V("truck")).verdict == Verdict.unknown
