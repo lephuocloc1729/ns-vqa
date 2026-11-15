@@ -48,7 +48,7 @@ from vqa.kb import load_catalog  # noqa: E402
 from vqa.llm.client import LLMBadJSON, parse_json_reply  # noqa: E402
 from vqa.llm.pricing import cost_usd, worst_case_usd  # noqa: E402
 from vqa.llm.spend import SpendGuard, log_call  # noqa: E402
-from vqa.schemas import SceneVehicle, Sign  # noqa: E402
+from vqa.schemas import SceneVehicle, Sign, VehicleClass  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 DATASET = Path(os.environ.get("VQA_DATASET_DIR", ROOT / "VLSP2025-MLQA-Natural")) / "dataset"
@@ -462,37 +462,179 @@ def label_path(image_id: str, split: str) -> Path:
     return WORK / "labels" / split / f"{image_id}.yaml"
 
 
-def sheet() -> list[Path]:
-    """One YAML label file per image (from its draft when there is one) and a local
-    sheet.html that shows each image next to its file. Existing YAML files are never
-    overwritten. Images are linked from the dataset folder, never copied."""
-    drafts, viol, written = load_drafts(), violation_images(), []
-    rows = []
+VEHICLE_CLASSES = {c.value for c in VehicleClass}
+SIGN_FIELDS = set(Sign.model_fields) | {"readable"}
+
+
+def _fix_vehicles(items: Any) -> tuple[Any, int]:
+    """Bare strings that are VehicleClass values become {class: ...}; anything
+    else is left as it is (and flagged by validation)."""
+    if not isinstance(items, list):
+        return items, 0
+    out, n = [], 0
+    for v in items:
+        if isinstance(v, str) and v in VEHICLE_CLASSES:
+            out.append({"class": v})
+            n += 1
+        else:
+            out.append(v)
+    return out, n
+
+
+def clean_sign(raw: Any) -> tuple[Any, list[str], int]:
+    """Lossless, mechanical clean-up of one drafted sign for the label YAML.
+
+    1. Vehicles given as a bare VehicleClass string, in plates, plate condition
+       groups, the sign's condition groups and lane rows, become {class: ...}.
+    2. Text fields that are not sign fields (notes, notes_text, notes_on_sign,
+       text, ...) are moved out of the sign into comment lines, verbatim.
+
+    Returns (sign, comment lines, number of vehicle fixes). Nothing else changes."""
+    if not isinstance(raw, dict):
+        return raw, [], 0
+    sign, comments, n = dict(raw), [], 0
+    for k in [k for k in sign if k not in SIGN_FIELDS and isinstance(sign[k], str)]:
+        comments.append(f"draft {k}: {sign.pop(k)}")
+    for key in ("plates", "rules", "lanes"):
+        if not isinstance(sign.get(key), list):
+            continue
+        items = []
+        for it in sign[key]:
+            if isinstance(it, dict):
+                it = dict(it)
+                if "vehicles" in it:
+                    it["vehicles"], k = _fix_vehicles(it["vehicles"])
+                    n += k
+                if key == "plates" and isinstance(it.get("rules"), list):
+                    groups = []
+                    for g in it["rules"]:
+                        if isinstance(g, dict) and "vehicles" in g:
+                            g = dict(g)
+                            g["vehicles"], k = _fix_vehicles(g["vehicles"])
+                            n += k
+                        groups.append(g)
+                    it["rules"] = groups
+            items.append(it)
+        sign[key] = items
+    return sign, comments, n
+
+
+def sign_errors(sign: Any, image_id: str, split: str) -> list[str]:
+    """Validation errors of one sign, without the image and sign prefix."""
+    _, errs = check_label({"image_id": image_id, "split": split, "status": "todo", "signs": [sign]})
+    return [re.sub(r"^\S+ sign 1: ", "", e) for e in errs]
+
+
+def vehicle_errors(doc: dict) -> list[str]:
+    _, errs = check_label({**doc, "signs": [], "status": "todo"})
+    return errs
+
+
+def _comment(lines: list[str], indent: str) -> str:
+    out = []
+    for line in lines:
+        parts = str(line).splitlines() or [""]
+        out.append(f"{indent}# {parts[0]}")
+        out += [f"{indent}#   {p}" for p in parts[1:]]
+    return "".join(x + "\n" for x in out)
+
+
+def _dump(obj: Any) -> str:
+    return yaml.safe_dump(obj, allow_unicode=True, sort_keys=False, width=100)
+
+
+def label_yaml(doc: dict, sign_comments: list[list[str]]) -> str:
+    """The label file text: the document as YAML, with each sign's comment lines
+    (moved draft text, then "needs fix: ..." lines) right above that sign."""
+    head = {k: doc[k] for k in ("image_id", "split", "status", "violation_question")}
+    out = _dump(head)
+    if doc["signs"]:
+        out += "signs:\n"
+        for sign, comments in zip(doc["signs"], sign_comments):
+            out += _comment(comments, "  ")
+            out += "".join("  " + line + "\n" for line in _dump([sign]).splitlines())
+    else:
+        out += "signs: []\n"
+    veh = vehicle_errors(doc)
+    out += _comment([f"needs fix: {e}" for e in veh], "")
+    out += _dump({"vehicles": doc["vehicles"], "notes": doc["notes"]})
+    return out
+
+
+def draft_doc(image_id: str, split: str, draft: dict, violation: bool) -> tuple[dict, list[list[str]], int]:
+    """A label document from a draft, after clean_sign, with the comment lines per
+    sign (moved text, then needs-fix lines for what the clean-up does not fix)."""
+    signs, comments, fixes = [], [], 0
+    for raw in draft.get("signs") or []:
+        sign, moved, n = clean_sign(raw)
+        fixes += n
+        signs.append(sign)
+        comments.append(moved + [f"needs fix: {e}" for e in sign_errors(sign, image_id, split)])
+    vehicles, n = _fix_vehicles(draft.get("vehicles") or []) if violation else ([], 0)
+    doc = {"image_id": image_id, "split": split, "status": "todo", "violation_question": violation,
+           "signs": signs, "vehicles": vehicles, "notes": draft.get("notes", "") or ""}
+    return doc, comments, fixes + n
+
+
+def file_needs_fix(doc: dict) -> list[str]:
+    """Needs-fix lines for a label file as it is now (owner edits included)."""
+    iid, split = doc.get("image_id", "?"), doc.get("split", "train")
+    out = []
+    for k, sign in enumerate(doc.get("signs") or [], 1):
+        code = sign.get("code") if isinstance(sign, dict) else None
+        out += [f"sign {k} ({code}): needs fix: {e}" for e in sign_errors(sign, iid, split)]
+    out += [f"needs fix: {e}" for e in vehicle_errors(
+        {**doc, "signs": [], "vehicles": doc.get("vehicles") or []})]
+    return out
+
+
+def sheet() -> dict:
+    """One YAML label file per image (from its draft, after the format clean-up)
+    and a local sheet.html that shows each image next to its file, with a visible
+    "needs fix" line for every error the clean-up does not fix. drafts.jsonl is
+    only read. Existing YAML files are never overwritten; the sheet shows their
+    current content. Images are linked from the dataset folder, never copied."""
+    drafts, viol = load_drafts(), violation_images()
+    written, rows = [], []
+    stats = {"images": 0, "written": 0, "kept_existing": 0, "vehicle_fixes": 0, "moved_fields": 0,
+             "valid": 0, "need_fix": 0}
     for image_id, split in targets():
+        stats["images"] += 1
         p = label_path(image_id, split)
-        d = (drafts.get(image_id) or {}).get("draft") or {}
-        if not p.exists():
+        if p.exists():
+            stats["kept_existing"] += 1
+        else:
+            d = (drafts.get(image_id) or {}).get("draft") or {}
+            doc, comments, fixes = draft_doc(image_id, split, d, image_id in viol)
+            stats["vehicle_fixes"] += fixes
+            stats["moved_fields"] += sum(1 for c in comments for x in c if x.startswith("draft "))
             p.parent.mkdir(parents=True, exist_ok=True)
-            doc = {"image_id": image_id, "split": split, "status": "todo",
-                   "violation_question": image_id in viol, "signs": d.get("signs", []),
-                   "vehicles": d.get("vehicles", []) if image_id in viol else [],
-                   "notes": d.get("notes", "") or ""}
-            p.write_text(yaml.safe_dump(doc, allow_unicode=True, sort_keys=False), encoding="utf-8")
+            p.write_text(label_yaml(doc, comments), encoding="utf-8")
             written.append(p)
+        text = p.read_text(encoding="utf-8")
+        flags = file_needs_fix(yaml.safe_load(text) or {})
+        stats["need_fix" if flags else "valid"] += 1
         img = image_path(image_id, split).resolve().as_uri()
+        fix_html = "".join(f"<li>{html.escape(f)}</li>" for f in flags)
         rows.append(f"<section><h2>{html.escape(image_id)} <small>{split}"
                     f"{' · violation question' if image_id in viol else ''}</small></h2>"
-                    f"<img src='{img}' loading='lazy'><p><a href='{p.resolve().as_uri()}'>"
-                    f"{html.escape(str(p.relative_to(ROOT)))}</a></p><pre>"
-                    f"{html.escape(p.read_text(encoding='utf-8'))}</pre></section>")
+                    f"<img src='{img}' loading='lazy'><div><p><a href='{p.resolve().as_uri()}'>"
+                    f"{html.escape(_rel(p))}</a></p>"
+                    + (f"<ul class='fix'>{fix_html}</ul>" if flags else "<p class='ok'>no format errors</p>")
+                    + f"<pre>{html.escape(text)}</pre></div></section>")
     (WORK / "sheet.html").write_text(
         "<!doctype html><meta charset='utf-8'><title>Gold signs</title><style>"
         "body{font:14px system-ui;margin:16px}section{display:grid;grid-template-columns:"
         "minmax(0,1fr) minmax(0,1fr);gap:12px;border-top:1px solid #ccc;padding:12px 0}"
-        "h2,p{grid-column:1/-1;margin:0}img{max-width:100%}pre{white-space:pre-wrap;margin:0}"
-        "</style>" + "".join(rows), encoding="utf-8")
-    print(f"{len(written)} new label files, sheet -> {(WORK / 'sheet.html').relative_to(ROOT)}")
-    return written
+        "h2{grid-column:1/-1;margin:0}p{margin:0 0 6px}img{max-width:100%}"
+        "pre{white-space:pre-wrap;margin:0}.fix{color:#b00020;font-weight:600;margin:0 0 6px}"
+        ".ok{color:#1b7a2f}</style>"
+        f"<p>{stats['valid']} of {stats['images']} label files have no format errors; "
+        f"{stats['need_fix']} need a fix.</p>" + "".join(rows), encoding="utf-8")
+    print(f"{len(written)} new label files ({stats['kept_existing']} kept), "
+          f"{stats['need_fix']} need a fix, sheet -> {_rel(WORK / 'sheet.html')}")
+    stats["written"] = len(written)
+    return stats
 
 
 # --------------------------------------------------------------------------- validation
@@ -512,6 +654,16 @@ def check_sign_code(code: Any, readable: bool) -> str | None:
     if len(rows) > 1:
         return f"{code!r} names several catalog rows ({', '.join(rows)}); give the variant"
     return None
+
+
+def _loc(err: dict) -> str:
+    loc = ".".join(map(str, err["loc"]))
+    return f"{loc}: " if loc else ""
+
+
+def _rel(p: Path) -> str:
+    p = Path(p)
+    return str(p.relative_to(ROOT)) if p.resolve().is_relative_to(ROOT) else str(p)
 
 
 def check_label(doc: dict) -> tuple[dict | None, list[str]]:
@@ -545,7 +697,7 @@ def check_label(doc: dict) -> tuple[dict | None, list[str]]:
         try:
             s = Sign.model_validate({"id": f"s{k}", **fields})
         except ValidationError as e:
-            errs += [f"{where}: {'.'.join(map(str, x['loc']))}: {x['msg']}" for x in e.errors()]
+            errs += [f"{where}: {_loc(x)}{x['msg']}" for x in e.errors()]
             continue
         out_signs.append({"readable": readable,
                           **s.model_dump(mode="json", by_alias=True, exclude_defaults=True)})
@@ -559,7 +711,7 @@ def check_label(doc: dict) -> tuple[dict | None, list[str]]:
             v = SceneVehicle.model_validate({"id": f"v{k}", **(raw if isinstance(raw, dict) else {})})
             out_vehicles.append(v.model_dump(mode="json", by_alias=True, exclude_defaults=True))
         except ValidationError as e:
-            errs += [f"{iid} vehicle {k}: {'.'.join(map(str, x['loc']))}: {x['msg']}" for x in e.errors()]
+            errs += [f"{iid} vehicle {k}: {_loc(x)}{x['msg']}" for x in e.errors()]
     if errs:
         return None, errs
     return {"image_id": iid, "split": doc["split"], "signs": out_signs, "vehicles": out_vehicles,

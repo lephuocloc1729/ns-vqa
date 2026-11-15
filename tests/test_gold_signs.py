@@ -384,3 +384,94 @@ def test_estimate_prices_each_call_on_its_own(work, monkeypatch, tmp_path):
                 + 73 * 1_500 * 0.50) / 1e6
     assert est["sequential_expected_usd"] == pytest.approx(expected, abs=1e-4)
     assert est["sequential_expected_usd"] < 0.1
+
+
+# ---------------------------------------------------------------- sheet format clean-up
+
+def test_cleanup_turns_bare_vehicle_classes_into_specs():
+    raw = sign(plates=[{"kind": "exception", "vehicles": ["car", {"class": "truck"}]},
+                       {"kind": "local", "text": "CẤM XE TẢI", "rules": [{"vehicles": ["truck"]}]}],
+               lanes=[{"lane": 1, "vehicles": ["motorbike"], "max_speed": 60}])
+    clean, comments, n = gs.clean_sign(raw)
+    assert n == 3 and comments == []
+    assert clean["plates"][0]["vehicles"] == [{"class": "car"}, {"class": "truck"}]
+    assert clean["plates"][1]["rules"][0]["vehicles"] == [{"class": "truck"}]
+    assert clean["lanes"][0]["vehicles"] == [{"class": "motorbike"}]
+    assert gs.sign_errors(clean, "train_1_3", "train") == []
+    groups, _, n = gs.clean_sign(sign(rules=[{"vehicles": ["coach"]}]))   # the sign's own groups
+    assert n == 1 and groups["rules"][0]["vehicles"] == [{"class": "coach"}]
+    assert raw["plates"][0]["vehicles"] == ["car", {"class": "truck"}]    # input untouched
+
+
+def test_cleanup_leaves_unknown_vehicle_strings_for_review():
+    clean, _, n = gs.clean_sign(sign(plates=[{"kind": "vehicle", "vehicles": ["xe tải"]}]))
+    assert n == 0 and clean["plates"][0]["vehicles"] == ["xe tải"]
+    assert gs.sign_errors(clean, "train_1_3", "train")
+
+
+def test_cleanup_moves_extra_text_fields_into_comments_verbatim():
+    raw = sign(notes="mờ, có thể là P.123b", notes_text="dòng 1\ndòng 2", notes_on_sign="x",
+               text="CẤM RẼ TRÁI")
+    clean, comments, _ = gs.clean_sign(raw)
+    assert not {"notes", "notes_text", "notes_on_sign", "text"} & set(clean)
+    assert comments == ["draft notes: mờ, có thể là P.123b", "draft notes_text: dòng 1\ndòng 2",
+                        "draft notes_on_sign: x", "draft text: CẤM RẼ TRÁI"]
+    doc, comm, _ = gs.draft_doc("train_1_3", "train", {"signs": [raw]}, False)
+    text = gs.label_yaml(doc, comm)
+    assert "  # draft notes: mờ, có thể là P.123b\n" in text
+    assert "  # draft notes_text: dòng 1\n  #   dòng 2\n" in text
+    assert "# draft text: CẤM RẼ TRÁI" in text
+    assert yaml.safe_load(text)["signs"] == [clean]          # comments don't change the data
+    assert gs.file_needs_fix(yaml.safe_load(text)) == []
+
+
+@pytest.mark.parametrize("raw, flag", [
+    (sign(code="UNKNOWN"), "UNKNOWN is only allowed"),
+    (sign(code="LOCAL"), "unknown sign code 'LOCAL'"),
+    (sign(code="P.UNKNOWN"), "unknown sign code"),
+    (sign(code="W.201(a,b)"), "unknown sign code"),
+    (sign(code="P.118"), "unknown sign code 'P.118'"),
+    (sign(plates=[{"kind": "time", "days": ["even"]}]), "days"),
+    (sign(lanes=[{"lane": 1, "vehicles": [{"class": "truck", "conditions": [
+        {"attr": "gross_t", "op": "lte", "value": 5}]}]}]), "op"),
+    (sign(background="dark"), "background"),
+])
+def test_unfixable_errors_are_left_as_is_and_flagged(raw, flag):
+    doc, comments, _ = gs.draft_doc("train_1_3", "train", {"signs": [raw]}, False)
+    assert doc["signs"] == [raw]                               # not changed
+    assert any(c.startswith("needs fix: ") and flag in c for c in comments[0])
+    text = gs.label_yaml(doc, comments)
+    assert "  # needs fix: " in text
+    assert yaml.safe_load(text)["signs"] == [raw]
+    assert any(flag in f for f in gs.file_needs_fix(yaml.safe_load(text)))
+
+
+def test_sheet_writes_cleaned_yaml_flags_errors_and_leaves_drafts_alone(work, monkeypatch, tmp_path):
+    fake_images(monkeypatch, tmp_path, ["train_1_3", "train_1_8", "train_1_9"])
+    drafts = [
+        {"image_id": "train_1_3", "model": "claude-haiku-5-5", "status": "invalid",
+         "draft": {"signs": [sign(notes="ghi chú", plates=[{"kind": "vehicle", "vehicles": ["car"]}])],
+                   "notes": "ảnh tối"}},
+        {"image_id": "train_1_8", "model": "claude-haiku-5-5", "status": "invalid",
+         "draft": {"signs": [sign(code="local")]}},
+        {"image_id": "train_1_9", "model": "claude-opus-5-5", "status": "ok",
+         "draft": {"signs": [sign()]}}]
+    gs.drafts_path().parent.mkdir(parents=True, exist_ok=True)
+    gs.drafts_path().write_text("".join(json.dumps(d, ensure_ascii=False) + "\n" for d in drafts))
+    before = gs.drafts_path().read_bytes()
+    kept = gs.label_path("train_1_9", "train")
+    kept.parent.mkdir(parents=True, exist_ok=True)
+    kept.write_text("image_id: train_1_9\nsplit: train\nstatus: done\nsigns: []\n")   # owner's file
+    stats = gs.sheet()
+    assert gs.drafts_path().read_bytes() == before
+    assert kept.read_text() == "image_id: train_1_9\nsplit: train\nstatus: done\nsigns: []\n"
+    assert (stats["written"], stats["kept_existing"], stats["valid"], stats["need_fix"]) == (2, 1, 2, 1)
+    a = gs.label_path("train_1_3", "train").read_text()
+    assert "# draft notes: ghi chú" in a
+    assert yaml.safe_load(a)["signs"][0]["plates"][0]["vehicles"] == [{"class": "car"}]
+    assert yaml.safe_load(a)["notes"] == "ảnh tối"
+    b = gs.label_path("train_1_8", "train").read_text()
+    assert "# needs fix: unknown sign code 'local'" in b and yaml.safe_load(b)["signs"][0]["code"] == "local"
+    page = (gs.WORK / "sheet.html").read_text()
+    assert "needs fix: unknown sign code &#x27;local&#x27;" in page
+    assert "2 of 3 label files have no format errors" in page
