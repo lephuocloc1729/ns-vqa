@@ -32,6 +32,7 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
 ## Dataset rules
 
 - The dataset is at `VLSP2025-MLQA-Natural/` (or set `$VQA_DATASET_DIR`). It is **read-only** and gitignored. Never copy dataset files into the repo.
+  - **One exception (owner, 2026-11-15): law_db figures in the scene prompt.** `tools/build_scene_pictograms.py` may write resized copies (≤320 px) of chosen law_db figures into `prompts/scene/<version>/pictograms/`, which is gitignored. Only the manifest `prompts/scene/<version>/pictograms.yaml` is committed: per row, its code, source article, figure name, caption and the copy's sha256. The copies are never committed. `vqa/perception/prompt.py` refuses to build a version whose copies are missing or don't match the manifest. Inference reads `prompts/`, never law_db.
 - Build rules, prompts and examples from the **train split and `law_db` only**. Use the public test only for tuning.
 - **The public test is split 50/50 by image** into `public_dev` and `public_holdout`. Questions that share an image stay on the same side.
   - The split is saved in `data/splits/public_split.json` (seed 20261114). `eval/make_public_split.py` regenerates it and only reads question and image ids.
