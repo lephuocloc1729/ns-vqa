@@ -1,6 +1,6 @@
 # Project status
 
-Last updated 2026-11-15. Branch `phase-2` (not merged), on top of `main` at `9264d55`.
+Last updated 2026-11-15. Branch `phase-3`, on top of `main` at `afe006c` (phase 2 merged in PR #1).
 
 ## Done
 
@@ -33,7 +33,7 @@ Last updated 2026-11-15. Branch `phase-2` (not merged), on top of `main` at `926
 - `2ca5d04` Applied the meaning-row review: IE.473 renamed, IE.472 split into two rows, visual fixes, review flags.
 - `9264d55` `every_vehicle` for "các loại xe"; local-plate assumptions recorded.
 
-### Phase 2: question parser (in progress, branch `phase-2`)
+### Phase 2: question parser (merged into `main` at `afe006c`)
 
 - `f89b1be` `every_vehicle`: members on both sides of a threshold are counterexamples, reported with their condition.
 - `aa85801` Catalog `reviewed_by` / `visual_reviewed_by` (human | assistant | none).
@@ -190,7 +190,29 @@ Still open: `also_accept` for the equivalent selectors (0002, 0025, 0043). This 
   - Results: 63 ok, 19 out of scope, 6 invalid. Four of the six were `meaning` or `is_sign` with no `sign`.
 - The owner's review covered 87 rows: 80 ok, 7 fix and 1 skip (public_natural_0096). Rows marked ok include the 18 out-of-scope drafts that were kept.
 
+### Phase 3: perception v1 (in progress, branch `phase-3`)
+
+Plan: `docs/plans/phase-3.md`, approved with D1–D10 (`6113e00`).
+
+- `13eb3a0` `docs/gold_signs_guide.md`: the labeller's rules (what counts as a sign, `readable: false`, fields, plates, lane boards, vehicles, the label file, the D10 check).
+- `c88f928` `eval/gold_signs.py`: `select`, `estimate`, `prefill`, `sheet`, `import`.
+  - `prefill` is written but not run. It goes through the spend guard before every call and logs each one. It calls the SDK directly, because `LLMClient` takes text only until item 3.
+  - Private labels are written only to `data/annotations/gold_signs_private/` (gitignored), and only if git ignores that path.
+  - `.gitignore` covers the gold-sign working files and the private folder.
+- `7961c6f` Set T: 36 train images in `data/splits/gold_signs_set_t.json` (ids only, seed 20261115). 31 train images were excluded as duplicates of public_dev images.
+- `46c095f` Tests for the tooling; `eval/gold_signs.py` added to `EVAL_QUESTION_READERS` in the leakage guard.
+
+Full test suite: 365 passed.
+
+**Pre-fill estimate (2026-11-15, no API call):** 81 images (45 public_dev, 36 set T), Opus 5.5 at medium, prompt `p1` (sha `42def04109fc`).
+- Rough method: the system prompt at 2.04 bytes per token (measured on the parser prompt), about 10,970 tokens; images at width × height / 750 after resizing.
+- Expected: **$2.85** sequential with caching, at 1,500 output tokens per image. $5.28 if outputs are twice that. $6.18 with no cache hits. Worst case (every call writes the whole prompt and uses all 8,000 output tokens): $17.65.
+- Output is most of the cost (121,500 tokens, about $2.43).
+- Waiting for the owner's go-ahead. Suggested limit: `prefill --max-spend 6`.
+
 ## Next steps, in order
+
+0. **Phase 3 gold pre-fill**, after the owner's go-ahead: `eval/gold_signs.py prefill --max-spend 6`, then `sheet`, review, `import`. Then the D10 visual check of the listed rows, before `prompts/scene/v1` is frozen.
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
 2. **Done: the parser gate.** It passed for Sonnet 5.5 at medium on prompt v6; see the results above. The rest of this step is kept as a record. **Haiku on prompt v6, medium effort, three runs:**
