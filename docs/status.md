@@ -46,14 +46,17 @@ Last updated 2026-11-15. Branch `phase-2` (not merged), on top of `main` at `926
 - `734135e` Wire schema: sign codes and meanings as strings checked in Python (first try at the grammar-size 400).
 - `7ff868d` Wire schema flattened to one object per nesting level (second try; still rejected).
 - `c1addf3` Parser replies in plain JSON, with no JSON schema (the owner's plan change of 2026-11-15). Prompt `v3`. Every API call is logged with a status.
+- `39384c3` Sign codes in programs can also be a variant code ("W.207c") or the stem of a family row ("W.207"), kept as written.
+  - A stem shared by separate rows ("W.221" for W.221a and W.221b) is rejected, and the error lists the closest valid codes.
+  - Prompt `v4` (the default): v3 with the wrong "W.221" family example replaced by "W.207". v1, v2 and v3 are frozen by sha256 in the tests.
 
-Full test suite: 255 passed. Three API requests have been sent (gold drafting, 2026-11-15). All three were rejected with a 400 before the model ran, so nothing was billed.
+Full test suite: 273 passed. Three API requests have been sent (gold drafting, 2026-11-15). All three were rejected with a 400 before the model ran, so nothing was billed.
 
 ## Next steps, in order
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
-2. **Gold drafting: 48 public_dev and 40 train questions** (the owner's change of 2026-11-15). `select` has already written the 88 questions. The three public_dev few-shots are not drafted. Drafting uses prompt `v3`, Opus 5.5 at medium effort, sequential calls with caching. The owner chose sequential over batch because a batch's caching is best effort. With `ANTHROPIC_API_KEY` set:
-   1. Run `eval/gold_intents.py estimate` in the owner's terminal. It is free and gives the exact count for `v3`. The offline rough figure is 18.4k prompt tokens per request: about $1.94 sequential, or $3.45 if outputs run twice as long. The owner decides the `--max-spend` from the exact figure.
+2. **Gold drafting: 48 public_dev and 40 train questions** (the owner's change of 2026-11-15). `select` has already written the 88 questions. The three public_dev few-shots are not drafted. Drafting uses prompt `v4`, Opus 5.5 at medium effort, sequential calls with caching. The owner chose sequential over batch because a batch's caching is best effort. With `ANTHROPIC_API_KEY` set:
+   1. Run `eval/gold_intents.py estimate` in the owner's terminal. It is free and gives the exact count for `v4`. The offline rough figure is 18.4k prompt tokens per request: about $1.94 sequential, or $3.45 if outputs run twice as long. The owner decides the `--max-spend` from the exact figure.
    2. Run `eval/gold_intents.py run --max-spend N`.
       - The spend guard checks every call before it is sent.
       - After call 2, at least 90% of the prompt must have been read from the cache, or the run stops.
@@ -74,6 +77,9 @@ Full test suite: 255 passed. Three API requests have been sent (gold drafting, 2
    3. Check the gate: ≥ 90% program accuracy on reviewed public_dev intents, with a 95% CI.
 
 ## Open items
+
+- **Stems of separate rows.** The wire rejects "P.124", "P.106", "W.221" and the other 32 stems whose signs are separate catalog rows; this was the owner's rule in `39384c3`. The engine's `Catalog.codes_matching`, though, accepts such a stem as "any of its rows", and `tests/test_claims.py::test_family_code_matches_variants` relies on that ("P.124" against a P.124c scene gives yes). So the parser cannot produce a program the engine supports. To be decided: allow these stems in `is_sign`, or keep them out.
+- **Codes in selectors are compared as strings.** `Engine.resolve` compares `sign.code` with the scene sign's code exactly. A variant or stem in a selector matches only a scene sign recorded the same way; "W.207" in a selector matches no "W.207c" sign. `is_sign` targets are not affected, because they resolve through the catalog.
 
 - **Train questions were rewritten by the owner (2026-11-15).** The rewrite made them shorter and more conversational. There are still 530 questions and the few-shot ids still exist. Whether any answers changed can't be checked, because there is no copy of the old file. The rewrite still differs from public_dev in style:
   - public_dev ends a stated claim with "đúng hay sai" (or "đúng không") in 33% of questions; train never uses "đúng hay sai" and ends with "đúng không" / "phải không" in about 7%;

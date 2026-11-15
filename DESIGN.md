@@ -50,6 +50,7 @@ One vision call per image returns the whole scene graph: every sign with its cat
 - Input: the image, resized to the model's native size so any pixel boxes map straight back onto it ([coordinates guide](https://platform.claude.com/docs/en/build-with-claude/vision-coordinates)).
 - A cached system prompt holds the sign catalog: every code with its Vietnamese name and a short visual description. Pictograms from the corpus's own `law_db/images.fld` can be added for codes that get confused.
 - Structured output (JSON schema) with `code` as an enum of catalog codes plus `UNKNOWN`, so Claude can only name a real sign or admit it can't tell.
+  - The API caps strict schemas at 24 optional and 16 union-typed parameters in total, and the parser's schema hit that limit, so this schema may need to be checked against it too.
 - Per sign, Claude returns:
   - the code and any numbers or text it reads (speed limits, weight limits, time windows, "ngày chẵn")
   - plates and which sign each belongs to
@@ -218,7 +219,10 @@ The proof shows the plate and is marked "not in QCVN 41", and the answer carries
 
 **Implementation**
 
-- One Claude call with structured output. The schema is a JSON form of the DSL, and its enums (actions, vehicle classes, attributes) come from the ontology, so Claude can only use terms the rule engine knows.
+- One Claude call that replies with a single JSON object in plain text (bare, or in a ```json fence). No JSON schema is sent.
+  - The API caps strict schemas (`output_config.format`, `strict: true`) at 24 optional parameters and 16 union-typed parameters (`anyOf` or nullable) in total, across all strict schemas in a request. The DSL needs far more.
+  - Python validates the reply against typed Pydantic wire models whose vocabularies (actions, vehicle classes, sign codes, meanings) come from the ontology and the catalog. A validator and a dry run on an empty scene follow.
+  - Malformed JSON or a failed check gets one retry with the error message. So Claude can still only use terms the rule engine knows, but this is checked after the reply instead of being enforced while it is written.
 - Vehicle classes follow the law's own categories, plus attributes (load in tonnes, seats). "xe lam", "xe ba bánh" and "xe tải 3,4 tấn" all map to a class plus attributes.
 - `missing_slots` and `out_of_scope` fields; if the vehicle is missing, answer for each relevant class.
 - Model: Haiku 5.5 or Sonnet 5.5, with the DSL spec and reviewed train examples in a cached system prompt.
@@ -311,7 +315,7 @@ The headline number is answer accuracy on the private test, split into Yes/No an
 | Image handling | Pillow: resize to Claude's native size (crops only for the fallback) |
 | Perception | Claude vision only: one scene call per image (Haiku 5.5 first); no local models to train |
 | Claude API | `anthropic` Python SDK; `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-opus-5-5` |
-| Schemas | Pydantic v2 (also makes the JSON schemas for structured outputs) |
+| Schemas | Pydantic v2 (also validates the parser's plain-JSON replies; no JSON schema is sent for parsing, because of the API's strict-schema limits) |
 | Rule engine | SWI-Prolog + `janus` (or clingo) |
 | API and demo | FastAPI + Gradio or Streamlit |
 | Tests and eval | pytest, a small eval runner writing CSV/JSON results |
@@ -364,7 +368,7 @@ Assumptions: about 1,600 tokens per image, a 15,000-token sign catalog served fr
 Build from the symbolic core outward. The rule engine can be tested with no neural parts at all, and every later phase plugs into a contract that already works.
 
 1. **Contracts and KB core (weeks 1–2).** Pydantic schemas, sign catalog for about 40 common signs, ontology, first rule families, pytest suite. *Gate:* hand-written scene graphs + programs give correct answers and proofs.
-2. **Question parser (week 3).** DSL, Claude parser with structured outputs, validator. *Gate:* ≥ 90% program accuracy on the reviewed public-test intents.
+2. **Question parser (week 3).** DSL, Claude parser (plain JSON replies validated in Python), validator. *Gate:* ≥ 90% program accuracy on the reviewed public-test intents.
 3. **Perception v1 (weeks 4–5).** Sign catalog from law_db, the one-pass scene call, verification, and gold sign labels for the public and private images. *Gate:* sign recall ≥ 0.90 and sign-code F1 ≥ 0.85 on the public test; below that, turn on the two-pass fallback for the failing images.
 4. **Answering and end-to-end pipeline (week 7).** Answer generation, faithfulness guard, `answer(image, question)` API. *Gate:* faithfulness ≥ 99% on dev.
 5. **Benchmark and evaluation (weeks 8–9).** Freeze the system, then run the private test once as the benchmark: baselines, ablations, and error analysis by stage and question feature.
