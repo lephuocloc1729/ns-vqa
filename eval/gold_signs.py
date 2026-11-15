@@ -8,7 +8,7 @@ that file as its instructions.
     .venv/bin/python eval/gold_signs.py estimate [--model M] [--remaining] [--count]  # no spend
     .venv/bin/python eval/gold_signs.py prefill --max-spend N [--model M]  # sequential, cached, guarded
     .venv/bin/python eval/gold_signs.py sheet                # one YAML per image + sheet.html
-    .venv/bin/python eval/gold_signs.py import               # done YAMLs -> gold_signs_v1.jsonl
+    .venv/bin/python eval/gold_signs.py import [--replace]   # done YAMLs -> gold_signs_v1.jsonl
     .venv/bin/python eval/gold_signs.py import --private     # private labels -> gitignored folder
 
 Sets: public_dev (the gate set) and set T (train images for prompt tuning, in no
@@ -34,6 +34,7 @@ import os
 import random
 import re
 import subprocess
+import tempfile
 import sys
 from pathlib import Path
 from typing import Any
@@ -726,9 +727,45 @@ def is_gitignored(path: Path) -> bool:
     return r.returncode == 0
 
 
-def write_gold(rows: list[dict], path: Path) -> Path:
-    """Write gold rows. Private rows go only to PRIVATE_GOLD, and only if git ignores
-    it; public and private rows are never mixed in one file."""
+def existing_gold_ids(path: Path) -> list[str]:
+    """Image ids of the gold file already at `path` (empty if there is none)."""
+    path = Path(path)
+    if not path.exists():
+        return []
+    return [json.loads(line)["image_id"] for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip()]
+
+
+def write_atomic(path: Path, text: str) -> None:
+    """Write via a temp file in the same folder, then rename over the target, so a
+    crash never leaves a truncated file. The temp file is removed on failure."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+
+def write_gold(rows: list[dict], path: Path, replace: bool = False) -> Path:
+    """Write gold rows.
+
+    - Nothing is written when there are no rows.
+    - A file with fewer rows than the gold file already at `path`, or one that
+      drops any of its image ids, is refused unless `replace` is set; what would be
+      lost is printed.
+    - Private rows go only to PRIVATE_GOLD, and only if git ignores it; public and
+      private rows are never mixed in one file.
+    - The write is atomic (temp file, then rename)."""
+    if not rows:
+        raise SystemExit("refusing to write a gold file with 0 labels; nothing was written")
     private = [r for r in rows if r["split"] == "private"]
     if private and len(private) != len(rows):
         raise SystemExit("refusing to mix private and non-private labels in one file")
@@ -741,8 +778,17 @@ def write_gold(rows: list[dict], path: Path) -> Path:
             raise SystemExit(f"refusing to write private labels: git does not ignore {path}")
     elif path.resolve().is_relative_to(PRIVATE_OUT.resolve()):
         raise SystemExit("non-private labels don't go in the private folder")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
+    old = existing_gold_ids(path)
+    lost = sorted(set(old) - {r["image_id"] for r in rows}, key=_id_key)
+    if (len(rows) < len(old) or lost) and not replace:
+        msg = [f"refusing to replace {_rel(path)}: it has {len(old)} rows, the new file {len(rows)}"]
+        if lost:
+            msg.append(f"{len(lost)} image ids would be lost: {', '.join(lost)}")
+        msg.append("nothing was written; pass --replace to write it anyway")
+        raise SystemExit("\n".join(msg))
+    if lost:
+        print(f"--replace: dropping {len(lost)} image ids from {_rel(path)}: {', '.join(lost)}")
+    write_atomic(path, "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
     return path
 
 
@@ -769,7 +815,7 @@ def anchoring(final: list[dict], draft: dict | None) -> dict | None:
 
 
 def import_labels(private: bool = False, labels_dir: Path | None = None,
-                  out: Path | None = None) -> list[dict]:
+                  out: Path | None = None, replace: bool = False) -> list[dict]:
     if private:
         labels_dir, out = labels_dir or PRIVATE_OUT / "labels", out or PRIVATE_GOLD
         allowed = None
@@ -777,11 +823,15 @@ def import_labels(private: bool = False, labels_dir: Path | None = None,
         labels_dir, out = labels_dir or WORK / "labels", out or GOLD
         allowed = {**{i: "public_dev" for i in dev_images()}, **{i: "train" for i in set_t_images()}}
     drafts = load_drafts()
-    gold, problems = [], []
+    gold, problems, rejected = [], [], set()
+    statuses: dict[str, int] = {}
     for p in sorted(Path(labels_dir).rglob("*.yaml")):
         doc = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+        st = doc.get("status") if doc.get("status") in STATUSES else "other"
+        statuses[st] = statuses.get(st, 0) + 1
         if doc.get("status") != "done":
             continue
+        n_problems = len(problems)
         if private and doc.get("split") != "private":
             problems.append(f"{p.name}: only split: private belongs in the private folder")
             continue
@@ -792,19 +842,23 @@ def import_labels(private: bool = False, labels_dir: Path | None = None,
             problems.append(f"{p.name}: {doc.get('image_id')} is not a {doc.get('split')} image "
                             "of the gold sets (public_dev or set T)")
             continue
-        rec, errs = check_label(doc)
-        if errs:
-            problems += errs
+        rec, errs = check_label(doc) if len(problems) == n_problems else (None, [])
+        problems += errs
+        if len(problems) > n_problems:
+            rejected.add(p.name)
             continue
         d = {} if private else (drafts.get(rec["image_id"]) or {})
         rec["draft_model"] = d.get("model")              # None: labelled without a draft
         rec["prefill_version"] = d.get("prefill_version")
         rec["anchoring"] = anchoring(rec["signs"], d.get("draft")) if d else None
         gold.append(rec)
+    print(f"label files: {statuses.get('done', 0)} done ({len(gold)} accepted, {len(rejected)} rejected), "
+          f"{statuses.get('todo', 0)} todo, {statuses.get('skip', 0)} skip"
+          + (f", {statuses['other']} with no valid status" if statuses.get("other") else ""))
     if problems:
-        raise SystemExit("labels have problems:\n" + "\n".join(problems))
+        raise SystemExit(f"{len(rejected)} label files rejected; nothing was written:\n" + "\n".join(problems))
     gold.sort(key=lambda r: (r["split"], _id_key(r["image_id"])))
-    write_gold(gold, out)
+    write_gold(gold, out, replace=replace)
     print(f"{len(gold)} labelled images -> {Path(out).relative_to(ROOT) if Path(out).is_relative_to(ROOT) else out}")
     if not private:
         rows = visual_review_rows(gold)
@@ -861,6 +915,8 @@ def main() -> None:
     sub.add_parser("sheet")
     i = sub.add_parser("import")
     i.add_argument("--private", action="store_true")
+    i.add_argument("--replace", action="store_true",
+                   help="allow a gold file with fewer rows or fewer image ids than the existing one")
     a = ap.parse_args()
     if a.cmd == "select":
         select(a.n)
@@ -875,7 +931,7 @@ def main() -> None:
     elif a.cmd == "sheet":
         sheet()
     elif a.cmd == "import":
-        import_labels(private=a.private)
+        import_labels(private=a.private, replace=a.replace)
 
 
 if __name__ == "__main__":

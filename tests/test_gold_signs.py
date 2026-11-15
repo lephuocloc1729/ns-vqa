@@ -475,3 +475,93 @@ def test_sheet_writes_cleaned_yaml_flags_errors_and_leaves_drafts_alone(work, mo
     page = (gs.WORK / "sheet.html").read_text()
     assert "needs fix: unknown sign code &#x27;local&#x27;" in page
     assert "2 of 3 label files have no format errors" in page
+
+
+# ---------------------------------------------------------------- import overwrite guard
+
+def gold_row(iid, split="train"):
+    return {"image_id": iid, "split": split, "signs": [], "vehicles": []}
+
+
+def test_zero_done_labels_write_nothing(work, capsys):
+    write_yaml(work / "work/labels/train/train_1_3.yaml", label(status="todo"))
+    out = work / "gold.jsonl"
+    with pytest.raises(SystemExit, match="0 labels; nothing was written"):
+        gs.import_labels(out=out)
+    assert not out.exists()
+    assert "0 done (0 accepted, 0 rejected), 1 todo, 0 skip" in capsys.readouterr().out
+    out.write_text(json.dumps(gold_row("train_1_3")) + "\n")          # an existing gold file
+    before = out.read_bytes()
+    with pytest.raises(SystemExit):
+        gs.import_labels(out=out)
+    assert out.read_bytes() == before
+
+
+def test_fewer_rows_are_refused_unless_replace(tmp_path):
+    out = tmp_path / "gold.jsonl"
+    gs.write_gold([gold_row("train_1_3"), gold_row("train_1_8")], out)
+    before = out.read_bytes()
+    with pytest.raises(SystemExit, match="it has 2 rows, the new file 1") as e:
+        gs.write_gold([gold_row("train_1_3")], out)
+    assert "train_1_8" in str(e.value) and "--replace" in str(e.value)
+    assert out.read_bytes() == before
+    gs.write_gold([gold_row("train_1_3")], out, replace=True)
+    assert gs.existing_gold_ids(out) == ["train_1_3"]
+
+
+def test_a_dropped_image_id_is_refused_even_with_as_many_rows(tmp_path):
+    out = tmp_path / "gold.jsonl"
+    gs.write_gold([gold_row("train_1_3"), gold_row("train_1_8")], out)
+    with pytest.raises(SystemExit, match="1 image ids would be lost: train_1_8"):
+        gs.write_gold([gold_row("train_1_3"), gold_row("train_1_9")], out)
+    assert gs.existing_gold_ids(out) == ["train_1_3", "train_1_8"]
+    gs.write_gold([gold_row("train_1_3"), gold_row("train_1_8"), gold_row("train_1_9")], out)  # growing is fine
+    assert len(gs.existing_gold_ids(out)) == 3
+
+
+def test_import_replace_flag_reaches_the_writer(work):
+    out = work / "gold.jsonl"
+    gs.write_gold([gold_row("train_1_3"), gold_row("train_1_8")], out)
+    write_yaml(work / "work/labels/train/train_1_3.yaml", label())
+    with pytest.raises(SystemExit, match="refusing to replace"):
+        gs.import_labels(out=out)
+    assert [g["image_id"] for g in gs.import_labels(out=out, replace=True)] == ["train_1_3"]
+
+
+def test_the_same_rules_hold_on_the_private_path(monkeypatch, tmp_path):
+    path = tmp_path / "gold_signs_private.jsonl"
+    monkeypatch.setattr(gs, "PRIVATE_GOLD", path)
+    monkeypatch.setattr(gs, "PRIVATE_OUT", tmp_path)
+    monkeypatch.setattr(gs, "is_gitignored", lambda p: True)
+    with pytest.raises(SystemExit, match="0 labels"):
+        gs.write_gold([], path)
+    gs.write_gold([gold_row("q_1", "private"), gold_row("q_2", "private")], path)
+    with pytest.raises(SystemExit, match="would be lost: q_2"):
+        gs.write_gold([gold_row("q_1", "private")], path)
+    gs.write_gold([gold_row("q_1", "private")], path, replace=True)
+    assert gs.existing_gold_ids(path) == ["q_1"]
+
+
+def test_atomic_write_leaves_no_temp_file(tmp_path, monkeypatch):
+    out = tmp_path / "gold.jsonl"
+    gs.write_gold([gold_row("train_1_3")], out)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["gold.jsonl"]
+    before = out.read_bytes()
+
+    def crash(src, dst):
+        raise OSError("disk full")
+    monkeypatch.setattr(gs.os, "replace", crash)
+    with pytest.raises(OSError):
+        gs.write_gold([gold_row("train_1_3"), gold_row("train_1_8")], out)
+    assert out.read_bytes() == before                      # the old file is intact
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["gold.jsonl"]   # temp file removed
+
+
+def test_import_summary_counts_rejected_files(work, capsys):
+    write_yaml(work / "work/labels/train/train_1_3.yaml", label(signs=[sign(code="P.999")]))
+    write_yaml(work / "work/labels/train/train_1_8.yaml", label(image_id="train_1_8", status="todo"))
+    out = work / "gold.jsonl"
+    with pytest.raises(SystemExit, match="1 label files rejected; nothing was written"):
+        gs.import_labels(out=out)
+    assert not out.exists()
+    assert "1 done (0 accepted, 1 rejected), 1 todo, 0 skip" in capsys.readouterr().out
