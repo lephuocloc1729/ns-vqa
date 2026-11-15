@@ -20,7 +20,7 @@ from vqa.kb import load_catalog
 PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts" / "parser"
 
 
-def examples(version: str = "v2") -> list[dict]:
+def examples(version: str = "v3") -> list[dict]:
     path = PROMPTS_DIR / version / "fewshot.jsonl"
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()
             if line.strip()]
@@ -34,7 +34,7 @@ def catalog_table() -> str:
 
 
 @lru_cache(maxsize=8)
-def system_prompt(version: str = "v2") -> str:
+def system_prompt(version: str = "v3") -> str:
     spec = (PROMPTS_DIR / version / "spec.md").read_text(encoding="utf-8").strip()
     shots = []
     for ex in examples(version):

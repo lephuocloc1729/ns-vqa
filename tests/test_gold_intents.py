@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 import eval.gold_intents as gi
+from vqa.llm.pricing import cost_usd, worst_case_usd
 from vqa.llm.spend import SpendLimitExceeded
 
 
@@ -159,8 +160,12 @@ def test_run_stops_when_the_prompt_is_not_cached(seq_out, engine):
 def test_run_resumes_and_records_failures(seq_out, engine):
     sdk = SeqSDK([{"cache_creation_input_tokens": 29_990}, {"stop": "max_tokens",
                                                              "cache_read_input_tokens": 29_990}])
-    with pytest.raises(SpendLimitExceeded):              # spend limit after two calls
-        gi.run(0.49, sdk=sdk, engine=engine)  # call 3 worst case (~$0.31) no longer fits
+    # a limit that lets call 2 through and stops call 3 before it is sent
+    first = cost_usd(gi.MODEL, input_tokens=10, output_tokens=900, cache_write_tokens=29_990)
+    second = cost_usd(gi.MODEL, input_tokens=10, output_tokens=900, cache_read_tokens=29_990)
+    limit = first + worst_case_usd(gi.MODEL, 30_000, gi.MAX_TOKENS) + second / 2
+    with pytest.raises(SpendLimitExceeded):
+        gi.run(limit, sdk=sdk, engine=engine)
     done = [json.loads(l) for l in (seq_out / "run_progress.jsonl").read_text().splitlines()]
     assert [d["draft_status"] for d in done] == ["ok", "invalid"]
     assert "max_tokens" in done[1]["errors"][0]
@@ -180,3 +185,16 @@ def test_estimate_reports_sequential_cost(tmp_out):
     est = gi.estimate(CountSDK())
     assert est["expected_usd_all_cache_hits"] < est["sequential_expected_usd"] \
         < est["sequential_expected_usd_double_output"]
+
+
+def test_run_marks_a_non_json_reply_invalid(seq_out, engine):
+    sdk = SeqSDK([{"cache_creation_input_tokens": 29_990, "text": "Program: " + GOOD}])
+    drafts = gi.run(5.0, sdk=sdk, engine=engine)
+    assert drafts["q0"]["draft_status"] == "invalid" and "JSON" in drafts["q0"]["errors"][0]
+    assert all(drafts[f"q{i}"]["draft_status"] == "ok" for i in (1, 2, 3))
+
+
+def test_requests_carry_no_schema(seq_out, engine):
+    sdk = SeqSDK([{"cache_creation_input_tokens": 29_990}])
+    gi.run(5.0, sdk=sdk, engine=engine)
+    assert all(r["output_config"] == {"effort": "medium"} for r in sdk.sent)

@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from vqa.llm.client import LLMClient, LLMRefusal, LLMTruncated
+from vqa.llm.client import LLMBadJSON, LLMClient, LLMRefusal, LLMTruncated, parse_json_reply
 from vqa.llm.pricing import cost_usd, worst_case_usd
 from vqa.llm.spend import SpendGuard, SpendLimitExceeded
 
@@ -64,40 +64,89 @@ def test_spend_guard(monkeypatch):
     assert SpendGuard().limit == 2.0
 
 
-def test_structured_call_logs_and_parses(tmp_log):
+def test_json_call_logs_and_parses(tmp_log):
     sdk = FakeSDK([('{"ok": true}', "end_turn", {})])
     c = LLMClient(model="claude-haiku-5-5", sdk=sdk, guard=SpendGuard(1.0))
-    r = c.structured(system="SPEC", user="Q", schema={"type": "object"}, effort="low",
-                     purpose="parse")
+    r = c.json_reply(system="SPEC", user="Q", effort="low", purpose="parse")
     assert r.data == {"ok": True} and r.cost_usd > 0
     req = sdk.created[0]
     assert req["system"][0]["cache_control"] == {"type": "ephemeral"}
-    assert req["output_config"] == {"format": {"type": "json_schema", "schema": {"type": "object"}},
-                                    "effort": "low"}
+    assert req["output_config"] == {"effort": "low"}              # no JSON schema is sent
     rec = json.loads(tmp_log.read_text().splitlines()[0])
-    assert rec["purpose"] == "parse" and rec["cache_read_tokens"] == 900
+    assert rec["purpose"] == "parse" and rec["cache_read_tokens"] == 900 and rec["status"] == "ok"
     assert rec["cost_usd"] == pytest.approx(r.cost_usd, abs=1e-6)
     assert "api_key" not in json.dumps(rec).lower()
 
 
 def test_effort_left_out_means_model_default():
     sdk = FakeSDK([("{}", "end_turn", {})])
-    LLMClient(model="claude-haiku-5-5", sdk=sdk).structured(system="S", user="Q", schema={})
-    assert "effort" not in sdk.created[0]["output_config"]
+    LLMClient(model="claude-haiku-5-5", sdk=sdk).json_reply(system="S", user="Q")
+    assert "output_config" not in sdk.created[0]
 
 
 def test_guard_stops_before_sending():
     sdk = FakeSDK([("{}", "end_turn", {})], prompt_tokens=10_000_000)
     c = LLMClient(model="claude-opus-5-5", sdk=sdk, guard=SpendGuard(2.0))
     with pytest.raises(SpendLimitExceeded):
-        c.structured(system="S", user="Q", schema={})
+        c.json_reply(system="S", user="Q")
     assert sdk.created == []
 
 
-def test_refusal_and_truncation_raise():
+def test_refusal_and_truncation_raise(tmp_log):
     c = LLMClient(model="claude-haiku-5-5", sdk=FakeSDK([("", "refusal", {})]))
     with pytest.raises(LLMRefusal):
-        c.structured(system="S", user="Q", schema={})
+        c.json_reply(system="S", user="Q")
     c = LLMClient(model="claude-haiku-5-5", sdk=FakeSDK([('{"a":', "max_tokens", {})]))
-    with pytest.raises(LLMTruncated):
-        c.structured(system="S", user="Q", schema={})
+    with pytest.raises(LLMTruncated, match="cut off at max_tokens"):
+        c.json_reply(system="S", user="Q")
+    assert [json.loads(l)["status"] for l in tmp_log.read_text().splitlines()] == \
+        ["refusal", "max_tokens"]
+
+
+@pytest.mark.parametrize("text,data", [
+    ('{"a": 1}', {"a": 1}),
+    ('\n  {"a": 1}  \n', {"a": 1}),
+    ('```json\n{"a": 1}\n```', {"a": 1}),
+    ('```json\n{\n  "a": [1, 2]\n}\n```\n', {"a": [1, 2]}),
+])
+def test_reply_parsing_accepts_bare_or_fenced_objects(text, data):
+    assert parse_json_reply(text) == data
+
+
+@pytest.mark.parametrize("text,msg", [
+    ('Sure! {"a": 1}', "only a JSON object"),
+    ('{"a": 1} Hope this helps.', "not valid JSON"),
+    ('```\n{"a": 1}\n```', "only a JSON object"),            # a fence must say json
+    ('```json\n{"a": 1}\n``` and more', "only a JSON object"),
+    ('{"a": ', "not valid JSON"),
+    ("[1, 2]", "only a JSON object"),
+    ("", "only a JSON object"),
+])
+def test_reply_parsing_rejects_everything_else(text, msg):
+    with pytest.raises(LLMBadJSON, match=msg):
+        parse_json_reply(text)
+
+
+def test_bad_json_is_billed_logged_and_raised(tmp_log):
+    c = LLMClient(model="claude-haiku-5-5", sdk=FakeSDK([("not json", "end_turn", {})]))
+    with pytest.raises(LLMBadJSON) as e:
+        c.json_reply(system="S", user="Q")
+    assert e.value.raw_text == "not json" and e.value.cost_usd > 0
+    rec = json.loads(tmp_log.read_text())
+    assert rec["status"] == "bad_json" and rec["cost_usd"] > 0
+
+
+def test_http_errors_are_logged_with_zero_cost(tmp_log):
+    class BadRequest(Exception):
+        status_code, request_id = 400, "req_x"
+
+    class Failing(FakeSDK):
+        def create(self, **kw):
+            raise BadRequest("The compiled grammar is too large")
+
+    c = LLMClient(model="claude-opus-5-5", sdk=Failing([]), guard=SpendGuard(1.0))
+    with pytest.raises(BadRequest):
+        c.json_reply(system="S", user="Q", purpose="gold-intent draft")
+    rec = json.loads(tmp_log.read_text())
+    assert rec["status"] == "http_error" and rec["cost_usd"] == 0.0 and rec["http_status"] == 400
+    assert rec["request_id"] == "req_x" and "grammar" in rec["error"] and c.guard.spent == 0

@@ -1,18 +1,23 @@
-"""Thin wrapper around the Anthropic SDK for structured-output calls.
+"""Thin wrapper around the Anthropic SDK for calls that reply with one JSON object.
 
 - The API key comes from the environment (ANTHROPIC_API_KEY, or any credential
   source the SDK resolves); it is never passed in code or written anywhere.
+- No JSON schema is sent (output_config.format). The API caps strict schemas at 24
+  optional and 16 union-typed parameters in total, far below what the query DSL
+  needs, so the reply is plain text: a bare JSON object, or one in a ```json fence.
+  Anything else raises LLMBadJSON; callers validate the object themselves.
 - Before a request, its prompt is counted (messages.count_tokens) and the worst
   case (whole prompt as a cache write, full max_tokens out) is checked against
   the SpendGuard.
-- After it, usage and cost are logged to logs/api_calls.jsonl.
-- refusal and max_tokens stop reasons raise, since the output may not match the
-  schema then.
+- Every request is logged to logs/api_calls.jsonl with a status: ok, refusal,
+  max_tokens, bad_json, or http_error (cost 0: nothing was billed).
+- refusal and max_tokens stop reasons raise, each with its own message.
 """
 
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -31,6 +36,32 @@ class LLMRefusal(LLMError):
 
 class LLMTruncated(LLMError):
     pass
+
+
+class LLMBadJSON(LLMError):
+    """The reply is not one JSON object (bare, or in a ```json fence)."""
+
+
+_FENCE = re.compile(r"\A```json[ \t]*\n(.*)\n```\Z", re.S)
+
+
+def parse_json_reply(text: str) -> dict[str, Any]:
+    """The JSON object in a reply: the whole reply, or the inside of one ```json
+    fence that is the whole reply. Raises LLMBadJSON otherwise."""
+    body = text.strip()
+    m = _FENCE.match(body)
+    if m:
+        body = m.group(1).strip()
+    if not body.startswith("{"):
+        raise LLMBadJSON("the reply must be only a JSON object (optionally in a ```json fence), "
+                         "with no text around it")
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError as e:
+        raise LLMBadJSON(f"the reply is not valid JSON: {e.msg} at line {e.lineno} column {e.colno}") from e
+    if not isinstance(data, dict):
+        raise LLMBadJSON("the reply must be a JSON object")
+    return data
 
 
 @dataclass
@@ -63,24 +94,36 @@ class LLMClient:
         """The frozen system prompt as one cached text block."""
         return [{"type": "text", "text": stable, "cache_control": {"type": "ephemeral"}}]
 
-    def output_config(self, schema: dict[str, Any], effort: str | None) -> dict[str, Any]:
-        cfg: dict[str, Any] = {"format": {"type": "json_schema", "schema": schema}}
-        if effort:
-            cfg["effort"] = effort
-        return cfg
+    def _log(self, purpose: str, effort: str | None, status: str, **rec: Any) -> None:
+        log_call({"run_id": self.run_id, "purpose": purpose, "model": self.model, "batch": False,
+                  "effort": effort, "status": status, **rec})
 
-    def structured(self, *, system: str, user: str, schema: dict[str, Any],
-                   max_tokens: int = 4096, effort: str | None = None,
-                   purpose: str = "", extra_messages: list[dict] | None = None) -> CallResult:
+    def json_reply(self, *, system: str, user: str, max_tokens: int = 4096,
+                   effort: str | None = None, purpose: str = "",
+                   extra_messages: list[dict] | None = None) -> CallResult:
+        """One call whose reply must be a JSON object. Raises LLMRefusal,
+        LLMTruncated, LLMBadJSON (after logging and counting the cost), or the
+        SDK's own error for HTTP failures (logged with cost 0)."""
         messages = [{"role": "user", "content": user}] + (extra_messages or [])
         sys_blocks = self.system_blocks(system)
-        out_cfg = self.output_config(schema, effort)
-        counted = self.sdk.messages.count_tokens(model=self.model, system=sys_blocks,
-                                                 messages=messages, output_config=out_cfg)
+        kw: dict[str, Any] = {"output_config": {"effort": effort}} if effort else {}
+        try:
+            counted = self.sdk.messages.count_tokens(model=self.model, system=sys_blocks,
+                                                     messages=messages, **kw)
+        except Exception as e:
+            self._log(purpose, effort, "http_error", call="count_tokens", cost_usd=0.0,
+                      http_status=getattr(e, "status_code", None), error=str(e)[:500])
+            raise
         self.guard.check(worst_case_usd(self.model, counted.input_tokens, max_tokens), purpose)
-
-        resp = self.sdk.messages.create(model=self.model, max_tokens=max_tokens, system=sys_blocks,
-                                        messages=messages, output_config=out_cfg)
+        try:
+            resp = self.sdk.messages.create(model=self.model, max_tokens=max_tokens,
+                                            system=sys_blocks, messages=messages, **kw)
+        except Exception as e:
+            self.last_usage = None
+            self._log(purpose, effort, "http_error", call="create", cost_usd=0.0,
+                      http_status=getattr(e, "status_code", None),
+                      request_id=getattr(e, "request_id", None), error=str(e)[:500])
+            raise
         u = resp.usage
         usage = {
             "input_tokens": u.input_tokens or 0,
@@ -92,18 +135,23 @@ class LLMClient:
         cost = cost_usd(self.model, **usage)
         self.guard.add(cost)
         rid = getattr(resp, "_request_id", None)
-        log_call({"run_id": self.run_id, "purpose": purpose, "model": self.model, "batch": False,
-                  "request_id": rid, "stop_reason": resp.stop_reason, "effort": effort,
-                  **usage, "cost_usd": round(cost, 6)})
-
+        text = next((b.text for b in resp.content if b.type == "text"), "")
+        status, err, data = "ok", None, None
         if resp.stop_reason == "refusal":
             details = getattr(resp, "stop_details", None)
-            raise LLMRefusal(f"model declined ({getattr(details, 'category', None)})")
-        if resp.stop_reason == "max_tokens":
-            raise LLMTruncated(f"output cut at max_tokens={max_tokens}")
-        text = next((b.text for b in resp.content if b.type == "text"), "")
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError as e:
-            raise LLMError(f"output is not JSON: {e}") from e
+            status, err = "refusal", LLMRefusal(f"model declined ({getattr(details, 'category', None)})")
+        elif resp.stop_reason == "max_tokens":
+            status, err = "max_tokens", LLMTruncated(
+                f"the reply was cut off at max_tokens={max_tokens}; raise max_tokens")
+        else:
+            try:
+                data = parse_json_reply(text)
+            except LLMBadJSON as e:
+                status, err = "bad_json", e
+        self._log(purpose, effort, status, request_id=rid, stop_reason=resp.stop_reason,
+                  **usage, cost_usd=round(cost, 6))
+        if err is not None:
+            err.raw_text = text            # type: ignore[attr-defined]
+            err.cost_usd = cost            # type: ignore[attr-defined]
+            raise err
         return CallResult(data=data, cost_usd=cost, usage=usage, request_id=rid, raw_text=text)

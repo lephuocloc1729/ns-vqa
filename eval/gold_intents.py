@@ -43,21 +43,24 @@ from vqa.parsing import validator  # noqa: E402
 from vqa.parsing.prompt import examples, system_prompt  # noqa: E402
 from pydantic import ValidationError  # noqa: E402
 
-from vqa.parsing.wire import WParse, compact, explain, flat_answer, from_wire, json_schema, to_query  # noqa: E402
+from vqa.llm.client import LLMBadJSON, parse_json_reply  # noqa: E402
+from vqa.parsing.wire import WParse, compact, explain, from_wire, to_query  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 DATASET = Path(os.environ.get("VQA_DATASET_DIR", ROOT / "VLSP2025-MLQA-Natural")) / "dataset"
 OUT = ROOT / "data" / "annotations" / "gold_intents_v1"
 MODEL = "claude-opus-5-5"
 EFFORT = "medium"
-MAX_TOKENS = 8000   # a 4-option choose is ~1.6k tokens of flat JSON, plus thinking
+MAX_TOKENS = 4000   # compact JSON (at most a few hundred tokens) plus adaptive thinking
 # exact count (2026-11-15) was 36,817 prompt tokens per request against a rough 17,210:
-# Vietnamese text and the JSON schema take far more tokens than bytes / 3.5 suggests
+# Vietnamese text and the JSON schema take far more tokens than bytes / 3.5 suggests.
+# Measured with the schema in the prompt; with no schema (v3) it is unchecked, so
+# rely on the exact count (estimate with ANTHROPIC_API_KEY set).
 ROUGH_PROMPT_CALIBRATION = 2.14
 MIN_CACHE_SHARE = 0.9   # sequential run: share of the prompt that must come from the cache
 SEED = 20261115
 TRAIN_SAMPLE = 40
-PROMPT_VERSION = "v2"
+PROMPT_VERSION = "v3"
 CONTEXT_YEAR = 2025  # questions in this dataset come from 2025; used for missing years
 
 
@@ -146,11 +149,11 @@ def rough_tokens(text: str) -> int:
 
 
 def expected_output_tokens() -> int:
-    """Average full wire answer (every flat-schema field, nulls included, as the
-    model must write it) plus an allowance for adaptive thinking at medium effort."""
+    """Average compact answer (as in the few-shots; no schema forces the null
+    fields) plus an allowance for adaptive thinking at medium effort."""
     sizes = []
     for ex in examples(PROMPT_VERSION):
-        full = flat_answer(ex["output"])
+        full = ex["output"]
         sizes.append(rough_tokens(json.dumps(full, ensure_ascii=False)))
     return int(sum(sizes) / len(sizes)) + 800
 
@@ -162,11 +165,10 @@ def estimate(sdk=None) -> dict:
     if sdk is not None:
         counts = [sdk.messages.count_tokens(
             model=MODEL, system=sys_blocks, messages=[{"role": "user", "content": user_text(r["question"])}],
-            output_config={"format": {"type": "json_schema", "schema": json_schema()},
-                           "effort": EFFORT}).input_tokens for r in rows]
+            output_config={"effort": EFFORT}).input_tokens for r in rows]
         method = "exact (messages.count_tokens)"
     else:
-        base = rough_tokens(system) + rough_tokens(json.dumps(json_schema()))
+        base = rough_tokens(system)
         counts = [int((base + rough_tokens(user_text(r["question"]))) * ROUGH_PROMPT_CALIBRATION)
                   for r in rows]
         method = f"rough (no API key: bytes / 3.5 x {ROUGH_PROMPT_CALIBRATION}, +-30%)"
@@ -205,11 +207,10 @@ def submit(max_spend: float) -> str:
     guard.check(est["worst_case_usd"], "gold-intent batch")
     system = system_prompt(PROMPT_VERSION)
     sys_blocks = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
-    schema = json_schema()
     reqs = [{"custom_id": r["id"], "params": {
         "model": MODEL, "max_tokens": MAX_TOKENS, "system": sys_blocks,
         "messages": [{"role": "user", "content": user_text(r["question"])}],
-        "output_config": {"format": {"type": "json_schema", "schema": schema}, "effort": EFFORT}}}
+        "output_config": {"effort": EFFORT}}}
         for r in load_questions()]
     batch = sdk.messages.batches.create(requests=reqs)
     (OUT / "batch.json").write_text(json.dumps({"batch_id": batch.id, "estimate": est,
@@ -227,14 +228,16 @@ def reviewed_rows(path: Path) -> int:
 
 
 def parse_draft(rec: dict, text: str, engine) -> dict:
-    """Fill a draft record from the model's JSON text: draft program, validator
+    """Fill a draft record from the model's reply text: draft program, validator
     errors, and draft_status (ok | out_of_scope | invalid)."""
     try:
-        w = from_wire(json.loads(text))
+        w = from_wire(parse_json_reply(text))
         rec["draft"] = compact(w)
         rec["errors"] = validator.check(to_query(w, CONTEXT_YEAR), engine)
         rec["draft_status"] = "invalid" if rec["errors"] else (
             "out_of_scope" if w.out_of_scope else "ok")
+    except LLMBadJSON as e:
+        rec["draft_status"], rec["errors"] = "invalid", [str(e)]
     except ValidationError as e:
         rec["draft_status"], rec["errors"] = "invalid", [explain(e)]
     except Exception as e:  # noqa: BLE001 - recorded for the reviewer
@@ -342,13 +345,13 @@ def run(max_spend: float, sdk=None, engine=None, check_at: int = 2,
             if line.strip():
                 rec = json.loads(line)
                 drafts[rec["id"]] = rec
-    system, schema = system_prompt(PROMPT_VERSION), json_schema()
+    system = system_prompt(PROMPT_VERSION)
     todo = [q for q in load_questions() if q["id"] not in drafts]
     print(f"{len(drafts)} already drafted, {len(todo)} to go (limit ${max_spend:.2f})")
     for n, q in enumerate(todo, 1):
         rec = {**q, "draft": None, "errors": []}
         try:
-            res = client.structured(system=system, user=user_text(q["question"]), schema=schema,
+            res = client.json_reply(system=system, user=user_text(q["question"]),
                                     max_tokens=MAX_TOKENS, effort=EFFORT,
                                     purpose="gold-intent draft (sequential)")
             parse_draft(rec, res.raw_text, engine)

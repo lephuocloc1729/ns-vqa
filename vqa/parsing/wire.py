@@ -1,9 +1,15 @@
-"""The parser's output format ("wire" schema) and its conversion to QueryProgram.
+"""The parser's output format ("wire" models) and its conversion to QueryProgram.
 
-Structured outputs do not accept recursive JSON schemas, while the internal
-Program type is recursive (all_of holds claims, which can be all_of again). The
-wire schema caps nesting at one level, which covers every question form seen in
-the audits:
+The model replies with one JSON object in plain text; no JSON schema is sent. The
+API caps strict schemas (output_config.format) at 24 optional and 16 union-typed
+parameters in total, far below what this DSL needs: three attempts on 2026-11-15
+were rejected with "The compiled grammar is too large". These Pydantic models are
+the contract instead: from_wire() validates a reply against them, and explain()
+turns a validation error into a short message for the parser's retry.
+
+Nesting is capped at one level (claims inside verify / choose / all_of / any_of
+are plain claims). The cap first came from structured outputs rejecting recursive
+schemas; no schema is sent any more, but the cap is kept for now:
 
     leaf claim  = permitted | forbidden | speed_ok | required | exists_violation | is_sign
     claim       = leaf claim | all_of(leaf claims) | any_of(leaf claims)
@@ -11,14 +17,10 @@ the audits:
                 | lanes_for | lanes_where | ban_times | meaning | which_vehicles
                 | lane_vehicles | speed_limit
 
-Enums come from the ontology (vehicle classes, actions). Sign codes and meaning
-keys/tags are plain strings in the JSON schema: as enums (219 codes, 232 keys)
-they made the compiled grammar too large for the API. The system prompt's catalog
-table lists them, and the Pydantic models check them against the catalog, with a
-short error the parser's retry can act on.
-Every field is required in the JSON schema sent to the API (nullable where the
-DSL makes it optional); the Pydantic models keep defaults so compact examples
-validate too.
+Vehicle classes and actions are enums from the ontology. Sign codes and meaning
+keys/tags are strings checked against the catalog (the system prompt's catalog
+table lists them), with a short error the retry can act on. The unions are
+discriminated on `intent`, so an error names the variant the reply chose.
 
 Defaults the parser fills (recorded in QueryProgram.defaults_applied):
   year     a date with day and month but no year gets the context year
@@ -27,8 +29,6 @@ Defaults the parser fills (recorded in QueryProgram.defaults_applied):
 
 from __future__ import annotations
 
-import copy
-import json
 import datetime as dt
 from typing import Annotated, Any, Literal, Optional, Union
 
@@ -257,21 +257,7 @@ class WParse(_W):
     program: Optional[WProgram] = None
 
 
-# --------------------------------------------------------------------------- schema
-
-def _strict(node: Any) -> Any:
-    """Every object property required, no 'default' keys (nullable fields stay
-    nullable through anyOf-null)."""
-    if isinstance(node, dict):
-        out = {k: _strict(v) for k, v in node.items() if k != "default"}
-        if out.get("type") == "object" and "properties" in out:
-            out["required"] = list(out["properties"])
-            out["additionalProperties"] = False
-        return out
-    if isinstance(node, list):
-        return [_strict(x) for x in node]
-    return node
-
+# --------------------------------------------------------------------------- parse
 
 def explain(e: ValidationError) -> str:
     """A short message for a wire validation error. The program is a union, so
@@ -284,103 +270,6 @@ def explain(e: ValidationError) -> str:
     return "; ".join(f"{'.'.join(str(p) for p in x['loc'])}: {x['msg']}" for x in errs[:3])
 
 
-def _base(prop: dict) -> dict:
-    """A property schema without title/default and without its null branch."""
-    prop = {k: v for k, v in prop.items() if k not in ("title", "default")}
-    alts = prop.get("anyOf")
-    if alts and any(a.get("type") == "null" for a in alts):
-        rest = [a for a in alts if a.get("type") != "null"]
-        prop = rest[0] if len(rest) == 1 else {"anyOf": rest}
-    return prop
-
-
-def _flat(models: tuple, defs: dict, overrides: dict[str, dict]) -> dict:
-    """One object with every field of `models` (all nullable) and `intent` naming
-    the variant. Same-named fields merge (enums are unioned)."""
-    intents, fields = [], {}
-    for m in models:
-        props = defs[m.__name__]["properties"]
-        intents.append(props["intent"]["const"])
-        for name, prop in props.items():
-            if name == "intent":
-                continue
-            base = overrides.get(name) or _base(prop)
-            fields.setdefault(name, []).append(base)
-    out = {"intent": {"type": "string", "enum": intents}}
-    for name, alts in fields.items():
-        uniq = list({json.dumps(a, sort_keys=True): a for a in alts}.values())
-        if len(uniq) > 1 and all("enum" in a for a in uniq):
-            merged = {"type": "string", "enum": sorted({v for a in uniq for v in a["enum"]})}
-        elif len(uniq) > 1:
-            merged = {"anyOf": uniq}
-        else:
-            merged = uniq[0]
-        out[name] = {"anyOf": [merged, {"type": "null"}]}
-    return {"type": "object", "properties": out}
-
-
-def json_schema() -> dict[str, Any]:
-    """The JSON schema for output_config.format.
-
-    The typed union (17 program variants, 8 claim variants at every claim position)
-    compiled to a grammar the API rejected as too large: inlined, it was 168 KB with
-    1,184 anyOf branches. The schema sent is flat instead: one object per nesting
-    level (program, claim, leaf claim) holding every field its variants use, with
-    `intent` saying which apply. from_wire() drops the nulls and validates the
-    answer against the typed models, so wrong field/intent pairs are still caught.
-    """
-    full = WParse.model_json_schema()
-    defs = full["$defs"]
-    leaf_ref, claim_ref = {"$ref": "#/$defs/FlatLeaf"}, {"$ref": "#/$defs/FlatClaim"}
-    flat_defs = {
-        "FlatLeaf": _flat(_LEAF_MODELS, defs, {}),
-        "FlatClaim": _flat(_CLAIM_MODELS, defs, {"claims": {"type": "array", "items": leaf_ref}}),
-        "FlatProgram": _flat(_PROGRAM_MODELS, defs, {
-            "claims": {"type": "array", "items": leaf_ref},
-            "claim": claim_ref,
-            "options": {"type": "array", "items": {"type": "object", "properties": {
-                "label": {"type": "string"}, "claim": claim_ref,
-                "expect": {"anyOf": [{"type": "boolean"}, {"type": "null"}]}}}}}),
-    }
-    keep = {k: defs[k] for k in ("WVehicle", "WWhen", "WSelector")}
-    top = {"type": "object", "properties": {
-        "out_of_scope": {"type": "boolean"},
-        "out_of_scope_reason": {"anyOf": [{"type": "string"}, {"type": "null"}]},
-        "missing_slots": {"type": "array", "items": {"type": "string"}},
-        "program": {"anyOf": [{"$ref": "#/$defs/FlatProgram"}, {"type": "null"}]}},
-        "$defs": {**keep, **flat_defs}}
-    return _strict(copy.deepcopy(top))
-
-
-def flat_answer(compact: dict[str, Any]) -> dict[str, Any]:
-    """A compact answer (as in the few-shots) the way the API returns it under the
-    flat schema: every field present, null where the variant has nothing. Used to
-    size outputs for cost estimates, and in tests."""
-    defs = json_schema()["$defs"]
-
-    def fill(node: dict, level: str) -> dict:
-        out: dict[str, Any] = {k: None for k in defs[level]["properties"]}
-        for k, v in node.items():
-            if k == "claims":
-                v = [fill(c, "FlatLeaf") for c in v]
-            elif k == "claim":
-                v = fill(v, "FlatClaim")
-            elif k == "options":
-                v = [{"label": o["label"], "claim": fill(o["claim"], "FlatClaim"),
-                      "expect": o.get("expect")} for o in v]
-            elif k in ("vehicle", "when", "sign") and isinstance(v, dict):
-                sub = {"vehicle": "WVehicle", "when": "WWhen", "sign": "WSelector"}[k]
-                v = {**{f: None for f in defs[sub]["properties"]}, **v}
-            out[k] = v
-        return out
-
-    full: dict[str, Any] = {"out_of_scope": False, "out_of_scope_reason": None,
-                            "missing_slots": [], "program": None, **compact}
-    if full["program"] is not None:
-        full["program"] = fill(full["program"], "FlatProgram")
-    return full
-
-
 def _drop_nulls(node: Any) -> Any:
     if isinstance(node, dict):
         return {k: _drop_nulls(v) for k, v in node.items() if v is not None}
@@ -390,8 +279,8 @@ def _drop_nulls(node: Any) -> Any:
 
 
 def from_wire(data: dict[str, Any]) -> WParse:
-    """The model's flat answer as a typed WParse (null fields dropped, so they take
-    the models' defaults). Raises ValidationError on a field the intent does not use."""
+    """A reply object as a typed WParse. Null fields are dropped, so they take the
+    models' defaults. Raises ValidationError on a field the intent does not use."""
     return WParse.model_validate(_drop_nulls(data))
 
 

@@ -10,13 +10,14 @@ from types import SimpleNamespace
 import pytest
 
 from vqa.llm.client import LLMClient
-from vqa.llm.spend import SpendGuard
+from vqa.llm.pricing import cost_usd, worst_case_usd
+from vqa.llm.spend import SpendGuard, SpendLimitExceeded
 from vqa.parsing import validator
 from vqa.parsing.claude_parser import ClaudeParser
 from vqa.parsing.prompt import examples, system_prompt
 from pydantic import ValidationError
 
-from vqa.parsing.wire import WParse, explain, flat_answer, from_wire, json_schema, to_query
+from vqa.parsing.wire import WParse, explain, from_wire, to_query
 from vqa.schemas import QueryProgram
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -34,8 +35,14 @@ class FakeSDK:
     def create(self, **kw):
         self.created.append(kw)
         out = self.outputs.pop(0)
-        stop = "refusal" if out == "REFUSE" else "end_turn"
-        text = "" if out == "REFUSE" else json.dumps(out)
+        if isinstance(out, Exception):
+            raise out
+        stop = {"REFUSE": "refusal", "MAXTOK": "max_tokens"}.get(out, "end_turn") \
+            if isinstance(out, str) else "end_turn"
+        if stop != "end_turn":
+            text = '{"program": {"inte' if stop == "max_tokens" else ""
+        else:
+            text = out if isinstance(out, str) else json.dumps(out)   # str = raw reply text
         return SimpleNamespace(content=[SimpleNamespace(type="text", text=text)],
                                stop_reason=stop, stop_details=None, _request_id="r",
                                usage=SimpleNamespace(input_tokens=200, output_tokens=150,
@@ -56,44 +63,13 @@ def parser(outputs, engine, **kw):
 
 # ---------------------------------------------------------------- schema
 
-def test_wire_schema_is_strict_and_not_recursive():
-    s = json_schema()
-    defs = s["$defs"]
-    refs = {k: set(re.findall(r"#/\$defs/(\w+)", json.dumps(v))) for k, v in defs.items()}
-
-    def cyclic(start):
-        stack, seen = list(refs[start]), set()
-        while stack:
-            r = stack.pop()
-            if r == start:
-                return True
-            if r not in seen:
-                seen.add(r)
-                stack += list(refs[r])
-        return False
-
-    assert not [k for k in defs if cyclic(k)]
-
-    def walk(n):
-        if isinstance(n, dict):
-            if n.get("type") == "object" and "properties" in n:
-                assert n["additionalProperties"] is False
-                assert set(n["required"]) == set(n["properties"])
-            assert "default" not in n
-            for v in n.values():
-                walk(v)
-        elif isinstance(n, list):
-            for v in n:
-                walk(v)
-
-    walk(s)
-    text = json.dumps(s)
-    assert "every_vehicle" in text
-    # codes and meanings are strings, not enums: as enums the API's grammar was too large
-    assert "no_overtaking" not in text and "W.221a" not in text
-    enums = re.findall(r'"enum": \[([^\]]*)\]', text)
-    assert max(e.count(",") + 1 for e in enums) < 50
-    assert len(text) < 20_000
+def test_no_json_schema_is_sent(engine):
+    # the API caps strict schemas at 24 optional / 16 union-typed parameters in total;
+    # the DSL needs far more, so the reply is plain JSON checked by the wire models
+    p, sdk = parser([GOOD], engine)
+    p.parse("...")
+    req = sdk.created[0]
+    assert "format" not in req.get("output_config", {}) and "tools" not in req
 
 
 def test_unknown_code_or_meaning_gives_a_short_error():
@@ -155,9 +131,8 @@ def test_parse_ok(engine):
     r = p.parse("Xe ô tô không được phép di chuyển trong khung giờ từ 6:00 đến 22:00, đúng hay sai?")
     assert r.status == "ok" and r.attempts == 1 and r.query.program.intent == "forbidden"
     req = sdk.created[0]
-    assert req["output_config"]["effort"] == "low"
-    assert req["output_config"]["format"]["type"] == "json_schema"
-    assert req["system"][0]["text"] == system_prompt("v2")
+    assert req["output_config"] == {"effort": "low"}
+    assert req["system"][0]["text"] == system_prompt("v3")
     assert r.cost_usd > 0
 
 
@@ -190,30 +165,40 @@ def test_refusal_is_an_error(engine):
 def test_effort_is_configurable(engine):
     p, sdk = parser([GOOD], engine, effort=None)
     p.parse("...")
-    assert "effort" not in sdk.created[0]["output_config"]
+    assert "output_config" not in sdk.created[0]
 
 
 # ---------------------------------------------------------------- prompt and few-shots
 
 def test_prompt_is_stable_and_has_the_catalog():
-    s = system_prompt("v2")
-    assert s == system_prompt.__wrapped__("v2")      # byte-identical rebuild (prompt cache)
+    s = system_prompt("v3")
+    assert s == system_prompt.__wrapped__("v3")      # byte-identical rebuild (prompt cache)
+    assert "Reply with only the JSON object" in s and "required format" not in s
     assert "P.104 | no_motorbikes" in s and "## Examples" in s
 
 
-def test_fewshots_are_valid_programs(engine):
-    for ex in examples("v2"):
+def test_v3_is_v2_plus_the_reply_instruction():
+    v2, v3 = (ROOT / "prompts" / "parser" / v for v in ("v2", "v3"))
+    assert (v2 / "fewshot.jsonl").read_bytes() == (v3 / "fewshot.jsonl").read_bytes()
+    a, b = ((d / "spec.md").read_text().splitlines() for d in (v2, v3))
+    assert len(a) == len(b) and sum(x != y for x, y in zip(a, b)) == 1
+
+
+@pytest.mark.parametrize("version", ["v2", "v3"])
+def test_fewshots_are_valid_programs(engine, version):
+    for ex in examples(version):
         q = to_query(WParse.model_validate(ex["output"]), 2026)
         assert validator.check(q, engine) == [], ex["id"]
 
 
-def test_fewshots_come_from_train_or_public_dev_only():
+@pytest.mark.parametrize("version", ["v2", "v3"])
+def test_fewshots_come_from_train_or_public_dev_only(version):
     split = json.loads((ROOT / "data" / "splits" / "public_split.json").read_text())
     holdout = set(split["public_holdout"]["questions"])
     dev = set(split["public_dev"]["questions"])
-    ids = [ex["id"] for ex in examples("v2")]
+    ids = [ex["id"] for ex in examples(version)]
     assert len(ids) == len(set(ids))
-    for ex in examples("v2"):
+    for ex in examples(version):
         assert ex["split"] in ("train", "public_dev"), ex["id"]
         assert ex["id"] not in holdout and not ex["id"].startswith("private"), ex["id"]
         if ex["split"] == "public_dev":
@@ -222,34 +207,86 @@ def test_fewshots_come_from_train_or_public_dev_only():
              / "dataset" / "train data" / "vlsp_2025_train.json")
     if train.exists():
         rows = {t["id"]: t for t in json.loads(train.read_text(encoding="utf-8"))}
-        for ex in examples("v2"):
+        for ex in examples(version):
             if ex["split"] == "train":
                 assert ex["id"] in rows and rows[ex["id"]]["question"] == ex["question"], ex["id"]
 
 
-def test_flat_answers_parse_to_the_typed_programs():
-    for ex in examples("v2"):
-        flat = flat_answer(ex["output"])
-        assert from_wire(flat) == WParse.model_validate(ex["output"]), ex["id"]
-
-
-def test_flat_answer_with_a_field_its_intent_lacks_is_rejected():
-    flat = flat_answer({"program": {"intent": "meaning", "sign": {"only": True}}})
-    flat["program"]["speed_kmh"] = 50.0
+def test_reply_with_a_field_its_intent_lacks_is_rejected():
+    reply = {"program": {"intent": "meaning", "sign": {"only": True}, "speed_kmh": 50.0}}
     with pytest.raises(ValidationError) as e:
-        from_wire(flat)
+        from_wire(reply)
     assert "speed_kmh" in explain(e.value)
 
 
-def test_flat_schema_stays_small_when_inlined():
-    s = json_schema()
+def test_null_fields_take_their_defaults():
+    reply = {"out_of_scope": False, "out_of_scope_reason": None, "missing_slots": [],
+             "program": {"intent": "meaning", "sign": {"only": True, "code": None}}}
+    assert from_wire(reply) == WParse.model_validate({"program": {"intent": "meaning",
+                                                                  "sign": {"only": True}}})
 
-    def inline(n):
-        if isinstance(n, dict):
-            if "$ref" in n:
-                return inline(s["$defs"][n["$ref"].split("/")[-1]])
-            return {k: inline(v) for k, v in n.items() if k != "$defs"}
-        return [inline(x) for x in n] if isinstance(n, list) else n
 
-    text = json.dumps(inline(s))
-    assert len(text) < 40_000 and text.count('"anyOf"') < 300   # the typed union was 168 KB
+# ---------------------------------------------------------------- reply text
+
+FENCED = "```json\n" + json.dumps(GOOD) + "\n```"
+
+
+def test_bare_and_fenced_json_are_accepted(engine):
+    for reply in (json.dumps(GOOD), "  " + json.dumps(GOOD, indent=2) + "\n", FENCED):
+        p, _ = parser([reply], engine)
+        r = p.parse("...")
+        assert r.status == "ok" and r.attempts == 1, reply
+
+
+def test_prose_around_json_gets_one_retry(engine):
+    p, sdk = parser(["Here is the program:\n" + json.dumps(GOOD), GOOD], engine)
+    r = p.parse("...")
+    assert r.status == "ok" and r.attempts == 2
+    assert "only a JSON object" in sdk.created[1]["messages"][2]["content"]
+
+
+def test_broken_json_retry_then_success(engine):
+    p, sdk = parser(['{"program": {"intent": "meaning",', GOOD], engine)
+    r = p.parse("...")
+    assert r.status == "ok" and r.attempts == 2
+    assert "not valid JSON" in sdk.created[1]["messages"][2]["content"]
+    assert r.cost_usd > 0 and len(r.raw) == 2
+
+
+def test_broken_json_twice_is_invalid(engine):
+    p, sdk = parser(["{oops", "still not json"], engine)
+    r = p.parse("...")
+    assert r.status == "invalid" and r.attempts == 2 and len(sdk.created) == 2
+    assert "JSON" in r.errors[0]
+
+
+def test_max_tokens_is_an_error_without_retry(engine):
+    p, sdk = parser(["MAXTOK"], engine)
+    r = p.parse("...")
+    assert r.status == "error" and len(sdk.created) == 1
+    assert "cut off at max_tokens" in r.errors[0]
+
+
+def test_retry_goes_through_the_spend_guard(engine):
+    sdk = FakeSDK(["{oops", GOOD])
+    worst = worst_case_usd("claude-haiku-5-5", 12_000, 4096)
+    first = cost_usd("claude-haiku-5-5", input_tokens=200, output_tokens=150, cache_read_tokens=11_800)
+    llm = LLMClient(model="claude-haiku-5-5", sdk=sdk, guard=SpendGuard(worst + first / 2))
+    p = ClaudeParser(llm=llm, engine=engine, context_year=2026)
+    with pytest.raises(SpendLimitExceeded):
+        p.parse("...")
+    assert len(sdk.created) == 1
+
+
+def test_failed_calls_are_logged(engine, tmp_path):
+    class HTTP400(Exception):
+        status_code = 400
+    p, _ = parser([HTTP400("compiled grammar too large")], engine)
+    with pytest.raises(HTTP400):
+        p.parse("...")
+    p2, _ = parser(["MAXTOK"], engine)
+    p2.parse("...")
+    log = [json.loads(l) for l in (tmp_path / "api_calls.jsonl").read_text().splitlines()]
+    assert log[0]["status"] == "http_error" and log[0]["cost_usd"] == 0.0
+    assert log[0]["http_status"] == 400 and "grammar" in log[0]["error"]
+    assert log[1]["status"] == "max_tokens" and log[1]["cost_usd"] > 0

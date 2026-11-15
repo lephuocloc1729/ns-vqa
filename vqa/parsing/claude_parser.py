@@ -1,12 +1,17 @@
-"""The question parser: one Claude call with structured output turns a Vietnamese
-question into a QueryProgram (DESIGN.md, "Question parsing").
+"""The question parser: one Claude call turns a Vietnamese question into a
+QueryProgram (DESIGN.md, "Question parsing"). The reply is one JSON object in plain
+text (no JSON schema is sent: the API's strict-schema limits are far below what
+the DSL needs); the typed wire models and the validator check it.
 
 The parser never answers the question. It sees the question and, when available,
 the list of sign codes in the scene (not the image). In phase 2 there is no
 perception yet, so it sees the question only.
 
-Flow: call -> wire JSON -> QueryProgram (defaults applied) -> validator. If any step
-fails, one retry with the error message; a second failure is reported as invalid.
+Flow: call -> JSON object -> wire models -> QueryProgram (defaults applied) ->
+validator. Malformed JSON or a failed check gets exactly one retry carrying a short
+error message (the retry is an ordinary call, so the spend guard checks it); a
+second failure is reported as invalid. A refusal or a reply cut off at max_tokens
+is reported as error, with no retry.
 """
 
 from __future__ import annotations
@@ -16,11 +21,11 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from vqa.llm.client import LLMClient, LLMError
+from vqa.llm.client import LLMBadJSON, LLMClient, LLMError
 from vqa.llm.spend import SpendGuard, SpendLimitExceeded
 from vqa.parsing import validator
 from vqa.parsing.prompt import system_prompt
-from vqa.parsing.wire import explain, from_wire, json_schema, to_query
+from vqa.parsing.wire import explain, from_wire, to_query
 from vqa.reasoning.engine import Engine
 from vqa.schemas import QueryProgram
 
@@ -40,7 +45,7 @@ class ParseResult:
 
 class ClaudeParser:
     def __init__(self, *, llm: LLMClient | None = None, model: str = DEFAULT_MODEL,
-                 effort: str | None = DEFAULT_EFFORT, prompt_version: str = "v2",
+                 effort: str | None = DEFAULT_EFFORT, prompt_version: str = "v3",
                  context_year: int | None = None, engine: Engine | None = None,
                  guard: SpendGuard | None = None, max_tokens: int = 4096) -> None:
         self.llm = llm or LLMClient(model=model, guard=guard or SpendGuard())
@@ -50,7 +55,6 @@ class ClaudeParser:
         self.engine = engine or Engine()
         self.max_tokens = max_tokens
         self._system = system_prompt(prompt_version)
-        self._schema = json_schema()
 
     def _user(self, question: str, signs: list[str] | None) -> str:
         text = f"Question: {question.strip()}"
@@ -74,19 +78,26 @@ class ClaudeParser:
         for attempt in (1, 2):
             res.attempts = attempt
             try:
-                call = self.llm.structured(system=self._system, user=self._user(question, signs),
-                                           schema=self._schema, max_tokens=self.max_tokens,
-                                           effort=self.effort, purpose="parse",
-                                           extra_messages=extra)
+                call = self.llm.json_reply(system=self._system, user=self._user(question, signs),
+                                           max_tokens=self.max_tokens, effort=self.effort,
+                                           purpose="parse", extra_messages=extra)
             except SpendLimitExceeded:
                 raise
-            except LLMError as e:
+            except LLMBadJSON as e:
+                res.cost_usd += getattr(e, "cost_usd", 0.0)
+                raw = getattr(e, "raw_text", "")
+                res.raw.append(raw)
+                q, errs = None, [str(e)]
+            except LLMError as e:            # refusal, max_tokens: no retry
+                res.cost_usd += getattr(e, "cost_usd", 0.0)
                 res.errors.append(str(e))
                 res.status = "error"
                 return res
-            res.cost_usd += call.cost_usd
-            res.raw.append(call.raw_text)
-            q, errs = self._convert(call.data)
+            else:
+                res.cost_usd += call.cost_usd
+                raw = call.raw_text
+                res.raw.append(raw)
+                q, errs = self._convert(call.data)
             if q is not None:
                 res.query = q
                 res.status = "out_of_scope" if q.out_of_scope else "ok"
@@ -94,7 +105,7 @@ class ClaudeParser:
                 return res
             res.errors = errs
             res.status = "invalid"
-            extra = [{"role": "assistant", "content": call.raw_text},
-                     {"role": "user", "content": "That answer is not valid: "
-                      + "; ".join(errs) + ". Return a corrected answer."}]
+            extra = [{"role": "assistant", "content": raw or "(empty reply)"},
+                     {"role": "user", "content": "That answer is not valid: " + "; ".join(errs)
+                      + ". Reply with only the corrected JSON object."}]
         return res
