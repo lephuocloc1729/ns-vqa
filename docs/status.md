@@ -227,9 +227,29 @@ Full test suite: 369 passed.
 - **Image and user tokens per call:** 198–1,526.
 - **Projection for the other 73 images:** about $2.3 at $0.031 per image, about $2.9 if outputs run 25% longer. Add about $0.05 if the cache has expired and is written again. Stage 1 plus stage 2 comes to about $2.6–3.2, against the $2.85 estimate.
 
+- `a3e2da2` Pre-fill drafter: Haiku 5.5 for the remaining 73 images (the owner's D2 change). `prefill --model` (default Opus), recorded per draft; prompt version p2 = p1's text drafted by Haiku. `import` records each label's `draft_model`. `estimate` now prices each call on its own: summing first priced 73 Haiku calls as one 747K-token request at the long-prompt rate ($0.31 instead of $0.067).
+
+Full test suite: 373 passed.
+
+**Pre-fill stage 2, Haiku 5.5 (2026-11-15, owner-approved, `--max-spend 0.25`, run by the owner, run id `1d3b02b2b076`):** all 73 remaining images drafted (37 public_dev, 36 set T); the 8 Opus drafts were not redone.
+- **Cost: $0.0599** (estimate $0.067).
+- **Output tokens:** mean 1,307, median 1,106, max 4,089, min 179.
+- **Cache:** one cache write (9,690 tokens, call 1). Calls 2–73 read 94.6% of their prompt tokens from the cache; 93.3% over all 73.
+- **Status:** 42 ok, **31 invalid (42.5%)**, 0 bad_json, 0 truncated, 0 refused. That is above the owner's 30% stop line, so `sheet` was not run.
+- **Why the 31 are invalid.** An image can have several causes; the count in brackets is images with that cause alone.
+  - 13 (8): an extra field on a sign, mostly a per-sign `notes` (also `notes_text`, `notes_on_sign`, `text`);
+  - 8 (3): a vehicle written as a bare string (`"car"`) instead of `{class: car}`;
+  - 5 (3): a bad enum value (`days: [even]` as a list, `op: lte`, colour `dark`);
+  - 5 (4): a made-up code (`local`, `LOCAL`, `P.UNKNOWN`) for local or unread signs;
+  - 5 (2): a family code in the wrong form (`W.201(a,b)`, `R.301(a,...,h)`, `I.444 (… family)`);
+  - 4 (1): `UNKNOWN` on a sign marked readable;
+  - 2 (1): a real code missing from the catalog (P.116, P.118).
+- Most causes are format slips, which the reviewer would fix by hand. P.116 and P.118 are a catalog gap (P.118 / P.119 size limits are already a phase 1.7 open item).
+- **Pre-fill total so far: $0.3545** (stage 1 Opus $0.2946 + stage 2 Haiku $0.0599). `logs/api_calls.jsonl`: 663 lines.
+
 ## Next steps, in order
 
-0. **Phase 3 gold pre-fill, stage 2**, after the owner's go-ahead: `eval/gold_signs.py prefill --max-spend 3.2` (it resumes after the 8 drafted images), then `sheet`, review, `import`. Then the D10 visual check of the listed rows, before `prompts/scene/v1` is frozen.
+0. **Phase 3 gold pre-fill: all 81 images are drafted.** The Haiku invalid rate (42.5%) is above the 30% stop line. The owner decides how to handle invalid drafts before `sheet`, review and `import`. Then the D10 visual check of the listed rows, before `prompts/scene/v1` is frozen.
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
 2. **Done: the parser gate.** It passed for Sonnet 5.5 at medium on prompt v6; see the results above. The rest of this step is kept as a record. **Haiku on prompt v6, medium effort, three runs:**
