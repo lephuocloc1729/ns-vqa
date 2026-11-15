@@ -6,7 +6,8 @@ verify(scene) -> (scene, issues)
   weights > 0 and <= 60 t; heights and widths > 0 and <= 10 m; lengths > 0 and
   <= 30 m; seats 1-100. A value out of range is dropped and the sign lowered to
   low. A value on a rule row that takes none is dropped. A value-bearing row with
-  no value is lowered to low.
+  no value is lowered to low. An end-of-limit sign (a row with `ends`) keeps its
+  value as the limit being ended, checked as a speed when it ends a speed limit.
 - Look vs catalog: a reported shape / border / background that differs from the
   row's visual is always recorded. It lowers the sign to low only on rows with
   visual_reviewed_by: human (plan D10), and only when the shape or the background
@@ -48,7 +49,16 @@ def _row(code: str, catalog: Catalog):
     return catalog.get(r) if r else None
 
 
-def _check_values(s: Sign, row, issues: list[str]) -> Sign:
+def _ends_speed(row, catalog: Catalog) -> bool:
+    """Does this end-of-restriction row end a speed limit (DP.134 ends P.127)?"""
+    for c in row.effect.ends:
+        r = _row(c, catalog)
+        if r is not None and (r.effect.max_speed or r.effect.min_speed):
+            return True
+    return False
+
+
+def _check_values(s: Sign, row, issues: list[str], catalog: Catalog) -> Sign:
     upd: dict = {}
     e = row.effect
     if e.max_speed or e.min_speed:
@@ -67,6 +77,12 @@ def _check_values(s: Sign, row, issues: list[str]) -> Sign:
             upd.update(value=None, confidence=Confidence.low)
             issues.append(f"{s.id} {s.code}: {e.value.attr.value} {s.value} out of range; "
                           "dropped, lowered to low")
+    elif e.ends:
+        # an end-of-limit sign shows the limit it ends (DP.134 "40"): keep it, and check it
+        # as a speed when the ended row is a speed sign
+        if s.value is not None and _ends_speed(row, catalog) and not ok_speed(s.value):
+            upd.update(value=None, confidence=Confidence.low)
+            issues.append(f"{s.id} {s.code}: ended speed {s.value} out of range; dropped, lowered to low")
     elif s.value is not None and not row.meaning_only and not e.lane_board:
         upd.update(value=None, unit=None)
         issues.append(f"{s.id} {s.code}: the row takes no value; {s.value} dropped")
@@ -143,7 +159,7 @@ def verify(scene: SceneGraph, catalog: Catalog | None = None) -> tuple[SceneGrap
     for s in signs:
         row = _row(s.code, catalog)
         if row is not None:
-            s = _check_values(s, row, issues)
+            s = _check_values(s, row, issues, catalog)
             s = _check_look(s, row, issues)
         s = _lanes(s, scene.road.lanes, issues)
         out.append(s)

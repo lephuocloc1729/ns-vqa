@@ -143,3 +143,16 @@ def test_a_border_only_mismatch_is_recorded_not_lowered():
     assert sc.signs[0].confidence == Confidence.low and "lowered to low" in issues[0]
     sc, issues = verify(scene(sign("s1", "P.123b", 1, border="white", background="blue")))
     assert sc.signs[0].confidence == Confidence.low
+
+
+# ---------------------------------------------------------------- end-of-limit values (train_7_23)
+
+@pytest.mark.parametrize("code, v, kept", [("DP.134", 40, True), ("R.307", 60, True),
+                                           ("DP.134", 43, False), ("R.404a", 3, True)])
+def test_end_of_limit_signs_keep_the_limit_they_end(code, v, kept):
+    s = sign("s1", code, 1, shape="circle", border="none", background="white", value=v)
+    sc, issues = verify(scene(s))
+    if kept:
+        assert sc.signs[0].value == v and not any("takes no value" in i for i in issues)
+    else:
+        assert sc.signs[0].value is None and "ended speed 43" in issues[0]
