@@ -50,6 +50,18 @@ def test_family_code_matches_variants(engine):
     assert is_sign(engine, sc, code="P.123").verdict == Verdict.no
 
 
+def test_variant_code_and_family_stem_of_a_family_row(engine):
+    # W.207 is one catalog row, "W.207(a,b,c,d,e,f,g,h,i,k,l)" (QCVN 41 C.7); the
+    # parser may name it by a variant ("W.207c") or by the stem ("W.207")
+    sc = scene(sign("s1", "W.207c"))
+    for code in ("W.207c", "W.207"):
+        a = is_sign(engine, sc, code=code)
+        assert a.verdict == Verdict.yes and "C.7" in articles(a), code
+        assert a.value["signs"][0]["code"] == "W.207(a,b,c,d,e,f,g,h,i,k,l)"
+    other = is_sign(engine, scene(sign("s1", "W.201c")), code="W.207")
+    assert other.verdict == Verdict.no and "C.1a" in articles(other)   # cites the actual sign
+
+
 def test_identity_by_category_cites_art_11(engine):
     a = is_sign(engine, scene(sign("s1", "R.301b")), category="mandatory")
     assert a.verdict == Verdict.yes and {"11", "D.1a"} <= articles(a)

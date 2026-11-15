@@ -18,7 +18,9 @@ from vqa.parsing.prompt import examples, system_prompt
 from pydantic import ValidationError
 
 from vqa.parsing.wire import WParse, explain, from_wire, to_query
-from vqa.schemas import QueryProgram
+from vqa.schemas import QueryProgram, Verdict
+
+from conftest import articles, scene, sign
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -132,7 +134,7 @@ def test_parse_ok(engine):
     assert r.status == "ok" and r.attempts == 1 and r.query.program.intent == "forbidden"
     req = sdk.created[0]
     assert req["output_config"] == {"effort": "low"}
-    assert req["system"][0]["text"] == system_prompt("v3")
+    assert req["system"][0]["text"] == system_prompt("v4")
     assert r.cost_usd > 0
 
 
@@ -171,27 +173,52 @@ def test_effort_is_configurable(engine):
 # ---------------------------------------------------------------- prompt and few-shots
 
 def test_prompt_is_stable_and_has_the_catalog():
-    s = system_prompt("v3")
-    assert s == system_prompt.__wrapped__("v3")      # byte-identical rebuild (prompt cache)
+    s = system_prompt("v4")
+    assert s == system_prompt.__wrapped__("v4")      # byte-identical rebuild (prompt cache)
     assert "Reply with only the JSON object" in s and "required format" not in s
+    assert '"W.207" covers its variants' in s and '"W.221"' not in s
     assert "P.104 | no_motorbikes" in s and "## Examples" in s
 
 
-def test_v3_is_v2_plus_the_reply_instruction():
-    v2, v3 = (ROOT / "prompts" / "parser" / v for v in ("v2", "v3"))
-    assert (v2 / "fewshot.jsonl").read_bytes() == (v3 / "fewshot.jsonl").read_bytes()
-    a, b = ((d / "spec.md").read_text().splitlines() for d in (v2, v3))
-    assert len(a) == len(b) and sum(x != y for x, y in zip(a, b)) == 1
+# Released prompt versions never change: a version is part of cache keys and results.
+FROZEN_PROMPTS = {
+    "v1": {"spec.md": "ef44908b291ebf1df92746bd83800c26c0169df1762f9b66105785777e21f257",
+           "fewshot.jsonl": "b5fdcc0aef594f7776fcf707e355c9a4e5ba5e9b3e3aa4e8249785af8bd37770"},
+    "v2": {"spec.md": "ef44908b291ebf1df92746bd83800c26c0169df1762f9b66105785777e21f257",
+           "fewshot.jsonl": "f644a21c024865bf4bbe55c00a44542e6ded14d84a3dfc383421856f2a1c04a5"},
+    "v3": {"spec.md": "235ea70bcfe685420a145e6cf7f0bbe671137c38ec4f210a17c76644978f1583",
+           "fewshot.jsonl": "f644a21c024865bf4bbe55c00a44542e6ded14d84a3dfc383421856f2a1c04a5"},
+}
 
 
-@pytest.mark.parametrize("version", ["v2", "v3"])
+@pytest.mark.parametrize("version", sorted(FROZEN_PROMPTS))
+def test_released_prompt_versions_are_byte_identical(version):
+    import hashlib
+    for name, digest in FROZEN_PROMPTS[version].items():
+        data = (ROOT / "prompts" / "parser" / version / name).read_bytes()
+        assert hashlib.sha256(data).hexdigest() == digest, f"{version}/{name} changed"
+
+
+@pytest.mark.parametrize("old,new,changed", [
+    ("v2", "v3", "Reply with only the JSON object"),
+    ("v3", "v4", '"W.207" covers its variants'),
+])
+def test_each_version_changes_one_spec_line(old, new, changed):
+    d0, d1 = (ROOT / "prompts" / "parser" / v for v in (old, new))
+    assert (d0 / "fewshot.jsonl").read_bytes() == (d1 / "fewshot.jsonl").read_bytes()
+    a, b = ((d / "spec.md").read_text().splitlines() for d in (d0, d1))
+    diff = [y for x, y in zip(a, b) if x != y]
+    assert len(a) == len(b) and len(diff) == 1 and changed in diff[0]
+
+
+@pytest.mark.parametrize("version", ["v2", "v3", "v4"])
 def test_fewshots_are_valid_programs(engine, version):
     for ex in examples(version):
         q = to_query(WParse.model_validate(ex["output"]), 2026)
         assert validator.check(q, engine) == [], ex["id"]
 
 
-@pytest.mark.parametrize("version", ["v2", "v3"])
+@pytest.mark.parametrize("version", ["v2", "v3", "v4"])
 def test_fewshots_come_from_train_or_public_dev_only(version):
     split = json.loads((ROOT / "data" / "splits" / "public_split.json").read_text())
     holdout = set(split["public_holdout"]["questions"])
@@ -210,6 +237,42 @@ def test_fewshots_come_from_train_or_public_dev_only(version):
         for ex in examples(version):
             if ex["split"] == "train":
                 assert ex["id"] in rows and rows[ex["id"]]["question"] == ex["question"], ex["id"]
+
+
+@pytest.mark.parametrize("code", ["P.125", "W.207(a,b,c,d,e,f,g,h,i,k,l)",   # row codes
+                                  "W.207c", "W.207l",                       # variants
+                                  "W.207", "W.201"])                         # family stems
+def test_sign_code_forms_accepted(code):
+    w = WParse.model_validate({"program": {"intent": "is_sign", "sign": {"only": True},
+                                           "code": code}})
+    assert w.program.code == code                  # kept as written
+
+
+@pytest.mark.parametrize("code,closest", [
+    ("W.221", ["W.221a", "W.221b"]),         # separate rows, not a family
+    ("P.124", ["P.124a", "P.124b", "P.124c", "P.124d"]),
+    ("W.207j", ["W.207"]),                    # QCVN skips j in this family
+    ("P.999", []),
+])
+def test_sign_code_rejected_with_closest_valid_codes(code, closest):
+    with pytest.raises(ValidationError) as e:
+        WParse.model_validate({"program": {"intent": "is_sign", "sign": {"only": True},
+                                           "code": code}})
+    msg = explain(e.value)
+    assert code in msg and len(msg) < 300
+    for c in closest:
+        assert c in msg
+    if code in ("W.221", "P.124"):
+        assert "not a family row" in msg
+
+
+def test_parsed_variant_and_stem_reach_the_engine(engine):
+    sc = scene(sign("s1", "W.207c"))
+    for code in ("W.207c", "W.207"):
+        w = WParse.model_validate({"program": {"intent": "is_sign", "sign": {"only": True},
+                                               "code": code}})
+        a = engine.answer(sc, to_query(w, 2026))
+        assert a.verdict == Verdict.yes and "C.7" in articles(a), code
 
 
 def test_reply_with_a_field_its_intent_lacks_is_rejected():

@@ -30,6 +30,8 @@ Defaults the parser fills (recorded in QueryProgram.defaults_applied):
 from __future__ import annotations
 
 import datetime as dt
+import difflib
+import re
 from typing import Annotated, Any, Literal, Optional, Union
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
@@ -41,15 +43,41 @@ _CATALOG = load_catalog()
 
 VehicleClassLit = Literal[tuple(c.value for c in VehicleClass)]  # type: ignore[valid-type]
 ActionLit = Literal[tuple(a.value for a in Action)]  # type: ignore[valid-type]
-_CODES = frozenset(s.code for s in _CATALOG.signs)
 _MEANINGS = frozenset({s.key for s in _CATALOG.signs} | {t for s in _CATALOG.signs for t in s.tags})
+
+# Sign codes a program may name, all resolved by the catalog the engine uses:
+#   (a) a row code as written in the catalog ("P.125", "W.207(a,b,c,d,e,f,g,h,i,k,l)");
+#   (b) a variant code that Catalog.get resolves to its family row ("W.207c");
+#   (c) the bare stem of a family row ("W.207").
+# A stem shared by separate rows ("W.221": rows W.221a and W.221b) is not a family
+# and is rejected. The value is kept as written: is_sign resolves every accepted
+# form through Catalog.codes_matching / get, while a selector compares the code
+# with the scene sign's code as a string, so rewriting "W.207c" to the row code
+# would stop it matching a scene sign recorded as "W.207c".
+_ROW_CODES = frozenset(s.code for s in _CATALOG.signs)
+_FAMILY_STEMS = frozenset(s.base for s in _CATALOG.signs if s.variants)
+_VARIANT_CODES = frozenset(s.base + v for s in _CATALOG.signs for v in s.variants)
+_VALID_CODES = _ROW_CODES | _FAMILY_STEMS | _VARIANT_CODES
+
+
+def _closest_codes(v: str, n: int = 5) -> list[str]:
+    """Valid codes to suggest for a rejected one: the separate rows a stem stands
+    for ("W.221" -> W.221a, W.221b), else the nearest codes by spelling."""
+    rows = sorted(c for c in _ROW_CODES if re.fullmatch(re.escape(v) + r"[a-z]", c))
+    if rows:
+        return rows[:n]
+    return difflib.get_close_matches(v, sorted(_VALID_CODES), n=n, cutoff=0.6)
 
 
 def _known_code(v: str) -> str:
-    if v not in _CODES:
-        raise ValueError(f"unknown sign code {v!r}: use a code exactly as written in the "
-                         "sign catalog table")
-    return v
+    if v in _VALID_CODES:
+        return v
+    near = _closest_codes(v)
+    hint = f"; closest valid codes: {', '.join(near)}" if near else ""
+    if near and all(re.fullmatch(re.escape(v) + r"[a-z]", c) for c in near):
+        raise ValueError(f"sign code {v!r} is not a family row (its signs are separate "
+                         f"rows){hint}")
+    raise ValueError(f"unknown sign code {v!r}: use a code from the sign catalog table{hint}")
 
 
 def _known_meaning(v: str) -> str:
