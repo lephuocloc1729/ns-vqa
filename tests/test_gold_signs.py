@@ -17,22 +17,22 @@ QUESTIONS = [{"id": f"train_{k}", "image_id": f"train_1_{k}",
               "question": ["Tốc độ tối đa là bao nhiêu km/h?", "Xe tải có được rẽ trái không?",
                            "Đây là biển báo gì?", "Làn nào dành cho ô tô?"][k % 4]}
              for k in range(1, 21)]
-DEV = {"public_test_1_1", "public_test_1_2"}
+DEV = {"public_test_1_1", "public_test_1_2", "public_test_9_9"}   # stands for all public images
 GROUPS = [
     {"images": [{"split": "public", "image_id": "public_test_1_1"},
                 {"split": "train", "image_id": "train_1_3"}, {"split": "train", "image_id": "train_1_4"}]},
     {"images": [{"split": "private", "image_id": "q_1"}, {"split": "train", "image_id": "train_1_5"}]},
-    {"images": [{"split": "public", "image_id": "public_test_9_9"},   # a public image not in dev
+    {"images": [{"split": "public", "image_id": "public_test_8_8"},   # not in the given set
                 {"split": "train", "image_id": "train_1_6"}]},
     {"images": [{"split": "train", "image_id": "train_1_7"},
                 {"split": "public", "image_id": "public_test_1_2"}]},
 ]
 
 
-def test_select_excludes_train_images_duplicated_with_public_dev():
+def test_select_excludes_train_images_duplicated_with_public_images():
     picked = gs.pick_set_t(TRAIN, QUESTIONS, DEV, GROUPS, n=20)
     assert {"train_1_3", "train_1_4", "train_1_7"}.isdisjoint(picked)
-    # duplicates of private or of non-dev public images are not excluded
+    # duplicates of private images (or of images outside the given set) are not excluded
     assert {"train_1_5", "train_1_6"} <= set(picked)
     assert len(picked) == 17 and len(set(picked)) == 17
 
@@ -57,7 +57,23 @@ def test_committed_set_t_has_no_public_dev_duplicate():
     assert 30 <= data["n"] == len(data["images"]) <= 40
     assert not banned & set(data["images"])
     assert all(i.startswith("train_") for i in data["images"])
-    assert set(data) == {"seed", "n", "method", "excluded_train_images", "images"}
+    assert set(data) == {"seed", "n", "method", "excluded_train_images", "pool", "images"}
+
+
+def test_committed_set_t_shares_no_group_with_any_public_image():
+    """Neither half of the public test: read straight from the duplicate groups."""
+    t = set(json.loads(gs.SET_T.read_text())["images"])
+    for g in json.loads(gs.DUPLICATES.read_text())["groups"]:
+        ids = {i["image_id"] for i in g["images"]}
+        if any(i["split"] == "public" for i in g["images"]):
+            assert not t & ids, f"set T shares a duplicate group with a public image: {t & ids}"
+
+
+def test_public_images_cover_both_halves():
+    split = json.loads(gs.SPLIT_FILE.read_text())
+    halves = [set(v["images"]) for v in split.values() if isinstance(v, dict)]
+    assert len(halves) == 2 and gs.public_images() == halves[0] | halves[1]
+    assert len(gs.public_images()) == 90
 
 
 # ---------------------------------------------------------------- label validation

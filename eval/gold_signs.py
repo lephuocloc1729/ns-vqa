@@ -11,7 +11,8 @@ that file as its instructions.
     .venv/bin/python eval/gold_signs.py import               # done YAMLs -> gold_signs_v1.jsonl
     .venv/bin/python eval/gold_signs.py import --private     # private labels -> gitignored folder
 
-Sets: public_dev (the gate set) and set T (train images for prompt tuning). The
+Sets: public_dev (the gate set) and set T (train images for prompt tuning, in no
+duplicate group with any public test image). The
 private split is labelled only after the benchmark run (plan D1, C2), from YAML
 files under PRIVATE_OUT; its labels are written only there, and only if git
 ignores that path. Nothing here reads public_holdout or private question files.
@@ -97,6 +98,14 @@ def dev_images() -> set[str]:
     return set(_json(SPLIT_FILE)["public_dev"]["images"])
 
 
+def public_images() -> set[str]:
+    """Every public test image id, from both halves of public_split.json (image ids
+    only; no question file is read)."""
+    split = _json(SPLIT_FILE)
+    return set().union(*(set(v["images"]) for v in split.values()
+                         if isinstance(v, dict) and "images" in v))
+
+
 def dev_question_ids() -> set[str]:
     return set(_json(SPLIT_FILE)["public_dev"]["questions"])
 
@@ -130,22 +139,23 @@ def violation_images() -> set[str]:
 
 # --------------------------------------------------------------------------- select
 
-def excluded_train_images(dev: set[str], groups: list[dict]) -> set[str]:
-    """Train images in a duplicate group that also holds a public_dev image."""
+def excluded_train_images(public: set[str], groups: list[dict]) -> set[str]:
+    """Train images in a duplicate group that also holds one of the given public
+    images (both halves of the public test). Private duplicates are not excluded."""
     out: set[str] = set()
     for g in groups:
         imgs = g["images"]
-        if any(i["split"] == "public" and i["image_id"] in dev for i in imgs):
+        if any(i["split"] == "public" and i["image_id"] in public for i in imgs):
             out |= {i["image_id"] for i in imgs if i["split"] == "train"}
     return out
 
 
-def pick_set_t(train_images: list[str], train_questions: list[dict], dev: set[str],
+def pick_set_t(train_images: list[str], train_questions: list[dict], public: set[str],
                groups: list[dict], n: int = SET_T_SIZE, seed: int = SEED) -> list[str]:
-    """n train images in no duplicate group with public_dev, taken round-robin over
+    """n train images in no duplicate group with a public image, taken round-robin over
     rough question categories (each category shuffled with the seed), so a small
     set covers many sign kinds. Deterministic for the same inputs."""
-    banned = excluded_train_images(dev, groups)
+    banned = excluded_train_images(public, groups)
     first_q: dict[str, dict] = {}
     for q in sorted(train_questions, key=lambda q: q["id"]):
         first_q.setdefault(q["image_id"], q)
@@ -172,16 +182,19 @@ def _id_key(image_id: str) -> tuple:
 def select(n: int = SET_T_SIZE) -> list[str]:
     train_images = sorted(p.stem for p in TRAIN_IMAGES.iterdir() if not p.name.startswith("."))
     dups = _json(DUPLICATES)
-    dev = dev_images()
-    picked = pick_set_t(train_images, _json(TRAIN_QA), dev, dups["groups"], n)
+    public = public_images()
+    banned = excluded_train_images(public, dups["groups"])
+    picked = pick_set_t(train_images, _json(TRAIN_QA), public, dups["groups"], n)
     SET_T.write_text(json.dumps({
         "seed": SEED, "n": len(picked),
-        "method": ("train images in no duplicate group (data/splits/duplicates.json) with a "
-                   "public_dev image, round-robin over rough question categories, each "
+        "method": ("train images in no duplicate group (data/splits/duplicates.json) with any "
+                   "public test image (ids from public_split.json), round-robin over rough question categories, each "
                    "category shuffled with random.Random(seed)"),
-        "excluded_train_images": len(excluded_train_images(dev, dups["groups"])),
+        "excluded_train_images": len(banned),
+        "pool": len(set(train_images) - banned),
         "images": picked}, indent=2) + "\n", encoding="utf-8")
-    print(f"set T: {len(picked)} train images -> {SET_T.relative_to(ROOT)}")
+    print(f"set T: {len(picked)} train images -> {SET_T.relative_to(ROOT)} "
+          f"({len(banned)} excluded, pool {len(set(train_images) - banned)})")
     return picked
 
 
