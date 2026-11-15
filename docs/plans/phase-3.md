@@ -110,6 +110,7 @@ That is 12 rows known now, and about 35–60 once set T is labelled. Rows are **
   - a value on a row that takes none is dropped, with an issue;
   - a value-bearing row with no value lowers the sign to `low`.
 - **Look vs. catalog:** the reported shape, border and background are compared with the row's visual and the mismatch is recorded as an issue. The reported look is kept, because questions select signs by what they look like. A mismatch also lowers the sign to `low` (and so triggers the re-run) **only on rows with `visual_reviewed_by: human`** (D10). On every other row it is recorded only.
+  - *Changed by the owner on 2026-11-15, after the first set-T run:* on a human-reviewed row, a mismatch lowers the sign only when the shape or the background differs. A border-only mismatch (e.g. a white rim) is recorded, not lowered.
 - **Plates:** a plate the model did not attach goes to the sign directly above it on the same side.
 - **Lane rows:** sorted, numbered 1..n from the left with no gaps, and no more lanes than `road.lanes` when that is known.
 - **Ids:** renumbered s1, s2, … top-down; vehicles v1, v2, ….

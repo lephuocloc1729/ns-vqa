@@ -131,3 +131,15 @@ def test_match_prefers_same_row_then_category_then_rank():
          {"code": "P.123a", "shape": "circle", "border": "red", "background": "white", "rank": 2, "side": "right"}]
     p = [{"code": "P.123a", "shape": "circle", "border": "red", "background": "white", "rank": 2, "side": "right"}]
     assert match(g, p) == [(1, 0)]
+
+
+def test_a_border_only_mismatch_is_recorded_not_lowered():
+    """Owner's change (2026-11-15): on a human-reviewed row only a shape or background
+    difference lowers; a border difference (e.g. a white rim) is recorded."""
+    assert load_catalog().get("P.123b").visual_reviewed_by == "human"
+    sc, issues = verify(scene(sign("s1", "P.123b", 1, border="white")))
+    assert sc.signs[0].confidence == Confidence.high and "border only; recorded only" in issues[0]
+    sc, issues = verify(scene(sign("s1", "P.123b", 1, shape="triangle")))
+    assert sc.signs[0].confidence == Confidence.low and "lowered to low" in issues[0]
+    sc, issues = verify(scene(sign("s1", "P.123b", 1, border="white", background="blue")))
+    assert sc.signs[0].confidence == Confidence.low

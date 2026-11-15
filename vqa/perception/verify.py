@@ -8,8 +8,10 @@ verify(scene) -> (scene, issues)
   low. A value on a rule row that takes none is dropped. A value-bearing row with
   no value is lowered to low.
 - Look vs catalog: a reported shape / border / background that differs from the
-  row's visual is always recorded; it lowers the sign to low only on rows with
-  visual_reviewed_by: human (plan D10). The reported look is kept.
+  row's visual is always recorded. It lowers the sign to low only on rows with
+  visual_reviewed_by: human (plan D10), and only when the shape or the background
+  differs; a border-only difference is recorded, not lowered (owner's change,
+  2026-11-15). The reported look is kept.
 - Plates: a sign whose code is an auxiliary plate (S.504, S.505a, S.508a/b, S.H,6)
   is a plate the model didn't attach. It goes under the sign directly above it on
   the same side (else directly above).
@@ -89,11 +91,14 @@ def _check_look(s: Sign, row, issues: list[str]) -> Sign:
              if getattr(s, k) is not None and val(getattr(s, k)) != getattr(row.visual, k)]
     if not diffs:
         return s
-    if row.visual_reviewed_by == "human":
+    category = any(getattr(s, k) is not None and val(getattr(s, k)) != getattr(row.visual, k)
+                   for k in ("shape", "background"))
+    if row.visual_reviewed_by == "human" and category:
         issues.append(f"{s.id} {s.code}: look differs from the catalog: {', '.join(diffs)}; lowered to low")
         return s.model_copy(update={"confidence": Confidence.low})
-    issues.append(f"{s.id} {s.code}: look differs from the catalog: {', '.join(diffs)} "
-                  "(row not visually reviewed; recorded only)")
+    why = ("border only; recorded only" if row.visual_reviewed_by == "human"
+           else "row not visually reviewed; recorded only")
+    issues.append(f"{s.id} {s.code}: look differs from the catalog: {', '.join(diffs)} ({why})")
     return s
 
 
