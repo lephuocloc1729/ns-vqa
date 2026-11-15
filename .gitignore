@@ -15,3 +15,9 @@ logs/
 data/annotations/gold_intents_v1/*
 !data/annotations/gold_intents_v1/gold_intents_v1.jsonl
 !data/annotations/gold_intents_v1/gold_intents_v2.jsonl
+
+# gold-sign working files (drafts with model replies, label YAMLs, review sheet): local only;
+# gold_signs_v1.jsonl keeps image ids and labels. Private labels (plan D1, C2) never leave this machine.
+data/annotations/gold_signs_v1/*
+!data/annotations/gold_signs_v1/gold_signs_v1.jsonl
+data/annotations/gold_signs_private/
