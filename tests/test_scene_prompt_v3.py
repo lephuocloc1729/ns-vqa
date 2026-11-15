@@ -207,3 +207,22 @@ def test_v4_has_no_public_or_private_ids():
     for p in V4.iterdir():
         if p.is_file():
             assert not re.search(r"public_(test|natural)_\d|private_test", p.read_text(encoding="utf-8")), p.name
+
+
+V4_SHA256 = {   # frozen before public_dev checkpoint 1 (gate v2, prompt v4), 2026-11-15
+    "spec.md": "4757bbb23ab14014eb6b04b74b3094ba49d7a14cfa3639e6ec48e30d40b189fc",
+    "config.yaml": "3c3f60ce14afe130d0b4387eeb5f5c28295ef1acf182ce775018bd28b8efd14d",
+    "examples.jsonl": "def4618eb96f35256472f5f7f35f6543622fa1b4e125471ab8fb69b45016eb6d",
+    "pictograms.yaml": "d4b38018f5a1412f2c10551f210ebef9ffcaaf616237c261c9bace303346f4e4",
+}
+
+
+def test_v4_files_and_id_are_frozen():
+    for name, digest in V4_SHA256.items():
+        assert hashlib.sha256((V4 / name).read_bytes()).hexdigest() == digest, f"v4/{name} changed"
+    assert sp.prompt_id("v4") == "scene/v4@153536ec5975"
+
+
+def test_the_gate_is_still_v2():
+    import eval.perception_eval as pe
+    assert pe.GATE["name"] == "perception_gate_v2"
