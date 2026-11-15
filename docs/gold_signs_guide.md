@@ -41,7 +41,7 @@ Write what you **see**, not what the catalog says the sign should look like.
 | `local_notice` | only for a standalone local notice: its text, verbatim. |
 | `value`, `unit` | the number on the sign and its unit: `km/h`, `t`, `m`, `seats`. Lane boards put speeds in `lanes`, not here. |
 | `shape` | circle, triangle, rectangle, square, octagon, diamond, other. |
-| `border` | red, white, blue, yellow, black, green, none, other. |
+| `border` | red, white, blue, yellow, black, green, none, other. A thin white rim on a blue sign (a blue board, a blue disc) is `none`, as in the catalog (owner's convention, 2026-11-15). |
 | `background` | the same colours. |
 | `position.rank_top_down` | 1 for the highest sign in the image, 2 for the next, and so on over the whole image. |
 | `position.side` | left, right, overhead, center, unknown. |
