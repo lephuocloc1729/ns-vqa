@@ -519,9 +519,59 @@ Full test suite: 394 passed. Prolog loads.
   - **Still wrong:** P.111b ×3, P.125 ×2, P.117→P.118, P.123b→P.123a, and the dense-scene misses.
   - **Sonnet v3** was held: its uncalibrated estimate ($0.60–1.17) was over the owner's $0.60 ceiling.
 
+**Prompt v4, the last set-T tuning round (2026-11-15).** `4cc8717`, `scene/v4@153536ec5975`: v3 plus "list every sign", "separate discs stay separate", and P.127b vs IE.452. Runs: Haiku `4e6780670d2f` ($0.054), Sonnet `7a4f533fc335` ($0.360). Set T, development, gate v2:
+
+| set T, development | Haiku v3 | Haiku v4 | Sonnet v2 (after fixes) | Sonnet v4 |
+|---|---|---|---|---|
+| recall, all (95% CI) | 81.7% (72.3–92.3) | 83.3% (73.9–94.1) | 92.5% (85.9–100) | **90.8%** (84.6–97.9) |
+| code F1 row-level (CI) | **73.5%** (64.7–82.5) | 72.3% (65.1–80.6) | 70.7% (62.1–80.0) | 69.8% (60.4–79.6) |
+| code F1 strict | 71.7% | 69.6% | 69.8% | 69.0% |
+| rule-bearing F1 | 75.8% | 76.2% | 73.3% | **79.0%** |
+| non-duplicates: recall / code F1 | 77.8% / 74.4% | 80.0% / 70.7% | 90.0% / 69.0% | 87.8% / 69.0% |
+| non-duplicates: rule-bearing F1 | 77.8% | 77.8% | 73.7% | 79.1% |
+| value accuracy | 100% | 100% | 75.0% | 100% |
+| predictions (gold 120) | 103 | 104 | 112 | 112 |
+| re-runs / retries | 18/36 · 1 | 22/36 · 0 | 17/36 · 1 | 19/36 · 2 (1 bad_json) |
+| cost per image | $0.0014 | $0.0015 | $0.0090 | $0.0100 |
+
+- **v4 vs v3 for Haiku:** within noise.
+  - **Worked:** P.127b vs IE.452 (both train_6_41 boards right; IE.452 down from 3 predictions to 1).
+  - **Barely worked:** "list every sign". UNKNOWN rose from 9 to 12 and predictions from 103 to 104. The I.407c ×4, W.205 and W.245a still vanish.
+  - **Didn't work:** separate discs (train_6_40's P.127 and R.306 are still missed).
+  - About 6 signs flipped each way (the IE.464/465/466 boards, P.124c, P.111a). That is single-run noise.
+- **Sonnet v2 → v4:** 8 signs fixed and 10 broken.
+  - **Fixed:** IE.466 (1_8), P.127c ×2, W.207, I.415, R.403a (6_29), P.125 (7_37), P.124c.
+  - **Broken:** P.127 and R.306 (6_40) missed; I.414 (6_38, 3_25) missed or wrong; P.117→P.118; W.201b→W.201a; the train_6_41 P.127b boards → IE.452, despite the v4 note.
+  - Rule-bearing F1 rose from 73.3% to 79.0% and value accuracy from 75% to 100%. Overall code F1 stayed level, because guide boards got worse.
+- **Remaining errors by cause (Haiku v4 / Sonnet v4, 39 each):**
+
+  | cause | Haiku v4 | Sonnet v4 |
+  |---|---|---|
+  | dense-scene misses (train_1_6, 6_38, 3_25) | 12 | 8 |
+  | other misses | 8 (I.407c ×4, W.205, W.245a, P.127 and R.306 on 6_40) | 3 (I.408, P.127 and R.306) |
+  | listed as UNKNOWN | 5 | 11 (I.407c ×4, W.244, W.245a, R.403a, R.404a, R.420, P.103a, P.125) |
+  | prohibitory look-alikes | 9 (P.111b ×3, P.125, P.131a, P.111a, P.117, P.123b, P.124c) | 7 (P.111b ×3, P.111a, P.106b, P.117, P.123b) |
+  | guide / expressway boards | 5 | 8 |
+  | warning triangles | 0 | 2 |
+
+- **What crops (plan item 7) can and can't do:**
+  - Every prediction carries a box (Haiku 111/111, Sonnet 119/119).
+  - **None of the misses (Haiku 20, Sonnet 11) can be recovered by box crops.** On every image with a missed gold sign, every listed sign was paired: the missed signs were never listed.
+  - Box crops could re-read the code of signs listed wrong at low confidence or as UNKNOWN: 14 for Haiku (5 UNKNOWN) and 21 for Sonnet (11 UNKNOWN).
+  - **Upper bounds** if every one of those were fixed: code F1 about 85% for Haiku and 88% for Sonnet. Realistically about half get fixed, so roughly 78–80%.
+  - **Recall needs a region-level pass,** not box crops: tile dense scenes, or crop whole gantries and boards, then read each part. Haiku is 8 signs short of 90% recall on set T; its 12 dense-scene misses are the pool.
+
 ## Next steps, in order
 
-0. **Prompt v4** (the last set-T tuning round; owner, 2026-11-15): list every sign, separate discs stay separate, P.127b vs IE.452. Then the model and prompt choice for the public_dev checkpoint, and whether crops come first.
+0. **Recommendation for the public_dev checkpoint** (owner's decision; no more set-T prompt versions):
+   - **Prompt v4 for both models, in plan item 6's order:** Haiku v4 × 3, then Sonnet v4 × 3, since Haiku will very likely fail.
+     - Expected cost about $0.20 for Haiku (45 images × $0.0015 × 3) and $1.35 for Sonnet (45 × $0.0100 × 3), about $1.55 in all. Spend limits $0.5 and $2.5.
+   - **Expected result: both FAIL** on code F1 ≥ 85%. Set T gives 70–74% with 95% CIs topping out near 80–83%.
+     - Sonnet's recall (90.8% on set T, CI 84.6–97.9%) is about a coin flip against 90%.
+     - Haiku's recall (83%) very likely fails.
+     - public_dev is not the tuning set, so expect at or below set T.
+   - **Then the fallback (plan item 7), built on set T:** box crops that re-read low / UNKNOWN codes, plus a region pass (tiles or board crops) on dense scenes for never-listed signs. Then the plan's second public_dev checkpoint.
+   - **The model to carry forward: Sonnet v4.** It has recall near the gate, the best rule-bearing F1 (79%) and 100% value accuracy, at about $0.01 per image.
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
 2. **Done: the parser gate.** It passed for Sonnet 5.5 at medium on prompt v6; see the results above. The rest of this step is kept as a record. **Haiku on prompt v6, medium effort, three runs:**
