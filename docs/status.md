@@ -430,9 +430,50 @@ Full test suite: 394 passed. Prolog loads.
   - **Sonnet 5.5: $0.58** with no re-runs to **$1.14** if every image is re-run, about $2.10 if outputs double. Worst case $8.23 ($0.114 per call); the spend guard caps it at the limit.
 - Full test suite: 535 passed.
 
+**Set-T runs with prompt v2 (2026-11-15), run by the owner. Set T, development, gate v2 matching, gold after `ddb044b` (train_7_23 s4 = DP.134):**
+
+| set T, development | Haiku v1 (re-scored) | Haiku v2 | Sonnet v2 |
+|---|---|---|---|
+| run | c11b768af950 | aa8cc8952831 | f200a07b933e |
+| recall, all 36 (95% CI) | 86.7% (77.8–96.7) | 89.2% (81.9–97.7) | **92.5%** (85.9–100) |
+| code F1 row-level, all (CI) | 60.8% (51.3–71.0) | 64.7% (57.5–72.5) | **70.4%** (61.9–79.4) |
+| code F1 strict, all | 59.9% | 64.7% | 69.5% |
+| recall, 26 non-duplicates (CI) | 82.2% (72.4–94.4) | 87.8% (80.2–98.2) | 90.0% (82.8–100) |
+| code F1, non-duplicates (CI) | 59.8% (49.4–72.6) | 64.0% (55.9–73.5) | 68.6% (59.3–79.0) |
+| value accuracy, all / non-duplicates | 93.3% / 100% | 93.3% / 100% | 68.8% / 58.3% (artefacts, see below) |
+| re-runs / retries | 21/36 · 4 | 19/36 · 0 | 17/36 · 1 |
+| cost, total (per image) | $0.0528 ($0.0015) | $0.0453 ($0.0013) | $0.3242 ($0.0090) |
+| output tokens, mean / max | 1,376 / 3,704 | 1,267 / 3,139 | 318 / 749 |
+
+- **Haiku v1 → v2,** per gold sign: 9 fixed, 3 broken, 4 wrong → missed, 4 missed → wrong.
+  - **Fixed:** the plate-box retries (0 now); I.414 (×2, plus 2 found that were missed); P.127c (2_11); P.131a (7_37); R.403a and P.130 (no longer UNKNOWN); R.411 found.
+  - **Remain:** the vehicle-ban pictograms, P.117/P.118, P.124c, P.123b, IE.466, the dense-scene misses.
+  - **v2 side effects:**
+    - "always guess" turned 6 false UNKNOWNs into wrong codes;
+    - the train_6_41 P.127b boards were split into P.127 and R.306 discs;
+    - the I.407c boards are now found but read as I.415;
+    - three new errors: IE.465→IE.464, IE.451b→IE.452, P.110a→P.104.
+- **Sonnet v2 vs Haiku v2,** per gold sign: 11 that Haiku gets wrong or misses are right for Sonnet; 7 that Haiku gets right are wrong for Sonnet; 30 are wrong or missed by both.
+  - **Sonnet only right:** IE.465, P.131a (1_6), R.415a, W.203c (as W.203a, row-level), P.110a, IE.452, P.127b (6_41 r1), IE.451b, DP.134, P.103c, P.117.
+  - **Sonnet only wrong:** IE.464→IE.464b, P.127c→R.415a (2_11), P.127c→P.127b (3_25), P.111a→P.104, R.403a→R.412b, I.414→I.444 (6_38), P.106b→P.107.
+  - **Both wrong:**
+    - P.111b ×3 and P.125 ×2 (pictogram confusion);
+    - P.123b, P.124c and P.103a (7_46);
+    - the W.207 / W.205 / W.245a triangles;
+    - IE.466 ×3, I.409, W.244, R.404a;
+    - I.407c ×4 (both models say I.415).
+  - **Both missed:** the 9 dense-scene signs (train_1_6 ×3, train_6_38 ×4, train_3_25 ×2).
+- **Sonnet's value accuracy is a set of artefacts, all on train_7_23:**
+  - Sonnet gives every gantry sign `side: overhead`, so side can't break ties and the pairing falls back to shifted ranks.
+  - `merge_rerun` kept two entries for the "40" sign: the first reading said DP.134 and the re-run P.127 40, and their visual categories differ, so they weren't paired.
+  - Verification dropped DP.134's 40 ("the row takes no value"), although an end-of-limit sign shows the limit it ends.
+
+  Sonnet read every number correctly.
+- **Cost:** Sonnet cost $0.009 per image, below the $0.58–1.14 estimate, because its outputs are short. That is about 7× Haiku's cost per image.
+
 ## Next steps, in order
 
-0. **Next paid run (owner's yes needed):** set T with prompt v2: Haiku (`--version v2 --max-spend 0.5`), and/or Sonnet (`--max-spend 1.5`). Then the owner checks the possible gold errors listed above.
+0. **Owner decision after the v2 runs:** the next lever (reference pictograms, two-pass crops, v3 text, model choice), and the fixes for the set-up artefacts found on train_7_23: end-of-limit values, re-run pairing across categories, and gantry sides.
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
 2. **Done: the parser gate.** It passed for Sonnet 5.5 at medium on prompt v6; see the results above. The rest of this step is kept as a record. **Haiku on prompt v6, medium effort, three runs:**
