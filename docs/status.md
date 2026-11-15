@@ -273,6 +273,35 @@ Full test suite: 385 passed.
 
 - The last two were hidden behind other errors before the clean-up, so they are new in the list but not new errors.
 
+- `90b3949` Guide: partial readings go in the label's top-level `notes`, naming the sign by its rank; the family-code example now uses the real row code (`W.207(a,b,c,d,e,f,g,h,i,k,l)`) or its stem. Pre-fill prompt hash 42def04109fc → d8fecd3b2cce.
+- `9f3f96f` `import` never writes an empty or shrinking gold file without `--replace`, writes atomically, and prints done / todo / rejected counts first. The same rules apply to the private path.
+- `750011a` Catalog: **P.118** "Hạn chế chiều ngang xe" (B.18), a rule row on the P.117 pattern: `width_m` gt the value, priority vehicles included. **`reviewed_by: none`, waiting for the owner's review of the row.**
+- `6945a25` Catalog: **P.119** "Hạn chế chiều dài xe" (B.19), the same pattern: `length_m` gt the value. B.19 a) covers priority vehicles too, quoted in the YAML, and B.19 b)'s "đối với xe đơn chiếc" is noted. **`reviewed_by: none`, waiting for the owner's review.**
+  - P.116 (axle load) is not added, and there is no axle attribute. Its only draft (public_test_8_3, Haiku, "9 m") is likely a misread P.119; the owner will check the image.
+- **Prompt hashes moved with the catalog.** Both prompts below are built with the catalog in them.
+
+  | prompt | before | after P.118 | after P.119 |
+  |---|---|---|---|
+  | parser v6, built system prompt | 93ba1cf3ada9 | f5ed53804834 | e08989d2b637 |
+  | gold-sign pre-fill | d8fecd3b2cce | 34008e80ae62 | e9aae8315b6d |
+
+  - The phase-2 parser gate (Sonnet 5.5, v6) was measured on 93ba1cf3ada9 and was not re-run; the change is two catalog lines.
+  - Existing pre-fill drafts keep their recorded `prompt_sha` and are not re-run.
+
+Full test suite: 394 passed. Prolog loads.
+
+**Review sheet after P.118 / P.119 (no API call):** `sheet` re-run; all 81 label YAMLs kept unchanged (none overwritten), and `sheet.html` recomputed. Still **22 files need a fix**.
+- The P.118 flag cleared. Its only file, train_8_32, still needs a fix for `UNKNOWN` on a readable sign. Its YAML keeps the old `# needs fix` comment for P.118, since `sheet` never rewrites an existing file; the flag is gone from `sheet.html`.
+- What remains, by reason (files, flags, then the files):
+  - 6 / 6: a family code written wrongly, or a stem of several rows: public_test_3_1, 4_6, 5_6, 6_11, 7_12, train_6_39;
+  - 5 / 5: `UNKNOWN` on a readable sign: public_test_2_1, 3_8, 5_6, train_6_7, train_8_32;
+  - 5 / 5: made-up code (`local`, `LOCAL`, `P.UNKNOWN`): public_test_4_4, 7_10, 8_9, train_2_10, train_5_29;
+  - 2 / 2: `days` as a list: public_test_7_12, train_6_8;
+  - 1 / 1 each: `op: lte` (public_test_3_6); condition groups with a vehicle/time plate (public_test_6_5); plate `actions` not a list (public_test_6_8); P.116 (public_test_8_3);
+  - 1 / 2: colour `dark` (train_8_8);
+  - 1 / 3: extra non-text plate fields (public_test_5_1);
+  - 1 / 5: vehicles that aren't class names (public_test_8_9).
+
 ## Next steps, in order
 
 0. **Phase 3 gold review (owner):** check every label in `data/annotations/gold_signs_v1/work/sheet.html` against its image, fix the 22 files with needs-fix lines, and set `status: done`. Then `import`, and the D10 visual check of the rows it lists. Then the D10 visual check of the listed rows, before `prompts/scene/v1` is frozen.
@@ -296,6 +325,8 @@ Full test suite: 385 passed.
 
 ## Open items
 
+- **The parser's version key should include the catalog hash,** as the phase-3 scene prompt does. The parser prompt is built from `prompts/parser/<version>/` plus the catalog table, but only the spec and few-shot files are pinned. So a catalog change (P.118 and P.119 here) changes the prompt the parser actually sends, under the same version name.
+- **P.118 and P.119 rows wait for the owner's review** (`reviewed_by: none`).
 - **Sonnet's bad_json first replies.** 16 of 141 first replies (11%) across the three v6 runs had prose around the JSON and needed the retry; Haiku had 0 of 141. One retry, on 0005 in run f20993f4ac4e, was refused with category `reasoning_extraction`.
   - The likely cause is the retry wording. `ClaudeParser.parse` sends the rejected reply back as the assistant turn, prose included, followed by "That answer is not valid: …. Reply with only the corrected JSON object."
   - Candidates for a v7: don't echo the prose back (send a placeholder or only the error); tell the model more firmly to reply with nothing but the object; or accept "prose, then one ```json fence".
