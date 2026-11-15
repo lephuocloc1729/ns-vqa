@@ -25,7 +25,7 @@ public_holdout is never labelled.
 
 - `readable: true` (the default): you can tell the code, and its number or text if it has one.
 - `readable: false`: you can see a sign is there but can't read it (too far, blurred, cut off, hidden). Give your best `code` or `UNKNOWN`, and its look if you can see it. These signs count neither for nor against the system's recall and precision.
-- A sign you can read only partly (the code is clear, a time plate is not) is `readable: true`; leave out what you can't read and say so in `notes`.
+- A sign you can read only partly (the code is clear, a time plate is not) is `readable: true`; leave out what you can't read and say so in the label's top-level `notes`, naming the sign by its rank (for example "s2: time plate unreadable"). Signs have no `notes` field of their own.
 
 ## Fields per sign
 
@@ -33,7 +33,7 @@ Write what you **see**, not what the catalog says the sign should look like.
 
 | field | rule |
 |---|---|
-| `code` | the catalog code; the variant when it is visible (`W.207c`, `P.127b`), else the family row (`W.207(a,b,c)` or its stem). `UNKNOWN` only with `readable: false`. |
+| `code` | the catalog code; the variant when it is visible (`W.207c`, `P.127b`), else the family row exactly as the catalog writes it (`W.207(a,b,c,d,e,f,g,h,i,k,l)`) or its stem (`W.207`). A stem shared by separate rows (`W.201`, `R.412`) is not enough: give the variant. `UNKNOWN` only with `readable: false`. |
 | `readable` | `true` or `false`, as above. |
 | `value`, `unit` | the number on the sign and its unit: `km/h`, `t`, `m`, `seats`. Lane boards put speeds in `lanes`, not here. |
 | `shape` | circle, triangle, rectangle, square, octagon, diamond, other. |
