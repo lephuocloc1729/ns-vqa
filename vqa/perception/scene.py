@@ -15,6 +15,11 @@ perceive(image_path) -> PerceptionResult
   effort + prompt id. A hit makes no call: the scene is rebuilt from the cached
   reply by the current code. Only replies that gave a scene are cached.
 - The scene id is the first 12 hex digits of the image hash, never a file name.
+- Verification (vqa/perception/verify.py) runs on every scene. If a sign is low or
+  UNKNOWN afterwards, the call is made once more (a fresh call, converted in final
+  mode) and the two readings are merged: agreement keeps a sign, disagreement adds
+  an AltReading, a sign seen once stays low. The re-run's reply is cached with the
+  first, so a cache hit replays it without a call.
 """
 
 from __future__ import annotations
@@ -28,6 +33,7 @@ from vqa.llm.spend import SpendGuard
 from vqa.perception import prompt as scene_prompt
 from vqa.perception.cache import CacheRecord, SceneCache
 from vqa.perception.image import PreparedImage, prepare_file
+from vqa.perception.verify import merge_rerun, needs_rerun, verify
 from vqa.perception.wire import WireResult, to_scene
 from vqa.schemas import SceneGraph
 
@@ -79,23 +85,61 @@ def _convert(text: str, scene_id: str, final: bool) -> tuple[WireResult | None, 
 
 def perceive(image_path: str | Path, *, model: str = DEFAULT_MODEL, version: str = "v1",
              client: LLMClient | None = None, cache: SceneCache | None = None,
-             use_cache: bool = True, guard: SpendGuard | None = None) -> PerceptionResult:
+             use_cache: bool = True, guard: SpendGuard | None = None,
+             rerun: bool = True) -> PerceptionResult:
+    """The scene for one image: scene call, verification, and the low-confidence re-run."""
+    cache = cache if cache is not None else SceneCache()
+    if client is None:
+        client = LLMClient(model=model, guard=guard or SpendGuard())
+    res = _primary(image_path, model=model, version=version, client=client, cache=cache,
+                   use_cache=use_cache)
+    if not res.ok:
+        return res
+    scene, issues = verify(res.scene)
+    res.scene, res.issues = scene, issues
+    if not (rerun and needs_rerun(scene)):
+        return res
+    cached = next((r for r in res.replies if r["pass"] == "rerun"), None)
+    if cached is None:
+        user = [res.image.content_block(), {"type": "text", "text": scene_prompt.user_text()}]
+        try:
+            call = client.json_reply(system=scene_prompt.system_prompt(version), user=user,
+                                     max_tokens=scene_prompt.config(version)["max_tokens"],
+                                     effort=res.effort, purpose="scene rerun")
+        except (LLMRefusal, LLMTruncated, LLMBadJSON) as e:
+            res.cost_usd += getattr(e, "cost_usd", 0.0)
+            res.issues.append(f"re-run failed ({type(e).__name__}); the first reading stands")
+            return res
+        res.cost_usd += call.cost_usd
+        cached = _reply_record("rerun", call)
+        res.replies.append(cached)
+        cache.put(CacheRecord(res.image_sha256, model, res.effort, res.prompt_id, replies=res.replies))
+    w, errs = _convert(cached["raw_text"], res.scene.scene_id, final=True)
+    if w is None or w.scene is None:
+        res.issues.append("re-run reply not usable (" + "; ".join(errs[:3]) + "); the first reading stands")
+        return res
+    second, _ = verify(w.scene)
+    merged, more = merge_rerun(scene, second)
+    res.scene, res.issues = merged, issues + more
+    return res
+
+
+def _primary(image_path: str | Path, *, model: str, version: str, client: LLMClient,
+             cache: SceneCache, use_cache: bool) -> PerceptionResult:
     img = prepare_file(image_path)
     effort = scene_prompt.effort_for(model, version)
     pid = scene_prompt.prompt_id(version)
     scene_id = img.sha256[:12]
-    cache = cache if cache is not None else SceneCache()
     base = dict(image_sha256=img.sha256, model=model, effort=effort, prompt_id=pid, image=img)
 
     if use_cache and (rec := cache.get(img.sha256, model, effort, pid)) is not None:
-        last = rec.replies[-1]
-        w, errs = _convert(last["raw_text"], scene_id, final=len(rec.replies) > 1)
+        main = [r for r in rec.replies if r["pass"] != "rerun"]
+        w, errs = _convert(main[-1]["raw_text"], scene_id, final=len(main) > 1)
         if w is not None and w.scene is not None:
-            return PerceptionResult(scene=w.scene, cache_hit=True, retried=len(rec.replies) > 1,
+            return PerceptionResult(scene=w.scene, cache_hit=True, retried=len(main) > 1,
                                     raw_codes=w.raw_codes, dropped=w.dropped,
-                                    replies=rec.replies, **base)
+                                    replies=list(rec.replies), **base)
 
-    client = client or LLMClient(model=model, guard=guard or SpendGuard())
     system = scene_prompt.system_prompt(version)
     user = [img.content_block(), {"type": "text", "text": scene_prompt.user_text()}]
     max_tokens = scene_prompt.config(version)["max_tokens"]

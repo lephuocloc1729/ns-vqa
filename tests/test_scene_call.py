@@ -80,7 +80,7 @@ def test_bad_json_gets_one_retry_that_sends_only_the_error(photo, tmp_path):
 def test_a_failed_check_is_retried_and_the_retry_is_converted_in_final_mode(photo, tmp_path):
     wrong = json.dumps({"signs": [{"code": "P.999", "shape": "circle", "rank": 1}]})
     still_wrong = json.dumps({"signs": [{"code": "LOCAL", "shape": "rectangle", "rank": 1}]})
-    res, sdk = run(photo, tmp_path, [(wrong, "end_turn"), (still_wrong, "end_turn")])
+    res, sdk = run(photo, tmp_path, [(wrong, "end_turn"), (still_wrong, "end_turn")], rerun=False)
     assert "unknown sign code 'P.999'" in sdk.created[1]["messages"][2]["content"]
     assert res.ok and res.retried and res.scene.signs[0].code == "UNKNOWN"
     assert res.raw_codes == {"s1": "LOCAL"}
@@ -113,3 +113,34 @@ def test_a_cache_hit_makes_no_call_and_ignores_the_file_name(photo, tmp_path):
 def test_the_spend_guard_stops_before_the_call(photo, tmp_path):
     with pytest.raises(SpendLimitExceeded):
         run(photo, tmp_path, [(GOOD, "end_turn")], guard=SpendGuard(0.0001))
+
+
+LOW = json.dumps({"signs": [{"code": "P.127", "value": 50, "unit": "km/h", "confidence": "low",
+                             "shape": "circle", "border": "red", "background": "white", "rank": 1}]})
+AGREE = json.dumps({"signs": [{"code": "P.127", "value": 50, "unit": "km/h", "confidence": "high",
+                               "shape": "circle", "border": "red", "background": "white", "rank": 1}]})
+DISAGREE = json.dumps({"signs": [{"code": "P.127", "value": 60, "unit": "km/h", "confidence": "medium",
+                                  "shape": "circle", "border": "red", "background": "white", "rank": 1}]})
+
+
+def test_a_low_sign_triggers_one_rerun_and_agreement_keeps_it(photo, tmp_path):
+    res, sdk = run(photo, tmp_path, [(LOW, "end_turn"), (AGREE, "end_turn")])
+    assert len(sdk.created) == 2 and sdk.created[1]["messages"] == sdk.created[0]["messages"]
+    s = res.scene.signs[0]
+    assert s.value == 50 and s.alternatives == [] and s.confidence.value == "high"
+    assert any("re-run agrees" in i for i in res.issues)
+    assert [r["pass"] for r in res.replies] == ["first", "rerun"]
+
+
+def test_disagreement_becomes_an_alternative_and_a_cache_hit_replays_it(photo, tmp_path):
+    res, sdk = run(photo, tmp_path, [(LOW, "end_turn"), (DISAGREE, "end_turn")])
+    s = res.scene.signs[0]
+    assert s.value == 50 and [(a.code, a.value) for a in s.alternatives] == [("P.127", 60)]
+    hit, sdk2 = run(photo, tmp_path, [])
+    assert hit.cache_hit and sdk2.created == []
+    assert [(a.code, a.value) for a in hit.scene.signs[0].alternatives] == [("P.127", 60)]
+
+
+def test_no_rerun_when_every_sign_is_confident(photo, tmp_path):
+    res, sdk = run(photo, tmp_path, [(AGREE, "end_turn")])
+    assert len(sdk.created) == 1 and res.issues == []
