@@ -65,7 +65,11 @@ Last updated 2026-11-15. Branch `phase-2` (not merged), on top of `main` at `926
 
 - `927fdd4` Prompt `v6` (the default): v5 with the sign-selector rules narrowed. Two spec lines changed; the few-shots are unchanged.
 
-Full test suite: 328 passed.
+- `0257a71` Gate on the mean of three runs (the owner's rule, set before the v6 results).
+- `9afa338` `score` counts a run once even if its file is given twice (identified by run_id).
+- `7f19fd2` The parser's default is Sonnet 5.5 at medium effort (the owner's choice after the gate runs).
+
+Full test suite: 334 passed.
 
 ### First gate result (prompt v4, 2026-11-15): FAIL
 
@@ -112,6 +116,47 @@ The rules come from public_dev errors, so a v5 score on public_dev is a tuned fi
 
 **Prompt v6** keeps `sign: {}` to `meaning` and `is_sign`. It leaves `sign` empty for other intents that are about the road or all its signs. And a sign named in words or quotes gets its `meaning` selector on every claim, inside `all_of` / `any_of` too.
 
+### Prompt v6 result (2026-11-15): FAIL on the mean of three runs
+
+| run | accuracy | slot F1 | OOS P / R | cost |
+|---|---|---|---|---|
+| v6 A | 89.4% (42/47) | 92.9% | 88.9% / 100% | $0.0143 |
+| v6 B | 89.4% (42/47) | 90.8% | 100% / 100% | $0.0127 |
+| v6 C | 89.4% (42/47) | 92.7% | 100% / 100% | $0.0126 |
+| **mean** | **89.4%** (range 89.4–89.4%) | | | $0.040 in total |
+
+- v6 fixed the v5 regressions (0048, 0051, 0092) and kept 0011 and 0065 fixed.
+- The same five rows were wrong in all three runs:
+  - **0002 and 0025:** equivalent selectors. Haiku's choice was stable: blue background (plus `only`) for 0002; triangle, red border and `only` for 0025.
+  - **0043:** vehicle `coach` in every run, where the gold has no vehicle. P.107's windows are the same for coaches and trucks.
+  - **0084:** a different program in each run:
+    - out of scope ("wrong-way driving is not a modelled action"), a real error;
+    - `forbidden` enter for `every_vehicle` under the no_entry_one_way sign;
+    - `is_sign` with `sign: {}`.
+
+    The last two are reasonable readings that the strict gold doesn't accept.
+  - **0005:** the DSL gap.
+- That makes one real parser error in 141 predictions (0084 in run A). Every other miss is a strict-gold mismatch or the DSL gap.
+
+### Sonnet 5.5 result (prompt v6, medium, 2026-11-15): PASS on the mean of three runs
+
+| run | run_id | accuracy | slot F1 | cost |
+|---|---|---|---|---|
+| A | a00bf0a63e3b | 93.6% (44/47) | 93.6% | $0.1569 |
+| B | f20993f4ac4e | 93.6% (44/47) | 94.9% | $0.1587 |
+| C | a42d6be03e11 | 93.6% (44/47) | 93.6% | $0.1196 |
+| **mean** | | **93.6%** (range 93.6–93.6%) | | $0.435 in total, about $0.003 per question |
+
+- **The gate passes for Sonnet** (≥ 90% on the mean of three runs); Haiku failed at 89.4%.
+- The same three rows were wrong in every run:
+  - 0005: the DSL gap;
+  - 0025: `only: true` instead of triangle;
+  - 0084: `is_sign` with `sign: {}`.
+- Sonnet's lead over Haiku comes from 0002 and 0043, where it matches the selectors Opus chose when it drafted the gold. It is not a fix of real errors: Haiku's v6 runs made one real error in 141 predictions.
+- **Sonnet often writes prose around the JSON.** In run B, 6 of 47 first replies were rejected as `bad_json` and retried. One retry (0005) was refused with category `reasoning_extraction`. This costs retries; a v7 instruction or an accepted "prose, then a fenced JSON" form could reduce it.
+- **A first score showed three identical Sonnet files.** They were byte-identical copies of run A (same sha256 and run_id; the API log had only that run's 52 calls). It is not a result. `score` now counts a run once per run_id. The two real runs, B and C, replaced the copies.
+- **Owner's decision (after the results):** the parser's default is Sonnet 5.5 at medium effort. Plan item 2 named Haiku. It costs about 11 times as much per question (about $0.003 against $0.0003).
+
 Still open: `also_accept` for the equivalent selectors (0002, 0025, 0043). This is the owner's decision, row by row, made after the results. If adopted, it goes into a new gold version. API use so far (gold drafting, 2026-11-15):
 - Three requests were rejected with a 400 before the model ran, so nothing was billed.
 - The sequential gold run then made 88 calls with Opus 5.5 at medium effort on prompt v4. It cost **$0.53**, against an estimate of $1.86.
@@ -123,7 +168,7 @@ Still open: `also_accept` for the equivalent selectors (0002, 0025, 0043). This 
 ## Next steps, in order
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
-2. **Haiku on prompt v6, medium effort, three runs** (the owner runs them; about $0.04 in total):
+2. **Done: the parser gate.** It passed for Sonnet 5.5 at medium on prompt v6; see the results above. The rest of this step is kept as a record. **Haiku on prompt v6, medium effort, three runs:**
    - `eval/parser_eval.py run --model claude-haiku-5-5 --effort medium --max-spend 0.5`, three times
    - `eval/parser_eval.py score <the v5 medium files> <the v6 medium file>`
    - If it still misses 90%, run `claude-sonnet-5-5` once for comparison (about $0.20–0.30).

@@ -27,6 +27,7 @@ Before phase 2 started, two fixes were made, each in its own commit:
      - Enums are no longer enforced by the API. Vehicle classes, actions, sign codes and meanings are checked in Python instead.
    - The defaults from CLAUDE.md are applied and recorded in `defaults_applied`.
    - The default model is Haiku 5.5. Questions outside the DSL come back as `out_of_scope`.
+     - *Changed by the owner on 2026-11-15, after the gate runs:* the default is Sonnet 5.5 at medium effort. On prompt v6, Sonnet passed the three-run gate at 93.6%; Haiku failed at 89.4%.
 3. **Few-shot sources.** Few-shot examples come from public_dev and train only, never public_holdout or private. This is enforced by a test.
 4. **Gold intents** (`eval/gold_intents.py`, tooling done: `b7e648c`).
    - The script drafts programs for the 48 public_dev questions that are not few-shots, and 40 train questions, with Opus 5.5. It sends sequential calls with caching (`run`); the Batch API path is the fallback.
