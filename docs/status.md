@@ -563,6 +563,54 @@ Full test suite: 394 passed. Prolog loads.
 
 ## Next steps, in order
 
+### Handoff (2026-11-15): where phase 3 stands, and what comes next
+
+**Where things stand** (branch `phase-3`, not pushed):
+- **Gold signs v1:** 81 images (45 public_dev, 36 set T), hand-reviewed by the owner, in `data/annotations/gold_signs_v1/gold_signs_v1.jsonl`. Last gold commit `ddb044b` (train_7_23 s4 = DP.134).
+- **Set-T results** (development, gate v2):
+
+  | | recall | code F1 | rule-bearing F1 |
+  |---|---|---|---|
+  | Haiku v4 | 83.3% | 72.3% | 76.2% |
+  | Sonnet v4 | 90.8% | 69.8% | 79.0% |
+  | Haiku v3 (best Haiku F1) | 81.7% | 73.5% | 75.8% |
+
+  No configuration is near 85% code F1; the 95% CIs top out around 80–83%. The full tables are in the entries below.
+- **Prompt:** `scene/v4@153536ec5975`, pinned by sha256 at `07aa01b` (v1–v4 are all pinned). The v3/v4 pictograms are local, gitignored copies; rebuild them with `tools/build_scene_pictograms.py --version v4` if they are missing (the prompt refuses to build otherwise).
+- **Gate:** `perception_gate_v2` in `eval/perception_eval.py`, pinned by a test: recall ≥ 0.90 and code F1 ≥ 0.85 on the mean of 3 runs; readable:false and local_notice gold excluded; side before rank in matching.
+- **Phase-3 API spend so far: $1.24** over 421 calls. That is the gold pre-fill ($0.29 Opus + $0.06 Haiku) and six set-T runs ($0.89: Haiku v1–v4 $0.20, Sonnet v2 and v4 $0.68). There has been no public_dev run.
+- `ANTHROPIC_API_KEY` is not set in the assistant's shell: the owner runs the paid commands.
+
+**Checkpoint 1 procedure** (approved by the owner; run exactly this):
+1. **Haiku v4 × 3 on public_dev**, each run with `--max-spend 0.5`; ceiling **$0.35** for the three runs (estimate $0.20 calibrated, range $0.13–0.25):
+   `.venv/bin/python eval/perception_eval.py run --set public_dev --model claude-haiku-5-5 --version v4 --max-spend 0.5` (three times)
+2. Score with the gate (mean of 3): `.venv/bin/python eval/perception_eval.py score <the three run files>`.
+3. **If Haiku fails: Sonnet v4 × 3**, each run with `--max-spend 1.0`; ceiling **$1.80** (estimate $1.28 calibrated, range $0.88–1.64):
+   `.venv/bin/python eval/perception_eval.py run --set public_dev --model claude-sonnet-5-5 --version v4 --max-spend 1.0` (three times), then score.
+   Opus is skipped (owner's decision).
+4. **Report** via `eval/report.py`, labelled **"public_dev checkpoint 1 (gate v2, prompt v4)"**:
+   - both scores, on all 45 images and on the 17 non-duplicates, with 95% CIs, per run and the mean;
+   - recall, code F1 (row and strict), rule-bearing F1 (reported, not gated), value accuracy, cost;
+   - the gate verdict for each model.
+
+   Then one status commit and stop.
+
+**Rules:**
+- public_dev per-image errors are a record only. They are never used to design the fallback or any prompt. The fallback trigger is chosen from set-T errors only.
+- No new prompt versions without the owner's decision.
+- No push.
+
+**Open owner decisions:**
+- **The plan-item-7 change:** box crops that re-read low-confidence / UNKNOWN codes, plus a region pass (tiles or whole-board crops) on dense scenes. Box crops can't recover a missed sign: on set T every missed sign was never listed.
+- **What happens if the gate still fails after the fallback.**
+
+**Other open items:**
+- Catalog rows waiting for the owner's review (`reviewed_by: none`): R.403a, R.403b, R.307, R.404a, and the effect_unmodelled rows R.302(a,b,c), R.303, R.411, R.420.
+- IE.451b (catalog background blue; the train_7_23 gold says green) and IE.464 (catalog shape other; seen as a rectangle): the owner re-checks them.
+- train_7_25's four arrow boards: gold I.407c, while both models say I.415 (the owner kept I.407c).
+- Standalone local notices: labelled `local_notice` and excluded from scoring; still not modelled by the engine.
+
+
 0. **Recommendation for the public_dev checkpoint** (owner's decision; no more set-T prompt versions):
    - **Prompt v4 for both models, in plan item 6's order:** Haiku v4 × 3, then Sonnet v4 × 3, since Haiku will very likely fail.
      - Expected cost about $0.20 for Haiku (45 images × $0.0015 × 3) and $1.35 for Sonnet (45 × $0.0100 × 3), about $1.55 in all. Spend limits $0.5 and $2.5.
