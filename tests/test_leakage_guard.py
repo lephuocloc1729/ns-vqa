@@ -23,6 +23,9 @@ FORBIDDEN_STRINGS = (
     "data/splits", "duplicates.json", "public_split", "vlsp_2025_train",
     "vlsp_2025_public_test", "vlsp_2025_private_test", "train_images",
     "VLSP2025-MLQA-Natural", "VQA_DATASET_DIR",
+    # phase 3 (plan item 8): gold labels, split halves, and the law_db figures, which
+    # stay out of the scene prompt until an approved ablation
+    "gold_signs", "gold_intents", "public_dev", "public_holdout", "images.fld",
 )
 
 
@@ -136,3 +139,37 @@ def test_eval_question_readers_never_name_holdout_or_private(path):
 def test_the_holdout_check_catches_a_subscript():
     assert any("holdout" in s for _, s in _code_strings('x = split["public_holdout"]'))
     assert not _code_strings('"""Never reads public_holdout."""')
+
+
+# ---------------------------------------------------------------- phase 3: perception
+
+@pytest.mark.parametrize("snippet", [
+    "path = 'data/annotations/gold_signs_v1/gold_signs_v1.jsonl'",
+    "ids = split['public_dev']['images']",
+    "x = 'public_holdout'",
+    "fig = law_dir / 'images.fld' / 'image092.jpg'",
+    "g = 'gold_intents_v1.jsonl'",
+])
+def test_guard_catches_phase3_strings(snippet):
+    assert violations(snippet)
+
+
+def test_scene_cache_key_takes_no_file_name_or_scene_id():
+    import inspect
+    from vqa.perception.cache import scene_key
+    assert list(inspect.signature(scene_key).parameters) == \
+        ["image_sha256", "model", "effort", "prompt_version"]
+    with pytest.raises(ValueError):
+        scene_key("public_test_1_1.jpg", "claude-haiku-5-5", "medium", "v1")
+
+
+def test_scene_cache_records_hold_model_outputs_only():
+    from vqa.perception.cache import RECORD_FIELDS, REPLY_FIELDS
+    assert REPLY_FIELDS == {"pass", "raw_text", "stop_reason", "usage", "cost_usd", "request_id"}
+    assert RECORD_FIELDS == {"key", "image_sha256", "model", "effort", "prompt_version",
+                             "replies", "created"}
+
+
+def test_perception_code_is_scanned():
+    names = {p.name for p in inference_files()}
+    assert {"image.py", "wire.py", "cache.py"} <= names

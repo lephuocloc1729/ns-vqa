@@ -5,8 +5,9 @@
 
 plus the sign catalog (code, key, tags, Vietnamese name), rendered in catalog
 order so the prompt is byte-identical between runs (prompt caching is a prefix
-match). Few-shot examples come only from train and public_dev (checked by
-tests/test_parser.py); they are fixed per version, never chosen per question.
+match). Few-shot examples come only from the train split and the development half
+of the public test (checked by the parser tests); they are fixed per version,
+never chosen per question.
 """
 
 from __future__ import annotations
