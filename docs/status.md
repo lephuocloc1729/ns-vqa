@@ -324,7 +324,7 @@ Full test suite: 394 passed. Prolog loads.
   - the owner's notes ("REVIEW BLOCKED …") were left as written.
 - **All 81 label files now validate:** 66 `done`, and 15 `todo` with no errors left. The owner sets those 15 to `done`, then `import`.
 
-- **Gold signs v1 (`9387764`, 2026-11-15): 81 images imported, 0 rejected.** The owner reviewed every label by hand; the assistant set the last 15 files to `status: done` at the owner's request (status line only).
+- **Gold signs v1 (`9387764`, updated `c6fb83f`, 2026-11-15): 81 images imported, 0 rejected.** The owner reviewed every label by hand. The assistant set the last 15 files to `status: done` at the owner's request (status line only), and the owner re-checked them.
 
   | split | images | Opus-drafted | Haiku-drafted | readable signs | readable:false | local_notice |
   |---|---|---|---|---|---|---|
@@ -339,7 +339,8 @@ Full test suite: 394 passed. Prolog loads.
   | Opus 5.5 | 8 | 35 | 39 | 22 (56%) | 17 |
   | Haiku 5.5 | 73 | 256 | 273 | 71 (26%) | 202 |
 
-  - The `anchoring` field in the gold file counts 0 kept for a draft that was invalid as a whole (2 Opus, 31 Haiku). Its totals are lower: 19 for Opus and 53 for Haiku. The table counts sign by sign instead (24 Haiku and 2 Opus draft signs were invalid on their own).
+  - `b79e0bc`: `import` now counts anchoring sign by sign against the cleaned-up draft, including drafts invalid as a whole. Each row stores `draft_signs`, `draft_signs_invalid`, `final_signs`, `kept` and `changed_or_added`. The table above is the stored figure: invalid draft signs were 2 for Opus and 24 for Haiku. The first import's field had counted 0 kept for the 33 invalid drafts (totals 19 and 53).
+  - `c6fb83f`: re-imported the same 81 ids. The owner re-checked the 15 files the assistant set to done and cleared every "REVIEW BLOCKED" note; none remains in the gold file. No sign labels changed.
   - Low "kept" figures mean the owner changed most drafted signs, so the anchoring towards the drafters is weak. Exact equality also counts small edits (a side or a rank) as changes.
 - **D10 visual-review list (55 rows):** the rows in the set-T gold, `tests/fixtures/train_*.json` and train question text.
   - **The list:** P.102, P.103a, P.103c, P.106a, P.106b, P.107, P.107a, P.110a, P.111a, P.111b, P.111d, P.112, P.115, P.117, P.123b, P.124c, P.125, P.130, P.131a, P.131b, P.131c, P.127, P.127b, P.127c, R.306, R.403a, R.307, R.404a, R.302(a,b,c), R.303, R.411, R.420, R.412f, R.415a, R.415b, W.201b, W.203(a,b,c), W.205(a,b,c,d,e), W.207(a,b,c,d,e,f,g,h,i,k,l), W.210, W.224, W.227, W.244, W.245a, I.407(a,b,c), I.408, I.409, I.414(a,b,c,d), I.415, I.423(a,b), IE.451b, IE.452, IE.464, IE.465, IE.466.
