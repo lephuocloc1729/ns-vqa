@@ -208,11 +208,28 @@ Full test suite: 365 passed.
 - Rough method: the system prompt at 2.04 bytes per token (measured on the parser prompt), about 10,970 tokens; images at width × height / 750 after resizing.
 - Expected: **$2.85** sequential with caching, at 1,500 output tokens per image. $5.28 if outputs are twice that. $6.18 with no cache hits. Worst case (every call writes the whole prompt and uses all 8,000 output tokens): $17.65.
 - Output is most of the cost (121,500 tokens, about $2.43).
-- Waiting for the owner's go-ahead. Suggested limit: `prefill --max-spend 6`.
+- Superseded by the stage-1 measurement below.
+
+- `10c6730` Set T excludes train images that share a duplicate group with **any** public test image (6 of the 36 shared one with a public_holdout image). Ids come from `public_split.json` only. `select` re-run with the same seed and n=36: 57 train images excluded (was 31), pool 247. 23 of the 36 images changed, since the smaller pool reshuffles the round-robin. A test checks that no set-T image shares a group with any public image.
+- `047a7f7` `prefill` logs `http_error` (cost 0, status, request id, error text) when `count_tokens` or `create` fails, then re-raises.
+
+Full test suite: 369 passed.
+
+**Pre-fill stage 1 (2026-11-15, owner-approved, `--max-spend 0.5`, run by the owner):** the spend guard stopped it before image 9 (public_test_3_10), as intended (spent $0.2946; that call's worst case was $0.21).
+- 8 images drafted, all public_dev. Status: 6 ok, 2 invalid, 0 bad_json, 0 truncated, 0 refused.
+  - public_test_2_1: `UNKNOWN` on a sign marked readable.
+  - public_test_3_1: `R.412`, a stem of eight separate rows, where the guide asks for the variant.
+
+  Invalid drafts still go to the sheet; the reviewer fixes them.
+- **Cost: $0.2946.** The first call wrote the cache ($0.077); the other seven averaged $0.031.
+- **Output tokens:** mean 1,312, max 3,245 (public_test_2_11, 13 signs), min 553.
+- **Cache:** the system prompt is 9,690 tokens (the rough estimate said 10,970). Calls 2–8 read it from the cache: 93% of their prompt tokens. 82% over all 8 calls, counting the first call's write.
+- **Image and user tokens per call:** 198–1,526.
+- **Projection for the other 73 images:** about $2.3 at $0.031 per image, about $2.9 if outputs run 25% longer. Add about $0.05 if the cache has expired and is written again. Stage 1 plus stage 2 comes to about $2.6–3.2, against the $2.85 estimate.
 
 ## Next steps, in order
 
-0. **Phase 3 gold pre-fill**, after the owner's go-ahead: `eval/gold_signs.py prefill --max-spend 6`, then `sheet`, review, `import`. Then the D10 visual check of the listed rows, before `prompts/scene/v1` is frozen.
+0. **Phase 3 gold pre-fill, stage 2**, after the owner's go-ahead: `eval/gold_signs.py prefill --max-spend 3.2` (it resumes after the 8 drafted images), then `sheet`, review, `import`. Then the D10 visual check of the listed rows, before `prompts/scene/v1` is frozen.
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
 2. **Done: the parser gate.** It passed for Sonnet 5.5 at medium on prompt v6; see the results above. The rest of this step is kept as a record. **Haiku on prompt v6, medium effort, three runs:**
