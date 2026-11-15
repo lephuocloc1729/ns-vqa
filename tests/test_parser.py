@@ -383,3 +383,12 @@ def test_failed_calls_are_logged(engine, tmp_path):
     assert log[0]["status"] == "http_error" and log[0]["cost_usd"] == 0.0
     assert log[0]["http_status"] == 400 and "grammar" in log[0]["error"]
     assert log[1]["status"] == "max_tokens" and log[1]["cost_usd"] > 0
+
+
+def test_raw_replies_and_usage_kept_for_every_attempt(engine):
+    p, _ = parser(["{oops", GOOD], engine)
+    r = p.parse("...")
+    assert r.raw == ["{oops", json.dumps(GOOD)] and len(r.usage) == 2
+    p2, _ = parser(["MAXTOK"], engine)
+    r2 = p2.parse("...")
+    assert r2.status == "error" and r2.raw == ['{"program": {"inte'] and len(r2.usage) == 1

@@ -354,12 +354,16 @@ def run(max_spend: float, sdk=None, engine=None, check_at: int = 2,
             res = client.json_reply(system=system, user=user_text(q["question"]),
                                     max_tokens=MAX_TOKENS, effort=EFFORT,
                                     purpose="gold-intent draft (sequential)")
+            rec["raw_reply"] = res.raw_text
             parse_draft(rec, res.raw_text, engine)
-        except LLMRefusal:
+        except LLMRefusal as e:
+            rec["raw_reply"] = getattr(e, "raw_text", "")
             rec["draft_status"] = "refused"
         except LLMTruncated as e:
+            rec["raw_reply"] = getattr(e, "raw_text", "")
             rec["draft_status"], rec["errors"] = "invalid", [str(e)]
         except LLMError as e:
+            rec["raw_reply"] = getattr(e, "raw_text", "")
             rec["draft_status"], rec["errors"] = "invalid", [str(e)]
         rec["usage"] = client.last_usage
         drafts[q["id"]] = rec

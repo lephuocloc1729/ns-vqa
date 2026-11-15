@@ -40,7 +40,8 @@ class ParseResult:
     errors: list[str] = field(default_factory=list)
     attempts: int = 0
     cost_usd: float = 0.0
-    raw: list[str] = field(default_factory=list)
+    raw: list[str] = field(default_factory=list)   # the reply text of every attempt, in order
+    usage: list[dict] = field(default_factory=list)  # token usage of every attempt, in order
 
 
 class ClaudeParser:
@@ -84,16 +85,20 @@ class ClaudeParser:
             except SpendLimitExceeded:
                 raise
             except LLMBadJSON as e:
+                res.usage.append(self.llm.last_usage or {})
                 res.cost_usd += getattr(e, "cost_usd", 0.0)
                 raw = getattr(e, "raw_text", "")
                 res.raw.append(raw)
                 q, errs = None, [str(e)]
             except LLMError as e:            # refusal, max_tokens: no retry
+                res.usage.append(self.llm.last_usage or {})
                 res.cost_usd += getattr(e, "cost_usd", 0.0)
+                res.raw.append(getattr(e, "raw_text", ""))
                 res.errors.append(str(e))
                 res.status = "error"
                 return res
             else:
+                res.usage.append(call.usage)
                 res.cost_usd += call.cost_usd
                 raw = call.raw_text
                 res.raw.append(raw)

@@ -198,3 +198,11 @@ def test_requests_carry_no_schema(seq_out, engine):
     sdk = SeqSDK([{"cache_creation_input_tokens": 29_990}])
     gi.run(5.0, sdk=sdk, engine=engine)
     assert all(r["output_config"] == {"effort": "medium"} for r in sdk.sent)
+
+
+def test_run_progress_keeps_the_raw_reply(seq_out, engine):
+    sdk = SeqSDK([{"cache_creation_input_tokens": 29_990, "text": "Program: " + GOOD}])
+    gi.run(5.0, sdk=sdk, engine=engine)
+    done = [json.loads(l) for l in (seq_out / "run_progress.jsonl").read_text().splitlines()]
+    assert done[0]["raw_reply"] == "Program: " + GOOD and done[0]["draft_status"] == "invalid"
+    assert all(d["raw_reply"] == GOOD for d in done[1:])

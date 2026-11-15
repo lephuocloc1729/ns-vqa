@@ -104,3 +104,34 @@ def test_score_report_splits_and_ci():
 def test_wilson_ci_known_value():
     lo, hi = wilson_ci(8, 10)
     assert round(lo, 3) == 0.490 and round(hi, 3) == 0.943
+
+
+# Eval tools that read dataset questions may read public_dev and train only:
+# never public_holdout or private questions (CLAUDE.md, "Dataset rules").
+EVAL_QUESTION_READERS = [ROOT / "eval" / "parser_eval.py", ROOT / "eval" / "gold_intents.py"]
+HOLDOUT_OR_PRIVATE = ("public_holdout", "holdout", "private_test", "vlsp_2025_private")
+
+
+def _code_strings(source: str) -> list[tuple[int, str]]:
+    """String constants in code, leaving out docstrings (which may explain the rule)."""
+    tree = ast.parse(source)
+    docs = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.FunctionDef, ast.ClassDef, ast.AsyncFunctionDef)):
+            body = getattr(node, "body", [])
+            if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+                docs.add(id(body[0].value))
+    return [(n.lineno, n.value) for n in ast.walk(tree)
+            if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docs]
+
+
+@pytest.mark.parametrize("path", EVAL_QUESTION_READERS, ids=lambda p: p.name)
+def test_eval_question_readers_never_name_holdout_or_private(path):
+    found = [f"{path.name}:{line} {s!r}" for line, s in _code_strings(path.read_text(encoding="utf-8"))
+             for bad in HOLDOUT_OR_PRIVATE if bad in s.lower()]
+    assert not found, "eval code names holdout/private data:\n" + "\n".join(found)
+
+
+def test_the_holdout_check_catches_a_subscript():
+    assert any("holdout" in s for _, s in _code_strings('x = split["public_holdout"]'))
+    assert not _code_strings('"""Never reads public_holdout."""')
