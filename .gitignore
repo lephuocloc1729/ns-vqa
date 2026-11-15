@@ -21,3 +21,6 @@ data/annotations/gold_intents_v1/*
 data/annotations/gold_signs_v1/*
 !data/annotations/gold_signs_v1/gold_signs_v1.jsonl
 data/annotations/gold_signs_private/
+
+# D10 visual review page (links dataset and law_db images; local only)
+data/annotations/visual_review/
