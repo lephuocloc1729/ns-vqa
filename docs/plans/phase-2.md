@@ -22,11 +22,14 @@ Before phase 2 started, two fixes were made, each in its own commit:
    - One Claude call with structured output turns a Vietnamese question into a `QueryProgram`. It covers the full DSL: forbidden, choose, is_sign, all_of/any_of, which_vehicles, lane_vehicles, speed_limit, every_vehicle.
    - Enums come from the ontology and the catalog. The DSL spec and few-shots go in a cached system prompt.
    - A validator checks each program; on failure the parser retries once with the error message.
+   - **Changed by the owner on 2026-11-15:** no structured output. The parser asks for one JSON object in plain text: bare, or in a ```json fence. The typed wire models (`from_wire`), the validator and the dry run check it. Malformed JSON or a failed check gets exactly one retry with a short error, through the spend guard. A refusal or a reply cut off at `max_tokens` is an error, with no retry. The prompt is `prompts/parser/v3`: v2 plus a "reply with only the JSON object" line.
+     - Reason: the API's documented limits for strict schemas are at most **24 optional parameters** and **16 parameters with union types** (`anyOf` or nullable), counted across all strict schemas in a request. The DSL has about 60 optional fields. Three gold-drafting requests were rejected with "The compiled grammar is too large", and none was billed. The two schema changes in between, `734135e` and `7ff868d`, did not get under the limit.
+     - Enums are no longer enforced by the API. Vehicle classes, actions, sign codes and meanings are checked in Python instead.
    - The defaults from CLAUDE.md are applied and recorded in `defaults_applied`.
    - The default model is Haiku 5.5. Questions outside the DSL come back as `out_of_scope`.
 3. **Few-shot sources.** Few-shot examples come from public_dev and train only, never public_holdout or private. This is enforced by a test.
 4. **Gold intents** (`eval/gold_intents.py`, tooling done: `b7e648c`).
-   - The script drafts programs for the 48 public_dev questions that are not few-shots, and 40 train questions with Opus 5.5 through the Batch API.
+   - The script drafts programs for the 48 public_dev questions that are not few-shots, and 40 train questions, with Opus 5.5. It sends sequential calls with caching (`run`); the Batch API path is the fallback.
    - **Changed by the owner on 2026-11-15:** the train sample went from 150 random questions to 40, to save API budget. The owner has rewritten the train questions to read more naturally. The 40 are spread evenly over rough question categories, one per image where possible (`spread_sample`).
    - It writes `drafts.jsonl` and `review.csv` (question, draft program, owner verdict or correction).
    - The cost estimate is shown before running. The run is waiting for the owner's go-ahead.
@@ -36,8 +39,9 @@ Before phase 2 started, two fixes were made, each in its own commit:
 
 ## Decisions (D1–D6, accepted)
 
-- **D1, one-level nesting.** The wire schema caps nesting at one level (claims inside verify / choose / all_of / any_of are plain claims), because structured outputs reject recursive schemas.
-  - *2026-11-15:* the schema sent to the API is also flat. Each nesting level is a single object type that holds every field its variants use, with `intent` choosing which apply. The typed union compiled to a grammar the API rejected as too large. The typed models still validate every answer (`from_wire`).
+- **D1, one-level nesting.** The wire models cap nesting at one level: claims inside verify / choose / all_of / any_of are plain claims.
+  - The original reason, that structured outputs reject recursive schemas, no longer applies, because no schema is sent since `c1addf3`.
+  - The owner kept the cap for now (2026-11-15). It still covers every question form seen in the audits. Lifting it would be a separate decision.
 - **D2, question only.** In phase 2 the parser sees only the question; there is no perception yet, so there is no scene sign list. That input stays optional.
 - **D3, few-shot selection.**
   - Gold drafting uses about 12 seed examples written from train. 16 were written.

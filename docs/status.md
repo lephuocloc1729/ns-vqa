@@ -41,22 +41,26 @@ Last updated 2026-11-15. Branch `phase-2` (not merged), on top of `main` at `926
 - `ab2baf3` API layer: `anthropic` SDK 2.x client, pricing, usage log, spend guard (default $2).
 - `49169db` Parser: depth-limited wire schema, validator, Claude parser with one retry, `prompts/parser/v1` (spec plus 16 train few-shots).
 - `b7e648c` Gold-intent tool: select, estimate, submit, collect, import.
+- `c38b922` Prompt `v2` (the owner's rewritten train text, plus three public_dev "đúng hay sai" few-shots). Gold sample: 48 public_dev and 40 train questions.
+- `3b368ce` Gold drafting `run`: sequential calls with caching, a cache check after call 2, and resume.
+- `734135e` Wire schema: sign codes and meanings as strings checked in Python (first try at the grammar-size 400).
+- `7ff868d` Wire schema flattened to one object per nesting level (second try; still rejected).
+- `c1addf3` Parser replies in plain JSON, with no JSON schema (the owner's plan change of 2026-11-15). Prompt `v3`. Every API call is logged with a status.
 
-Full test suite: 231 passed. No API calls have been made yet.
+Full test suite: 255 passed. Three API requests have been sent (gold drafting, 2026-11-15). All three were rejected with a 400 before the model ran, so nothing was billed.
 
 ## Next steps, in order
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
-2. **Gold drafting: 48 public_dev and 40 train questions** (the owner's change of 2026-11-15). `select` has already written the 88 questions. The three public_dev few-shots are not drafted. Drafting uses prompt `v2`, Opus 5.5 at medium effort. The exact count is 36,817 prompt tokens per request, so the owner chose sequential calls with caching over the batch: a batch's caching is best effort, so it could cost anywhere from $1.29 to $7.35, with $11.62 of headroom needed up front. With `ANTHROPIC_API_KEY` set:
-   1. Run `eval/gold_intents.py run --max-spend 5`. It is expected to cost about $2.45, or $4.36 if outputs run twice as long (rough count: 23.7k prompt tokens per request, `max_tokens` 8000).
-      - **Schema size.** Two attempts on 2026-11-15 got a 400, "The compiled grammar is too large", and neither was billed.
-        - Fix 1: sign codes and meanings became plain strings, checked against the catalog in Python. That wasn't enough, because the typed union was still 168 KB once inlined.
-        - Fix 2: the wire schema is now flat. There is one object per nesting level (program, claim, leaf claim) holding every field its variants use, with `intent` choosing which apply. `from_wire` drops the nulls and validates the answer against the typed models. Inlined, the schema is now 30 KB with 234 `anyOf` branches (it was 1,184).
-        - Whether it compiles is only known once a call is sent; a 400 costs nothing.
+2. **Gold drafting: 48 public_dev and 40 train questions** (the owner's change of 2026-11-15). `select` has already written the 88 questions. The three public_dev few-shots are not drafted. Drafting uses prompt `v3`, Opus 5.5 at medium effort, sequential calls with caching. The owner chose sequential over batch because a batch's caching is best effort. With `ANTHROPIC_API_KEY` set:
+   1. Run `eval/gold_intents.py estimate` in the owner's terminal. It is free and gives the exact count for `v3`. The offline rough figure is 18.4k prompt tokens per request: about $1.94 sequential, or $3.45 if outputs run twice as long. The owner decides the `--max-spend` from the exact figure.
+   2. Run `eval/gold_intents.py run --max-spend N`.
       - The spend guard checks every call before it is sent.
-      - After call 2, at least 90% of the prompt must have been read from the cache. If not, the run stops after about $0.50. It isn't known yet whether the JSON schema, about half the prompt, is cached.
+      - After call 2, at least 90% of the prompt must have been read from the cache, or the run stops.
       - The run resumes where it stopped (`run_progress.jsonl`). It rewrites `review.csv` after every call, and refuses to touch one that already has verdicts.
-   2. If the cache check fails, run `submit --max-spend 13` and then `collect --wait` (batch).
+      - A reply that is not a single JSON object becomes an `invalid` row with the reason. Gold drafting does not retry.
+   3. If the cache check fails, use the batch path instead: `submit`, then `collect --wait`.
+   - **Why there is no schema.** Three requests on 2026-11-15 were rejected with "The compiled grammar is too large", and none was billed. Two attempts to shrink the schema failed first: strings for codes and meanings (`734135e`), then a flat schema (`7ff868d`). The documented limits explain why: at most 24 optional parameters and 16 union-typed parameters (`anyOf` or nullable) across all strict schemas in a request. The DSL has about 60 optional fields. Since `c1addf3`, the reply is plain JSON checked by the typed wire models.
 3. **Build `eval/parser_eval.py`.** It reports:
    - program exact match, after normalization, against the gold or any `also_accept` program;
    - slot F1;
