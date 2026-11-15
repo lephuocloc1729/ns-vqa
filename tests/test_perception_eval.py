@@ -187,3 +187,16 @@ def test_side_comes_before_rank_when_ranks_are_shifted():
     pred = [p("P.127", 2, "left", value=100), p("P.127", 3, "right", value=80)]
     c = pe.score_image(gold, pred)
     assert (c["tp"], c["value_pairs"], c["value_ok"]) == (2, 2, 2)
+
+
+def test_overhead_sides_fall_back_to_rank_already():
+    """train_7_23 with Sonnet: every gantry sign 'overhead'. No pair gets side credit,
+    so rank decides, the same as an 'overhead matches any side' rule would; with ranks
+    shifted by one, rank alone can still pair across the road. Only real sides in the
+    reply (prompt v3) fix this, so matching is left unchanged."""
+    gold = [g("P.127", 1, "left", value=100), g("P.127", 2, "right", value=80)]
+    pred = [p("P.127", 2, "overhead", value=100), p("P.127", 3, "overhead", value=80)]
+    c = pe.score_image(gold, pred)
+    assert c["tp"] == 2 and c["value_ok"] == 0                      # paired across the road
+    pred_sides = [p("P.127", 2, "left", value=100), p("P.127", 3, "right", value=80)]
+    assert pe.score_image(gold, pred_sides)["value_ok"] == 2         # real sides fix it

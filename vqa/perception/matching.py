@@ -11,6 +11,12 @@ There are no pixel boxes in gold, so pairs are chosen by a fixed score:
   shifts every rank by one, and rank-first then pairs signs across the road.)
 Pairs are taken greedily by that score, which is deterministic.
 
+Side gives credit only to two equal, known sides. "overhead" is a side of its own,
+so a prediction that marks every gantry sign "overhead" gets no side credit with
+any gold side, and rank decides, which is what treating "overhead" as compatible
+with any side would also do. Gantry signs need left/center/right from the model
+itself (a scene prompt change, proposed for v3), not a matching change.
+
 Signs are plain mappings with "code", "shape", "border", "background", "rank"
 (rank_top_down) and "side"; `sign_view` makes one from a schema Sign.
 """
