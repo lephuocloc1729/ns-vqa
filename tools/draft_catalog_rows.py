@@ -86,6 +86,11 @@ REVIEWED = {
     "IE.451a", "IE.453a", "IE.463c", "IE.471", "IE.474",
 }
 
+# Rows whose visual attributes the project owner checked against the figures (the D10
+# visual check, docs/plans/phase-3.md): visual_reviewed_by: human. A confirmed fix goes in
+# VISUAL_OVERRIDES as well; human takes precedence over the overrides' assistant.
+VISUAL_REVIEWED: set[str] = set()
+
 VISUAL = {
     "warning": {"shape": "triangle", "border": "red", "background": "yellow"},
     "information": {"shape": "rectangle", "border": "none", "background": "blue"},
@@ -251,7 +256,9 @@ def to_yaml(rows: list[dict]) -> str:
             out.append(f"    note: {json.dumps(r['note'], ensure_ascii=False)}")
         out.append(f"    source: {{law_id: \"{QCVN}\", article_id: \"{r['source']}\"}}")
         out.append(f"    reviewed_by: {'human' if r['code'] in REVIEWED else 'none'}")
-        if r["code"] in VISUAL_OVERRIDES:
+        if r["code"] in VISUAL_REVIEWED:
+            out.append("    visual_reviewed_by: human")
+        elif r["code"] in VISUAL_OVERRIDES:
             out.append("    visual_reviewed_by: assistant")
         out.append("")
     return "\n".join(out)
@@ -285,15 +292,20 @@ def review_md(rows: list[dict], seed: int = 1611) -> str:
     return "\n".join(lines) + "\n"
 
 
+def draft_rows() -> list[dict]:
+    """The meaning-only rows drafted from law_db, in output order."""
+    law = json.loads(LAW.read_text(encoding="utf-8"))
+    qcvn = {a["id"]: a for a in law[0]["articles"]}
+    return (list_rows(qcvn, "28", "warning", "C.") + list_rows(qcvn, "36", "information", "E.")
+            + expressway_rows(qcvn))
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--review-list", action="store_true", help="also rewrite the review list")
     args = ap.parse_args()
-    law = json.loads(LAW.read_text(encoding="utf-8"))
-    qcvn = {a["id"]: a for a in law[0]["articles"]}
-    rows = (list_rows(qcvn, "28", "warning", "C.") + list_rows(qcvn, "36", "information", "E.")
-            + expressway_rows(qcvn))
+    rows = draft_rows()
     print(f"{len(rows)} rows, {sum(bool(r['flags']) for r in rows)} flagged")
     if args.dry_run:
         for r in rows:
@@ -301,7 +313,7 @@ def main() -> None:
         return
     OUT.write_text(to_yaml(rows), encoding="utf-8")
     print(f"-> {OUT.relative_to(ROOT)}")
-    missing = REVIEWED - {r["code"] for r in rows}
+    missing = (REVIEWED | VISUAL_REVIEWED) - {r["code"] for r in rows}
     if missing:
         raise SystemExit(f"reviewed codes not in the draft: {sorted(missing)}")
     if args.review_list:
