@@ -1,7 +1,7 @@
 """Perception eval (docs/plans/phase-3.md, item 5): estimate, run, score.
 
-    .venv/bin/python eval/perception_eval.py estimate --set T --model claude-haiku-5-5 [--runs 1] [--count]
-    .venv/bin/python eval/perception_eval.py run --set T --model claude-haiku-5-5 --max-spend 0.5
+    .venv/bin/python eval/perception_eval.py estimate --set T --model claude-haiku-5-5 [--runs 1] [--version v2]
+    .venv/bin/python eval/perception_eval.py run --set T --model claude-haiku-5-5 --max-spend 0.5 [--version v2]
     .venv/bin/python eval/perception_eval.py score eval/runs/perception/<run>.jsonl [...]
 
 Sets: T (36 train images, for prompt tuning, scored as often as needed) and
@@ -197,13 +197,13 @@ def metrics(units: list[dict], with_ci: bool) -> dict[str, Any]:
 # ---------------------------------------------------------------- estimate
 
 
-def estimate(set_name: str, model: str, runs: int = 1, sdk=None) -> dict[str, Any]:
+def estimate(set_name: str, model: str, runs: int = 1, sdk=None, version: str = "v1") -> dict[str, Any]:
     """Cost of `runs` runs on a set, with no API call (token counting only with an
     SDK client, which is free but is an API call)."""
     from PIL import Image
 
     images = set_images(set_name)
-    system = scene_prompt.system_prompt()
+    system = scene_prompt.system_prompt(version)
     sys_tokens = int(len(system.encode("utf-8")) / BYTES_PER_TOKEN) + 1
     counts = []
     for image_id, split in images:
@@ -212,8 +212,8 @@ def estimate(set_name: str, model: str, runs: int = 1, sdk=None) -> dict[str, An
             w, h = im.size
         nw, nh = native_size(w, h)
         counts.append(sys_tokens + int(nw * nh / 750) + 1 + 20)
-    max_tokens = scene_prompt.config()["max_tokens"]
-    effort = scene_prompt.effort_for(model)
+    max_tokens = scene_prompt.config(version)["max_tokens"]
+    effort = scene_prompt.effort_for(model, version)
     o = EXPECTED_OUTPUT_TOKENS
 
     def run_cost(out_tokens: int) -> float:
@@ -228,7 +228,7 @@ def estimate(set_name: str, model: str, runs: int = 1, sdk=None) -> dict[str, An
     worst_call = max(worst_case_usd(model, c, max_tokens) for c in counts)
     return {
         "set": set_name, "images": len(images), "runs": runs, "model": model, "effort": effort,
-        "prompt_id": scene_prompt.prompt_id(), "max_tokens": max_tokens,
+        "prompt_id": scene_prompt.prompt_id(version), "max_tokens": max_tokens,
         "method": f"rough (system prompt bytes / {BYTES_PER_TOKEN}; images w x h / 750 at native size; "
                   f"{o} output tokens per image)",
         "system_tokens": sys_tokens, "mean_prompt_tokens": round(sum(counts) / len(counts)),
@@ -244,7 +244,8 @@ def estimate(set_name: str, model: str, runs: int = 1, sdk=None) -> dict[str, An
 # ---------------------------------------------------------------- run
 
 
-def run(set_name: str, model: str, max_spend: float, sdk=None, out_dir: Path = RUNS) -> Path:
+def run(set_name: str, model: str, max_spend: float, sdk=None, out_dir: Path = RUNS,
+        version: str = "v1") -> Path:
     from vqa.llm.client import LLMClient
     from vqa.llm.spend import SpendGuard
     from vqa.perception.scene import perceive
@@ -256,13 +257,14 @@ def run(set_name: str, model: str, max_spend: float, sdk=None, out_dir: Path = R
     run_id = uuid.uuid4().hex[:12]
     client = LLMClient(model=model, guard=SpendGuard(max_spend), sdk=sdk, run_id=run_id)
     out_dir.mkdir(parents=True, exist_ok=True)
-    out = out_dir / f"{set_name}_{model}_{run_id}.jsonl"
+    out = out_dir / f"{set_name}_{model}_{version}_{run_id}.jsonl"
     with open(out, "w", encoding="utf-8") as f:
         f.write(json.dumps({"run_id": run_id, "set": set_name, "model": model,
-                            "prompt_id": scene_prompt.prompt_id(), "gate": GATE["name"],
+                            "prompt_id": scene_prompt.prompt_id(version), "gate": GATE["name"],
                             "started": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}) + "\n")
         for n, (image_id, split) in enumerate(images, 1):
-            res = perceive(gs.image_path(image_id, split), model=model, client=client, use_cache=False)
+            res = perceive(gs.image_path(image_id, split), model=model, version=version, client=client,
+                           use_cache=False)
             f.write(json.dumps({"image_id": image_id, "ok": res.ok, "error": res.error,
                                 "retried": res.retried, "cost_usd": res.cost_usd,
                                 "reran": any(r["pass"] == "rerun" for r in res.replies),
@@ -329,17 +331,19 @@ def main() -> None:
     e.add_argument("--set", choices=["T", "public_dev"], required=True)
     e.add_argument("--model", default="claude-haiku-5-5")
     e.add_argument("--runs", type=int, default=1)
+    e.add_argument("--version", default="v1", help="scene prompt version (prompts/scene/<version>)")
     r = sub.add_parser("run")
     r.add_argument("--set", choices=["T", "public_dev"], required=True)
     r.add_argument("--model", default="claude-haiku-5-5")
     r.add_argument("--max-spend", type=float, required=True)
+    r.add_argument("--version", default="v1", help="scene prompt version (prompts/scene/<version>)")
     s = sub.add_parser("score")
     s.add_argument("files", nargs="+", type=Path)
     a = ap.parse_args()
     if a.cmd == "estimate":
-        print(json.dumps(estimate(a.set, a.model, a.runs), indent=2))
+        print(json.dumps(estimate(a.set, a.model, a.runs, version=a.version), indent=2))
     elif a.cmd == "run":
-        run(a.set, a.model, a.max_spend)
+        run(a.set, a.model, a.max_spend, version=a.version)
     else:
         print(json.dumps(score(a.files), indent=2, default=str))
 
