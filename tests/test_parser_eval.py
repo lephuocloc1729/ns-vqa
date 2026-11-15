@@ -252,3 +252,20 @@ def test_fewer_than_three_runs_do_not_decide_the_gate():
 def test_runs_are_grouped_by_prompt_version():
     text = pe.run_groups([_run_score(8, "v5"), _run_score(10, "v6")])
     assert text.count("mean of 1 runs") == 2
+
+
+def test_a_copied_run_is_counted_once():
+    a, b = _run_score(10), _run_score(10)
+    a["run_ids"] = b["run_ids"] = ["same_run"]
+    c = _run_score(10)
+    c["run_ids"] = ["other_run"]
+    text = pe.run_groups([a, b, c])
+    assert "given more than once; counted once" in text
+    assert "mean of 2 runs" in text and "not decided (2 of 3 runs)" in text and "PASS" not in text
+
+
+def test_run_ids_come_from_the_prediction_records():
+    gold = [gold_row("q1", MEANING)]
+    p = pred("q1", MEANING)
+    p["run_id"] = "abc123"
+    assert score([p], gold)["run_ids"] == ["abc123"]

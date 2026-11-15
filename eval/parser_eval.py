@@ -206,7 +206,9 @@ def score_predictions(preds: list[dict], gold: list[dict], image_of: dict[str, s
     shots = fewshot_ids(version)
     out: dict[str, Any] = {"model": preds[0].get("model") if preds else None,
                            "effort": preds[0].get("effort") if preds else None,
-                           "prompt_version": version, "splits": {}}
+                           "prompt_version": version,
+                           "run_ids": sorted({p.get("run_id") for p in preds if p.get("run_id")}),
+                           "splits": {}}
     for split in sorted({g["split"] for g in gold}):
         rows = [g for g in gold if g["split"] == split and g["id"] not in shots]
         if split != "public_dev":
@@ -278,11 +280,20 @@ def run_groups(scores: list[dict]) -> str:
     """Mean of runs per (model, effort, prompt version): the gate from v6 on is
     decided on the mean of GATE_RUNS runs."""
     groups: dict[tuple, list[dict]] = {}
-    for sc in scores:
-        if "public_dev" in sc["splits"]:
-            groups.setdefault((sc["model"], sc["effort"], sc["prompt_version"]), []).append(
-                sc["splits"]["public_dev"])
+    seen: set[tuple] = set()
     lines = []
+    for sc in scores:
+        if "public_dev" not in sc["splits"]:
+            continue
+        key = (sc["model"], sc["effort"], sc["prompt_version"])
+        rid = tuple(sc.get("run_ids") or ())
+        if rid and (key, rid) in seen:
+            # the same run (same run_id) given twice, e.g. a copied file: count it once
+            lines.append(f"{key[0]} {key[1]} {key[2]}: run {', '.join(rid)} was given more than "
+                         "once; counted once")
+            continue
+        seen.add((key, rid))
+        groups.setdefault(key, []).append(sc["splits"]["public_dev"])
     for (model, effort, version), runs in groups.items():
         accs = [r["accuracy"] for r in runs]
         mean = sum(accs) / len(accs)
