@@ -108,7 +108,8 @@ def test_wilson_ci_known_value():
 
 # Eval tools that read dataset questions may read public_dev and train only:
 # never public_holdout or private questions (CLAUDE.md, "Dataset rules").
-EVAL_QUESTION_READERS = [ROOT / "eval" / "parser_eval.py", ROOT / "eval" / "gold_intents.py"]
+EVAL_QUESTION_READERS = [ROOT / "eval" / "parser_eval.py", ROOT / "eval" / "gold_intents.py",
+                         ROOT / "eval" / "gold_signs.py"]
 HOLDOUT_OR_PRIVATE = ("public_holdout", "holdout", "private_test", "vlsp_2025_private")
 
 
