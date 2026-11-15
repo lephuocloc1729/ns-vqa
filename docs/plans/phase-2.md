@@ -37,6 +37,7 @@ Before phase 2 started, two fixes were made, each in its own commit:
 ## Decisions (D1–D6, accepted)
 
 - **D1, one-level nesting.** The wire schema caps nesting at one level (claims inside verify / choose / all_of / any_of are plain claims), because structured outputs reject recursive schemas.
+  - *2026-11-15:* the schema sent to the API is also flat. Each nesting level is a single object type that holds every field its variants use, with `intent` choosing which apply. The typed union compiled to a grammar the API rejected as too large. The typed models still validate every answer (`from_wire`).
 - **D2, question only.** In phase 2 the parser sees only the question; there is no perception yet, so there is no scene sign list. That input stays optional.
 - **D3, few-shot selection.**
   - Gold drafting uses about 12 seed examples written from train. 16 were written.

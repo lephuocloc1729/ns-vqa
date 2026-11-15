@@ -43,14 +43,14 @@ from vqa.parsing import validator  # noqa: E402
 from vqa.parsing.prompt import examples, system_prompt  # noqa: E402
 from pydantic import ValidationError  # noqa: E402
 
-from vqa.parsing.wire import WParse, compact, explain, json_schema, to_query  # noqa: E402
+from vqa.parsing.wire import WParse, compact, explain, flat_answer, from_wire, json_schema, to_query  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 DATASET = Path(os.environ.get("VQA_DATASET_DIR", ROOT / "VLSP2025-MLQA-Natural")) / "dataset"
 OUT = ROOT / "data" / "annotations" / "gold_intents_v1"
 MODEL = "claude-opus-5-5"
 EFFORT = "medium"
-MAX_TOKENS = 4000
+MAX_TOKENS = 8000   # a 4-option choose is ~1.6k tokens of flat JSON, plus thinking
 # exact count (2026-11-15) was 36,817 prompt tokens per request against a rough 17,210:
 # Vietnamese text and the JSON schema take far more tokens than bytes / 3.5 suggests
 ROUGH_PROMPT_CALIBRATION = 2.14
@@ -146,11 +146,11 @@ def rough_tokens(text: str) -> int:
 
 
 def expected_output_tokens() -> int:
-    """Average full wire answer (all fields, as the model must write it) plus an
-    allowance for adaptive thinking at medium effort."""
+    """Average full wire answer (every flat-schema field, nulls included, as the
+    model must write it) plus an allowance for adaptive thinking at medium effort."""
     sizes = []
     for ex in examples(PROMPT_VERSION):
-        full = WParse.model_validate(ex["output"]).model_dump()
+        full = flat_answer(ex["output"])
         sizes.append(rough_tokens(json.dumps(full, ensure_ascii=False)))
     return int(sum(sizes) / len(sizes)) + 800
 
@@ -230,7 +230,7 @@ def parse_draft(rec: dict, text: str, engine) -> dict:
     """Fill a draft record from the model's JSON text: draft program, validator
     errors, and draft_status (ok | out_of_scope | invalid)."""
     try:
-        w = WParse.model_validate(json.loads(text))
+        w = from_wire(json.loads(text))
         rec["draft"] = compact(w)
         rec["errors"] = validator.check(to_query(w, CONTEXT_YEAR), engine)
         rec["draft_status"] = "invalid" if rec["errors"] else (

@@ -28,10 +28,11 @@ Defaults the parser fills (recorded in QueryProgram.defaults_applied):
 from __future__ import annotations
 
 import copy
+import json
 import datetime as dt
 from typing import Annotated, Any, Literal, Optional, Union
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, TypeAdapter, ValidationError
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 from vqa.kb import load_catalog
 from vqa.schemas import Action, Colour, Program, QueryProgram, Shape, Side, VehicleClass
@@ -156,7 +157,8 @@ class WIsSign(_W):
     category: Optional[CategoryLit] = None
 
 
-LeafClaim = Union[WPermitted, WForbidden, WSpeedOk, WRequired, WExistsViolation, WIsSign]
+_LEAF_MODELS = (WPermitted, WForbidden, WSpeedOk, WRequired, WExistsViolation, WIsSign)
+LeafClaim = Annotated[Union[_LEAF_MODELS], Field(discriminator="intent")]
 
 
 class WAllOf(_W):
@@ -169,8 +171,8 @@ class WAnyOf(_W):
     claims: list[LeafClaim]
 
 
-Claim = Union[WPermitted, WForbidden, WSpeedOk, WRequired, WExistsViolation, WIsSign,
-              WAllOf, WAnyOf]
+_CLAIM_MODELS = _LEAF_MODELS + (WAllOf, WAnyOf)
+Claim = Annotated[Union[_CLAIM_MODELS], Field(discriminator="intent")]
 
 
 class WVerify(_W):
@@ -241,9 +243,9 @@ class WSpeedLimit(_W):
     when: Optional[WWhen] = None
 
 
-WProgram = Union[WPermitted, WForbidden, WSpeedOk, WRequired, WExistsViolation, WIsSign,
-                 WAllOf, WAnyOf, WVerify, WChoose, WLanesFor, WLanesWhere, WBanTimes,
-                 WMeaning, WWhichVehicles, WLaneVehicles, WSpeedLimit]
+_PROGRAM_MODELS = _CLAIM_MODELS + (WVerify, WChoose, WLanesFor, WLanesWhere, WBanTimes,
+                                   WMeaning, WWhichVehicles, WLaneVehicles, WSpeedLimit)
+WProgram = Annotated[Union[_PROGRAM_MODELS], Field(discriminator="intent")]
 
 
 class WParse(_W):
@@ -282,9 +284,115 @@ def explain(e: ValidationError) -> str:
     return "; ".join(f"{'.'.join(str(p) for p in x['loc'])}: {x['msg']}" for x in errs[:3])
 
 
+def _base(prop: dict) -> dict:
+    """A property schema without title/default and without its null branch."""
+    prop = {k: v for k, v in prop.items() if k not in ("title", "default")}
+    alts = prop.get("anyOf")
+    if alts and any(a.get("type") == "null" for a in alts):
+        rest = [a for a in alts if a.get("type") != "null"]
+        prop = rest[0] if len(rest) == 1 else {"anyOf": rest}
+    return prop
+
+
+def _flat(models: tuple, defs: dict, overrides: dict[str, dict]) -> dict:
+    """One object with every field of `models` (all nullable) and `intent` naming
+    the variant. Same-named fields merge (enums are unioned)."""
+    intents, fields = [], {}
+    for m in models:
+        props = defs[m.__name__]["properties"]
+        intents.append(props["intent"]["const"])
+        for name, prop in props.items():
+            if name == "intent":
+                continue
+            base = overrides.get(name) or _base(prop)
+            fields.setdefault(name, []).append(base)
+    out = {"intent": {"type": "string", "enum": intents}}
+    for name, alts in fields.items():
+        uniq = list({json.dumps(a, sort_keys=True): a for a in alts}.values())
+        if len(uniq) > 1 and all("enum" in a for a in uniq):
+            merged = {"type": "string", "enum": sorted({v for a in uniq for v in a["enum"]})}
+        elif len(uniq) > 1:
+            merged = {"anyOf": uniq}
+        else:
+            merged = uniq[0]
+        out[name] = {"anyOf": [merged, {"type": "null"}]}
+    return {"type": "object", "properties": out}
+
+
 def json_schema() -> dict[str, Any]:
-    """The JSON schema for output_config.format."""
-    return _strict(copy.deepcopy(WParse.model_json_schema()))
+    """The JSON schema for output_config.format.
+
+    The typed union (17 program variants, 8 claim variants at every claim position)
+    compiled to a grammar the API rejected as too large: inlined, it was 168 KB with
+    1,184 anyOf branches. The schema sent is flat instead: one object per nesting
+    level (program, claim, leaf claim) holding every field its variants use, with
+    `intent` saying which apply. from_wire() drops the nulls and validates the
+    answer against the typed models, so wrong field/intent pairs are still caught.
+    """
+    full = WParse.model_json_schema()
+    defs = full["$defs"]
+    leaf_ref, claim_ref = {"$ref": "#/$defs/FlatLeaf"}, {"$ref": "#/$defs/FlatClaim"}
+    flat_defs = {
+        "FlatLeaf": _flat(_LEAF_MODELS, defs, {}),
+        "FlatClaim": _flat(_CLAIM_MODELS, defs, {"claims": {"type": "array", "items": leaf_ref}}),
+        "FlatProgram": _flat(_PROGRAM_MODELS, defs, {
+            "claims": {"type": "array", "items": leaf_ref},
+            "claim": claim_ref,
+            "options": {"type": "array", "items": {"type": "object", "properties": {
+                "label": {"type": "string"}, "claim": claim_ref,
+                "expect": {"anyOf": [{"type": "boolean"}, {"type": "null"}]}}}}}),
+    }
+    keep = {k: defs[k] for k in ("WVehicle", "WWhen", "WSelector")}
+    top = {"type": "object", "properties": {
+        "out_of_scope": {"type": "boolean"},
+        "out_of_scope_reason": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "missing_slots": {"type": "array", "items": {"type": "string"}},
+        "program": {"anyOf": [{"$ref": "#/$defs/FlatProgram"}, {"type": "null"}]}},
+        "$defs": {**keep, **flat_defs}}
+    return _strict(copy.deepcopy(top))
+
+
+def flat_answer(compact: dict[str, Any]) -> dict[str, Any]:
+    """A compact answer (as in the few-shots) the way the API returns it under the
+    flat schema: every field present, null where the variant has nothing. Used to
+    size outputs for cost estimates, and in tests."""
+    defs = json_schema()["$defs"]
+
+    def fill(node: dict, level: str) -> dict:
+        out: dict[str, Any] = {k: None for k in defs[level]["properties"]}
+        for k, v in node.items():
+            if k == "claims":
+                v = [fill(c, "FlatLeaf") for c in v]
+            elif k == "claim":
+                v = fill(v, "FlatClaim")
+            elif k == "options":
+                v = [{"label": o["label"], "claim": fill(o["claim"], "FlatClaim"),
+                      "expect": o.get("expect")} for o in v]
+            elif k in ("vehicle", "when", "sign") and isinstance(v, dict):
+                sub = {"vehicle": "WVehicle", "when": "WWhen", "sign": "WSelector"}[k]
+                v = {**{f: None for f in defs[sub]["properties"]}, **v}
+            out[k] = v
+        return out
+
+    full: dict[str, Any] = {"out_of_scope": False, "out_of_scope_reason": None,
+                            "missing_slots": [], "program": None, **compact}
+    if full["program"] is not None:
+        full["program"] = fill(full["program"], "FlatProgram")
+    return full
+
+
+def _drop_nulls(node: Any) -> Any:
+    if isinstance(node, dict):
+        return {k: _drop_nulls(v) for k, v in node.items() if v is not None}
+    if isinstance(node, list):
+        return [_drop_nulls(x) for x in node]
+    return node
+
+
+def from_wire(data: dict[str, Any]) -> WParse:
+    """The model's flat answer as a typed WParse (null fields dropped, so they take
+    the models' defaults). Raises ValidationError on a field the intent does not use."""
+    return WParse.model_validate(_drop_nulls(data))
 
 
 # --------------------------------------------------------------------------- convert

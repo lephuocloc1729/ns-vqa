@@ -16,7 +16,7 @@ from vqa.parsing.claude_parser import ClaudeParser
 from vqa.parsing.prompt import examples, system_prompt
 from pydantic import ValidationError
 
-from vqa.parsing.wire import WParse, explain, json_schema, to_query
+from vqa.parsing.wire import WParse, explain, flat_answer, from_wire, json_schema, to_query
 from vqa.schemas import QueryProgram
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -225,3 +225,31 @@ def test_fewshots_come_from_train_or_public_dev_only():
         for ex in examples("v2"):
             if ex["split"] == "train":
                 assert ex["id"] in rows and rows[ex["id"]]["question"] == ex["question"], ex["id"]
+
+
+def test_flat_answers_parse_to_the_typed_programs():
+    for ex in examples("v2"):
+        flat = flat_answer(ex["output"])
+        assert from_wire(flat) == WParse.model_validate(ex["output"]), ex["id"]
+
+
+def test_flat_answer_with_a_field_its_intent_lacks_is_rejected():
+    flat = flat_answer({"program": {"intent": "meaning", "sign": {"only": True}}})
+    flat["program"]["speed_kmh"] = 50.0
+    with pytest.raises(ValidationError) as e:
+        from_wire(flat)
+    assert "speed_kmh" in explain(e.value)
+
+
+def test_flat_schema_stays_small_when_inlined():
+    s = json_schema()
+
+    def inline(n):
+        if isinstance(n, dict):
+            if "$ref" in n:
+                return inline(s["$defs"][n["$ref"].split("/")[-1]])
+            return {k: inline(v) for k, v in n.items() if k != "$defs"}
+        return [inline(x) for x in n] if isinstance(n, list) else n
+
+    text = json.dumps(inline(s))
+    assert len(text) < 40_000 and text.count('"anyOf"') < 300   # the typed union was 168 KB

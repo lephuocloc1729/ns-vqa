@@ -160,7 +160,7 @@ def test_run_resumes_and_records_failures(seq_out, engine):
     sdk = SeqSDK([{"cache_creation_input_tokens": 29_990}, {"stop": "max_tokens",
                                                              "cache_read_input_tokens": 29_990}])
     with pytest.raises(SpendLimitExceeded):              # spend limit after two calls
-        gi.run(0.40, sdk=sdk, engine=engine)
+        gi.run(0.49, sdk=sdk, engine=engine)  # call 3 worst case (~$0.31) no longer fits
     done = [json.loads(l) for l in (seq_out / "run_progress.jsonl").read_text().splitlines()]
     assert [d["draft_status"] for d in done] == ["ok", "invalid"]
     assert "max_tokens" in done[1]["errors"][0]
