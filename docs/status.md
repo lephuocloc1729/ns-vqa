@@ -373,9 +373,40 @@ Full test suite: 394 passed. Prolog loads.
   - public_dev, 3 runs (45 images): **$0.11 to $0.22**. Worst case $1.50.
   - Waiting for the owner's yes on the first paid run: Haiku, set T.
 
+**First paid perception run (2026-11-15): Haiku 5.5, medium, `scene/v1@d6be305ababc`, set T. These are development figures, not the gate.** Run `c11b768af950`, run by the owner with `--max-spend 0.5`. The spend guard didn't stop it.
+
+| set T, development | images | sign recall (95% CI) | code F1, catalog row (95% CI) | code F1, strict |
+|---|---|---|---|---|
+| all images | 36 | 86.7% (77.8–96.7%) | 60.8% (51.3–71.0%) | 59.9% |
+| non-duplicates (no public or private copy) | 26 | 82.2% (72.4–94.4%) | 59.8% (49.4–72.6%) | 59.8% |
+
+- **Counts:** 120 scored gold signs (14 readable:false and 2 local notices excluded; 1 of the 2 notices was found) and 117 predictions. 104 gold signs were found, 72 with the right code.
+- **Cost:** $0.0528 in all, $0.0015 per image, over 61 calls (40 scene calls including 4 retries, plus 21 re-runs). That is within the $0.031–0.060 estimate.
+  - Output tokens: mean 1,376, median 1,373, max 3,704.
+  - One cache write; 92.6% of prompt tokens were read from the cache.
+- **Status:** 36 ok, 4 retried, 0 bad_json, 0 refused, 0 truncated.
+  - Retry causes: 3 replies put a `box` on a plate; 1 wrote `I.451b` for IE.451b.
+- **Re-runs:** 21 of 36 images (58%). Of the signs paired by re-runs, 68 agreed and 20 got an alternative reading; 6 were seen in the re-run only and 3 in the first reading only.
+- **Verification issues:** 11 id renumberings, 10 look mismatches, 1 lane-row renumbering, 1 missing value.
+  - Of the look mismatches, 9 lowered a sign (human-reviewed rows) and 1 was recorded only.
+  - The lowerings include IE.451b (seen green, catalog now blue) and IE.464 (seen rectangle, catalog now other). Both are D10 fixes that disagree with the gold labels.
+- **Accuracy:** value 80% (12 of 15); shape 100%; background 100%; border 81.7%.
+  - Border: 14 of the 19 mismatches are blue boards that the gold labels `border: white` and the model calls `none` (as does the catalog). This is a convention question, not a misread.
+- **Errors (set T only), 16 missed gold signs and 32 wrong codes:**
+  - **UNKNOWN for a readable sign (10):** train_1_6 I.409, train_2_8 W.203c, train_2_41 W.207, train_3_25 R.404a, train_6_29 R.403a, train_6_39 W.205 and W.245a, train_6_41 P.130, train_7_46 P.103a, train_8_8 P.125.
+  - **Look-alike pictograms (10 wrong, 1 missed):** P.131a→P.130 (train_1_6, 7_37); P.123b→P.123a (1_6); P.111b→P.131a / P.104 / P.106a (2_11, 3_25, 6_7); P.125→P.103a (7_37); P.103c→P.124b (7_46); P.117→P.118 and P.124c→P.124a (8_32); R.307 read as P.127 (7_23, unmatched).
+  - **Lane boards (4):** P.127c↔P.127b (2_11, 6_41 ×2); R.415a→I.417c (1_6).
+  - **Guide and information boards (8 wrong, 4 missed):**
+    - I.444 for I.414 (1_6, 6_38), W.244 (6_38) and R.403a (6_38);
+    - IE.466 read as IE.454, IE.464 or I.414 (1_8, 1_19, 6_40); IE.452→I.444 (6_40);
+    - four I.407c arrow boards read as I.415 with `shape: other`, copying the catalog's new look, so they can't be paired (7_25).
+  - **Small, distant or dense (11 missed):** train_1_6 (collage: R.411, R.420, P.102, R.302a), train_6_38 (R.403a, I.414 ×2, P.130, R.302a), train_3_25 (I.415, R.404a).
+  - **Catalog gap:** none (no uncatalogued code after the retry).
+  - **Matching artefact:** train_7_23's two P.127 values (100, 80) show as swapped. The model ranked the green board first, so its ranks are off by one, and the pinned matching puts rank above side. Both values were read correctly.
+
 ## Next steps, in order
 
-0. **First paid perception run (owner's yes needed):** `eval/perception_eval.py run --set T --model claude-haiku-5-5 --max-spend 0.5`, then `score`.
+0. **Owner decisions after the first set-T run:** the v2 prompt changes; the matching tie-break (a gate change, still possible before any public_dev result); the border convention for blue boards; and the IE.451b / IE.464 / I.415 visual fixes that disagree with the gold.
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
 2. **Done: the parser gate.** It passed for Sonnet 5.5 at medium on prompt v6; see the results above. The rest of this step is kept as a record. **Haiku on prompt v6, medium effort, three runs:**
