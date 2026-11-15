@@ -471,9 +471,28 @@ Full test suite: 394 passed. Prolog loads.
   Sonnet read every number correctly.
 - **Cost:** Sonnet cost $0.009 per image, below the $0.58–1.14 estimate, because its outputs are short. That is about 7× Haiku's cost per image.
 
+**Artefact fixes and re-verification (2026-11-15, no API calls):**
+- `6771e52` Verification: end-of-limit signs (rows with `ends`) keep the limit they end; it is checked as a speed when they end a speed limit.
+- `31a32e2` Re-run pairing relates same-family readings and end/limit pairs (DP.134 ↔ P.127, R.307 ↔ R.306). The gate's matching never relates.
+- `935df91` Gantry sides: matching already falls back to rank for all-`overhead` predictions, so an "overhead matches any side" rule would change nothing. The fix is real sides from the model, proposed for v3. A test pins both halves.
+- `1745a9e` `rescore --reverify` rebuilds scenes from the cached replies with the current code and makes no calls. A reported, ungated metric is added: code F1 on rule-bearing signs (68 of the 120 set-T gold signs).
+- **Set T, development, gate v2, before → after re-verification:**
+
+  | | recall (CI) | code F1 (CI) | strict | rule-bearing F1 | value acc. |
+  |---|---|---|---|---|---|
+  | Haiku v1 | 86.7% (77.8–96.7) | 60.8% (51.3–71.0) | 59.9% | 68.8% | 93.3% (unchanged) |
+  | Haiku v2 | 89.2% (81.9–97.7) | 64.7% (57.5–72.5) | 64.7% | 68.1% | 93.3% (unchanged) |
+  | Sonnet v2, before | 92.5% (85.9–100) | 70.4% (61.9–79.4) | 69.5% | 72.7% | 68.8% |
+  | **Sonnet v2, after** | 92.5% (85.9–100) | **70.7%** (62.1–80.0) | 69.8% | **73.3%** | **75.0%** |
+
+  - Non-duplicates, after: Haiku v1 82.2% / 59.8%, Haiku v2 87.8% / 64.0%, Sonnet v2 90.0% / 69.0% (recall / code F1). Rule-bearing F1 on non-duplicates: 72.5%, 70.8%, 73.7%.
+  - Only Sonnet changes: one duplicate sign on train_7_23 is gone (113 → 112 predictions), and the DP.134 value now counts. Its remaining value misses come from the all-`overhead` gantry sides.
+  - On rule-bearing signs, Haiku v2 is no better than v1 (68.1% vs 68.8%). Its gains were on guide boards.
+- **Proposal, waiting for the owner:** `docs/plans/phase-3-proposal-v3-pictograms.md`. It covers scene prompt v3 with reference pictograms for 41 confused rows (43 law_db figures, about 2,500 cached image tokens). It needs a dataset-rule exception: local gitignored copies made by a `tools/` builder, pinned by a committed sha256 manifest. It also proposes three text changes (gantry sides, lane boards as one sign, a softer "always guess").
+
 ## Next steps, in order
 
-0. **Owner decision after the v2 runs:** the next lever (reference pictograms, two-pass crops, v3 text, model choice), and the fixes for the set-up artefacts found on train_7_23: end-of-limit values, re-run pairing across categories, and gantry sides.
+0. **Owner decision on the v3 proposal** (`docs/plans/phase-3-proposal-v3-pictograms.md`): the dataset-rule exception, the 41 rows at 320 px, and the three text changes.
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
 2. **Done: the parser gate.** It passed for Sonnet 5.5 at medium on prompt v6; see the results above. The rest of this step is kept as a record. **Haiku on prompt v6, medium effort, three runs:**
