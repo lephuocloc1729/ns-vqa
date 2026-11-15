@@ -71,6 +71,31 @@ Last updated 2026-11-15. Branch `phase-2` (not merged), on top of `main` at `926
 
 Full test suite: 334 passed.
 
+### Phase 2 results in one table (tuned on public_dev)
+
+**Every v5 and v6 score here is tuned on public_dev.** The rules came from errors on these 47 questions, and the three-run rule was added after v4 and v5 had failed. The unbiased figure comes from public_holdout, end to end.
+
+| model | effort | prompt | gold | runs | mean accuracy | correct per run | gate rule | gate |
+|---|---|---|---|---|---|---|---|---|
+| Haiku 5.5 | low | v4 | v1 | 1 | 83.0% | 39 | single run | FAIL |
+| Haiku 5.5 | low | v4 | v2 | 1 | 87.2% | 41 | single run | FAIL |
+| Haiku 5.5 | medium | v4 | v1 | 1 | 87.2% | 41 | single run | FAIL |
+| Haiku 5.5 | medium | v4 | v2 | 1 | 89.4% | 42 | single run | FAIL |
+| Haiku 5.5 | medium | v5 | v1 | 2 | 87.2% | 41 / 41 | single run | FAIL / FAIL |
+| Haiku 5.5 | medium | v5 | v2 | 2 | 90.4% | 42 / 43 | single run | FAIL / PASS |
+| Haiku 5.5 | medium | v6 | v1 | 3 | 89.4% | 42 / 42 / 42 | mean of 3 | FAIL |
+| Haiku 5.5 | medium | v6 | v2 | 3 | 92.2% | 43 / 43 / 44 | mean of 3 | PASS |
+| Sonnet 5.5 | medium | v6 | v1 | 3 | 93.6% | 44 / 44 / 44 | mean of 3 | **PASS** (the official result) |
+| Sonnet 5.5 | medium | v6 | v2 | 3 | 93.6% | 44 / 44 / 44 | mean of 3 | PASS |
+
+- Gold v1 is the official gold the gate was fixed on.
+- Gold v2 (`146e4e1`, the owner's `also_accept` decisions after the gate runs) is shown for comparison.
+- **Model choice:** Sonnet 5.5 at medium, chosen by the owner after the results.
+  - The real-error rates are similar: Haiku 1 in 141 v6 predictions, Sonnet 0 in 141.
+  - The difference on gold v1 came from rows where the gold accepted one reading only.
+  - Sonnet's extra cost is negligible in absolute terms, about $0.003 per question.
+- **Total API spend in phase 2: $1.06** over 582 logged calls. This covers gold drafting, all the parser runs and the three unbilled 400s.
+
 ### First gate result (prompt v4, 2026-11-15): FAIL
 
 | Haiku 5.5 effort | program accuracy | 95% CI | slot F1 | OOS P / R | cost |
@@ -185,6 +210,12 @@ Still open: `also_accept` for the equivalent selectors (0002, 0025, 0043). This 
    A v5 means a new prompt version and new Haiku runs, scored against the same gold. Any few-shots taken from public_dev leave the gate set.
 
 ## Open items
+
+- **Sonnet's bad_json first replies.** 16 of 141 first replies (11%) across the three v6 runs had prose around the JSON and needed the retry; Haiku had 0 of 141. One retry, on 0005 in run f20993f4ac4e, was refused with category `reasoning_extraction`.
+  - The likely cause is the retry wording. `ClaudeParser.parse` sends the rejected reply back as the assistant turn, prose included, followed by "That answer is not valid: …. Reply with only the corrected JSON object."
+  - Candidates for a v7: don't echo the prose back (send a placeholder or only the error); tell the model more firmly to reply with nothing but the object; or accept "prose, then one ```json fence".
+  - Any of these needs a new prompt version and new runs.
+- **Visual corrections.** Five catalog rows are still `visual_reviewed_by: assistant`: W.242(a,b), W.243(a,b,c), IE.451a, IE.471 and IE.473.
 
 - **Train questions were rewritten by the owner (2026-11-15).** The rewrite made them shorter and more conversational. There are still 530 questions and the few-shot ids still exist. Whether any answers changed can't be checked, because there is no copy of the old file. The rewrite still differs from public_dev in style:
   - public_dev ends a stated claim with "đúng hay sai" (or "đúng không") in 33% of questions; train never uses "đúng hay sai" and ends with "đúng không" / "phải không" in about 7%;

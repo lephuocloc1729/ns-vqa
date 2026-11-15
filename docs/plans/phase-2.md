@@ -50,6 +50,35 @@ Before phase 2 started, two fixes were made, each in its own commit:
      - A prediction counts as correct if it equals the gold program or any `also_accept` program.
      - *Amended by the owner on 2026-11-15, before any v6 result:* from prompt v6 on, the gate is decided on the **mean accuracy of three runs** of the same model, effort and prompt, because single runs differ by about two questions. The report gives the mean, the range and each run's Wilson CI. The v4 and v5 results stay as single-run FAILs.
 
+## Results (2026-11-15)
+
+**Every score below is tuned on public_dev.** The v5 and v6 rules were written from errors on these same 47 questions, and the three-run rule was added after v4 and v5 had failed. These numbers are development figures. The unbiased figure comes from public_holdout, end to end.
+
+| model | effort | prompt | gold | runs | mean accuracy | correct per run | gate rule | gate |
+|---|---|---|---|---|---|---|---|---|
+| Haiku 5.5 | low | v4 | v1 | 1 | 83.0% | 39 | single run | FAIL |
+| Haiku 5.5 | low | v4 | v2 | 1 | 87.2% | 41 | single run | FAIL |
+| Haiku 5.5 | medium | v4 | v1 | 1 | 87.2% | 41 | single run | FAIL |
+| Haiku 5.5 | medium | v4 | v2 | 1 | 89.4% | 42 | single run | FAIL |
+| Haiku 5.5 | medium | v5 | v1 | 2 | 87.2% | 41 / 41 | single run | FAIL / FAIL |
+| Haiku 5.5 | medium | v5 | v2 | 2 | 90.4% | 42 / 43 | single run | FAIL / PASS |
+| Haiku 5.5 | medium | v6 | v1 | 3 | 89.4% | 42 / 42 / 42 | mean of 3 | FAIL |
+| Haiku 5.5 | medium | v6 | v2 | 3 | 92.2% | 43 / 43 / 44 | mean of 3 | PASS |
+| Sonnet 5.5 | medium | v6 | v1 | 3 | 93.6% | 44 / 44 / 44 | mean of 3 | **PASS** (the official result) |
+| Sonnet 5.5 | medium | v6 | v2 | 3 | 93.6% | 44 / 44 / 44 | mean of 3 | PASS |
+
+All scores are out of 47 gate questions.
+- **Gold v1** is the gold the gate was fixed on, and its results are the official ones: the gate passes for Sonnet 5.5 at medium on prompt v6.
+- **Gold v2** (`146e4e1`) holds the owner's `also_accept` decisions, made after the gate runs. It changes three rows:
+  - 0002: the program is corrected to a blue background, since the question names a red stripe, not a border;
+  - 0025: a triangle with `only` is also accepted;
+  - 0084: `is_sign` over all signs is also accepted.
+
+**The model choice:** Sonnet 5.5 at medium effort, chosen by the owner after the results. The reasons:
+- The real-error rates of the two models are similar. Haiku made 1 real error in 141 v6 predictions; Sonnet made none in 141.
+- Their difference on gold v1 came from rows where the gold accepted only one reading (0002 and 0043, where Sonnet matches the choices Opus made when drafting). On gold v2 the means are 92.2% for Haiku and 93.6% for Sonnet.
+- Sonnet costs about 11 times as much per question (about $0.003 against $0.0003), which is negligible in absolute terms.
+
 ## Decisions (D1–D6, accepted)
 
 - **D1, one-level nesting.** The wire models cap nesting at one level: claims inside verify / choose / all_of / any_of are plain claims.
