@@ -324,9 +324,31 @@ Full test suite: 394 passed. Prolog loads.
   - the owner's notes ("REVIEW BLOCKED …") were left as written.
 - **All 81 label files now validate:** 66 `done`, and 15 `todo` with no errors left. The owner sets those 15 to `done`, then `import`.
 
+- **Gold signs v1 (`9387764`, 2026-11-15): 81 images imported, 0 rejected.** The owner reviewed every label by hand; the assistant set the last 15 files to `status: done` at the owner's request (status line only).
+
+  | split | images | Opus-drafted | Haiku-drafted | readable signs | readable:false | local_notice |
+  |---|---|---|---|---|---|---|
+  | public_dev | 45 | 8 | 37 | 143 | 31 | 2 |
+  | set T | 36 | 0 | 36 | 120 | 14 | 2 |
+
+  14 vehicles are labelled, on 3 violation images.
+- **Anchoring, per drafter.** A sign counts as kept if the final label equals a draft sign exactly, after the sheet clean-up.
+
+  | drafter | images | draft signs | final signs | kept unchanged | changed or added |
+  |---|---|---|---|---|---|
+  | Opus 5.5 | 8 | 35 | 39 | 22 (56%) | 17 |
+  | Haiku 5.5 | 73 | 256 | 273 | 71 (26%) | 202 |
+
+  - The `anchoring` field in the gold file counts 0 kept for a draft that was invalid as a whole (2 Opus, 31 Haiku). Its totals are lower: 19 for Opus and 53 for Haiku. The table counts sign by sign instead (24 Haiku and 2 Opus draft signs were invalid on their own).
+  - Low "kept" figures mean the owner changed most drafted signs, so the anchoring towards the drafters is weak. Exact equality also counts small edits (a side or a rank) as changes.
+- **D10 visual-review list (55 rows):** the rows in the set-T gold, `tests/fixtures/train_*.json` and train question text.
+  - **The list:** P.102, P.103a, P.103c, P.106a, P.106b, P.107, P.107a, P.110a, P.111a, P.111b, P.111d, P.112, P.115, P.117, P.123b, P.124c, P.125, P.130, P.131a, P.131b, P.131c, P.127, P.127b, P.127c, R.306, R.403a, R.307, R.404a, R.302(a,b,c), R.303, R.411, R.420, R.412f, R.415a, R.415b, W.201b, W.203(a,b,c), W.205(a,b,c,d,e), W.207(a,b,c,d,e,f,g,h,i,k,l), W.210, W.224, W.227, W.244, W.245a, I.407(a,b,c), I.408, I.409, I.414(a,b,c,d), I.415, I.423(a,b), IE.451b, IE.452, IE.464, IE.465, IE.466.
+  - None of the 55 is `visual_reviewed_by: human` yet.
+  - **Rows only in the public_dev gold (21; record-only under D10, not on the list):** P.104, P.105, P.119, P.124b, P.126, P.128, R.403b, R.301b, R.412d, W.206, W.221b, W.239b, W.240, W.245b, I.417(a,b,c), I.419a, I.434a, I.439, I.441(a,b,c), IE.467, IE.473.
+
 ## Next steps, in order
 
-0. **Phase 3 gold review (owner):** check every label in `data/annotations/gold_signs_v1/work/sheet.html` against its image, fix the 22 files with needs-fix lines, and set `status: done`. Then `import`, and the D10 visual check of the rows it lists. Then the D10 visual check of the listed rows, before `prompts/scene/v1` is frozen.
+0. **D10 visual check (owner):** the 55 rows above, before `prompts/scene/v1` is frozen. Then phase 3 item 3 (the scene call).
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
 2. **Done: the parser gate.** It passed for Sonnet 5.5 at medium on prompt v6; see the results above. The rest of this step is kept as a record. **Haiku on prompt v6, medium effort, three runs:**
