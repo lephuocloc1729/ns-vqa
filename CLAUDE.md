@@ -95,7 +95,7 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
 
 - **The rule engine owns every legal conclusion.** Python resolves selectors, loops over lanes and reading variants, and packages results. It never decides what is permitted.
 - **Three-valued logic.** Truth values are `true`, `false` and `unknown`. A missing fact (time, weight, lane, exact vehicle subtype) makes the result `unknown`, never `false`. Verdicts: `yes`, `no`, `unknown`, `uncertain` (alternative readings disagree), or `value`.
-- **An unreadable sign makes closed-world answers unknown, but only if it could bear on the claim.** "Unreadable" means the code is UNKNOWN or not in the catalog.
+- **An unreadable sign makes closed-world answers unknown, but only if it could bear on the claim.** "Unreadable" means the code is UNKNOWN or not in the catalog; a sign on an `effect_unmodelled` row (effect not modelled yet, e.g. R.303) acts like an unreadable sign of its visible category.
   - **Affected verdicts:** a "yes" from `permitted`/`speed_ok`, or a "no" from `required`/`exists_violation`. The answer lists the sign in `uncertain_signs`.
   - **Relevance comes from the sign's visible category** (`Engine.visual_category`, `could_matter`):
     - red-bordered circle (prohibitory): permissions, speed, violations;
