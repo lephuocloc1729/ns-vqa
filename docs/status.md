@@ -490,9 +490,38 @@ Full test suite: 394 passed. Prolog loads.
   - On rule-bearing signs, Haiku v2 is no better than v1 (68.1% vs 68.8%). Its gains were on guide boards.
 - **Proposal, waiting for the owner:** `docs/plans/phase-3-proposal-v3-pictograms.md`. It covers scene prompt v3 with reference pictograms for 41 confused rows (43 law_db figures, about 2,500 cached image tokens). It needs a dataset-rule exception: local gitignored copies made by a `tools/` builder, pinned by a committed sha256 manifest. It also proposes three text changes (gantry sides, lane boards as one sign, a softer "always guess").
 
+**Prompt v3 with reference pictograms (2026-11-15):**
+- `ccb2648` CLAUDE.md: the dataset-rule exception for law_db figures (local gitignored copies, committed sha256 manifest).
+- `a792fdc` `scene/v3@69d91ed6a300`: 53 rows over 51 figures (≤ 320 px), about 3,069 cached tokens.
+  - The rows are the 41 confused rows, the owner's 7, and 5 more so no observed confusion pair is half-pictured: I.401, IE.451b, IE.474, P.115, W.246.
+  - Figures chosen by hand: IE.452 → image026, R.415a → its own figure (W.244's "W.224" caption is a law_db typo).
+  - Plus v3's three text changes. v1 and v2 prompt ids are unchanged (pinned).
+- **Haiku v3 on set T (run f16a09d95189, $0.051, $0.0014 per image), development, gate v2:**
+
+  | | Haiku v2 | **Haiku v3** | Sonnet v2 (after fixes) |
+  |---|---|---|---|
+  | recall, all (95% CI) | 89.2% (81.9–97.7) | 81.7% (72.3–92.3) | 92.5% (85.9–100) |
+  | code F1 row-level (CI) | 64.7% (57.5–72.5) | **73.5%** (64.7–82.5) | 70.7% (62.1–80.0) |
+  | code F1 strict | 64.7% | 71.7% | 69.8% |
+  | rule-bearing F1 | 68.1% | **75.8%** | 73.3% |
+  | non-duplicates: recall / code F1 | 87.8% / 64.0% | 77.8% / **74.4%** | 90.0% / 69.0% |
+  | value accuracy | 93.3% | 100% | 75.0% |
+  | predictions (gold 120) | 121 | 103 | 112 |
+  | re-runs / retries | 19/36 · 0 | 18/36 · 1 | 17/36 · 1 |
+
+  - **Pictograms fixed 10 signs, all pictured rows:** IE.465, IE.466 ×2, IE.452, IE.451b, P.131a (1_6), W.203c, P.110a, P.103c, P.124c.
+  - **9 signs that were wrong are now missing:** I.407c ×4, W.205, W.245a, I.409, W.244, P.103a. The softer guessing rule made Haiku leave unsure signs out instead of writing UNKNOWN.
+  - **6 signs that were right are now wrong or missed:**
+    - R.411 and I.414 on the train_1_6 collage are missed;
+    - P.127 and R.306 on 6_40 (separate discs) are missed, probably swallowed by the lane-board rule;
+    - P.131a became P.130 on 7_37; W.201b became W.201a.
+  - **Introduced by a pictogram:** the train_6_41 green P.127b boards are read as IE.452 (3 IE.452 predictions against 1 gold).
+  - **Still wrong:** P.111b ×3, P.125 ×2, P.117→P.118, P.123b→P.123a, and the dense-scene misses.
+  - **Sonnet v3** was held: its uncalibrated estimate ($0.60–1.17) was over the owner's $0.60 ceiling.
+
 ## Next steps, in order
 
-0. **Owner decision on the v3 proposal** (`docs/plans/phase-3-proposal-v3-pictograms.md`): the dataset-rule exception, the 41 rows at 320 px, and the three text changes.
+0. **Prompt v4** (the last set-T tuning round; owner, 2026-11-15): list every sign, separate discs stay separate, P.127b vs IE.452. Then the model and prompt choice for the public_dev checkpoint, and whether crops come first.
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
 2. **Done: the parser gate.** It passed for Sonnet 5.5 at medium on prompt v6; see the results above. The rest of this step is kept as a record. **Haiku on prompt v6, medium effort, three runs:**
