@@ -101,6 +101,10 @@ class CatalogSign(_M):
     visual: Visual
     effect: Effect = Effect()
     meaning_only: bool = False  # names the sign; carries no rule effect
+    # A sign with a legal effect the rules don't model yet (e.g. R.303 roundabout). It is
+    # known by code and meaning, but closed-world claims treat it like an unreadable sign
+    # of its visible kind, so it can't turn an "unknown" into a confident "yes".
+    effect_unmodelled: bool = False
     note: str | None = None     # e.g. where a meaning is our reading rather than QCVN wording
     variants: list[str] = []    # letters a family row stands for
     source: Citation
@@ -124,6 +128,9 @@ class CatalogSign(_M):
         for c in self.effect.ends:
             if not _CODE_RE.match(c):
                 raise ValueError(f"{self.code}: bad code in ends: {c!r}")
+        if self.effect_unmodelled and (self.meaning_only or self.effect != Effect()):
+            raise ValueError(f"{self.code}: effect_unmodelled rows have no effect and are not "
+                             "meaning_only")
         return self
 
     @property

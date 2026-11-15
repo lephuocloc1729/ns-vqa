@@ -26,9 +26,11 @@ def test_every_row_has_an_effect_or_is_auxiliary(catalog):
         e = s.effect
         has_effect = any([e.prohibits, e.max_speed, e.min_speed, e.lane_board,
                           e.lane_reserved, e.only_directions, e.ends])
-        assert has_effect or s.category == "auxiliary" or s.meaning_only, s.code
+        assert has_effect or s.category == "auxiliary" or s.meaning_only or s.effect_unmodelled, s.code
         if s.meaning_only:
             assert not has_effect and s.category in ("warning", "information"), s.code
+        if s.effect_unmodelled:   # e.g. R.303: known by code, effect not modelled yet
+            assert not has_effect and not s.meaning_only, s.code
 
 
 def test_code_atoms():

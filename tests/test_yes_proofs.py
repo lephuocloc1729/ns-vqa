@@ -169,3 +169,41 @@ def test_unreadable_sign_that_cannot_matter_is_ignored(engine):
     assert engine.answer(blue, Required(action="turn_right")).verdict == Verdict.unknown
     assert engine.answer(scene(sign("s1", "P.104")),
                          Required(action="turn_right")).verdict == Verdict.no
+
+
+def test_sign_with_unmodelled_effect_acts_like_an_unreadable_sign(engine):
+    """effect_unmodelled rows (R.302, R.303, R.411, R.420): known by code and meaning,
+    but a closed-world "yes" they could overturn becomes unknown."""
+    from vqa.schemas import IsSign, Meaning, Required, Selector
+    rb = scene(sign("s1", "R.303", shape="circle", background="blue"))
+    a = permitted(engine, rb, "turn_left", V("car"))
+    assert a.verdict == Verdict.unknown and a.uncertain_signs == ["s1"]
+    assert "don't model" in a.note
+    assert engine.answer(rb, Required(action="turn_right")).verdict == Verdict.unknown
+    assert permitted(engine, rb, "park", V("car")).verdict == Verdict.yes      # can't bear on parking
+    # identity and meaning still work
+    assert engine.answer(rb, IsSign(sign=Selector(only=True), code="R.303")).verdict == Verdict.yes
+    m = engine.answer(rb, Meaning(sign=Selector(only=True)))
+    assert m.value[0]["name_vi"] == "Nơi giao nhau chạy theo vòng xuyến"
+    # a family variant resolves to the family row
+    keep = scene(sign("s1", "R.302a", shape="circle", background="blue"))
+    assert engine.answer(keep, IsSign(sign=Selector(only=True), code="R.302a")).verdict == Verdict.yes
+    assert permitted(engine, keep, "go_straight", V("car")).verdict == Verdict.unknown
+    # a board (R.411) matters only for a lane or a speed
+    lanes = scene(sign("s1", "R.411", shape="rectangle", background="blue"), lanes=2)
+    assert permitted(engine, lanes, "turn_left", V("car")).verdict == Verdict.yes
+    assert engine.answer(lanes, Permitted(action="turn_left", vehicle=V("car"),
+                                          lane=1)).verdict == Verdict.unknown
+    # R.420 (built-up area speed rules are not modelled): a speed claim becomes unknown
+    town = scene(sign("s1", "R.420", shape="rectangle", background="blue"))
+    assert engine.answer(town, SpeedOk(vehicle=V("car"), speed_kmh=70)).verdict == Verdict.unknown
+    # a ban the engine can read still stands next to it
+    both = scene(sign("s1", "P.123a"), sign("s2", "R.303", shape="circle", background="blue"))
+    assert permitted(engine, both, "turn_left", V("car")).verdict == Verdict.no
+
+
+def test_effect_unmodelled_rows_have_no_effect():
+    from vqa.kb import load_catalog
+    rows = [s for s in load_catalog().signs if s.effect_unmodelled]
+    assert {s.code for s in rows} == {"R.302(a,b,c)", "R.303", "R.411", "R.420"}
+    assert all(s.category == "mandatory" and not s.meaning_only for s in rows)

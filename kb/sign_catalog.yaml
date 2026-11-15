@@ -27,6 +27,10 @@
 #                                       R.301 family (D.1a): directions allowed and their scope
 #                                       for each placement the article describes; scope is
 #                                       intersection_behind | intersection_ahead | until_next_intersection
+#   effect_unmodelled: true             the sign has a legal effect the rules don't model yet
+#                                       (no effect keys). Questions about its identity and
+#                                       meaning work; closed-world claims treat it like an
+#                                       unreadable sign of its visible kind (CLAUDE.md).
 #   source                              law_id + article_id, same format as relevant_articles
 #
 # VehicleSpec is {class, conditions: [{attr, op, value}]} as in vqa/schemas.py.
@@ -801,6 +805,55 @@ signs:
         standard: after_intersection
         after_intersection: {directions: [turn_left, u_turn, turn_right], scope: intersection_ahead}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.1a"}
+
+  # Mandatory signs whose effect the rules don't model yet (effect_unmodelled): known by
+  # code and meaning; closed-world claims treat them like unreadable signs of their kind.
+
+  # D.2 c): "Biển có hiệu lực bắt buộc các loại xe phải đi vòng chướng ngại vật theo
+  # hướng mũi tên chỉ." Also used with P.102 on a median for one-way carriageways.
+  - code: R.302(a,b,c)
+    key: pass_obstacle_this_side
+    name_vi: Hướng phải đi vòng chướng ngại vật
+    name_en: Pass the obstacle on the side shown
+    category: mandatory
+    visual: {shape: circle, border: none, background: blue}
+    variants: [a, b, c]
+    effect_unmodelled: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.2"}
+
+  # D.3 b): "Biển có hiệu lực bắt buộc các loại xe muốn chuyển hướng phải chạy vòng
+  # theo đảo an toàn theo hướng mũi tên."
+  - code: R.303
+    key: roundabout
+    name_vi: Nơi giao nhau chạy theo vòng xuyến
+    name_en: Roundabout
+    category: mandatory
+    visual: {shape: circle, border: none, background: blue}
+    effect_unmodelled: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.3"}
+
+  # D.13: "Biển có tác dụng bắt buộc người tham gia giao thông phải đi đúng làn đường
+  # đã được chỉ dẫn hướng phù hợp với hành trình của xe." Lane rows don't carry
+  # directions yet.
+  - code: R.411
+    key: lane_directions
+    name_vi: Hướng đi trên mỗi làn đường phải theo
+    name_en: Directions per lane
+    category: mandatory
+    visual: {shape: rectangle, border: white, background: blue}
+    effect_unmodelled: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.13"}
+
+  # D.17 b): "phạm vi phải tuân theo những quy định đi đường được áp dụng ở khu đông
+  # dân cư" (e.g. built-up-area speed limits, which are not modelled).
+  - code: R.420
+    key: built_up_area_start
+    name_vi: Bắt đầu khu đông dân cư
+    name_en: Start of built-up area
+    category: mandatory
+    visual: {shape: rectangle, border: white, background: blue}
+    effect_unmodelled: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.17"}
 
   # ------------------------------------------------------------------ reserved lanes
   - code: R.412a
