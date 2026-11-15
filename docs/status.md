@@ -49,8 +49,16 @@ Last updated 2026-11-15. Branch `phase-2` (not merged), on top of `main` at `926
 - `39384c3` Sign codes in programs can also be a variant code ("W.207c") or the stem of a family row ("W.207"), kept as written.
   - A stem shared by separate rows ("W.221" for W.221a and W.221b) is rejected, and the error lists the closest valid codes.
   - Prompt `v4` (the default): v3 with the wrong "W.221" family example replaced by "W.207". v1, v2 and v3 are frozen by sha256 in the tests.
+- `f7e9991` Parser and engine now agree on what a sign code names. This closes the two open items `39384c3` left (stems of separate rows, and string matching in selectors).
+  - The wire accepts exactly what `Catalog.codes_matching` resolves, including stems of separate rows such as "W.221" and "P.124". The owner withdrew the rule that rejected them.
+  - Selectors use `Catalog.code_selects`:
+    - equal codes match ("W.207c" selects only W.207c);
+    - a family stem or the full family row code selects the family's variants;
+    - a stem of separate rows selects each of its rows;
+    - UNKNOWN or uncatalogued scene codes never match.
+  - v1 to v4 prompts are pinned by sha256.
 
-Full test suite: 273 passed. Three API requests have been sent (gold drafting, 2026-11-15). All three were rejected with a 400 before the model ran, so nothing was billed.
+Full test suite: 297 passed. Three API requests have been sent (gold drafting, 2026-11-15). All three were rejected with a 400 before the model ran, so nothing was billed.
 
 ## Next steps, in order
 
@@ -77,9 +85,6 @@ Full test suite: 273 passed. Three API requests have been sent (gold drafting, 2
    3. Check the gate: ≥ 90% program accuracy on reviewed public_dev intents, with a 95% CI.
 
 ## Open items
-
-- **Stems of separate rows.** The wire rejects "P.124", "P.106", "W.221" and the other 32 stems whose signs are separate catalog rows; this was the owner's rule in `39384c3`. The engine's `Catalog.codes_matching`, though, accepts such a stem as "any of its rows", and `tests/test_claims.py::test_family_code_matches_variants` relies on that ("P.124" against a P.124c scene gives yes). So the parser cannot produce a program the engine supports. To be decided: allow these stems in `is_sign`, or keep them out.
-- **Codes in selectors are compared as strings.** `Engine.resolve` compares `sign.code` with the scene sign's code exactly. A variant or stem in a selector matches only a scene sign recorded the same way; "W.207" in a selector matches no "W.207c" sign. `is_sign` targets are not affected, because they resolve through the catalog.
 
 - **Train questions were rewritten by the owner (2026-11-15).** The rewrite made them shorter and more conversational. There are still 530 questions and the few-shot ids still exist. Whether any answers changed can't be checked, because there is no copy of the old file. The rewrite still differs from public_dev in style:
   - public_dev ends a stated claim with "đúng hay sai" (or "đúng không") in 33% of questions; train never uses "đúng hay sai" and ends with "đúng không" / "phải không" in about 7%;
