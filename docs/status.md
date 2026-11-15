@@ -314,6 +314,16 @@ Full test suite: 394 passed. Prolog loads.
   - 7 wait on R.302a / R.303 / R.411 / R.420: public_test_5_6, 7_4, 7_12, 8_9, train_1_6, train_6_38 (which also has a notice), train_7_18.
 - **Uncommitted, the owner's:** `reviewed_by: human` on P.118 and P.119, and a `tests/test_meaning_rows.py` edit that still expects 39 human-reviewed rows (there are 41 with those two). With the edit, that test fails; every committed state passes (407 tests).
 
+- `87f894c` Catalog: **R.302(a,b,c), R.303, R.411, R.420** as `effect_unmodelled` rows (D.2, D.3, D.13, D.17). These are mandatory signs whose effects can't be modelled yet.
+  - `vqa/kb.py` and `vqa/reasoning/engine.py`: the engine treats them like unreadable signs of their visible kind for closed-world claims, and lists them in `uncertain_signs` with a note. Identity and meaning claims work.
+  - All `reviewed_by: none`. Tests cover the flag on each row.
+  - Prompt hashes: parser v6 785ef169881f → 2d0ec50e3611; pre-fill cc0bf58890b4 → ee8106d9539c.
+- **Label edits (2026-11-15, at the owner's request; the label YAMLs are gitignored, so there is no commit):**
+  - the four freestanding notices now use `local_notice` with their text verbatim: public_test_2_1, public_test_7_10, train_6_7, train_6_38. public_test_2_1's plate reading (car and motorcycle, "cấm đỗ") is now only in the notice text;
+  - every P.102 is `border: red, background: red`, as the catalog row has it. 9 signs changed, in public_test_5_6 (5), public_test_7_12, train_1_6 and train_8_32 (a done file);
+  - the owner's notes ("REVIEW BLOCKED …") were left as written.
+- **All 81 label files now validate:** 66 `done`, and 15 `todo` with no errors left. The owner sets those 15 to `done`, then `import`.
+
 ## Next steps, in order
 
 0. **Phase 3 gold review (owner):** check every label in `data/annotations/gold_signs_v1/work/sheet.html` against its image, fix the 22 files with needs-fix lines, and set `status: done`. Then `import`, and the D10 visual check of the rows it lists. Then the D10 visual check of the listed rows, before `prompts/scene/v1` is frozen.
@@ -339,8 +349,8 @@ Full test suite: 394 passed. Prolog loads.
 
 - **The parser's version key should include the catalog hash,** as the phase-3 scene prompt does. The parser prompt is built from `prompts/parser/<version>/` plus the catalog table, but only the spec and few-shot files are pinned. So a catalog change (P.118 and P.119 here) changes the prompt the parser actually sends, under the same version name.
 - **P.118 and P.119 rows wait for the owner's review** (`reviewed_by: none` in git; the owner has marked them `human` locally, not committed).
-- **R.403a, R.403b, R.404a, R.307 rows wait for the owner's review** (`reviewed_by: none`).
-- **R.302(a,b,c), R.303, R.411, R.420 are not in the catalog.** Seven todo label files need them. Options: model an effect (a new engine feature), or allow meaning-only mandatory rows that the engine treats as unreadable for closed-world claims (a `vqa/` change).
+- **R.302(a,b,c), R.303, R.411, R.420** are in the catalog with `effect_unmodelled` (`87f894c`). Their effects are still to be modelled; until then they make closed-world answers unknown where they could matter.
+- **R.403a, R.403b, R.404a, R.307, R.302(a,b,c), R.303, R.411, R.420 wait for the owner's review** (`reviewed_by: none`).
 - **Sonnet's bad_json first replies.** 16 of 141 first replies (11%) across the three v6 runs had prose around the JSON and needed the retry; Haiku had 0 of 141. One retry, on 0005 in run f20993f4ac4e, was refused with category `reasoning_extraction`.
   - The likely cause is the retry wording. `ClaudeParser.parse` sends the rejected reply back as the assistant turn, prose included, followed by "That answer is not valid: …. Reply with only the corrected JSON object."
   - Candidates for a v7: don't echo the prose back (send a placeholder or only the error); tell the model more firmly to reply with nothing but the object; or accept "prose, then one ```json fence".
