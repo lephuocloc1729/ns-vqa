@@ -133,7 +133,7 @@ def test_parse_ok(engine):
     r = p.parse("Xe ô tô không được phép di chuyển trong khung giờ từ 6:00 đến 22:00, đúng hay sai?")
     assert r.status == "ok" and r.attempts == 1 and r.query.program.intent == "forbidden"
     req = sdk.created[0]
-    assert req["output_config"] == {"effort": "low"}
+    assert req["output_config"] == {"effort": "medium"}
     assert req["system"][0]["text"] == system_prompt("v6")
     assert r.cost_usd > 0
 
@@ -436,3 +436,8 @@ def test_raw_replies_and_usage_kept_for_every_attempt(engine):
     p2, _ = parser(["MAXTOK"], engine)
     r2 = p2.parse("...")
     assert r2.status == "error" and r2.raw == ['{"program": {"inte'] and len(r2.usage) == 1
+
+
+def test_default_parser_is_sonnet_at_medium():
+    from vqa.parsing import claude_parser as cp
+    assert (cp.DEFAULT_MODEL, cp.DEFAULT_EFFORT) == ("claude-sonnet-5-5", "medium")

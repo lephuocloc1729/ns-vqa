@@ -29,8 +29,10 @@ from vqa.parsing.wire import explain, from_wire, to_query
 from vqa.reasoning.engine import Engine
 from vqa.schemas import QueryProgram
 
-DEFAULT_MODEL = "claude-haiku-5-5"
-DEFAULT_EFFORT = "low"
+# Owner's choice on 2026-11-15, after the gate runs: Sonnet 5.5 at medium passed the
+# three-run gate on prompt v6 (93.6%); Haiku 5.5 at medium did not (89.4%).
+DEFAULT_MODEL = "claude-sonnet-5-5"
+DEFAULT_EFFORT = "medium"
 
 
 @dataclass
