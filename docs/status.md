@@ -320,7 +320,7 @@ Full test suite: 394 passed. Prolog loads.
   - Prompt hashes: parser v6 785ef169881f → 2d0ec50e3611; pre-fill cc0bf58890b4 → ee8106d9539c.
 - **Label edits (2026-11-15, at the owner's request; the label YAMLs are gitignored, so there is no commit):**
   - the four freestanding notices now use `local_notice` with their text verbatim: public_test_2_1, public_test_7_10, train_6_7, train_6_38. public_test_2_1's plate reading (car and motorcycle, "cấm đỗ") is now only in the notice text;
-  - every P.102 is `border: red, background: red`, as the catalog row has it. 9 signs changed, in public_test_5_6 (5), public_test_7_12, train_1_6 and train_8_32 (a done file);
+  - every P.102 is `border: red, background: red`, as the catalog row has it. 8 signs changed (border none → red): public_test_5_6 s14–s18, public_test_7_12 s1, train_1_6 s14, train_8_32 s1 (a done file). The owner checks them against the images: labels record what is seen, not the catalog, so label YAMLs are not edited by the assistant again. A copy of the labels from before both edits is in `data/annotations/gold_signs_v1/work/backup_pre_p102/` (gitignored);
   - the owner's notes ("REVIEW BLOCKED …") were left as written.
 - **All 81 label files now validate:** 66 `done`, and 15 `todo` with no errors left. The owner sets those 15 to `done`, then `import`.
 
