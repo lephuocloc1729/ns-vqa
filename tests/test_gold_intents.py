@@ -74,3 +74,26 @@ def test_import_rejects_invalid_programs(tmp_out):
                                            "verdict": "fix", "corrected_program": bad}])
     with pytest.raises(SystemExit):
         gi.import_review()
+
+
+def test_collect_will_not_overwrite_reviewed_csv(tmp_out):
+    write_review(tmp_out / "review.csv", [
+        {"id": "a", "split": "public_dev", "question": "Q", "verdict": "ok"},
+        {"id": "b", "split": "public_dev", "question": "Q", "verdict": ""}])
+    assert gi.reviewed_rows(tmp_out / "review.csv") == 1
+    with pytest.raises(SystemExit, match="1 reviewed rows"):
+        gi.collect()
+
+
+def test_reviewed_rows_without_csv(tmp_out):
+    assert gi.reviewed_rows(tmp_out / "review.csv") == 0
+
+
+def test_spread_sample_covers_categories_and_images():
+    pool = [{"id": f"train_{i}", "image_id": f"img_{i % 6}", "question": q}
+            for i, q in enumerate(["Xe máy được đi làn nào?", "Biển gì?", "Chạy 50 km/h được không?",
+                                   "Có vi phạm không?", "Xe tải 3 tấn được đi không?", "Đi làn nào?"] * 3)]
+    picked = gi.spread_sample(pool, 5)
+    assert len(picked) == 5 and len({gi.category(t["question"]) for t in picked}) == 5
+    assert len({t["image_id"] for t in picked}) == 5
+    assert gi.spread_sample(pool, 5) == picked          # seeded, reproducible

@@ -42,15 +42,15 @@ Last updated 2026-11-15. Branch `phase-2` (not merged), on top of `main` at `926
 - `49169db` Parser: depth-limited wire schema, validator, Claude parser with one retry, `prompts/parser/v1` (spec plus 16 train few-shots).
 - `b7e648c` Gold-intent tool: select, estimate, submit, collect, import.
 
-Full test suite: 219 passed. No API calls have been made yet.
+Full test suite: 222 passed. No API calls have been made yet.
 
 ## Next steps, in order
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
-2. **Gold drafting.** With `ANTHROPIC_API_KEY` set:
-   1. Run `eval/gold_intents.py estimate` to get exact token counts. The rough estimate is $2.40–9.00 expected and $16.82 worst case.
-   2. Run `submit --max-spend 17` (Opus 5.5, medium effort, Batch API).
-   3. Run `collect --wait`, which writes `review.csv` for the owner.
+2. **Gold drafting: 48 public_dev and 40 train questions** (the owner's change of 2026-11-15). `select` has already written the 88 questions. The three public_dev few-shots are not drafted. Drafting uses prompt `v2`. With `ANTHROPIC_API_KEY` set:
+   1. Run `eval/gold_intents.py estimate` to get exact token counts. The rough estimate is $1.07–3.93 expected and $7.35 worst case.
+   2. Run `submit --max-spend 8` (Opus 5.5, medium effort, Batch API).
+   3. Run `collect --wait`, which writes `review.csv` for the owner. `collect` refuses to overwrite a `review.csv` that already has verdicts.
 3. **Build `eval/parser_eval.py`.** It reports:
    - program exact match, after normalization, against the gold or any `also_accept` program;
    - slot F1;
@@ -64,6 +64,13 @@ Full test suite: 219 passed. No API calls have been made yet.
    3. Check the gate: ≥ 90% program accuracy on reviewed public_dev intents, with a 95% CI.
 
 ## Open items
+
+- **Train questions were rewritten by the owner (2026-11-15).** The rewrite made them shorter and more conversational. There are still 530 questions and the few-shot ids still exist. Whether any answers changed can't be checked, because there is no copy of the old file. The rewrite still differs from public_dev in style:
+  - public_dev ends a stated claim with "đúng hay sai" (or "đúng không") in 33% of questions; train never uses "đúng hay sai" and ends with "đúng không" / "phải không" in about 7%;
+  - public_dev has quoted claims, lowercase starts, a space before "?" and typos; train has almost none;
+  - train says "trong ảnh" in 44% of questions; public_dev never does and says "trong hình" or "phía trước" instead.
+
+  The rewrite removed every "đúng hay sai" form from the seed examples. To make up for it, v2 adds three public_dev few-shots: public_natural_0026 (a quoted claim), 0097 (sign identity) and 0082 (a stated claim, then ". Đúng hay sai?"). They are excluded from drafting and from the gate score, so the gate set is 48 questions.
 
 - **Phase 1.7:**
   - warning-sign behaviour ("phải giảm tốc độ");

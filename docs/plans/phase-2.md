@@ -26,7 +26,8 @@ Before phase 2 started, two fixes were made, each in its own commit:
    - The default model is Haiku 5.5. Questions outside the DSL come back as `out_of_scope`.
 3. **Few-shot sources.** Few-shot examples come from public_dev and train only, never public_holdout or private. This is enforced by a test.
 4. **Gold intents** (`eval/gold_intents.py`, tooling done: `b7e648c`).
-   - The script drafts programs for all public_dev questions and a 150-question train sample with Opus 5.5 through the Batch API.
+   - The script drafts programs for the 48 public_dev questions that are not few-shots, and 40 train questions with Opus 5.5 through the Batch API.
+   - **Changed by the owner on 2026-11-15:** the train sample went from 150 random questions to 40, to save API budget. The owner has rewritten the train questions to read more naturally. The 40 are spread evenly over rough question categories, one per image where possible (`spread_sample`).
    - It writes `drafts.jsonl` and `review.csv` (question, draft program, owner verdict or correction).
    - The cost estimate is shown before running. The run is waiting for the owner's go-ahead.
    - No gold intents for public_holdout or private: those are scored end to end only.
@@ -39,6 +40,8 @@ Before phase 2 started, two fixes were made, each in its own commit:
 - **D3, few-shot selection.**
   - Gold drafting uses about 12 seed examples written from train. 16 were written.
   - The parser's final few-shots are picked from the reviewed gold, mostly train.
+  - After the train rewrite, the seed examples moved to `prompts/parser/v2`: the same programs with the new question text. train_40 was dropped because its new wording no longer fits its program, which leaves 15.
+  - v2 also has three public_dev few-shots in the "… đúng hay sai?" form, which the rewritten train no longer has: public_natural_0026, 0097 and 0082. As D3 requires, they are excluded from the gate score, and they are not drafted.
   - Any public_dev question used as a few-shot is excluded from the gate score.
 - **D4, drafting effort.** Opus drafts at `medium` effort.
 - **D5, alternative programs.** Gold may list alternative correct programs (`also_accept`), e.g. selecting a sign by code or by meaning.

@@ -1,11 +1,12 @@
 """Gold intents: draft query programs with Claude Opus 5.5 (Batch API), review them
 by hand, import the reviewed set.
 
-Scope: every public_dev question and a seeded sample of 150 train questions
-(few-shot examples excluded). No public_holdout or private questions: those are
-scored end to end only.
+Scope: every public_dev question plus a small train sample (default 40), drawn
+evenly across rough question categories (one question per image where possible,
+few-shot examples and train_284 excluded) so a few questions cover many forms.
+No public_holdout or private questions: those are scored end to end only.
 
-    .venv/bin/python eval/gold_intents.py select              # write questions.jsonl
+    .venv/bin/python eval/gold_intents.py select [--train N]  # write questions.jsonl
     .venv/bin/python eval/gold_intents.py estimate            # cost estimate, no spend
     .venv/bin/python eval/gold_intents.py submit --max-spend N  # send the batch
     .venv/bin/python eval/gold_intents.py collect             # write drafts.jsonl + review.csv
@@ -28,6 +29,7 @@ import csv
 import json
 import os
 import random
+import re
 import sys
 import time
 from pathlib import Path
@@ -46,10 +48,53 @@ OUT = ROOT / "data" / "annotations" / "gold_intents_v1"
 MODEL = "claude-opus-5-5"
 EFFORT = "medium"
 MAX_TOKENS = 4000
-TRAIN_SAMPLE = 150
 SEED = 20261115
-PROMPT_VERSION = "v1"
+TRAIN_SAMPLE = 40
+PROMPT_VERSION = "v2"
 CONTEXT_YEAR = 2025  # questions in this dataset come from 2025; used for missing years
+
+
+# Rough categories for spreading the train sample; first match wins. Used only to
+# choose which train questions to draft, never at inference.
+TRAIN_CATEGORIES = [
+    ("violation", r"vi phạm"), ("counting", r"bao nhiêu (biển|cái)|mấy biển"),
+    ("lane", r"làn"), ("speed", r"km/h|tốc độ"), ("size_weight", r"tấn|trọng|chiều cao|chiều rộng|khối lượng"),
+    ("time", r"\d+[:h]\d*|giờ|ngày|thứ"), ("stop_park", r"đỗ|dừng"),
+    ("direction", r"hướng|đi đâu|điểm đến|muốn đi"), ("required", r"bắt buộc|phải đi|phải rẽ"),
+    ("identity", r"(là|phải là) biển|biển gì|loại biển|thuộc nhóm"),
+    ("meaning", r"ý nghĩa|báo hiệu|cảnh báo|nghĩa là|chỉ dẫn"),
+    ("which_vehicles", r"(loại )?xe nào|phương tiện nào|ai được"),
+    ("banned_what", r"cấm (hành vi|những|điều) gì|không được làm gì|lệnh cấm"),
+    ("warning", r"báo trước|phía trước có|chú ý"), ("choice", r" hay |trong số|trong các"),
+    ("action", r"được (rẽ|quay|vượt|đi|chạy)|có cấm"),
+]
+
+
+def category(question: str) -> str:
+    q = question.lower()
+    return next((name for name, pat in TRAIN_CATEGORIES if re.search(pat, q)), "other")
+
+
+def spread_sample(pool: list[dict], n: int, seed: int = SEED) -> list[dict]:
+    """n questions taken round-robin over categories (each shuffled with the seed),
+    preferring images not yet used, so a small sample covers many question forms."""
+    rng = random.Random(seed)
+    groups: dict[str, list[dict]] = {}
+    for t in pool:
+        groups.setdefault(category(t["question"]), []).append(t)
+    for g in groups.values():
+        rng.shuffle(g)
+    picked, images = [], set()
+    while len(picked) < n and any(groups.values()):
+        for name in sorted(groups):
+            g = groups[name]
+            if not g or len(picked) >= n:
+                continue
+            i = next((k for k, t in enumerate(g) if t["image_id"] not in images), 0)
+            t = g.pop(i)
+            picked.append(t)
+            images.add(t["image_id"])
+    return picked
 
 
 def user_text(q: str) -> str:
@@ -58,24 +103,25 @@ def user_text(q: str) -> str:
 
 # --------------------------------------------------------------------------- select
 
-def select() -> list[dict]:
+def select(train_sample: int = TRAIN_SAMPLE) -> list[dict]:
     split = json.loads((ROOT / "data" / "splits" / "public_split.json").read_text())
     dev_ids = set(split["public_dev"]["questions"])
     public = json.loads((DATASET / "public_test data" / "vlsp_2025_public_test.json")
                         .read_text(encoding="utf-8"))
     train = json.loads((DATASET / "train data" / "vlsp_2025_train.json").read_text(encoding="utf-8"))
     shots = {ex["id"] for ex in examples(PROMPT_VERSION)}
+    # a public_dev few-shot is in the prompt and out of the gate score: nothing to draft
     rows = [{"id": q["id"], "split": "public_dev", "question": q["question"]}
-            for q in public if q["id"] in dev_ids]
+            for q in public if q["id"] in dev_ids and q["id"] not in shots]
     pool = sorted((t for t in train if t["id"] not in shots and t["id"] != "train_284"),
                   key=lambda t: int(t["id"].split("_")[1]))
-    sample = random.Random(SEED).sample(pool, TRAIN_SAMPLE)
+    sample = spread_sample(pool, train_sample)
     rows += [{"id": t["id"], "split": "train", "question": t["question"]}
              for t in sorted(sample, key=lambda t: int(t["id"].split("_")[1]))]
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "questions.jsonl").write_text(
         "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
-    print(f"{len(rows)} questions ({len(dev_ids)} public_dev, {TRAIN_SAMPLE} train) "
+    print(f"{len(rows)} questions ({len(rows) - len(sample)} public_dev, {len(sample)} train) "
           f"-> {(OUT / 'questions.jsonl').relative_to(ROOT)}")
     return rows
 
@@ -158,8 +204,20 @@ def submit(max_spend: float) -> str:
     return batch.id
 
 
+def reviewed_rows(path: Path) -> int:
+    """Rows of an existing review CSV that already carry a verdict."""
+    if not path.exists():
+        return 0
+    with open(path, encoding="utf-8") as f:
+        return sum(1 for row in csv.DictReader(f) if (row.get("verdict") or "").strip())
+
+
 def collect(wait: bool = False) -> None:
     import anthropic
+
+    if n := reviewed_rows(OUT / "review.csv"):
+        raise SystemExit(f"review.csv already has {n} reviewed rows; move it aside before "
+                         "collecting a new batch")
 
     sdk = anthropic.Anthropic()
     batch_id = json.loads((OUT / "batch.json").read_text())["batch_id"]
@@ -259,7 +317,9 @@ def import_review(path: Path | None = None) -> list[dict]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("select")
+    sel = sub.add_parser("select")
+    sel.add_argument("--train", type=int, default=TRAIN_SAMPLE,
+                     help=f"train questions to draft, spread over categories (default {TRAIN_SAMPLE})")
     sub.add_parser("estimate")
     s = sub.add_parser("submit")
     s.add_argument("--max-spend", type=float, required=True)
@@ -269,7 +329,7 @@ def main() -> None:
     i.add_argument("--csv", type=Path)
     a = ap.parse_args()
     if a.cmd == "select":
-        select()
+        select(a.train)
     elif a.cmd == "estimate":
         sdk = None
         if os.environ.get("ANTHROPIC_API_KEY"):

@@ -140,7 +140,7 @@ def test_parse_ok(engine):
     req = sdk.created[0]
     assert req["output_config"]["effort"] == "low"
     assert req["output_config"]["format"]["type"] == "json_schema"
-    assert req["system"][0]["text"] == system_prompt("v1")
+    assert req["system"][0]["text"] == system_prompt("v2")
     assert r.cost_usd > 0
 
 
@@ -179,13 +179,13 @@ def test_effort_is_configurable(engine):
 # ---------------------------------------------------------------- prompt and few-shots
 
 def test_prompt_is_stable_and_has_the_catalog():
-    s = system_prompt("v1")
-    assert s == system_prompt.__wrapped__("v1")      # byte-identical rebuild (prompt cache)
+    s = system_prompt("v2")
+    assert s == system_prompt.__wrapped__("v2")      # byte-identical rebuild (prompt cache)
     assert "P.104 | no_motorbikes" in s and "## Examples" in s
 
 
 def test_fewshots_are_valid_programs(engine):
-    for ex in examples("v1"):
+    for ex in examples("v2"):
         q = to_query(WParse.model_validate(ex["output"]), 2026)
         assert validator.check(q, engine) == [], ex["id"]
 
@@ -194,9 +194,9 @@ def test_fewshots_come_from_train_or_public_dev_only():
     split = json.loads((ROOT / "data" / "splits" / "public_split.json").read_text())
     holdout = set(split["public_holdout"]["questions"])
     dev = set(split["public_dev"]["questions"])
-    ids = [ex["id"] for ex in examples("v1")]
+    ids = [ex["id"] for ex in examples("v2")]
     assert len(ids) == len(set(ids))
-    for ex in examples("v1"):
+    for ex in examples("v2"):
         assert ex["split"] in ("train", "public_dev"), ex["id"]
         assert ex["id"] not in holdout and not ex["id"].startswith("private"), ex["id"]
         if ex["split"] == "public_dev":
@@ -205,6 +205,6 @@ def test_fewshots_come_from_train_or_public_dev_only():
              / "dataset" / "train data" / "vlsp_2025_train.json")
     if train.exists():
         rows = {t["id"]: t for t in json.loads(train.read_text(encoding="utf-8"))}
-        for ex in examples("v1"):
+        for ex in examples("v2"):
             if ex["split"] == "train":
                 assert ex["id"] in rows and rows[ex["id"]]["question"] == ex["question"], ex["id"]
