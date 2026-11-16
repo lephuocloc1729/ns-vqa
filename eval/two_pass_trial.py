@@ -663,7 +663,10 @@ def breakdown(path: Path, gold: dict | None = None, catalog: Catalog | None = No
                     c[k] += s[k]
             c["plates_missing"] += s.get("plates_missing", False)
         matched = {j for _, j in match([pe._view(x) for x in g], [pe._view(p) for p in pred], catalog)}
-        c["false_positive"] += sum(1 for j in range(len(pred)) if j not in matched)
+        fps = [pred[j] for j in range(len(pred)) if j not in matched]
+        c["false_positive"] += len(fps)
+        c["false_positive_unknown"] += sum(p.get("code") in (None, "UNKNOWN") for p in fps)
+        c["predicted_unknown"] += sum(p.get("code") in (None, "UNKNOWN") for p in pred)
     return {"run_id": head["run_id"], "set": head["set"], **dict(c)}
 
 
@@ -847,9 +850,9 @@ def against_frozen(trial: Path, frozen: list[Path], gold: dict, catalog: Catalog
                     c["misses_removed"] += 1
                 for k in ("value_wrong", "plates_wrong"):
                     if k in x and k in y:            # both read the code right
-                        name = k.split("_")[0]
-                        c[f"{name}s_fixed"] += x[k] and not y[k]
-                        c[f"{name}s_broken"] += y[k] and not x[k]
+                        name = {"value_wrong": "values", "plates_wrong": "plates"}[k]
+                        c[f"{name}_fixed"] += x[k] and not y[k]
+                        c[f"{name}_broken"] += y[k] and not x[k]
         per.append({"frozen_run": pe.load_run(fp)[0]["run_id"], **dict(c)})
     keys = sorted({k for p in per for k in p if k != "frozen_run"})
     return {"per_frozen_run": per, "mean": {k: statistics.mean(p.get(k, 0) for p in per) for k in keys}}

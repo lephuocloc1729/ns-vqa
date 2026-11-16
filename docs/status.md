@@ -1309,6 +1309,40 @@ Run `0ec3209c0324`, 07:37–08:11 UTC, at commit `2528621` with the frozen confi
   - Tests: `tests/test_e2e_private.py` (31) and two leakage tests (only this module names the private question file; it prints counters only). Full suite 840 passed.
 - **Estimate for the private run:** $1.83 (holdout rate $1.85; range $0.9–2.7), about 97 minutes.
 
+### Two-pass perception trial (set T; public_dev tuned), 2026-11-16
+
+A perception-only trial of the original two-pass design (owner's brief): **find** (one Haiku call on the photo: boxes, coarse type, look, rank, side; no codes), then **read** (all crops of one photo in one call, 20% padding, each crop with its coarse type's candidate list, the v4 pictograms, and an escape to the full catalog or UNKNOWN), then the existing wire conversion and verification unchanged (no re-run). Eval-only: `eval/two_pass_trial.py`, prompts `scene/v5-find-trial@61b2089130a3` and `scene/v5-read-trial@04e209a5fb40` (pinned by sha256), `9383678`. Nothing in `vqa/`, the freeze record, the existing prompts, gold, holdout or private changed. **No decision on adopting it.**
+
+- **Runs:** Haiku 5.5, medium, one run per set, no cache. Set T `8fa0b31b88cb` ($0.0516), public_dev `37386c61f54d` ($0.0617); total **$0.113**. A first start (`9abb86f3b44e`) stopped before any call (no API key in the shell; $0, header-only file). No failed images, no retries.
+- **Compared with:** frozen Haiku v4 + fallback: set T `d1ff09db5bf4` (over pass 1 `4e6780670d2f`), public_dev the mean of checkpoint-2 runs `b83d5dae690e` / `023c1a474288` / `9981d8112688` (which reproduces 89.98% / 75.6%). Scoring: perception_gate_v2, bootstrap CIs over images.
+
+| | set T trial | set T frozen | public_dev trial (tuned) | public_dev frozen, mean of 3 |
+|---|---|---|---|---|
+| sign recall, all (95% CI) | **95.8%** (92–100) | 89.2% (81–96) | **93.7%** (88–100) | 90.0% (85–96) |
+| code F1, all (95% CI) | 67.1% (59–76) | **73.5%** (67–81) | 66.7% (61–73) | **75.6%** (69–83) |
+| code F1 strict | 67.1% | 70.9% | 65.4% | 74.9% |
+| rule-bearing F1 | 78.9% | 77.3% | 75.6% | 78.8% |
+| value accuracy | 100% | 100% | 89.5% | 86.4% |
+| non-duplicate: recall / code F1 | 94.4% / 68.0% (26 images) | 88.9% / 74.7% | 100% / 73.0% (17 images) | 86.4% / 74.9% |
+| cost per image | **$0.0014** | $0.0028 | **$0.0014** | $0.0028 |
+
+- **One run per set.** Haiku's code F1 varies about 2.9 points between runs, so a gap smaller than that is not evidence. public_dev is tuned (its errors were seen in phase 3 and 4).
+- **The trade:** the find step lists more: fewer misses (set T 13 → 5; public_dev 14.3 → 9) but many more false positives (7 → 51; 15 → 41), most of them objects read as UNKNOWN (33 of 51; 30 of 41). Code F1 falls by 6.4 (T) and 8.9 (public_dev) points, beyond the run-to-run spread.
+- **Against the frozen scene on the same image** (public_dev: mean over the 3 frozen runs):
+
+  | | set T | public_dev |
+  |---|---|---|
+  | codes fixed / broken (right → wrong) | 16 / 6 | 12 / 14.3 |
+  | misses removed / added | 10 / 2 | 10.3 / 5 |
+  | numbers fixed / broken | 0 / 0 | 1.7 / 1.3 |
+  | plates fixed / broken | 3 / 2 | 3.7 / 1.3 |
+
+- **Error kinds** (trial vs frozen): confident wrong codes rose (T 6 → 11; public_dev 10.7 → 15), most within the right coarse type (7 and 11), so candidate lists did not stop them; low/UNKNOWN wrong codes fell on T (15 → 8) and rose on public_dev (9.7 → 13).
+- **Escape:** used on 11 of 178 sign crops (T) and 5 of 200 (public_dev), counted from the code; the model flagged 12 and 5. Free check on gold before the run: 5% (T) and 4% (public_dev) of gold codes fall outside their coarse type's list.
+- **Plates:** 14 (T) and 25 (public_dev) plate objects; 12 and 17 assigned by the read pass's `belongs_to`, the rest by geometry; plates missing on right-code signs 6 → 6 (T), 6.3 → 5 (public_dev).
+- **Before the run (free):** today's errors on set T were 13 misses, 6 confident wrong codes, 15 low/UNKNOWN wrong codes, 0 of 14 wrong numbers, 9 of 14 wrong plates (6 missing); public_dev (mean of 3): 14.3, 10.7, 9.7, 2.3 of 17, 9 of 17.3.
+- Report code changed after the runs, scoring only: a key-name typo, and false positives split by UNKNOWN. Re-scoring is free from the stored replies (`two_pass_trial.py report`, `rebuild`).
+
 ## Next steps, in order
 
 **Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Phase 4 closed (2026-11-16; closing entry above).** Phase 5 plan approved (2026-11-16). **Next: the one private-test run** (`eval/e2e_private.py run --confirm-frozen --max-spend 3`), on the owner's go-ahead on its $1.83 estimate.
