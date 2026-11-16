@@ -174,6 +174,39 @@ Each step shows its estimate first and waits for the go-ahead.
 - Pass 1 is the normal scene call (its boxes). Pass 2 crops each triggered sign from the original image, with a margin, and reads it alone with the same catalog prompt (`prompts/scene/v1-crop/`).
 - public_dev is re-measured once, at the fallback checkpoint (item 5), with the same gate and matching. No trigger choice is made from public_dev results.
 
+#### Approved design (owner, 2026-11-16)
+
+Approved from `docs/plans/phase-3-proposal-fallback.md` (`99140cf`), sections (a)–(d), with the two changes below. Everything in this subsection is **owner, 2026-11-16**. Where it differs from the bullets above, it replaces them.
+
+- **(a) Design, as proposed.** It runs after pass 1 (the scene call with its D8 re-run, unchanged):
+  - **A1, region pass**, first: when pass 1 lists ≥ 5 signs, a 2 × 2 tile grid over the original image with 20% overlap. A tile sign that overlaps a pass-1 sign (IoU ≥ 0.3, or its centre inside the pass-1 box) is dropped, and tiles are deduplicated among themselves the same way. The remaining tile signs are added at `low`.
+  - **A2, box crops**, second: every sign that is `low` or `UNKNOWN`, cropped from the original and read alone. The crop is widened by 50% of the box on each side and above and 100% below, is at least 128 px on the short side, and is upscaled to 384 px. Readings are combined by the proposal's rules; the set-T comparison of combining rules (rules / crop always / crop at high only / never) picks the one frozen for checkpoint 2.
+  - **Prompts:** `prompts/scene/v4-tile/` and `prompts/scene/v4-crop/`. They are **not pinned by sha256 until set-T development has picked the combining rule**; then they are pinned before checkpoint 2. v1–v4 are unchanged.
+  - **Cache key** for tile and crop records: image sha256 + model + effort + prompt version + box.
+- **Change 1, rank and side of tile signs (option B, "shift"):**
+  - a tile-added sign takes its top-down position by box top;
+  - pass-1 signs below it move down by one;
+  - pass-1 relative order and pass-1 sides never change, and tied pass-1 ranks stay tied;
+  - only tile-added signs get a side computed from their box.
+
+  Tests (hand-made scenes):
+  - no tile additions → ranks and sides identical to pass 1;
+  - one sign added above all, one between two, one below all → the expected ranks, with pass-1 order and sides unchanged;
+  - a pass-1 tie with a sign added below it → the tie is kept.
+
+  The proposal's "ranks and sides are recomputed from the boxes" is replaced by this.
+- **Change 2, the gate refuses mixed configurations** (`6338059`). `perception_eval.py score` stops with an error when public_dev runs span more than one (set, model, prompt version, fallback on/off). No other scoring change.
+- **(b) Set-T development ceiling: $1.00.** Each command with `--max-spend` and the owner's go-ahead.
+- **(c) Checkpoint 2:**
+  - both models × 3 runs (3 = gate), `perception_gate_v2` unchanged;
+  - prompt v4 pass 1 plus the frozen fallback;
+  - pass 1 reused from checkpoint 1 for Haiku (`e0128c462ed3`, `2dd3a6e61573`, `932c3d2b7009`); for Sonnet, `f19dd5bc36f6` plus two new pass-1 runs;
+  - **ceiling $2.95** ($0.35 Haiku, $2.60 Sonnet).
+- **(d) If the gate fails at checkpoint 2:**
+  - report as in the proposal, with a FAIL stated as a FAIL; no threshold moved and no metric promoted after the result;
+  - phase 4 takes the cheapest passing configuration; if none passes, the highest mean code F1 on all 45 images, and Haiku if it is within 2 points of Sonnet; the fallback is kept only if it raised that configuration's mean code F1;
+  - **no checkpoint 3 in phase 3.**
+
 ### 8. Leakage guard (written alongside item 3)
 
 Extend `tests/test_leakage_guard.py`:

@@ -1,6 +1,6 @@
 # Phase 3 proposal: the two-pass fallback (plan item 7) and checkpoint 2
 
-**Status: proposal, not approved.** No code, prompt or run has been made for it. The owner approves (or changes) sections (a)–(d) before any item-7 code, and the policy in (d) before checkpoint 2 runs.
+**Status: approved by the owner on 2026-11-16, with two changes.** The approved design, the changes (tile-sign ranks by option B "shift"; the gate refuses mixed configurations, `6338059`), the ceilings and the (d) policy are recorded in `docs/plans/phase-3.md`, item 7, "Approved design". Where the two differ, that record wins. This file is kept as the proposal text.
 
 Written 2026-11-16, after public_dev checkpoint 1 (`docs/status.md`): Haiku v4 FAIL (mean of 3: recall 79.7%, code F1 68.1%). Sonnet v4 1 run, not decided, indicative FAIL (81.8% / 75.1%).
 
