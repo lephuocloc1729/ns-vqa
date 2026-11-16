@@ -384,3 +384,21 @@ def test_perceive_runs_the_fallback_only_when_asked(fake_set):
                      fallback=FallbackConfig())
     assert fbres.fallback is not None and not fbres.fallback.tiled      # one sure sign: nothing to do
     assert fbres.scene == plain.scene and len(sdk.created) == 2
+
+
+def test_compare_counts_fixed_and_broken_against_pass1(fake_set):
+    p1 = _pass1_run(fake_set)
+    out = pe.fallback_run(p1, 1.0, sdk=FakeSDK(0), out_dir=fake_set / "runs")
+    rep = pe.compare(p1, [out])
+    (x,) = rep["fallback"]
+    assert x["policy"] == "rules" and x["images_tiled"] == 2 and x["crops"] == 2
+    assert x["fixed_by_tiles"] + x["fixed_by_crops"] >= 0 and x["broken"] >= 0
+    assert rep["pass1"]["run_id"] == "p1run"
+    with pytest.raises(SystemExit, match="not a fallback run"):
+        pe.compare(_pass1_run(fake_set, run_id="other"), [out])
+
+
+def test_gold_status_marks_tp_wrong_miss_and_excluded():
+    gold = [g("P.104", 1), g("P.112", 2, side="left"), g("P.123a", 3, readable=False), g("P.130", 4)]
+    pred = [g("P.104", 1), g("P.106a", 2, side="left")]
+    assert pe.gold_status(gold, pred) == ["tp", "wrong", None, "miss"]

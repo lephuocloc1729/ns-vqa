@@ -462,3 +462,38 @@ def test_the_crop_example_is_a_valid_crop_reply():
     for ex in sp.examples("v4-crop"):
         r = fb.parse_crop(ex["output"], load_catalog())
         assert r.code != "UNKNOWN" and r.raw_code is None
+
+
+# ---------------------------------------------------------------- frozen for checkpoint 2 (2026-11-16)
+
+import hashlib  # noqa: E402
+
+V4_TILE_SHA256 = {   # frozen after set-T development, before public_dev checkpoint 2
+    "spec.md": "d9eb38db227c3b9bec497774e7ced2afc832e76f242332174218a74a619d1c11",
+    "config.yaml": "26d51b4b7589145be3226bfde20c78e87e284aa2db1bb7f3a92612be6e65ac44",
+    "examples.jsonl": "def4618eb96f35256472f5f7f35f6543622fa1b4e125471ab8fb69b45016eb6d",
+    "pictograms.yaml": "040bfd12008a84863fcb733d7509ea3b0aeb851dcc7a448feb054a3ab2fb202b",
+}
+V4_CROP_SHA256 = {
+    "spec.md": "d2fbec7247166134e9277717a36bd02ca3e8a3a91e896a709adecd7a52f2eaa4",
+    "config.yaml": "8a58a28e347934b0c3161636f2284893b5c8a36de465c15f47969b5bbae41a5f",
+    "examples.jsonl": "cd6e0aa50aa00e25ff9b48ccc908642cede6982894c481556645a41e4269f270",
+    "pictograms.yaml": "2ca9fbc243e4b0366eb281dbc83ed63352c2d5ad76959231da5357a6559f0527",
+}
+
+
+@pytest.mark.parametrize("version,pins,pid", [("v4-tile", V4_TILE_SHA256, "scene/v4-tile@a052a9fc72f7"),
+                                              ("v4-crop", V4_CROP_SHA256, "scene/v4-crop@30e2d18b84d9")])
+def test_fallback_prompt_files_and_ids_are_frozen(version, pins, pid):
+    d = sp.PROMPTS_DIR / version
+    for name, digest in pins.items():
+        assert hashlib.sha256((d / name).read_bytes()).hexdigest() == digest, f"{version}/{name} changed"
+    assert sp.prompt_id(version) == pid
+
+
+def test_the_combining_rule_is_frozen():
+    assert fb.CHOSEN_POLICY == "rules"
+    assert fb.FallbackConfig().policy == fb.CHOSEN_POLICY
+    assert (fb.DENSE_MIN_SIGNS, fb.TILE_GRID, fb.TILE_OVERLAP, fb.DEDUP_IOU) == (5, 2, 0.20, 0.30)
+    assert (fb.CROP_MARGIN, fb.CROP_MIN_SHORT, fb.CROP_UPSCALE_SHORT) == \
+        ({"left": 0.5, "top": 0.5, "right": 0.5, "bottom": 1.0}, 128, 384)

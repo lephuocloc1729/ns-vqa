@@ -57,6 +57,10 @@ CROP_MARGIN = {"left": 0.5, "top": 0.5, "right": 0.5, "bottom": 1.0}
 CROP_MIN_SHORT = 128
 CROP_UPSCALE_SHORT = 384
 POLICIES = ("rules", "crop_always", "crop_high", "never")
+# The combining rule frozen for checkpoint 2 (owner's rule, 2026-11-16: the best mean code
+# F1 over both models on set T, but the approved "rules" if within 1 point of it). Set T,
+# development, in-sample: crop_always 74.46%, rules 73.60% (0.86 points behind): "rules".
+CHOSEN_POLICY = "rules"
 _RANK = {Confidence.high: 0, Confidence.medium: 1, Confidence.low: 2}
 
 Box = tuple[int, int, int, int]
@@ -66,7 +70,7 @@ Box = tuple[int, int, int, int]
 class FallbackConfig:
     tile_version: str = "v4-tile"
     crop_version: str = "v4-crop"
-    policy: str = "rules"
+    policy: str = CHOSEN_POLICY
     tiles: bool = True
     crops: bool = True
 

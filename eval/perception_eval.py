@@ -634,6 +634,70 @@ def fallback_estimate(path: Path, runs: int = 1) -> dict[str, Any]:
             "worst_case_per_call_usd": round(worst_case_usd(model, round(m["cache_read_tokens"]) + 1500, 8000), 4)}
 
 
+# ---------------------------------------------------------------- compare a pass-1 run with its fallback runs
+
+
+def gold_status(gold: list[dict], pred: list[dict], catalog=None) -> list[str | None]:
+    """Per gold sign, with the gate's matching: "tp" (matched, right row), "wrong" (matched,
+    other row or UNKNOWN), "miss" (unmatched), or None for excluded gold signs."""
+    catalog = catalog or load_catalog()
+    by_gold = dict(match([_view(g) for g in gold], [_view(p) for p in pred], catalog))
+    out: list[str | None] = []
+    for i, g in enumerate(gold):
+        if excluded(g):
+            out.append(None)
+        elif i not in by_gold:
+            out.append("miss")
+        else:
+            rp = row_of(pred[by_gold[i]].get("code"), catalog)
+            out.append("tp" if rp is not None and rp == row_of(g["code"], catalog) else "wrong")
+    return out
+
+
+def compare(pass1: Path, fallbacks: list[Path]) -> dict[str, Any]:
+    """Pass 1 against each fallback run of it (reported, not gated): the scores, the
+    fallback's trigger counts, and gold signs fixed and broken relative to pass 1."""
+    gold, catalog = gold_rows(), load_catalog()
+    h1, rows1 = load_run(pass1)
+    base = score_run(pass1)
+    st1 = {r["image_id"]: gold_status(gold[r["image_id"]]["signs"], (r["scene"] or {}).get("signs", []), catalog)
+           for r in rows1}
+    keys = ("sign_recall", "sign_code_f1", "sign_code_f1_strict", "sign_code_f1_rule_bearing")
+    pick = lambda rep: {k: rep["all_images"][k] for k in keys} | \
+        {f"non_duplicate_{k}": rep["non_duplicate_images"][k] for k in keys[:2]} | \
+        {"predicted": rep["all_images"]["predicted"]}  # noqa: E731
+    out = {"pass1": {"run_id": h1["run_id"], "model": h1["model"], **pick(base)}, "fallback": []}
+    for f in fallbacks:
+        h, rows = load_run(f)
+        if (h.get("fallback") or {}).get("pass1_run") != h1["run_id"]:
+            raise SystemExit(f"{Path(f).name} is not a fallback run of {h1['run_id']}")
+        rep = score_run(f)
+        c = {"fixed_by_tiles": 0, "fixed_by_crops": 0, "broken": 0}
+        for r in rows:
+            st = gold_status(gold[r["image_id"]]["signs"], (r["scene"] or {}).get("signs", []), catalog)
+            for a, b in zip(st1[r["image_id"]], st):
+                if a is None:
+                    continue
+                if a != "tp" and b == "tp":
+                    c["fixed_by_tiles" if a == "miss" else "fixed_by_crops"] += 1
+                elif a == "tp" and b != "tp":
+                    c["broken"] += 1
+        stats = [r.get("fallback_stats") or {} for r in rows]
+        crops = sum(x.get("crops", 0) for x in stats)
+        changed = sum(x.get("codes_changed", 0) for x in stats)
+        failed = sum(("call failed" in i or "no reply to replay" in i) and i.startswith("crop")
+                     for r in rows for i in r["issues"])
+        out["fallback"].append({
+            "run_id": h["run_id"], "policy": h["fallback"]["policy"],
+            "replayed_from": h["fallback"].get("replayed_from"), **pick(rep),
+            "images_tiled": sum(bool(x.get("tiled")) for x in stats),
+            "tiles_added": sum(x.get("tiles_added", 0) for x in stats),
+            "crops": crops, "crops_without_a_reply": failed, "codes_changed": changed,
+            "share_of_crops_changing_a_code": changed / crops if crops else None,
+            **c, "fallback_cost_usd": round(sum(r.get("fallback_cost_usd", 0.0) for r in rows), 4)})
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -659,6 +723,9 @@ def main() -> None:
     fb.add_argument("--max-spend", type=float)
     fb.add_argument("--policy", default="rules", choices=["rules", "crop_always", "crop_high", "never"])
     fb.add_argument("--replay", type=Path, help="an earlier fallback run of the same pass-1 run: no calls")
+    cp = sub.add_parser("compare", help="a pass-1 run against its fallback runs (reported, not gated)")
+    cp.add_argument("pass1", type=Path)
+    cp.add_argument("fallbacks", nargs="+", type=Path)
     fe = sub.add_parser("fallback-estimate", help="what the fallback would cost on a pass-1 run (no call)")
     fe.add_argument("file", type=Path)
     fe.add_argument("--runs", type=int, default=1)
@@ -667,6 +734,9 @@ def main() -> None:
         if a.replay is None and a.max_spend is None:
             raise SystemExit("--max-spend is required unless --replay is given")
         fallback_run(a.file, a.max_spend or 0.0, policy=a.policy, replay=a.replay)
+        return
+    if a.cmd == "compare":
+        print(json.dumps(compare(a.pass1, a.fallbacks), indent=2))
         return
     if a.cmd == "fallback-estimate":
         print(json.dumps(fallback_estimate(a.file, a.runs), indent=2))
