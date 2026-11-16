@@ -108,6 +108,7 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
     - triangle (warning) and end-of-restriction signs: never;
     - nothing recorded: always.
   - **Not affected:** answers decided by a readable sign.
+  - **Single-sign questions** (`only`, "Đây là biển gì?"): unreadable candidates are dropped. If every readable candidate has the same code, the answer is decided with it and the unreadable signs go in `uncertain_signs`; if the readable codes differ, the answer stays unknown (`Engine.single_sign`).
   - **In the full pipeline**, an answer that is unknown because of an unreadable sign goes to the fallback.
 - **`every_vehicle` claims quantify over members, not just classes.** A class whose answer depends on unstated weight or seats is tried at the scene's thresholds. A failing member makes the class a counterexample, reported with its condition.
 - **Every rule and catalog row cites its source** as `law_id` + `article_id`, using the dataset's `relevant_articles` format, e.g. `QCVN 41:2024/BGTVT` + `B.25`.

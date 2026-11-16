@@ -67,10 +67,12 @@ def _sign_phrase(s: dict[str, Any]) -> str:
 
 
 def main_signs(digest: dict[str, Any]) -> list[dict[str, Any]]:
-    """The digest's signs, those with a reason that holds (truth true) first."""
+    """The digest's signs: those with a reason that holds (truth true) first, unreadable
+    ones last."""
     applying = {r.get("sign_id") for r in digest.get("reasons", []) if r.get("truth") == "true"}
     signs = digest.get("signs", [])
-    return [s for s in signs if s["id"] in applying] + [s for s in signs if s["id"] not in applying]
+    rank = lambda s: (s["id"] not in applying, not s.get("readable", True))  # noqa: E731
+    return sorted(signs, key=rank)
 
 
 def _basis(digest: dict[str, Any], limit: int = 2) -> str:
