@@ -28,19 +28,25 @@ flowchart LR
     SCENE --> VER[Verification<br/>code, catalog checks]
     VER --> FB[[Two-pass fallback<br/>tiles of dense scenes,<br/>crops of unsure signs]]
     FB --> SG[Scene graph<br/>signs, plates, vehicles, context]
-    Q[Question<br/>in Vietnamese] --> PARSE[[Claude parser<br/>Haiku or Sonnet 5.5]]
+    Q[Question<br/>in Vietnamese] --> PARSE[[Claude parser<br/>Sonnet 5.5, prompt v6]]
     PARSE --> PROG[Query program<br/>typed DSL, validated]
     KB[Knowledge base<br/>catalog + rules from law_db] --> ENG{{Rule engine<br/>SWI-Prolog, gives proof}}
     SG --> ENG
     PROG --> ENG
-    ENG --> WRITE[[Answer writer<br/>Claude, from the proof]]
+    ENG --> TRIG{Fallback trigger?}
+    TRIG -- no --> WRITE[[Answer writer<br/>Haiku 5.5, prompt v3]]
     WRITE --> GUARD[Faithfulness guard<br/>code, checks vs. proof]
     GUARD --> ANS[Answer<br/>verdict + explanation]
+    TRIG -- yes --> AFB[[Answer-level fallback<br/>Sonnet 5.5, image + question<br/>+ scene graph]]
+    AFB --> ANS
 ```
 
-Double-bordered boxes are Claude API calls; the rule engine is the only part that decides the answer.
+Double-bordered boxes are Claude API calls.
 
-Two paths meet at the rule engine: the image becomes a scene graph, and the question becomes a query program. Claude works in three places (reading the scene, parsing, wording the answer), but only the engine's verdict can reach the user, and a code check enforces that.
+Two paths meet at the rule engine: the image becomes a scene graph, and the question becomes a query program.
+- **When the rules answer,** only the engine's verdict reaches the user. Claude writes the words, and a code check enforces that the words match the verdict.
+- **When the rules can't answer** (the question is out of scope, it can't be parsed, the engine says unknown, or the sign readings disagree), the answer-level fallback answers from the image instead (phase 4). It is marked `basis: ["fallback"]` and carries no rule citation.
+- On public_holdout the fallback answered 49% of the questions (section 7).
 
 The fallback runs only on images whose pass-1 scene triggers it: 5 or more signs, or a `low` / `UNKNOWN` sign (phase 3).
 
@@ -370,19 +376,86 @@ The proof shows the plate and is marked "not in QCVN 41", and the answer carries
 - Model: Haiku 5.5 or Sonnet 5.5, with the DSL spec and reviewed train examples in a cached system prompt.
 - Gold intents come from the annotation step in section 8. Program accuracy is measured on public and private.
 
-## Grounded answer generation
+## Answering and the end-to-end pipeline (built in phase 4)
 
-Claude only *verbalizes* the rule engine's conclusion; it doesn't re-decide it. The engine returns a verdict plus a proof, and Claude writes a short answer in the user's language that states the verdict and explains it from the proof.
+Phase 4 built the answer stage and the pipeline, tuned them on public_dev (procedure step 4, four tuning changes in three runs), froze them, and ran public_holdout once. The plan and its decisions are in `docs/plans/phase-4.md`; each step is recorded in `docs/status.md`.
 
-**Input to Claude:** the question, the verdict (`yes` / `no` / `unknown` / `uncertain` / a value), the proof tree (signs used, rules fired, rule sources), and the uncertainty flags. No image.
+### The pipeline (`vqa/pipeline.py`)
 
-**Output (structured):** `{"verdict": "no", "answer": "...", "cited_signs": ["s2"], "cited_rules": ["r_p123a"]}`
+`answer(image_path, question)` takes nothing else. Settings are fixed when the `Pipeline` is built:
+1. perception: Haiku 5.5, prompt v4, the re-run and the two-pass fallback, through the scene cache (section 3);
+2. the parser: Sonnet 5.5, prompt v6, which sees the question only;
+3. the rule engine;
+4. the fallback trigger;
+5. either the answer writer and the faithfulness guard, or the answer-level fallback.
 
-**Faithfulness guard (code, after the call):**
+One spend guard covers every stage. A cache-only mode, for development runs on a warmed cache, refuses an image with no pass-1 record and makes no perception call.
 
-- `verdict` must equal the engine's verdict exactly, or the answer is regenerated.
-- Every cited sign and rule must appear in the proof.
-- A cheap check that the text contains no sign codes or numbers missing from the proof (catches invented speed values).
+### The answer writer and the faithfulness guard (`vqa/answer/`)
+
+Claude only puts the engine's conclusion into words; it doesn't decide it.
+- **The digest** (`digest.py`): the engine's answer reduced to what the writer may use: verdict, value, the signs it rests on (code, Vietnamese name, value, plate texts), the rules that fired with their sources, the reasons per sign, the citations, and any uncertain signs. No image.
+- **The writer** (`writer.py`): Haiku 5.5, effort low.
+  - Prompt `answer/v3`: v2 plus `max_tokens` 1200 and "at most two sentences" (tuning T1), and wording for a conditional "which vehicles" answer (T3).
+  - Its examples are train questions with their exact text, on hand-made scenes.
+  - The reply is `{"verdict", "answer", "cited_signs", "cited_rules"}`.
+- **The guard** (`faithfulness.py`), in code, after the call:
+  - the verdict equals the engine's;
+  - cited signs and rules appear in the digest;
+  - sign codes and numbers in the text appear in the digest or the question;
+  - the answer opens with a word of its verdict ("Đúng" / "Sai" for true/false questions).
+- **The template answer** (`template.py`): a reply that fails twice is replaced by a deterministic template built from the digest, which passes the guard by construction.
+- **Gate (D5):** faithfulness ≥ 99% and the template on at most 5% of writer answers, pooled over three development runs. It failed in step 2 (template 7.8%, every case a reply cut off at 600 tokens), and passed after T1 (0%).
+
+### The answer-level fallback (`vqa/answer/fallback.py`)
+
+**Triggers:**
+- the question is out of scope, or can't be parsed;
+- the program can't run on the scene;
+- the engine says unknown, including because of an unreadable sign;
+- the sign readings disagree (`uncertain`);
+- there is no scene at all.
+
+**The call** is Sonnet 5.5, with the image, the question and the scene graph only: no law articles, no retrieval.
+- Prompt `answer_fallback/v2` sends a structured-output schema for `{verdict, answer}` on this call only, and adds "claim nothing about a sign that is not in the scene graph" (tuning T2). It cut fallback failures from 6 to 1 in 69 calls.
+- When the fallback fails after its retry, the engine's own answer ships through the writer.
+
+### Perception change from tuning (T4)
+
+In the scene fallback, when a crop agrees with pass 1's main code, pass 1's own alternative reading for that sign is dropped. The re-run's alternatives stay.
+- Code F1 and recall are unchanged, by construction: they score main codes.
+- End to end, 10 of 34 "uncertain" triggers on public_dev became rules answers.
+- CHOSEN_POLICY (`crop_always`) did not change.
+
+### Evaluation tooling (`eval/`)
+
+- **`e2e_eval.py`:**
+  - warm, run, next: a run's scenes reach the pipeline only through a warmed cache, one run at a time;
+  - oracle A (gold scenes and gold programs) and oracle B (pipeline scenes and gold programs);
+  - stage attribution;
+  - reports with all and non-duplicate images (Wilson CI), rule coverage and the rules-only score.
+- **`judge.py`:** the Natural QA judge, Opus 5.5, correct / partial / wrong = 1 / 0.5 / 0, plus a strict score.
+- **`e2e_replay.py`:** a tuning run replays the stored scenes and parsed programs of the three development runs with the current code. It reuses the fallback and the judge where their inputs are unchanged.
+- **The freeze** (`freeze.py`, `frozen_phase4.json`): the PipelineConfig, every prompt id with its sha256, the fallback policy, models and efforts.
+- **`e2e_holdout.py`:** aggregate only. It refuses to run unless the git tree is clean, the live configuration equals the freeze record, and it has never run (a committed sentinel).
+
+### Results
+
+| | public_holdout (once, frozen) | public_dev (tuned, T4, 3 runs pooled) |
+|---|---|---|
+| overall | **83.7%** (49 questions) | 84.6% (153) |
+| non-duplicate images (95% CI) | **89.6%** (n=24; 72–97) | 96.5% (n=57; 88–99) |
+| Yes/No | 100% (13) | 81.9% (72) |
+| Natural QA (judge) | 77.8% (36) | 87.0% (81) |
+| rule coverage | 51.0% | 61.4% |
+| rules-only score | **78.0%** (25 answers) | 88.8% (94) |
+| fallback answers | **89.6%** (24 answers) | 78.0% (59 answers) |
+| faithfulness / template rate | 100% / 0% | 100% / 0% |
+
+- **On public_holdout the rules scored 78.0% on the 25 answers they gave, below the fallback's 89.6% on 24.** On public_dev it was the other way round: rules-only 88.8%, above the fallback's 78.0% on 59.
+- **The public_dev figures are tuned:** the writer, fallback and perception changes were chosen on those questions' errors.
+- Public_holdout is the honest figure, and it is small. 49 questions give wide intervals, and the non-duplicate subset has 24.
+- **Oracle A** (gold scenes and gold programs, public_dev, tuned) decides 37 of 47 questions with a gold program. The remaining errors are mostly deferred KB items, one disputed gold answer and one gold reading still under review.
 
 **Example and style.** Question: "Biển cấm xe máy trong ảnh có cho phép xe ba bánh đi qua không?" Engine: `no`, because the rule for this prohibition sign covers three-wheelers too. Answer: "Không được phép. …" plus one short reason citing the sign. True/false questions are answered "Đúng" or "Sai" first, then the reason, so the Yes/No scorer can read them.
 
@@ -455,6 +528,7 @@ The headline number is answer accuracy on the private test, split into Yes/No an
 
 - **Phase 3 ran:** Haiku vs. Sonnet, and pass 1 vs. the fallback, on public_dev (section 3). Opus was skipped by the owner's decision.
 - **Still proposed:** the pictogram ablation, and the fallback ablation on the private test.
+- **Phase 4 ran:** oracle A (gold scenes and programs) and oracle B (pipeline scenes, gold programs) on public_dev, and stage attribution on one development run. The baselines (Claude alone, Claude + retrieval) are still proposed.
 
 ## Tech stack, repo layout and cost control
 
@@ -477,11 +551,11 @@ traffic-vqa/
     perception/       # image.py, prompt.py, wire.py, scene.py (perceive), verify.py, matching.py, cache.py, fallback.py
     parsing/          # claude_parser.py, dsl.py, validator.py
     reasoning/        # engine.py (janus bridge), explain.py (proof -> JSON)
-    answer/           # claude_answer.py, faithfulness.py
-    pipeline.py       # one function: answer(image, question) -> Answer
+    answer/           # digest.py, writer.py, faithfulness.py, template.py, prompt.py, fallback.py
+    pipeline.py       # one function: answer(image_path, question) -> PipelineAnswer
   prompts/            # system prompts + few-shot examples (cached)
   data/               # raw/, annotations/, benchmark/
-  eval/               # run_eval.py, metrics.py, baselines.py
+  eval/               # e2e_eval.py, e2e_replay.py, judge.py, freeze.py, e2e_holdout.py, report.py (baselines.py: proposed)
   tests/              # one test file per rule family
   app/                # FastAPI + demo UI
 ```
@@ -519,7 +593,7 @@ Build from the symbolic core outward. The rule engine can be tested with no neur
 1. **Contracts and KB core (weeks 1–2).** Pydantic schemas, sign catalog for about 40 common signs, ontology, first rule families, pytest suite. *Gate:* hand-written scene graphs + programs give correct answers and proofs.
 2. **Question parser (week 3).** DSL, Claude parser (plain JSON replies validated in Python), validator. *Gate:* ≥ 90% program accuracy on the reviewed public-test intents.
 3. **Perception v1 (weeks 4–5).** Sign catalog from law_db, the one-pass scene call, verification, and gold sign labels. *Gate:* sign recall ≥ 0.90 and sign-code F1 ≥ 0.85 on public_dev; below that, turn on the two-pass fallback. *Result (phase 3): **failed.*** Haiku + fallback reached recall 89.98% and code F1 75.6%. Phase 4 proceeds with Haiku v4 + the fallback, under the policy fixed before the second checkpoint (section 3).
-4. **Answering and end-to-end pipeline (week 7).** Answer generation, faithfulness guard, `answer(image, question)` API. *Gate:* faithfulness ≥ 99% on dev.
+4. **Answering and end-to-end pipeline (week 7).** Answer generation, faithfulness guard, `answer(image, question)` API. *Gate:* faithfulness ≥ 99% on dev. *Result (phase 4): **passed** after tuning* (faithfulness 100%, template rate 0%, section 7). public_holdout, once, frozen: 83.7% overall, 89.6% on non-duplicate images (n=24, CI 72–97).
 5. **Benchmark and evaluation (weeks 8–9).** Freeze the system, then run the private test once as the benchmark: baselines, ablations, and error analysis by stage and question feature.
 6. **Extend (week 10+).** Grow the catalog to the full sign set, add plates and hard cases, then traffic lights and road markings (v2), then a demo UI.
 
@@ -539,6 +613,10 @@ The weeks assume one person part-time; the gates matter more than the dates.
 | Gold sign sets | public_dev (gate) and set T (tuning); no holdout labels; private after the benchmark run, kept local | Sections 3, 8 |
 | Perception gate | On public_dev, mean of 3 runs, gate v2 matching, bootstrap CI over images | Section 3 |
 | Perception model | Haiku 5.5, prompt v4 + two-pass fallback (`crop_always`); the gate failed and is recorded as failed | Section 3 |
+| Answer writer | Haiku 5.5, prompt v3, checked by the faithfulness guard; a template answer after two failures | Section 7 |
+| Answer-level fallback | Sonnet 5.5, image + question + scene graph only (no law articles), prompt v2 with a structured-output schema | Section 7 |
+| Natural QA judge (development) | Opus 5.5, 1 / 0.5 / 0, plus a strict score | Section 7 |
+| Frozen phase-4 configuration | `eval/frozen_phase4.json`; public_holdout run once, aggregate only | Section 7 |
 
 ## Sources
 
