@@ -1049,9 +1049,33 @@ Results:
   - So the plate does not cover `cyclo` (`vehicle_not_covered`), and Đúng follows.
   - For Sai, the plate's "3 bánh ... thô sơ" would have to cover rudimentary three-wheelers (cyclo and the like). This is the owner's gold reading to decide.
 
+### Tuning T1 + T3 (public_dev, tuned, T1; 2026-11-16)
+
+Changes: writer prompt `answer/v3@7d0f2b8ddf1f` (T1: `max_tokens` 1200, at most two sentences; the raw writer and fallback replies kept in the trace) and the conditional `which_vehicles` wording (T3), commit `1b0b0d7`. Replays of H1–H3 with `eval/e2e_replay.py` (stored scenes and parsed programs; the fallback was reused everywhere, since its inputs did not change): `9fb18833c8e5`, `fef1a7788379`, `70f1bb045848`. Score output (local): `eval/runs/e2e/score_tuned_T1.json`. **Spend $0.20.** D8 count: 1 of 5.
+
+| pooled over H1–H3 | step 2 | T1 |
+|---|---|---|
+| overall | 80.7% | **81.0%** |
+| strict | 77.1% | 77.8% |
+| Yes/No | 83.3% | 83.3% |
+| Natural QA | 78.4% | 79.0% |
+| non-duplicate (n=57; 95% CI) | 85.1% (74–92) | 85.1% (74–92) |
+| rule coverage | 54.9% | 54.9% |
+| rules-only (n=84) | 86.9% | 87.5% |
+| writer status | 83 first try, 7 template | 89 first try, 1 regenerated |
+| **template rate** | 7.8% | **0.0%** |
+| faithfulness | 100% | 100% |
+| fallback failures | 6 | 6 (unchanged until T2) |
+
+- **Gate (D5): PASS.** Faithfulness 100% (90 of 90), template rate 0% (≤ 5%).
+- Per run, overall: T1-H1 82.4% (from 81.4%), T1-H2 82.4% (82.4%), T1-H3 78.4% (78.4%).
+- **The one score change:** `0092` in H1, 0.5 → 1.0 (T3): "Xe ba bánh và bốn bánh thô sơ bị cấm trong khung giờ 05:00 - 13:00 và 16:00 - 22:00 ghi trên biển phụ." In H2 and H3, `0092` goes to the fallback.
+- The 7 former template cases (`0026` ×3, `0094` ×3, `0065`) now pass on the writer's reply. Their scores are unchanged; `0094` stays wrong (the gold plate reading, the owner's decision).
+- The one regeneration: `0026` in H2. The first reply opened a true/false answer without "Đúng"; the second passed.
+
 ## Next steps, in order
 
-**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). Built: the replay tool `eval/e2e_replay.py`, writer prompt `answer/v3@7d0f2b8ddf1f` (T1, now the default; v2 stays), the conditional `which_vehicles` wording (T3). The T1 + T3 replay (about $0.36) waits for the owner. Then step 5 (freeze) and step 6 (holdout once, Haiku + fallback, about $0.67).
+**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). Next: T2 (fallback prompt v2), then T4. Then step 5 (freeze) and step 6 (holdout once, Haiku + fallback, about $0.67).
 
 All public_dev figures are labelled **tuned**.
 
