@@ -1,0 +1,83 @@
+{
+  "what": "phase 4, procedure step 5: the frozen configuration for the one public_holdout run",
+  "pipeline_config": {
+    "perception_model": "claude-haiku-5-5",
+    "scene_version": "v4",
+    "scene_fallback": true,
+    "parser_model": "claude-sonnet-5-5",
+    "parser_effort": "medium",
+    "parser_version": "v6",
+    "context_year": 2025,
+    "writer_version": "v3",
+    "answer_fallback_version": "v2"
+  },
+  "run_specific_fields": [
+    "cache_dir",
+    "cache_only",
+    "max_spend"
+  ],
+  "scene_fallback": {
+    "policy": "crop_always",
+    "chosen_policy": "crop_always",
+    "drop_own_alt_on_agree": true,
+    "tiles": true,
+    "crops": true,
+    "describe": {
+      "tile": "scene/v4-tile@a052a9fc72f7",
+      "crop": "scene/v4-crop@30e2d18b84d9",
+      "policy": "crop_always",
+      "drop_own_alt_on_agree": true
+    }
+  },
+  "prompts": {
+    "scene": {
+      "id": "scene/v4@153536ec5975",
+      "sha256": "153536ec59750c402cd71a45eb3bd232380065617fcf085af514ce4c25971243",
+      "model": "claude-haiku-5-5",
+      "effort": "medium",
+      "max_tokens": 8000
+    },
+    "scene_tile": {
+      "id": "scene/v4-tile@a052a9fc72f7",
+      "sha256": "a052a9fc72f7d2aa9504b3bef5a31718f6bb730405be883a4dd0a2d8c4fed983",
+      "model": "claude-haiku-5-5",
+      "effort": "medium",
+      "max_tokens": 8000
+    },
+    "scene_crop": {
+      "id": "scene/v4-crop@30e2d18b84d9",
+      "sha256": "30e2d18b84d9b7db6e2b9e5df87c6ec4d203426e247bee4121480d71cc772b90",
+      "model": "claude-haiku-5-5",
+      "effort": "medium",
+      "max_tokens": 3000
+    },
+    "parser": {
+      "id": "parser/v6@2d0ec50e3611",
+      "sha256": "2d0ec50e3611dab8c42d04cbbd79e52dc58d0d55be794089b976368fc9f8cf23",
+      "model": "claude-sonnet-5-5",
+      "effort": "medium"
+    },
+    "answer": {
+      "id": "answer/v3@7d0f2b8ddf1f",
+      "sha256": "7d0f2b8ddf1fad80f06b7e56346ebeced17e60616409089c2557b6030a1a810b",
+      "model": "claude-haiku-5-5",
+      "effort": "low",
+      "max_tokens": 1200
+    },
+    "answer_fallback": {
+      "id": "answer_fallback/v2@8678a19681a9",
+      "sha256": "8678a19681a93267548117372239d113225880ff45f937dc694fce358a9828f5",
+      "model": "claude-sonnet-5-5",
+      "effort": "medium",
+      "max_tokens": 1500,
+      "output_schema": "schema.json"
+    },
+    "judge": {
+      "id": "judge/v1@7c500c35df27",
+      "sha256": "7c500c35df277ba23e7f0cf39ab66e6bca81c84f13a4ea6316f52d2ff9426c57",
+      "model": "claude-opus-5-5",
+      "effort": "medium",
+      "max_tokens": 1500
+    }
+  }
+}

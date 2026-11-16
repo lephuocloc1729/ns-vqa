@@ -257,6 +257,10 @@ def test_oracles_never_go_through_answer(fake_set, monkeypatch):
 
 # ---------------------------------------------------------------- holdout (aggregate only)
 
+def CLEAN():
+    return {"commit": "c0ffee", "clean": True, "dirty": []}
+
+
 def test_holdout_refuses_without_the_freeze(tmp_path):
     with pytest.raises(SystemExit, match="confirm-frozen"):
         eh.run_holdout(1.0, perception_model="claude-haiku-5-5")
@@ -268,7 +272,8 @@ def test_holdout_writes_only_an_aggregate_file(fake_set, capsys):
     sdk.replies["perception"] = [SCENE_REPLY, SCENE_REPLY]
     out_dir = fake_set / "holdout_out"
     out = eh.run_holdout(1.0, perception_model="claude-haiku-5-5", confirm_frozen=True, sdk=sdk, questions=qs,
-                         out_dir=out_dir, image_path=lambda i: fake_set / f"{i}.jpg")
+                         out_dir=out_dir, image_path=lambda i: fake_set / f"{i}.jpg",
+                         sentinel=fake_set / "sentinel.json", git=CLEAN)
     assert [p.name for p in out_dir.iterdir()] == [out.name]
     text = out.read_text()
     printed = capsys.readouterr().out

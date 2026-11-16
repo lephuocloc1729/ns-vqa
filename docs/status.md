@@ -1151,9 +1151,36 @@ Replays of the T2 runs with the T4 scenes (`--allow-scene-changes`; scenes chang
 - The non-duplicate gain is large but from 57 questions (19 per run, shared images), so its CI is wide.
 - **Phase-4 spend so far: about $3.32** of the $10 ceiling (step 2 $2.20, T1 $0.20, T2 $0.59, T4 $0.25, plus earlier test calls).
 
+### Step 5: the freeze (owner, 2026-11-16)
+
+**Freeze approved; no fourth tuning run.** The last development figures are the T4 table above (public_dev, tuned): overall 84.6%, strict 82.4%, Yes/No 81.9%, Natural QA 87.0%, non-duplicate 96.5% (95% CI 88–99, n=57), rule coverage 61.4%, rules-only 88.8%, fallback rate 38.6%, faithfulness 100%, template rate 0%.
+
+**The frozen configuration** is recorded in `eval/frozen_phase4.json` (committed; `eval/freeze.py show | check`):
+
+| stage | prompt id | model, effort, max_tokens |
+|---|---|---|
+| perception | `scene/v4@153536ec5975` | Haiku 5.5, medium, 8000; re-run on |
+| scene fallback: tiles | `scene/v4-tile@a052a9fc72f7` | Haiku 5.5, medium, 8000 |
+| scene fallback: crops | `scene/v4-crop@30e2d18b84d9` | Haiku 5.5, medium, 3000 |
+| scene fallback: combining | CHOSEN_POLICY `crop_always`, `drop_own_alt_on_agree` true (T4) | |
+| parser | `parser/v6@2d0ec50e3611` (sha256 of the system prompt) | Sonnet 5.5, medium |
+| answer writer | `answer/v3@7d0f2b8ddf1f` | Haiku 5.5, low, 1200 |
+| answer fallback | `answer_fallback/v2@8678a19681a9` (schema.json) | Sonnet 5.5, medium, 1500 |
+| judge | `judge/v1@7c500c35df27` | Opus 5.5, medium, 1500 |
+
+- The record also holds the full sha256 of each prompt and the PipelineConfig defaults (context year 2025). The run-specific fields (`cache_dir`, `cache_only`, `max_spend`) are left out.
+- `tests/test_freeze.py` checks that the current defaults and prompt pins equal the record, and that the pipeline calls the models it names.
+- **Holdout guards** (`eval/e2e_holdout.py`, tested). The run refuses to start unless:
+  - `--confirm-frozen` is given;
+  - the git working tree is clean;
+  - the live configuration equals the record;
+  - the holdout has never run: no committed sentinel `eval/holdout_ran.json` and no aggregate file.
+- The sentinel is written before the first call, so a run that stops part way still counts as the one run.
+- The aggregate report records the git commit, the full frozen configuration and the prompt ids.
+
 ## Next steps, in order
 
-**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. Next: the owner decides whether to freeze (step 5) or use a fourth run; then holdout once (step 6). Then step 5 (freeze) and step 6 (holdout once, Haiku + fallback, about $0.67).
+**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Step 5 done: frozen** (above). Next: step 6, public_holdout once (the owner runs it); then record it as "public_holdout, once, frozen" and change nothing after it. Then step 5 (freeze) and step 6 (holdout once, Haiku + fallback, about $0.67).
 
 All public_dev figures are labelled **tuned**.
 
