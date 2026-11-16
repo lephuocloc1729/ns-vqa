@@ -112,7 +112,10 @@ def test_wilson_ci_known_value():
 # Eval tools that read dataset questions may read public_dev and train only:
 # never public_holdout or private questions (CLAUDE.md, "Dataset rules").
 EVAL_QUESTION_READERS = [ROOT / "eval" / "parser_eval.py", ROOT / "eval" / "gold_intents.py",
-                         ROOT / "eval" / "gold_signs.py", ROOT / "eval" / "perception_eval.py"]
+                         ROOT / "eval" / "gold_signs.py", ROOT / "eval" / "perception_eval.py",
+                         # phase 4: the public_dev end-to-end eval and the judge (the one
+                         # holdout run is eval/e2e_holdout.py, aggregate only)
+                         ROOT / "eval" / "e2e_eval.py", ROOT / "eval" / "judge.py"]
 HOLDOUT_OR_PRIVATE = ("public_holdout", "holdout", "private_test", "vlsp_2025_private")
 
 
@@ -201,3 +204,65 @@ def test_the_fallback_prompts_name_no_public_or_private_image():
             if p.is_file():
                 text = p.read_text(encoding="utf-8")
                 assert "public_test" not in text and "private_test" not in text, p
+
+
+# ---------------------------------------------------------------- phase 4 (plan item 5)
+
+PHASE4_INFERENCE = ["vqa/pipeline.py", "vqa/answer/digest.py", "vqa/answer/faithfulness.py",
+                    "vqa/answer/template.py", "vqa/answer/writer.py", "vqa/answer/prompt.py",
+                    "vqa/answer/fallback.py"]
+# Stored scenes reach inference only through the scene cache (owner, 2026-11-16):
+# never from run files, the warm step or eval-side oracles and judges.
+PHASE4_FORBIDDEN_TEXT = ("eval/runs", "runs/perception", "cache/warm", "WARMED_RUN", "warm_run",
+                         "backfill", "run_file", "judge", "oracle", "e2e_")
+
+
+def test_phase4_inference_code_is_scanned_and_clean():
+    files = {str(p.relative_to(ROOT)) for p in inference_files()}
+    assert set(PHASE4_INFERENCE) <= files
+    found = []
+    for rel in PHASE4_INFERENCE:
+        found += violations((ROOT / rel).read_text(encoding="utf-8"), rel)
+    assert not found, "\n".join(found)
+
+
+def test_inference_code_never_reads_run_files_or_eval_side_scenes():
+    found = [f"{p.relative_to(ROOT)} mentions {t!r}" for p in inference_files()
+             for t in PHASE4_FORBIDDEN_TEXT if t.lower() in p.read_text(encoding="utf-8").lower()]
+    assert not found, "\n".join(found)
+
+
+def test_answer_takes_an_image_path_and_a_question_only():
+    import inspect
+
+    import vqa.pipeline as pl
+    assert list(inspect.signature(pl.answer).parameters) == ["image_path", "question"]
+    assert list(inspect.signature(pl.Pipeline.answer).parameters) == ["self", "image_path", "question"]
+
+
+def test_oracles_call_engine_writer_and_fallback_directly_never_answer():
+    import inspect
+
+    import eval.e2e_eval as ee
+    src = inspect.getsource(ee.run_oracle)
+    tree = ast.parse(src.lstrip() if not src.startswith(" ") else "if 1:\n" + src)
+    assert "vqa.pipeline" not in src and "Pipeline" not in src
+    calls = {(n.func.value.id if isinstance(n.func.value, ast.Name) else "?")
+             for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+             and n.func.attr == "answer"}
+    assert calls <= {"engine", "fallback"}, calls
+
+
+def test_the_judge_lives_in_eval_only():
+    assert (ROOT / "eval" / "judge.py").exists()
+    assert not [p for p in (ROOT / "vqa").rglob("*judge*")]
+
+
+def test_answer_and_fallback_prompts_hold_train_examples_only():
+    import json
+    files = sorted((ROOT / "prompts").glob("answer*/*/examples.jsonl"))
+    assert len(files) >= 3
+    for f in files:
+        for line in f.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                assert json.loads(line)["question_id"].startswith("train_"), f

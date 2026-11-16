@@ -821,11 +821,41 @@ The triggers were chosen on set T and are measured on set T, so these gains over
   - writer effort `low`;
   - only 6 examples: no Đúng/Sai, `unknown` or meaning example yet, since no train fixture has one.
 
+- **Owner decisions (2026-11-16)** on P1–P3 and writer v2 are recorded in the plan.
+- **P1 tooling** (`557c5ff`):
+  - `perception_eval.py run` now keeps the raw pass-1 / re-run replies in each row;
+  - `backfill-raw` copies a pre-phase-4 run's replies out of the scene cache into `<run>.withraw.jsonl`, checked against the usage log's request ids;
+  - `warm` rebuilds one run's cache records in a dedicated, emptied directory (`cache/warm/`, gitignored) and checks the rebuilt scenes.
+  - **Done locally:** `9981d8112688` (H) and `949418393534` (S) backfilled and warmed: 45/45 scenes rebuilt exactly, from model outputs alone. `b83d5dae690e` is refused (its pass-1 replies are gone).
+- **Writer prompt v2** (`c42f4cd`, `answer/v2@4887560f8b50`, the default; v1 kept): adds a Đúng/Sai (train_275), a sign-meaning (train_96) and an `unknown` (train_144) example. The hand-made scenes are in `tests/fixtures/answer_v2_scenes.json`.
+- **Items 2–3** (`a74a1e2`):
+  - `vqa/answer/fallback.py`: Sonnet, image + question + scene graph, prompt `answer_fallback/v1@dd75b41f09cd`, train-only style examples;
+  - `vqa/pipeline.py`: `answer(image_path, question)`, with cache-only mode and P3.
+- **Items 4–5** (this commit):
+  - `eval/e2e_eval.py`: public_dev runs (warm, run, next), oracles A/B called directly, `score`, gate D5, rule D2, `attribution`, `estimate`;
+  - `eval/judge.py`: Opus, `judge/v1@7c500c35df27`, pinned;
+  - `eval/e2e_holdout.py`: aggregate only, temporary cache, refuses without `--confirm-frozen`;
+  - leakage tests for scene reuse, oracles, the judge, prompts and `answer()`'s signature.
+  - 747 tests pass and Prolog loads.
+- **Oracle A, Yes/No part (free, gold scenes + gold programs, engine verdicts): 7 of 20 correct** (non-duplicates 3 of 7). This is far below DESIGN's "close to 100%":
+  - 6 gold programs are `out_of_scope` and 4 verdicts are `unknown`. In the pipeline these 10 go to the fallback;
+  - of the 10 the engine decided, 7 are right and 3 wrong:
+    - `0011`: the B.25 overtaking exception, not modelled (phase 1.7);
+    - `0068`: the gold scene's S.505a plate under P.123b lists trucks only, so motorbikes may turn right; the gold answer says Sai;
+    - `0094`: the gold local plate "CẤM XE 3 BÁNH VÀ 4 BÁNH THÔ SƠ" has no structured `vehicles`, so P.111b's own vehicles apply.
+  - The 4 public_dev few-shot questions have no gold program.
+  - Gold and kb/ were not changed.
+- **Readings for the owner to confirm:**
+  - a `perception_failed` fallback trigger (no scene at all), which is not in D3's list;
+  - gold scenes for oracles drop standalone local notices and keep unreadable gold signs as `UNKNOWN`.
+
 ## Next steps, in order
 
-**Next (2026-11-16): phase 4, procedure step 1 (no API).** The owner approved the phase-4 plan with changes (`docs/plans/phase-4.md`). `phase-3` is merged into `main` at `7ec1134` (not pushed), and work is on `phase-4`.
-- Step 1: build items 1–5 with hand-made tests; oracle A's Yes/No part with the engine only; cache warming with its reproduction check.
-- Before step 2 (paid), the owner settles the plan's open points P1–P3. P1: two of the three checkpoint-2 Haiku runs kept no pass-1 raw replies, so they can't be warmed from model outputs.
+**Next (2026-11-16): phase 4, procedure step 2 (paid; the owner runs it).** Step 1 is done. Estimate: **$3.33** for step 2 including the two perception runs (range $1.7–5.0). The commands are in the phase-4 entry of the plan's procedure and in the last handoff message; in order:
+1. two fresh Haiku v4 pass-1 runs, each followed by the fallback; then `warm` each to check it;
+2. pipeline runs H1 (`9981d8112688.withraw`), H2, H3 and S (`949418393534.withraw`), one at a time;
+3. oracle A, and oracle B on each H run;
+4. `score` and `attribution`.
 
 ### Handoff (2026-11-15): where phase 3 stands, and what comes next (kept as a record)
 

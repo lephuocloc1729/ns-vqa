@@ -1,0 +1,5 @@
+# Natural-QA judge, prompt v1 (docs/plans/phase-4.md, item 4; D4: Opus 5.5,
+# correct / partial / wrong = 1 / 0.5 / 0, strict score partial = 0). Eval only.
+model: claude-opus-5-5
+effort: medium
+max_tokens: 1500

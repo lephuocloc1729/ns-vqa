@@ -513,6 +513,11 @@ def test_warm_rebuilds_the_runs_scenes_from_its_file_alone(fake_set):
     shutil.rmtree(fake_set / "cache")                       # nothing left from the run itself
     rep = pe.warm_run(fb, fake_set / "warm")
     assert rep["ok"] and rep["mismatches"] == [] and rep["records"] > 2
+    from vqa.perception.cache import RECORD_FIELDS, REPLY_FIELDS
+    for f in (fake_set / "warm").glob("*/*.json"):            # warmed records: model outputs only
+        data = json.loads(f.read_text())
+        assert set(data) <= RECORD_FIELDS | {"box"}
+        assert all(set(r) <= REPLY_FIELDS for r in data["replies"])
     assert json.loads((fake_set / "warm" / pe.WARM_MARKER).read_text())["run_id"] == rep["run_id"]
 
 
