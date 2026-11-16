@@ -1117,9 +1117,43 @@ Free replay with the stored tile and crop replies (`perception_eval.fallback_run
 - **What the dropped alternatives were** (50 in all, against gold): main code right and alternative wrong 33; both on the same catalog row 5; main wrong and alternative right **1** (set T, Haiku); both wrong 4; sign not matched or excluded 7.
 - **End-to-end preview, engine only** (the T2 runs' stored programs on the T4 scenes): 30 questions sit on changed images; **10 "uncertain" answers become rules answers** (`0036` ×3, `0038` ×3, `0037`, `0072`, `0086`, `0093`), 3 stay uncertain, the rest keep their verdict. The paid replay grades them.
 
+### Tuning T4: end to end (public_dev, tuned, T4; 2026-11-16)
+
+Replays of the T2 runs with the T4 scenes (`--allow-scene-changes`; scenes changed on 6, 6 and 8 images, as the free replay found): `2a108f86371b`, `3c127f06d946`, `c8880835ee4a`. Score output (local): `eval/runs/e2e/score_tuned_T4.json`. **Spend $0.25.** D8 count: 3 of 5.
+
+| pooled over H1–H3 | step 2 | T1 | T2 | **T4** |
+|---|---|---|---|---|
+| overall | 80.7% | 81.0% | 81.7% | **84.6%** |
+| strict | 77.1% | 77.8% | 79.1% | 82.4% |
+| Yes/No | 83.3% | 83.3% | 83.3% | 81.9% |
+| Natural QA | 78.4% | 79.0% | 80.2% | **87.0%** |
+| non-duplicate (n=57; 95% CI) | 85.1% (74–92) | 85.1% (74–92) | 86.8% (76–93) | **96.5% (88–99)** |
+| duplicate (n=96) | 78.1% | | | 77.6% |
+| rule coverage | 54.9% | 54.9% | 54.9% | **61.4%** |
+| rules-only | 86.9% (84) | 87.5% (84) | 87.5% (84) | 88.8% (94) |
+| fallback rate | 45.1% | 45.1% | 45.1% | 38.6% |
+| fallback failures | 6 | 6 | 1 | **0** |
+| template rate, faithfulness | 7.8%, 100% | 0%, 100% | 0%, 100% | **0%, 100%** (94 writer answers) |
+
+- **Gate (D5): PASS.** Faithfulness 100% (94 of 94), template rate 0%.
+- Per run, overall: T4-H1 87.3%, T4-H2 81.4%, T4-H3 85.3%.
+- **What T4 changed:** 10 "uncertain" triggers became rules answers (uncertain triggers 34 → 24), all graded right or as before:
+  - `0036` ×3 (P.131b, odd days);
+  - `0037` in H3;
+  - `0038` ×3;
+  - `0072` in H1;
+  - `0086` and `0093` in H2.
+- **Score changes caused by the fallback being called again** (on a changed image whose question still goes to it):
+  - `0092` in H2: 0.5 → 1;
+  - `0005` in H2: 1 → 0 (it now answers "Chưa xác định được");
+  - `0001` in H3: 1 → 0.5 (a slip in the parenthesis on even/odd days).
+- **Perception metrics are unchanged** (code F1 and recall, previous section): T4 shows only end to end.
+- The non-duplicate gain is large but from 57 questions (19 per run, shared images), so its CI is wide.
+- **Phase-4 spend so far: about $3.32** of the $10 ceiling (step 2 $2.20, T1 $0.20, T2 $0.59, T4 $0.25, plus earlier test calls).
+
 ## Next steps, in order
 
-**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. T4 built and replayed for free (above); its end-to-end replay of the T2 runs waits for the owner. Then step 5 (freeze) and step 6 (holdout once, Haiku + fallback, about $0.67).
+**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. Next: the owner decides whether to freeze (step 5) or use a fourth run; then holdout once (step 6). Then step 5 (freeze) and step 6 (holdout once, Haiku + fallback, about $0.67).
 
 All public_dev figures are labelled **tuned**.
 
