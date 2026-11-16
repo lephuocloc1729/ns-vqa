@@ -805,7 +805,7 @@ The triggers were chosen on set T and are measured on set T, so these gains over
   - the pictogram ablation;
   - the parser-cache key including the catalog hash (open since phase 2).
 
-### Phase 4: answering and the end-to-end pipeline (in progress, branch `phase-4`)
+### Phase 4: answering and the end-to-end pipeline (closed 2026-11-16, branch `phase-4`, not merged or pushed)
 
 - `7ec1134` `phase-3` merged into `main` (local, not pushed; D10). `a5133c9` plan approved (`docs/plans/phase-4.md`).
 - **Item 1, the answer writer and the faithfulness guard** (procedure step 1, no API):
@@ -1225,9 +1225,82 @@ Run `0ec3209c0324`, 07:37–08:11 UTC, at commit `2528621` with the frozen confi
 - **Non-duplicate images: 89.6%** on 24 questions. The CI (72–97) is wide and overlaps the tuned public_dev interval; the tuned 96.5% did not hold up at that level.
 - Gate (roadmap phase 4, D5) was measured on public_dev and passed. On the holdout, faithfulness is 100% and the template rate 0%.
 
+### Phase 4: closing (2026-11-16)
+
+**Phase 4 is closed:** no API calls, no push, no phase-5 code. The branch `phase-4` is not merged into `main`.
+
+**Commits (`main..phase-4`, oldest first):**
+- **Plan:** `a5133c9` plan approved.
+- **Items 1–5:**
+  - `61c3bbf` writer, guard, templates, answer/v1;
+  - `557c5ff` raw pass-1 replies, backfill-raw, warm;
+  - `c42f4cd` answer/v2;
+  - `a74a1e2` answer-level fallback and pipeline;
+  - `274db32` e2e eval, oracles, judge, holdout, leakage tests.
+- **Oracle A diagnosis and item 1b:**
+  - `35020d7` diagnosis;
+  - `83ee6b8` plan 1b;
+  - `674641d`, `5f486fb`, `4b07a60`, `c0d8b90` engine and KB fixes 1b.1–1b.4;
+  - `18081b0` oracle A rerun;
+  - `8b588c5` gold fix for 0094 (owner).
+- **Step 2:** `10347dc` results and diagnosis.
+- **Tuning:**
+  - `1b0b0d7` T1 + T3 and the replay tool, `696fefd` T1 results;
+  - `905f717` T2, `0861365` T2 results;
+  - `e1044b3` T4, `f309265` T4 results.
+- **Freeze and holdout:**
+  - `db587c1` freeze record and holdout guards;
+  - `8b71beb` holdout image fix;
+  - `2528621` voided start;
+  - `ab7261a` holdout result;
+  - `741a02a` aggregate-only wording.
+
+**Frozen configuration** (`eval/frozen_phase4.json`):
+
+| stage | setting |
+|---|---|
+| perception | Haiku 5.5 `scene/v4@153536ec5975` with the re-run |
+| scene fallback | tiles `scene/v4-tile@a052a9fc72f7`, crops `scene/v4-crop@30e2d18b84d9`, `crop_always`, `drop_own_alt_on_agree` (T4) |
+| parser | Sonnet 5.5, medium, `parser/v6@2d0ec50e3611` |
+| answer writer | Haiku 5.5, low, `answer/v3@7d0f2b8ddf1f` |
+| answer fallback | Sonnet 5.5, medium, `answer_fallback/v2@8678a19681a9` |
+| judge | Opus 5.5, medium, `judge/v1@7c500c35df27` |
+
+**Results:**
+- public_holdout, once, frozen: 83.7% overall; 89.6% on non-duplicate images (n=24, 95% CI 72–97).
+- The rules scored 78.0% on their 25 answers, below the fallback's 89.6% on 24; on public_dev (tuned) it was the reverse, 88.8% against 78.0%.
+- The gate (D5) passed on public_dev after T1.
+
+**Spend, from `logs/api_calls.jsonl`** (calls from the phase-4 start at 04:53 UTC; 1,854 calls):
+
+| purpose | calls | USD |
+|---|---|---|
+| judge (Opus) | 335 | 1.730 |
+| answer fallback (Sonnet) | 260 | 0.955 |
+| parser (Sonnet) | 278 | 0.757 |
+| answer writer (Haiku) | 485 | 0.129 |
+| scene, re-run, tiles, crops (Haiku) | 496 | 0.368 |
+| **total** | 1,854 | **$3.94** of the $10 ceiling |
+
+**Open items:**
+- **`0094`'s gold plate reading** (the owner's decision). It affects the oracle runs only, not the holdout figure.
+- **`0068`, disputed gold answer.** The gold answer is Sai; the engine's Đúng (the S.505a plate is a truck) is believed correct. It is scored as is.
+- **Deferred KB items:**
+  - the B.25 overtaking exception ("kể cả xe được ưu tiên", `0011`);
+  - the warning-sign rule;
+  - counting signs;
+  - guide-sign content.
+- **Catalog rows awaiting the owner's review:**
+  - `kb/sign_catalog.yaml`: 78 of 80 rows not `reviewed_by: human`, including the effect_unmodelled rows R.302(a,b,c), R.303, R.411, R.420 and R.403a, R.403b, R.404a, R.307. 45 rows have no visual review.
+  - `kb/sign_catalog_meaning.yaml`: 110 of 149 rows not `reviewed_by: human`; visual review: 124 none, 5 assistant (W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473).
+- **Carried over:**
+  - the parser version key should include the catalog hash (the freeze record now hashes the parser's full system prompt, catalog included);
+  - standalone local notices are not modelled;
+  - the private gold labels and the pictogram ablation (proposed).
+
 ## Next steps, in order
 
-**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Step 5 done: frozen. Step 6 done: public_holdout, once, frozen** (above): overall 83.7%, non-duplicate 89.6% (95% CI 72–97), rule coverage 51.0%, faithfulness 100%. Nothing is changed after it. Open: the owner's decision on `0094`'s gold plate reading (oracles only). Then step 5 (freeze) and step 6 (holdout once, Haiku + fallback, about $0.67).
+**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Phase 4 closed (2026-11-16; closing entry above).** Next: the owner reviews `docs/plans/phase-5-draft.md` (the private-test benchmark, baselines and ablations). Open: `0094`'s gold reading.
 
 All public_dev figures are labelled **tuned**.
 
