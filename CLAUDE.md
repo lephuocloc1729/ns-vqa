@@ -43,6 +43,9 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
   - Evaluations report every score twice: on all questions, and without questions whose image is in `duplicated_with_train`. Map image ids to questions at evaluation time.
   - The duplicate check finds copies and slight re-crops. It misses different photos of the same scene.
 - **Never open the private test answers.** The private test is the final benchmark and runs once, at the end.
+  - Only the scoring code reads them, in memory, and it writes aggregates only (`eval/e2e_private.py`, sentinel `eval/private_ran.json`).
+  - **One exception (owner, 2026-11-16, phase-5 P6): human scoring.** The owner, and only the owner, may read private answers to score the Natural QA answers by hand, and only after every automatic score on private is recorded and committed. The assistant never reads the scoring sheet or the private answers.
+  - The private run's replay records (`cache/private_run/`, P4) are model outputs only, gitignored, read only by replay code, and deleted at the end of phase 5.
 - Keep `provenance.json` and `review.json` out of prompts. `train_284` has an invalid citation.
 
 ## Leakage guard
