@@ -24,9 +24,10 @@ The system answers natural-language questions about a road image ("Can I turn le
 ```mermaid
 flowchart LR
     IMG[Road image] --> PREP[Image prep<br/>resize to native size]
-    PREP --> SCENE[[Claude scene call<br/>Haiku 5.5, one pass]]
+    PREP --> SCENE[[Claude scene call<br/>Haiku 5.5, prompt v4, + re-run]]
     SCENE --> VER[Verification<br/>code, catalog checks]
-    VER --> SG[Scene graph<br/>signs, plates, vehicles, context]
+    VER --> FB[[Two-pass fallback<br/>tiles of dense scenes,<br/>crops of unsure signs]]
+    FB --> SG[Scene graph<br/>signs, plates, vehicles, context]
     Q[Question<br/>in Vietnamese] --> PARSE[[Claude parser<br/>Haiku or Sonnet 5.5]]
     PARSE --> PROG[Query program<br/>typed DSL, validated]
     KB[Knowledge base<br/>catalog + rules from law_db] --> ENG{{Rule engine<br/>SWI-Prolog, gives proof}}
@@ -41,33 +42,174 @@ Double-bordered boxes are Claude API calls; the rule engine is the only part tha
 
 Two paths meet at the rule engine: the image becomes a scene graph, and the question becomes a query program. Claude works in three places (reading the scene, parsing, wording the answer), but only the engine's verdict can reach the user, and a code check enforces that.
 
-## Perception: one Claude call per image
+The fallback runs only on images whose pass-1 scene triggers it: 5 or more signs, or a `low` / `UNKNOWN` sign (phase 3).
 
-One vision call per image returns the whole scene graph: every sign with its catalog code, the text and numbers on it, its plates, and what it looks like and where it sits. Signs in the dataset are not tiny, and an early Haiku 5.5 test found all the needed signs, so v1 starts with one pass. Two-pass cropping stays as a fallback, used only if the evaluation shows it is needed.
+## Perception (built in phase 3)
 
-**The scene call**
+Phase 3 built perception and ran its gate twice on public_dev. **The gate failed both times.** Under the policy fixed before the second checkpoint, phase 4 uses Haiku 5.5 with prompt v4 plus the two-pass fallback, and the gate is recorded as failed. The figures are under "Results" below. The plan and its decisions are in `docs/plans/phase-3.md`; the record of each step is in `docs/status.md`.
 
-- Input: the image, resized to the model's native size so any pixel boxes map straight back onto it ([coordinates guide](https://platform.claude.com/docs/en/build-with-claude/vision-coordinates)).
-- A cached system prompt holds the sign catalog: every code with its Vietnamese name and a short visual description. Pictograms from the corpus's own `law_db/images.fld` can be added for codes that get confused.
-- Structured output (JSON schema) with `code` as an enum of catalog codes plus `UNKNOWN`, so Claude can only name a real sign or admit it can't tell.
-  - The API caps strict schemas at 24 optional and 16 union-typed parameters in total, and the parser's schema hit that limit, so this schema may need to be checked against it too.
-- Per sign, Claude returns:
-  - the code and any numbers or text it reads (speed limits, weight limits, time windows, "ngày chẵn")
-  - plates and which sign each belongs to
-  - shape, border and background colour
-  - position: order from top to bottom, side, which lane it covers on a lane-speed board, and a pixel box for debugging
-- Questions often name a sign by how it looks ("biển viền đỏ, nền trắng ở trên cùng", "biển tròn màu xanh"). These attributes are what let the parser point at the right sign.
-- Road context and vehicles are part of v1: lanes and lane markings, intersection, and for each visible vehicle its class, lane, and what it appears to be doing (driving, turning, stopped, parked, crossing a line). These are needed for the violation questions (about 6% of the private test). A still image can't show every action, so `action: unknown` is allowed, and the engine then answers `unknown` rather than guessing.
+**What phase 3 changed from the original design:**
+- the scene call replies in plain JSON checked in Python, not with a JSON schema;
+- the prompt carries reference pictograms from `law_db`, under a dataset-rule exception;
+- the two-pass fallback became tiles for dense scenes plus crops for unsure codes, and it is on for every image whose pass-1 scene triggers it;
+- the gate is measured on public_dev only, not the whole public test.
 
-**Model choice:** start with Haiku 5.5, the cheapest. Run the same calls with Sonnet 5.5 and Opus 5.5 on the public test and keep the cheapest model that meets the perception gate in the roadmap.
+### The scene call (pass 1)
 
-**Verification (deterministic code)**
+- **Image prep** (`vqa/perception/image.py`):
+  - EXIF orientation applied, converted to RGB, resized so the long edge is at most 1568 px and the area at most about 1.15 MP, never upscaled;
+  - the scale factor is kept, so a box on the sent image maps back onto the original ([coordinates guide](https://platform.claude.com/docs/en/build-with-claude/vision-coordinates));
+  - the image's identity is the sha256 of the original file's bytes. The file name is never used.
+- **One call per image.** Haiku 5.5 at its default (medium) effort; Sonnet 5.5 was run for comparison.
+- **Plain JSON, no schema** (plan D4).
+  - A `code` enum over the 219 catalog rows plus the scene's optional fields would exceed the API's strict-schema limits (24 optional and 16 union-typed parameters per request), as the parser's schema did.
+  - The reply is one JSON object, bare or in a ```json fence. `vqa/perception/wire.py` checks it against the catalog and the enums in `vqa/schemas.py`; a variant code ("W.207c") resolves to its family row.
+  - Malformed JSON or a failed check gets **one retry that sends only the error**. The rejected reply is not echoed back: the assistant turn is a placeholder.
+  - A code still invalid after the retry becomes `UNKNOWN`, and the raw reading is kept beside the scene, not in it.
+  - A refusal or a reply cut off at `max_tokens` is an error, with no retry.
+- **What the model returns per sign:**
+  - the code or `UNKNOWN`, a confidence, and at most one alternative reading;
+  - value and unit, and the text it reads;
+  - shape, border and background;
+  - rank top-down, side, lane, placement, and a pixel box;
+  - plates, condition groups and lane-board rows.
 
-- Unknown codes rejected; values checked for plausibility per code (speed values from a fixed set, weights positive).
-- Each plate attached to the sign directly above it; lane-board values attached to lanes in left-to-right order.
-- Low-confidence signs: re-run the call once. Agreement → keep. Disagreement → keep both as alternatives, and the rule engine answers `uncertain` if they lead to different answers.
+  Plus the road (type, lanes, intersection ahead) and the vehicles (class, lane, action, target). `action: unknown` is allowed.
+- **The prompt** (`prompts/scene/<version>/`) has:
+  - `spec.md`, which defines a sign the same way the gold guide does;
+  - `config.yaml`: `max_tokens`, image-prep parameters and effort per model;
+  - text-only output examples written from train images;
+  - a catalog listing generated at build time: code, Vietnamese name, shape / border / background, and whether the sign carries a number.
 
-**Fallback: two-pass crops.** If sign recall or code accuracy on the public test misses the gate, first for dense boards or distant signs, switch those images to two passes. Pass 1 finds boxes, then each sign is cropped from the original image and read up close. It costs more calls, so it is used only where one pass fails.
+  The prompt hash covers the catalog listing, so a catalog change is a new prompt version. Versions v1–v4 were tuned on set T only, and each is pinned by sha256.
+  - **v4** (`scene/v4@153536ec5975`) adds to v3: list every sign, and give `UNKNOWN` rather than leave one out; discs on their own posts are separate signs; P.127b is not IE.452.
+- **Reference pictograms** (from v3).
+  - The prompt shows 51 official QCVN 41 figures for 53 easily confused rows, labelled with code and name, before the photo. `cache_control` is on the last figure.
+  - **The dataset-rule exception (owner, 2026-11-15):**
+    - `tools/build_scene_pictograms.py` writes resized copies (at most 320 px) of the chosen `law_db` figures into `prompts/scene/<version>/pictograms/`, which is gitignored;
+    - only the manifest (code, source article, figure name, caption, the copy's sha256) is committed;
+    - the prompt refuses to build if a copy is missing or doesn't match;
+    - inference reads `prompts/`, never `law_db`.
+- **Scene cache** (`vqa/perception/cache.py`, plan D5):
+  - keyed by image sha256 + model + effort + prompt version; effort is in the key because it changes the output;
+  - records hold model outputs only, and the scene is rebuilt from the cached reply by the current code, so a verification change needs no new call;
+  - eval runs bypass the cache, so repeated runs are independent calls.
+
+### Verification and the low-confidence re-run (plan D8)
+
+- **Values per catalog row:**
+  - speeds 5–120 km/h in steps of 5;
+  - weights above 0 and at most 60 t; heights and widths at most 10 m; lengths at most 30 m;
+  - valid time windows.
+
+  An out-of-range value is dropped and its sign lowered to `low`. A value-bearing row with no value is lowered too.
+- **Look against the catalog:** a difference is always recorded.
+  - It lowers a sign to `low` only on rows a person has visually reviewed (plan D10), and only when the shape or the background differs; a border-only difference is recorded only.
+  - The reported look is kept, because questions select signs by how they look.
+- **Plates, lanes and ids:**
+  - a plate listed as its own sign goes under the sign directly above it on the same side;
+  - lane rows are renumbered 1..n from the left;
+  - ids are renumbered top-down.
+- **Re-run:** if any sign is `low` or `UNKNOWN`, the whole call is made once more, and the two readings are paired with the gate's matching.
+  - agreement keeps the sign;
+  - disagreement keeps the first reading with the second as an alternative, so the engine answers `uncertain` when they lead to different answers;
+  - a sign seen in only one reading stays `low`.
+
+  About half the images re-run (19–24 of 45 on public_dev for Haiku).
+
+### Two-pass fallback (plan item 7, approved 2026-11-16)
+
+It runs after pass 1, on what pass 1 returned and the image's own pixels only (`vqa/perception/fallback.py`). Its triggers, sizes and combining rule were chosen from **set-T errors only**.
+
+- **Why two parts:** on set T, every sign pass 1 missed was never listed at all, so it had no box to crop. Re-reading boxes can fix codes but can't recover missed signs.
+- **A1, region pass**, first:
+  - **trigger:** pass 1 lists 5 or more signs; this covers every set-T dense-scene miss with the fewest images;
+  - a 2 × 2 grid of tiles over the original image, overlapping by 20%, each enlarged to the scene prep's limits and read with `prompts/scene/v4-tile/` (the v4 spec plus a note that the image is a tile);
+  - a tile sign that overlaps a pass-1 sign (IoU ≥ 0.3, or either centre inside the other box) is dropped; tile signs are deduplicated among themselves the same way;
+  - the rest are added at `low`.
+  - **Ranks (option B, "shift"):** an added sign takes its top-down place by box top, and pass-1 signs below it move down by one. Pass-1 order, ties and sides never change. Added signs get a side from their box centre.
+- **A2, box crops**, second, so it also re-reads the signs A1 added:
+  - **trigger:** every `low` or `UNKNOWN` sign with a box;
+  - **the crop:** the box on the original, widened by 50% of its width on each side, 50% of its height above and 100% below (to include a plate). At least 128 px each way, clipped to the image, enlarged to 384 px on the short side;
+  - read alone with `prompts/scene/v4-crop/` (one sign: code, confidence, value, alternative).
+- **Retry:** tile and crop calls get the scene call's retry on bad JSON, and each failed reply's raw text is kept.
+  - On public_dev, Sonnet needed it on 34 of 77 crops, and 4 crops failed again.
+  - Haiku needed none.
+- **Combining (`CHOSEN_POLICY = "crop_always"`):**
+  - a crop that names a catalog code goes first, with pass 1's reading kept as an alternative;
+  - a crop that agrees with pass 1 raises the sign to `medium`;
+  - a crop that reads `UNKNOWN` changes nothing.
+  - **Chosen in-sample on set T:** it had the best mean code F1 over Haiku and Sonnet (76.10%, against 74.83% for the approved "rules"). The owner's rule kept "rules" only if it was within 1 point, and it was 1.27 behind.
+- **Cache key:** tile and crop records add the region's pixel box to the scene key.
+- **Frozen for phase 4:** `scene/v4-tile@a052a9fc72f7`, `scene/v4-crop@30e2d18b84d9`, and `CHOSEN_POLICY`, all pinned by tests.
+
+### Gold signs v1
+
+- **81 images:**
+  - public_dev's 45 images are the gate set;
+  - set T is 36 train images in no duplicate group with any public image, used for prompt and fallback tuning;
+  - public_holdout is not labelled;
+  - **private test: planned, not done.** Its images are labelled blind to the questions only after the benchmark run, and the labels stay local (plan D1, C2).
+- **How they were labelled** (`docs/gold_signs_guide.md`, `eval/gold_signs.py`):
+  - drafts by Opus 5.5 on 8 public_dev images and by Haiku 5.5 on the other 73;
+  - the owner reviewed every sign and recorded what is seen, not what the catalog says;
+  - `readable: false` marks signs that can't be read, and `local_notice` marks standalone local text boards. Both are out of recall and precision.
+- **Gate counts:** public_dev has 143 readable gold signs (plus 31 `readable: false` and 2 local notices); set T has 120.
+- **Anchoring check (plan D2):** Haiku drafted most of the gold and was the first gate candidate, so every gate score is also split by drafter.
+  - The owner kept drafts unchanged for 22 of 39 Opus-drafted signs and 67 of 273 Haiku-drafted ones.
+  - Haiku did not score better on the images it drafted: at checkpoint 2 its code F1 was 72.4% there, against 87.0% on the Opus-drafted images.
+  - That split is confounded: all 8 Opus-drafted images are also in train.
+
+### The gate (`perception_gate_v2`)
+
+- **Pass rule:** sign recall ≥ 0.90 **and** sign-code F1 ≥ 0.85, both on the mean of 3 runs of one configuration, on all public_dev images.
+  - The roadmap first said "the public test"; the gate set is public_dev, and public_holdout is scored end to end only.
+- **Matching, per image, one to one.** Gold has no boxes, so pairs are chosen by a fixed order: same catalog row, then same visual category, then **same side, then closest rank**, then list order.
+  - Version 2 put side before rank after the first set-T run, before any public_dev result.
+  - A pair is allowed only if the code is the same row or the visual category is the same.
+- **Recall** is matched readable gold signs over readable gold signs. An `UNKNOWN` prediction counts as found.
+- **Code F1** is micro over signs at catalog-row level; the variant must also match when both name one. A strict variant-level F1 is reported beside it.
+- **Reported, not gated:** rule-bearing F1 (the signs the engine acts on), value and look accuracy, and the split by drafter.
+- **95% CIs** are a bootstrap over images (10,000 resamples, seed 20261115). The CI of a mean pools each image's counts over the runs.
+  - Every score is given on all 45 images and on the 17 that are not also in train.
+- `eval/perception_eval.py score` refuses runs that mix configurations (set, model, prompt, fallback on or off) and public_dev runs made with the cache.
+
+### Results
+
+public_dev, gate v2; neither checkpoint was tuned on public_dev:
+
+| | recall, all 45 (95% CI) | code F1, all 45 (95% CI) | non-duplicates (17): recall / code F1 | gate |
+|---|---|---|---|---|
+| **Checkpoint 1:** Haiku v4, mean of 3 | 79.7% (69.1–92.5) | 68.1% (59.6–78.4) | 87.7% / 71.2% | FAIL |
+| Checkpoint 1: Sonnet v4, 1 run | 81.8% (69.6–96.3) | 75.1% (67.7–84.6) | 100% / 80.7% | not decided (1 of 3 runs) |
+| **Checkpoint 2:** Haiku v4 + fallback, mean of 3 | **89.98%** (85.3–95.7) | **75.6%** (69.2–83.0) | 86.4% / 74.9% | **FAIL** |
+| Checkpoint 2: Sonnet v4 + fallback, 1 run | 95.8% (90.3–99.2) | 76.9% (68.9–84.8) | 100% / 66.7% | not decided (1 of 3 runs) |
+
+- **Haiku + fallback misses recall by 0.02 points (89.98% against 90%), and code F1 by 9.4 points.**
+- Sonnet ran once at each checkpoint by the owner's decision on cost, so its gate is not decided; its code F1 is below 85% even at the top of its CI.
+- **Cost per image, all-in:**
+
+  | | pass 1 | pass 1 + fallback |
+  |---|---|---|
+  | Haiku | $0.0015 | about $0.0028 |
+  | Sonnet | $0.009 | about $0.023 |
+
+- **Phase-3 API spend: $3.34**, including the gold pre-fill.
+
+**The model choice (policy (d), fixed before checkpoint 2):**
+1. Take the cheapest configuration that passes.
+2. If none passes, take the highest mean code F1 on all public_dev images, but Haiku if it is within 2 points.
+3. Keep the fallback only if it raised that configuration's code F1.
+
+None passed. Sonnet + fallback had the highest F1 on one run, and Haiku + fallback was 1.3 points behind. The fallback raised Haiku's F1 from 68.1% to 75.6%. **So phase 4 uses Haiku 5.5, prompt v4 + the fallback.** There is no third perception checkpoint in phase 3.
+
+One caveat: Haiku's code F1 varied by 2.9 points across its runs, so the 1.3-point gap to a single Sonnet run is within run-to-run noise.
+
+**Not built (proposed):**
+- the pictogram ablation;
+- a one-pass vs. fallback ablation on the private test;
+- a re-check of Sonnet + fallback in phase 4 (see the phase-4 draft);
+- the private gold labels, after the benchmark run.
 
 ## Symbolic scene graph
 
@@ -274,7 +416,11 @@ The private test leans toward reasoning (claims, lanes, times, vehicle classes) 
 
 **Gold annotations to add**
 
-1. **Gold signs:** label the signs (code, value, plates, position) on the 90 public and 104 private images by hand, with Claude pre-filling and a person correcting. Sign lists only, no boxes. For images with violation questions, also list the vehicles and what they are doing.
+1. **Gold signs (phase 3, as built):** sign lists only, no boxes, plus the vehicles on violation images. Drafted by Claude, every sign reviewed by a person.
+   - Labelled: the 45 public_dev images (the gate set) and 36 train images (set T, for tuning).
+   - Not labelled: public_holdout, which is scored end to end only.
+   - Private: planned, after the benchmark run, blind to the questions and kept local.
+   - See "Gold signs v1" in section 3.
 2. **Gold intents:** Claude (Opus 5.5) drafts the query program for every question in all three splits, and a person reviews each one. Train programs become few-shot examples; private programs are used only to score the parser.
 3. **Hold-out rule:** design rules, prompts and models on train and public only. Labelling private-test signs and programs is fine for per-module scoring, but don't change the system after looking at private results.
 
@@ -292,7 +438,7 @@ The headline number is answer accuracy on the private test, split into Yes/No an
 
 | Stage | Metric | Gold |
 | --- | --- | --- |
-| Perception | sign recall, sign-code F1, value and plate accuracy | gold sign lists (public, private) |
+| Perception | sign recall, sign-code F1, value and plate accuracy (gate v2, section 3) | gold sign lists (public_dev, set T; private after the benchmark run) |
 | Question parser | program exact match, slot F1 | reviewed gold intents |
 | Rule engine | answer accuracy with gold scenes and gold programs (should be close to 100%) | unit tests + gold annotations |
 | Citations | proof sources vs. `relevant_articles` | train only |
@@ -307,13 +453,16 @@ The headline number is answer accuracy on the private test, split into Yes/No an
 
 **Ablations:** Haiku vs. Sonnet vs. Opus for the scene call; with vs. without reference pictograms; one pass vs. the two-pass fallback on the images where one pass failed.
 
+- **Phase 3 ran:** Haiku vs. Sonnet, and pass 1 vs. the fallback, on public_dev (section 3). Opus was skipped by the owner's decision.
+- **Still proposed:** the pictogram ablation, and the fallback ablation on the private test.
+
 ## Tech stack, repo layout and cost control
 
 | Layer | Choice |
 | --- | --- |
 | Language | Python 3.11+ |
 | Image handling | Pillow: resize to Claude's native size (crops only for the fallback) |
-| Perception | Claude vision only: one scene call per image (Haiku 5.5 first); no local models to train |
+| Perception | Claude vision only: one scene call per image (Haiku 5.5, prompt v4) plus the two-pass fallback (tiles, crops); no local models to train |
 | Claude API | `anthropic` Python SDK; `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-opus-5-5` |
 | Schemas | Pydantic v2 (also validates the parser's plain-JSON replies; no JSON schema is sent for parsing, because of the API's strict-schema limits) |
 | Rule engine | SWI-Prolog + `janus` (or clingo) |
@@ -325,7 +474,7 @@ traffic-vqa/
   kb/                 # sign_catalog.yaml, ontology.pl, rules/*.pl (versioned, each rule has a source)
   vqa/
     schemas.py        # SceneGraph, QueryProgram, Answer (Pydantic)
-    perception/       # scene.py (one call per image), verify.py, crops.py (fallback)
+    perception/       # image.py, prompt.py, wire.py, scene.py (perceive), verify.py, matching.py, cache.py, fallback.py
     parsing/          # claude_parser.py, dsl.py, validator.py
     reasoning/        # engine.py (janus bridge), explain.py (proof -> JSON)
     answer/           # claude_answer.py, faithfulness.py
@@ -369,7 +518,7 @@ Build from the symbolic core outward. The rule engine can be tested with no neur
 
 1. **Contracts and KB core (weeks 1–2).** Pydantic schemas, sign catalog for about 40 common signs, ontology, first rule families, pytest suite. *Gate:* hand-written scene graphs + programs give correct answers and proofs.
 2. **Question parser (week 3).** DSL, Claude parser (plain JSON replies validated in Python), validator. *Gate:* ≥ 90% program accuracy on the reviewed public-test intents.
-3. **Perception v1 (weeks 4–5).** Sign catalog from law_db, the one-pass scene call, verification, and gold sign labels for the public and private images. *Gate:* sign recall ≥ 0.90 and sign-code F1 ≥ 0.85 on the public test; below that, turn on the two-pass fallback for the failing images.
+3. **Perception v1 (weeks 4–5).** Sign catalog from law_db, the one-pass scene call, verification, and gold sign labels. *Gate:* sign recall ≥ 0.90 and sign-code F1 ≥ 0.85 on public_dev; below that, turn on the two-pass fallback. *Result (phase 3): **failed.*** Haiku + fallback reached recall 89.98% and code F1 75.6%. Phase 4 proceeds with Haiku v4 + the fallback, under the policy fixed before the second checkpoint (section 3).
 4. **Answering and end-to-end pipeline (week 7).** Answer generation, faithfulness guard, `answer(image, question)` API. *Gate:* faithfulness ≥ 99% on dev.
 5. **Benchmark and evaluation (weeks 8–9).** Freeze the system, then run the private test once as the benchmark: baselines, ablations, and error analysis by stage and question feature.
 6. **Extend (week 10+).** Grow the catalog to the full sign set, add plates and hard cases, then traffic lights and road markings (v2), then a demo UI.
@@ -386,6 +535,10 @@ The weeks assume one person part-time; the gates matter more than the dates.
 | Violation questions | In v1: the scene graph models vehicles and behaviour | Sections 3, 4, 5 |
 | API budget | $50 a month; Haiku 5.5 for the scene call, Opus only for batch jobs and judging | Section 10 |
 | Benchmark | The natural version only; the private test is the final benchmark | Section 8 |
+| Scene call format | Plain JSON checked in Python, one retry with the error only; no JSON schema | Section 3 |
+| Gold sign sets | public_dev (gate) and set T (tuning); no holdout labels; private after the benchmark run, kept local | Sections 3, 8 |
+| Perception gate | On public_dev, mean of 3 runs, gate v2 matching, bootstrap CI over images | Section 3 |
+| Perception model | Haiku 5.5, prompt v4 + two-pass fallback (`crop_always`); the gate failed and is recorded as failed | Section 3 |
 
 ## Sources
 
