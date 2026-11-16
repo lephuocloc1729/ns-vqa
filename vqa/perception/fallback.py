@@ -76,6 +76,9 @@ class FallbackConfig:
     policy: str = CHOSEN_POLICY
     tiles: bool = True
     crops: bool = True
+    # T4 (owner, 2026-11-16; tuned on public_dev): when a crop agrees with pass 1's main
+    # code, pass 1's own alternative reading for that sign is dropped.
+    drop_own_alt_on_agree: bool = True
 
     def __post_init__(self) -> None:
         if self.policy not in POLICIES:
@@ -84,7 +87,7 @@ class FallbackConfig:
     def describe(self) -> dict[str, Any]:
         return {"tile": scene_prompt.prompt_id(self.tile_version) if self.tiles else None,
                 "crop": scene_prompt.prompt_id(self.crop_version) if self.crops else None,
-                "policy": self.policy}
+                "policy": self.policy, "drop_own_alt_on_agree": self.drop_own_alt_on_agree}
 
 
 @dataclass
@@ -279,6 +282,18 @@ def _agree(code_a: str, value_a: float | None, code_b: str, value_b: float | Non
     return value_a is None or value_b is None or value_a == value_b
 
 
+def own_alternatives(s: Sign, pass1_issues: list[str]) -> list[AltReading]:
+    """The sign's alternatives that come from its own reply (the `alt` field), not from
+    the re-run. The re-run's are the ones `verify.merge_rerun` reported as
+    "<code>: the re-run read <alt>[ <value>]; kept as an alternative" (matched on the
+    code, since sign ids are renumbered after the merge)."""
+    def from_rerun(a: AltReading) -> bool:
+        tail = (f"{s.code}: the re-run read {a.code}" + (f" {a.value}" if a.value is not None else "")
+                + "; kept as an alternative")
+        return any(i.split(" ", 1)[-1] == tail for i in pass1_issues)
+    return [a for a in s.alternatives if not from_rerun(a)]
+
+
 def _as_alt(s: Sign) -> AltReading:
     return AltReading(code=s.code, value=s.value, confidence=Confidence.low)
 
@@ -466,9 +481,11 @@ def needs_crop(s: Sign) -> bool:
 def run_fallback(scene: SceneGraph, image_bytes: bytes, img: PreparedImage, *, model: str,
                  client=None, cfg: FallbackConfig = FallbackConfig(),
                  cache: SceneCache | None = None, use_cache: bool = True,
-                 replay: Lookup | None = None, catalog: Catalog | None = None) -> FallbackResult:
+                 replay: Lookup | None = None, catalog: Catalog | None = None,
+                 pass1_issues: list[str] | None = None) -> FallbackResult:
     """A1 then A2 on a pass-1 scene (see the module docstring). With `replay`, replies
-    come from it and no call is made."""
+    come from it and no call is made. `pass1_issues` (pass 1's verification messages)
+    tell pass 1's own alternatives from the re-run's (T4)."""
     catalog = catalog or load_catalog()
     cache = cache if cache is not None else SceneCache()
     res = FallbackResult(scene=scene)
@@ -551,6 +568,10 @@ def run_fallback(scene: SceneGraph, image_bytes: bytes, img: PreparedImage, *, m
                 out.append(s)
                 continue
             new, what = combine(s, reading, cfg.policy, catalog)
+            if (cfg.drop_own_alt_on_agree and what.startswith("crop agrees") and s.id not in added_ids
+                    and (own := own_alternatives(s, pass1_issues or []))):
+                new = new.model_copy(update={"alternatives": [a for a in new.alternatives if a not in own]})
+                what += "; pass 1's own alternative " + ", ".join(a.code for a in own) + " dropped"
             if new.code != s.code:
                 res.codes_changed += 1
             if new != s:

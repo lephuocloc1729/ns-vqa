@@ -1097,9 +1097,29 @@ Change: fallback prompt `answer_fallback/v2@8678a19681a9` (a structured-output s
 - **The one failure is new:** `0038` in H2 stopped at `max_tokens=1500` while the kept reply is a short complete JSON object, so the budget almost certainly went to the model's reasoning. Raising it would be a new prompt version (not done; owner's call).
 - The new scene-graph line may make the fallback more cautious: `0038` in H1 answered "Chưa xác định được" (1 → 0), but `0038` in H3 went 0 → 1.
 
+### Tuning T4: perception replay (tuned, after the gate; 2026-11-16; no API calls)
+
+Change: in `vqa/perception/fallback.py`, after `combine`, when a crop agrees with pass 1's main code, pass 1's own alternative for that sign (from its reply's `alt` field, not the re-run's) is dropped (`FallbackConfig.drop_own_alt_on_agree`, on by default). The re-run's alternatives are told apart by the merge's "the re-run read ..." messages, now passed to the fallback. CHOSEN_POLICY, the triggers and the prompts are unchanged.
+
+Free replay with the stored tile and crop replies (`perception_eval.fallback_run --replay`): T4 off reproduces every stored scene exactly (36/36, 36/36, 45/45 ×5).
+
+| run (crop_always) | images changed | alternatives dropped | code F1 | sign recall |
+|---|---|---|---|---|
+| set T, Haiku `d1ff09db5bf4` | 9 of 36 | 10 | 73.5% → 73.5% | 89.2% → 89.2% |
+| set T, Sonnet `a366b7c37100` | 4 of 36 | 5 | 78.7% → 78.7% | 95.8% → 95.8% |
+| public_dev Haiku `9981d8112688` (checkpoint 2) | 6 of 45 | 6 | 74.2% → 74.2% | 89.5% → 89.5% |
+| public_dev Haiku `023c1a474288` (checkpoint 2) | 5 of 45 | 6 | 75.4% → 75.4% | 90.2% → 90.2% |
+| public_dev Haiku `b83d5dae690e` (checkpoint 2) | 3 of 45 | 6 | 77.1% → 77.1% | 90.2% → 90.2% |
+| public_dev Haiku `1c9ca7368074` (H2) | 6 of 45 | 7 | 73.8% → 73.8% | 92.3% → 92.3% |
+| public_dev Haiku `b490cd60479f` (H3) | 8 of 45 | 10 | 71.8% → 71.8% | 91.6% → 91.6% |
+
+- **Code F1 and recall do not change**, by construction: they score each sign's main code, and T4 only removes alternatives. Strict F1 and the non-duplicate F1 are unchanged too.
+- **What the dropped alternatives were** (50 in all, against gold): main code right and alternative wrong 33; both on the same catalog row 5; main wrong and alternative right **1** (set T, Haiku); both wrong 4; sign not matched or excluded 7.
+- **End-to-end preview, engine only** (the T2 runs' stored programs on the T4 scenes): 30 questions sit on changed images; **10 "uncertain" answers become rules answers** (`0036` ×3, `0038` ×3, `0037`, `0072`, `0086`, `0093`), 3 stay uncertain, the rest keep their verdict. The paid replay grades them.
+
 ## Next steps, in order
 
-**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. Next: T4 (perception: drop pass 1's own alt when the crop agrees). Then step 5 (freeze) and step 6 (holdout once, Haiku + fallback, about $0.67).
+**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. T4 built and replayed for free (above); its end-to-end replay of the T2 runs waits for the owner. Then step 5 (freeze) and step 6 (holdout once, Haiku + fallback, about $0.67).
 
 All public_dev figures are labelled **tuned**.
 

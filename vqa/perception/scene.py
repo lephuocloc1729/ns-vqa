@@ -109,7 +109,7 @@ def apply_fallback(res: PerceptionResult, image_bytes: bytes, cfg: FallbackConfi
     if img.sha256 != res.image_sha256:
         raise ValueError("the image bytes are not the ones pass 1 read")
     fb = run_fallback(res.scene, image_bytes, img, model=res.model, client=client, cfg=cfg,
-                      cache=cache, use_cache=use_cache, replay=replay)
+                      cache=cache, use_cache=use_cache, replay=replay, pass1_issues=res.issues)
     res.scene = fb.scene
     res.issues = res.issues + fb.issues
     res.cost_usd += fb.cost_usd

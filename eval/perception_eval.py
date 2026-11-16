@@ -515,7 +515,7 @@ def _version_of(prompt_id: str) -> str:
 
 def fallback_run(path: Path, max_spend: float, policy: str | None = None, sdk=None, out_dir: Path = RUNS,
                  replay: Path | None = None, tiles: bool = True, crops: bool = True,
-                 use_cache: bool = False) -> Path:
+                 use_cache: bool = False, drop_own_alt: bool = True) -> Path:
     """Apply the fallback to a pass-1 run file. Pass-1 scenes come from the file, so only
     tile and crop calls are made; with `replay` (an earlier fallback run of the same
     pass-1 run) its stored replies are used and no call is made (another policy).
@@ -535,7 +535,7 @@ def fallback_run(path: Path, max_spend: float, policy: str | None = None, sdk=No
     if head.get("fallback"):
         raise SystemExit(f"{Path(path).name} already has the fallback; give its pass-1 run")
     policy = policy or CHOSEN_POLICY               # the rule frozen for checkpoint 2
-    cfg = FallbackConfig(policy=policy, tiles=tiles, crops=crops)
+    cfg = FallbackConfig(policy=policy, tiles=tiles, crops=crops, drop_own_alt_on_agree=drop_own_alt)
     stored: dict[str, dict] = {}
     if replay is not None:
         rhead, rrows = load_run(replay)
@@ -574,7 +574,7 @@ def fallback_run(path: Path, max_spend: float, policy: str | None = None, sdk=No
                 fb = run_fallback(SceneGraph.model_validate(r["scene"]), data, img, model=head["model"],
                                   client=client, cfg=cfg, cache=SceneCache(), use_cache=use_cache,
                                   replay=(lambda kind, box, look=look: look.get((kind, tuple(box))))
-                                  if replay is not None else None)
+                                  if replay is not None else None, pass1_issues=r["issues"])
                 replies = fb.replies if replay is None else \
                     [{"kind": k, "box": list(b), "raw_text": t} for (k, b), t in look.items()]
                 row.update(scene=fb.scene.model_dump(mode="json", by_alias=True),
@@ -921,6 +921,8 @@ def main() -> None:
     fb.add_argument("--replay", type=Path, help="an earlier fallback run of the same pass-1 run: no calls")
     fb.add_argument("--use-cache", action="store_true",
                     help="read usable tile and crop replies from the scene cache: pay only for the rest")
+    fb.add_argument("--keep-own-alt", action="store_true",
+                    help="T4 off: keep pass 1's own alternative when the crop agrees (for comparison)")
     cp = sub.add_parser("compare", help="a pass-1 run against its fallback runs (reported, not gated)")
     cp.add_argument("pass1", type=Path)
     cp.add_argument("fallbacks", nargs="+", type=Path)
@@ -949,7 +951,8 @@ def main() -> None:
     if a.cmd == "fallback":
         if a.replay is None and a.max_spend is None:
             raise SystemExit("--max-spend is required unless --replay is given")
-        fallback_run(a.file, a.max_spend or 0.0, policy=a.policy, replay=a.replay, use_cache=a.use_cache)
+        fallback_run(a.file, a.max_spend or 0.0, policy=a.policy, replay=a.replay, use_cache=a.use_cache,
+                     drop_own_alt=not a.keep_own_alt)
         return
     if a.cmd == "compare":
         print(json.dumps(compare(a.pass1, a.fallbacks), indent=2))
