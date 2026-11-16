@@ -497,3 +497,122 @@ def test_the_combining_rule_is_frozen():
     assert (fb.DENSE_MIN_SIGNS, fb.TILE_GRID, fb.TILE_OVERLAP, fb.DEDUP_IOU) == (5, 2, 0.20, 0.30)
     assert (fb.CROP_MARGIN, fb.CROP_MIN_SHORT, fb.CROP_UPSCALE_SHORT) == \
         ({"left": 0.5, "top": 0.5, "right": 0.5, "bottom": 1.0}, 128, 384)
+
+
+# ---------------------------------------------------------------- one retry on bad JSON (D4; owner, 2026-11-16)
+
+
+def bad_json(raw, cost=0.002):
+    from vqa.llm.client import LLMBadJSON
+    e = LLMBadJSON("the reply must be only a JSON object (optionally in a ```json fence), not prose")
+    e.raw_text, e.cost_usd = raw, cost
+    return e
+
+
+class FlakyClient(FakeClient):
+    """Crops: the first attempt is prose; the retry is good unless `retry_fails`."""
+
+    def __init__(self, retry_fails=False):
+        super().__init__()
+        self.retry_fails = retry_fails
+
+    def json_reply(self, **kw):
+        if kw["purpose"].startswith("scene crop"):
+            self.calls.append(kw)
+            if kw.get("extra_messages") is None:
+                raise bad_json('Looking at the crop, this is a no-motorbikes sign. {"code": "P.104"}')
+            if self.retry_fails:
+                raise bad_json("Still prose, sorry.")
+            data = {"code": "P.104", "confidence": "high"}
+            return SimpleNamespace(data=data, raw_text=json.dumps(data), cost_usd=0.001,
+                                   usage={"output_tokens": 9}, request_id="r2")
+        return super().json_reply(**kw)
+
+
+def sparse_unsure():
+    return SceneGraph(scene_id="x", signs=[sign("s1", code="UNKNOWN", conf="low", rank=1,
+                                                box=(100, 110, 130, 140))])
+
+
+def test_a_bad_json_crop_is_retried_with_only_the_error(tmp_path):
+    from vqa.perception.wire import PLACEHOLDER
+    data = image_bytes()
+    c = FlakyClient()
+    res = fb.run_fallback(sparse_unsure(), data, prepare(data), model=c.model, client=c,
+                          cache=SceneCache(tmp_path), use_cache=False)
+    first, retry = c.calls
+    assert first.get("extra_messages") is None and retry["purpose"] == "scene crop retry"
+    assistant, user = retry["extra_messages"]
+    assert assistant == {"role": "assistant", "content": PLACEHOLDER}             # the reply is not echoed
+    assert "not prose" in user["content"] and "no-motorbikes" not in user["content"]
+    assert res.scene.signs[0].code == "P.104"                                     # the retry's reading
+    failed = [r for r in res.replies if r.get("failed")]
+    assert len(failed) == 1 and "no-motorbikes" in failed[0]["raw_text"] and failed[0]["attempt"] == 1
+    assert any("retried" in i and "no-motorbikes" in i for i in res.issues)
+    assert res.cost_usd == pytest.approx(0.002 + 0.001)
+
+
+def test_a_crop_whose_retry_fails_too_is_skipped_with_both_replies_kept(tmp_path):
+    data = image_bytes()
+    c = FlakyClient(retry_fails=True)
+    res = fb.run_fallback(sparse_unsure(), data, prepare(data), model=c.model, client=c,
+                          cache=SceneCache(tmp_path), use_cache=False)
+    assert len(c.calls) == 2 and res.scene == sparse_unsure()
+    assert [r["raw_text"] for r in res.replies if r.get("failed")] == \
+        ['Looking at the crop, this is a no-motorbikes sign. {"code": "P.104"}', "Still prose, sorry."]
+    assert any("after the retry); skipped" in i and "Still prose" in i for i in res.issues)
+    img = prepare(data)
+    cb = fb.crop_box(fb._box_on_original(sparse_unsure().signs[0], img), W, H)
+    effort = sp.effort_for(c.model, "v4-crop")
+    assert SceneCache(tmp_path).get_region(img.sha256, c.model, effort, sp.prompt_id("v4-crop"), cb) is None
+
+
+def test_a_bad_json_tile_is_retried_too(tmp_path):
+    class FlakyTiles(FakeClient):
+        def json_reply(self, **kw):
+            if kw["purpose"] == "scene tile" and not any(c["purpose"] == "scene tile" for c in self.calls):
+                self.calls.append(kw)
+                raise bad_json("Here are the signs I see: ...")
+            return super().json_reply(**kw)
+
+    data = image_bytes()
+    c = FlakyTiles()
+    res = fb.run_fallback(dense_scene(), data, prepare(data), model=c.model, client=c,
+                          cache=SceneCache(tmp_path), use_cache=False)
+    purposes = [x["purpose"] for x in c.calls]
+    assert purposes.count("scene tile retry") == 1 and purposes.count("scene tile") == 4
+    assert res.tiles_added == 0 or res.tiled                                       # the retry's tile reply is used
+
+
+def test_a_retried_reply_is_cached_and_a_cache_hit_makes_no_call(tmp_path):
+    data = image_bytes()
+    fb.run_fallback(sparse_unsure(), data, prepare(data), model="claude-haiku-5-5", client=FlakyClient(),
+                    cache=SceneCache(tmp_path), use_cache=False)
+    c = FlakyClient()
+    res = fb.run_fallback(sparse_unsure(), data, prepare(data), model="claude-haiku-5-5", client=c,
+                          cache=SceneCache(tmp_path), use_cache=True)
+    assert c.calls == [] and res.cost_usd == 0.0 and res.scene.signs[0].code == "P.104"
+    assert res.replies[0]["cache_hit"] is True
+
+
+def test_with_the_cache_only_regions_without_a_usable_reply_are_paid(tmp_path):
+    data = image_bytes()
+    scene = SceneGraph(scene_id="x", signs=[sign("s1", code="UNKNOWN", conf="low", rank=1, box=(100, 110, 130, 140)),
+                                            sign("s2", code="UNKNOWN", conf="low", rank=2, box=(500, 300, 530, 330))])
+
+    class FirstFails(FakeClient):            # s1 is cropped first: its call and its retry fail
+        def json_reply(self, **kw):
+            self.calls.append(kw)
+            if len(self.calls) <= 2:
+                raise bad_json("prose")
+            data = {"code": "P.104", "confidence": "high"}
+            return SimpleNamespace(data=data, raw_text=json.dumps(data), cost_usd=0.001, usage={}, request_id="r")
+
+    first = fb.run_fallback(scene, data, prepare(data), model="claude-haiku-5-5", client=FirstFails(),
+                            cache=SceneCache(tmp_path), use_cache=False)
+    assert [s.code for s in first.scene.signs] == ["UNKNOWN", "P.104"]
+    c = FakeClient()
+    again = fb.run_fallback(scene, data, prepare(data), model="claude-haiku-5-5", client=c,
+                            cache=SceneCache(tmp_path), use_cache=True)
+    assert len(c.calls) == 1                                                       # only s1's crop is paid
+    assert [s.code for s in again.scene.signs] == ["P.104", "P.104"]

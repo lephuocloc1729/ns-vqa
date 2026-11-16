@@ -508,10 +508,14 @@ def _version_of(prompt_id: str) -> str:
 
 
 def fallback_run(path: Path, max_spend: float, policy: str = "rules", sdk=None, out_dir: Path = RUNS,
-                 replay: Path | None = None, tiles: bool = True, crops: bool = True) -> Path:
+                 replay: Path | None = None, tiles: bool = True, crops: bool = True,
+                 use_cache: bool = False) -> Path:
     """Apply the fallback to a pass-1 run file. Pass-1 scenes come from the file, so only
     tile and crop calls are made; with `replay` (an earlier fallback run of the same
-    pass-1 run) its stored replies are used and no call is made (another policy)."""
+    pass-1 run) its stored replies are used and no call is made (another policy).
+    `use_cache` reads tile and crop replies from the scene cache (only usable replies are
+    cached), so a re-run pays only for regions with no usable reply; off by default, so
+    repeated runs are independent calls."""
     from vqa.llm.client import LLMClient
     from vqa.llm.spend import SpendGuard
     from vqa.perception.cache import SceneCache
@@ -534,7 +538,8 @@ def fallback_run(path: Path, max_spend: float, policy: str = "rules", sdk=None, 
             raise SystemExit(f"{Path(replay).name} used prompts {fb.get('tile')}, {fb.get('crop')}; "
                              f"the current ones are {want['tile']}, {want['crop']}")
         stored = {r["image_id"]: {(x["kind"], tuple(x["box"])): x["raw_text"]
-                                  for x in r.get("fallback_replies", [])} for r in rrows}
+                                  for x in r.get("fallback_replies", []) if not x.get("failed")}
+                  for r in rrows}
     if head["set"] == "public_dev":
         print("WARNING: a public_dev fallback run is a recorded checkpoint (plan item 5). Record it in "
               "docs/status.md; trigger and policy choices come from set T, not from these errors.")
@@ -548,7 +553,8 @@ def fallback_run(path: Path, max_spend: float, policy: str = "rules", sdk=None, 
     with open(out, "w", encoding="utf-8") as f:
         f.write(json.dumps({**head, "run_id": run_id,
                             "fallback": {**cfg.describe(), "pass1_run": head["run_id"],
-                                         "replayed_from": Path(replay).name if replay else None},
+                                         "replayed_from": Path(replay).name if replay else None,
+                                         "use_cache": use_cache},
                             "started": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}) + "\n")
         for n, r in enumerate(rows, 1):
             row = {**r, "pass1_cost_usd": r["cost_usd"], "fallback_cost_usd": 0.0, "fallback_replies": []}
@@ -557,7 +563,7 @@ def fallback_run(path: Path, max_spend: float, policy: str = "rules", sdk=None, 
                 img = prepare(data)
                 look = stored.get(r["image_id"], {})
                 fb = run_fallback(SceneGraph.model_validate(r["scene"]), data, img, model=head["model"],
-                                  client=client, cfg=cfg, cache=SceneCache(), use_cache=False,
+                                  client=client, cfg=cfg, cache=SceneCache(), use_cache=use_cache,
                                   replay=(lambda kind, box, look=look: look.get((kind, tuple(box))))
                                   if replay is not None else None)
                 replies = fb.replies if replay is None else \
@@ -723,6 +729,8 @@ def main() -> None:
     fb.add_argument("--max-spend", type=float)
     fb.add_argument("--policy", default="rules", choices=["rules", "crop_always", "crop_high", "never"])
     fb.add_argument("--replay", type=Path, help="an earlier fallback run of the same pass-1 run: no calls")
+    fb.add_argument("--use-cache", action="store_true",
+                    help="read usable tile and crop replies from the scene cache: pay only for the rest")
     cp = sub.add_parser("compare", help="a pass-1 run against its fallback runs (reported, not gated)")
     cp.add_argument("pass1", type=Path)
     cp.add_argument("fallbacks", nargs="+", type=Path)
@@ -733,7 +741,7 @@ def main() -> None:
     if a.cmd == "fallback":
         if a.replay is None and a.max_spend is None:
             raise SystemExit("--max-spend is required unless --replay is given")
-        fallback_run(a.file, a.max_spend or 0.0, policy=a.policy, replay=a.replay)
+        fallback_run(a.file, a.max_spend or 0.0, policy=a.policy, replay=a.replay, use_cache=a.use_cache)
         return
     if a.cmd == "compare":
         print(json.dumps(compare(a.pass1, a.fallbacks), indent=2))

@@ -38,11 +38,10 @@ from vqa.perception.cache import CacheRecord, SceneCache
 from vqa.perception.fallback import FallbackConfig, FallbackResult, run_fallback
 from vqa.perception.image import PreparedImage, prepare, prepare_file
 from vqa.perception.verify import merge_rerun, needs_rerun, verify
-from vqa.perception.wire import WireResult, to_scene
+from vqa.perception.wire import PLACEHOLDER, WireResult, retry_messages, to_scene  # noqa: F401
 from vqa.schemas import SceneGraph
 
 DEFAULT_MODEL = "claude-haiku-5-5"
-PLACEHOLDER = "[previous reply not shown]"
 
 
 @dataclass
@@ -68,10 +67,7 @@ class PerceptionResult:
         return self.scene is not None and self.error is None
 
 
-def _retry_messages(errors: list[str]) -> list[dict[str, Any]]:
-    msg = ("That reply was not valid: " + "; ".join(errors[:12])
-           + ". Reply again with only the corrected JSON object.")
-    return [{"role": "assistant", "content": PLACEHOLDER}, {"role": "user", "content": msg}]
+_retry_messages = retry_messages
 
 
 def _reply_record(pass_: str, res) -> dict[str, Any]:

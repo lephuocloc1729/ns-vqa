@@ -56,6 +56,17 @@ class WireResult:
         return self.scene is not None and not self.errors
 
 
+PLACEHOLDER = "[previous reply not shown]"
+
+
+def retry_messages(errors: list[str]) -> list[dict[str, Any]]:
+    """The one retry (plan D4): only the error is sent; the rejected reply is not echoed
+    back (the assistant turn is a placeholder). Used by the scene call and the fallback."""
+    msg = ("That reply was not valid: " + "; ".join(errors[:12])
+           + ". Reply again with only the corrected JSON object.")
+    return [{"role": "assistant", "content": PLACEHOLDER}, {"role": "user", "content": msg}]
+
+
 def resolve_code(code: Any, catalog: Catalog) -> tuple[str | None, str | None]:
     """(code to keep, error). A catalog code or variant is kept as written; a stem
     naming one row becomes the row code; UNKNOWN is allowed."""

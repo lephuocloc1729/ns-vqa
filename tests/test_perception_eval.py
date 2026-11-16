@@ -402,3 +402,14 @@ def test_gold_status_marks_tp_wrong_miss_and_excluded():
     gold = [g("P.104", 1), g("P.112", 2, side="left"), g("P.123a", 3, readable=False), g("P.130", 4)]
     pred = [g("P.104", 1), g("P.106a", 2, side="left")]
     assert pe.gold_status(gold, pred) == ["tp", "wrong", None, "miss"]
+
+
+def test_a_replay_skips_failed_attempts_and_the_cache_option_is_recorded(fake_set):
+    p1 = _pass1_run(fake_set)
+    out = pe.fallback_run(p1, 1.0, sdk=FakeSDK(0), out_dir=fake_set / "runs", use_cache=True)
+    head, rows = pe.load_run(out)
+    assert head["fallback"]["use_cache"] is True
+    rows[0]["fallback_replies"].insert(0, {**rows[0]["fallback_replies"][-1], "raw_text": "prose", "failed": True})
+    out.write_text("\n".join(json.dumps(x) for x in [head, *rows]) + "\n", encoding="utf-8")
+    again = pe.fallback_run(p1, 0.0, replay=out, out_dir=fake_set / "runs")
+    assert [r["scene"] for r in pe.load_run(again)[1]] == [r["scene"] for r in rows]

@@ -29,7 +29,8 @@ A2, box crops (unsure codes), second, so it also re-reads the signs A1 added:
 
 The scene is verified again at the end (values, looks, plates), as the re-run's
 merge does. Tile and crop replies go to the scene cache under image hash + model +
-effort + prompt version + box (vqa/perception/cache.py, `region_key`).
+effort + prompt version + box (vqa/perception/cache.py, `region_key`). A reply that
+is not one JSON object gets one retry that sends only the error (D4, owner 2026-11-16).
 """
 
 from __future__ import annotations
@@ -46,7 +47,7 @@ from vqa.perception.cache import RegionRecord, SceneCache
 from vqa.perception.image import JPEG_QUALITY, LONG_EDGE, MAX_PIXELS, PreparedImage
 from vqa.perception.matching import row_of
 from vqa.perception.verify import verify
-from vqa.perception.wire import resolve_code, to_scene
+from vqa.perception.wire import resolve_code, retry_messages, to_scene
 from vqa.schemas import AltReading, Confidence, SceneGraph, Side, Sign
 
 DENSE_MIN_SIGNS = 5
@@ -369,35 +370,77 @@ Lookup = Callable[[str, Box], "str | None"]
 def _region_reply(kind: str, box: Box, im, scale: float, version: str, *, img: PreparedImage,
                   model: str, client, cache: SceneCache, use_cache: bool, replay: Lookup | None,
                   res: FallbackResult) -> str | None:
-    """The raw reply for one tile or crop: from the replay, the cache, or one call."""
+    """The raw reply for one tile or crop: from the replay, the cache, or a call.
+
+    A reply that is not one JSON object gets one retry that sends only the error (D4,
+    as the scene call). Each failed attempt is kept with its raw text (in `res.replies`,
+    marked failed, and quoted in `res.issues`). Only a usable reply is cached, so a
+    region whose retry fails too is called again next time."""
     pid = scene_prompt.prompt_id(version)
     effort = scene_prompt.effort_for(model, version)
+    where = f"{kind} {list(box)}"
     if replay is not None:
         text = replay(kind, box)
         if text is None:
-            res.issues.append(f"{kind} {list(box)}: no reply to replay; skipped")
+            res.issues.append(f"{where}: no reply to replay; skipped")
         return text
     if use_cache and (rec := cache.get_region(img.sha256, model, effort, pid, box)) is not None:
         text = rec.replies[-1]["raw_text"]
         res.replies.append({"kind": kind, "box": list(box), "prompt_id": pid, "raw_text": text,
                             "cost_usd": 0.0, "cache_hit": True})
         return text
+    system = scene_prompt.system_prompt(version)
     user = scene_prompt.user_content(region_block(im, box, scale), version)
+    max_tokens = scene_prompt.config(version)["max_tokens"]
+    stored: list[dict[str, Any]] = []          # what goes to the cache record
+
+    def call(extra=None):
+        return client.json_reply(system=system, user=user, max_tokens=max_tokens, effort=effort,
+                                 purpose=f"scene {kind}" + (" retry" if extra else ""),
+                                 extra_messages=extra)
+
+    def failed(e: Exception, attempt: int) -> None:
+        raw = getattr(e, "raw_text", "") or ""
+        cost = getattr(e, "cost_usd", 0.0)
+        res.cost_usd += cost
+        res.replies.append({"kind": kind, "box": list(box), "prompt_id": pid, "raw_text": raw,
+                            "cost_usd": cost, "failed": True, "attempt": attempt, "error": str(e)})
+        stored.append({"pass": f"{kind} failed", "raw_text": raw, "stop_reason": "end_turn",
+                       "usage": getattr(client, "last_usage", None) or {}, "cost_usd": cost,
+                       "request_id": None})
+
+    attempt = 1
     try:
-        call = client.json_reply(system=scene_prompt.system_prompt(version), user=user,
-                                 max_tokens=scene_prompt.config(version)["max_tokens"],
-                                 effort=effort, purpose=f"scene {kind}")
-    except (LLMRefusal, LLMTruncated, LLMBadJSON) as e:
+        reply = call()
+    except (LLMRefusal, LLMTruncated) as e:
         res.cost_usd += getattr(e, "cost_usd", 0.0)
-        res.issues.append(f"{kind} {list(box)}: call failed ({type(e).__name__}); skipped")
+        res.issues.append(f"{where}: call failed ({type(e).__name__}); skipped")
         return None
-    res.cost_usd += call.cost_usd
-    reply = {"pass": kind, "raw_text": call.raw_text, "stop_reason": "end_turn", "usage": call.usage,
-             "cost_usd": call.cost_usd, "request_id": call.request_id}
-    cache.put_region(RegionRecord(img.sha256, model, effort, pid, box, replies=[reply]))
-    res.replies.append({"kind": kind, "box": list(box), "prompt_id": pid, "raw_text": call.raw_text,
-                        "cost_usd": call.cost_usd, "usage": call.usage, "request_id": call.request_id})
-    return call.raw_text
+    except LLMBadJSON as e:
+        failed(e, 1)
+        res.issues.append(f"{where}: reply not JSON ({e}); retried. Reply was: "
+                          f"{(getattr(e, 'raw_text', '') or '')[:500]!r}")
+        attempt = 2
+        try:
+            reply = call(retry_messages([str(e)]))
+        except LLMBadJSON as e2:
+            failed(e2, 2)
+            res.issues.append(f"{where}: call failed (LLMBadJSON after the retry); skipped. Reply was: "
+                              f"{(getattr(e2, 'raw_text', '') or '')[:500]!r}")
+            return None
+        except (LLMRefusal, LLMTruncated) as e2:
+            res.cost_usd += getattr(e2, "cost_usd", 0.0)
+            res.issues.append(f"{where}: call failed ({type(e2).__name__} on the retry); skipped")
+            return None
+    res.cost_usd += reply.cost_usd
+    stored.append({"pass": kind if attempt == 1 else f"{kind} retry", "raw_text": reply.raw_text,
+                   "stop_reason": "end_turn", "usage": reply.usage, "cost_usd": reply.cost_usd,
+                   "request_id": reply.request_id})
+    cache.put_region(RegionRecord(img.sha256, model, effort, pid, box, replies=stored))
+    res.replies.append({"kind": kind, "box": list(box), "prompt_id": pid, "raw_text": reply.raw_text,
+                        "cost_usd": reply.cost_usd, "usage": reply.usage, "request_id": reply.request_id,
+                        "attempt": attempt})
+    return reply.raw_text
 
 
 def _box_on_original(s: Sign, img: PreparedImage) -> Box | None:
