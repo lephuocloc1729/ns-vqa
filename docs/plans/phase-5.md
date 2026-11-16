@@ -4,6 +4,8 @@ DESIGN.md roadmap phase 5: "Freeze the system, then run the private test once as
 
 **Status: approved (owner, 2026-11-16)**, with the decisions in the last section. It replaces `phase-5-draft.md`. No API call is made until each paid step has the owner's go-ahead on its estimate.
 
+**ON HOLD (owner, 2026-11-16): the private run is held.** `eval/e2e_private.py` is not run. The requirement changed: the report counts rule-based answers only (the answer fallback is for the demo), with a target of about 80% rule coverage, where coverage is the share of questions the rules *decide* (yes / no / value; unknown, uncertain and out_of_scope count as not covered). The plan for reaching it is proposed in `docs/plans/phase-4.5.md`; the private run waits for that phase and a new freeze. Items 1–6 below stand until the owner revises them.
+
 **Starting point:**
 - phase 4 is closed (`docs/status.md`, "Phase 4: closing"). The configuration is frozen in `eval/frozen_phase4.json`, and public_holdout ran once: 83.7% overall, 89.6% on non-duplicate images (n=24, 95% CI 72–97);
 - on holdout the rules scored 78.0% on their 25 answers, below the fallback's 89.6% on 24 (the reverse of public_dev, which is tuned);

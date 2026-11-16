@@ -1351,6 +1351,22 @@ A perception-only trial of the original two-pass design (owner's brief): **find*
 - **Answers (public_dev, 153 question-runs):** trial 43 changed, graded net −6, estimate −3.5; minus UNKNOWN 44 changed, graded net −9, bounds −30.5 to −1.5; hybrid 4 changed, net 0, estimate +0.3. Set T: only 6 questions have a program without a parser call; the hybrid changes none, the others 2 each (ungraded).
 - **Recommendation: keep the frozen system** (`docs/plans/phase-4.5-option-perception.md`, an option, not approved). Cost per image as a real pipeline: frozen $0.0028, minus UNKNOWN $0.0014, hybrid $0.0042.
 
+### Change of requirement: rules-only report; private run on hold (owner, 2026-11-16; no API calls)
+
+- **The report counts rule-based answers only** (the fallback is for the demo). Decided = the rules answer yes / no / value; target about 80% decided coverage. The private run is **on hold** (`docs/plans/phase-5.md`).
+- **Rules-only figures** (`eval/coverage_analysis.py`, stored runs only):
+  - public_dev T4 (H1-H3 pooled, tuned): decided **61.4%** (54–69), accuracy on decided 88.8%, overall with non-decided wrong 54.6%;
+  - **public_holdout** (aggregate only): decided **51.0%** (37–64), accuracy on decided **78.0%**, overall **39.8%** (27–54);
+  - oracle A (gold scenes and programs, today's engine): decided 72.5%, accuracy on decided 89.2%.
+- **Non-decided public_dev question-runs (59 of 153):**
+  - uncertain 24 (the alternative from pass 1's own alt 11, a crop 9, the re-run 4);
+  - out_of_scope 24 (guide-sign content 3 questions, warning-sign behaviour 2, counting 1, traffic lights 1, open advice 1);
+  - unreadable sign 7, unknown lane count 2, parse failed 2.
+  - Deciding uncertain answers on the primary reading gets Yes/No right only 4 of 7.
+  - The two-pass variants change decided coverage by −3.2 to +2.0 points.
+- **Validation pool:** 197 train questions on 114 untouched images (no set T, gold, few-shot, prompt, fixture, test, kb or docs mention, no duplicate with public, private or an excluded image).
+- **Proposed:** `docs/plans/phase-4.5.md` (fixes ranked by coverage per day, targets fixed now, validation set, new freeze, then the private run once with rules-only figures as the main result). Not approved; nothing built.
+
 ## Next steps, in order
 
 **Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Phase 4 closed (2026-11-16; closing entry above).** Phase 5 plan approved (2026-11-16). **Next: the one private-test run** (`eval/e2e_private.py run --confirm-frozen --max-spend 3`), on the owner's go-ahead on its $1.83 estimate.
