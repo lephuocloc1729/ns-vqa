@@ -126,3 +126,19 @@ def test_the_report_records_the_commit_the_frozen_config_and_the_prompt_ids(fake
 
 def test_the_sentinel_is_a_committed_path_not_in_the_runs_folder():
     assert eh.SENTINEL.parent.name == "eval" and "runs" not in eh.SENTINEL.parts
+
+
+def test_the_default_image_resolver_reads_the_public_test_image_folder(tmp_path, monkeypatch):
+    """The first holdout start stopped here (owner, 2026-11-16): gold_signs.image_path
+    knows only train and public_dev, so the default resolver raised before any call."""
+    monkeypatch.setattr(eh.gs, "PUBLIC_IMAGES", tmp_path)
+    (tmp_path / "public_test_9_9.jpg").write_bytes(b"x")
+    assert eh.image_file("public_test_9_9") == tmp_path / "public_test_9_9.jpg"
+    with pytest.raises(FileNotFoundError):
+        eh.image_file("public_test_0_0")
+
+
+def test_the_holdout_runs_with_the_default_resolver(fake_set, monkeypatch):
+    monkeypatch.setattr(eh.gs, "PUBLIC_IMAGES", fake_set)
+    out, sdk = _run(fake_set, image_path=None)
+    assert json.loads(out.read_text())["questions"] == 2 and "perception" in sdk.created

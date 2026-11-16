@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import glob
 import hashlib
 import json
 import sys
@@ -63,6 +64,15 @@ def aggregate(records: list[dict]) -> dict[str, Any]:
     return ee.summarize(records)
 
 
+def image_file(image_id: str) -> Path:
+    """The image file of a holdout question: public_holdout images sit in the public test
+    image folder, like public_dev's (the split is by image id only)."""
+    hits = sorted(gs.PUBLIC_IMAGES.glob(f"{glob.escape(image_id)}.*"))
+    if not hits:
+        raise FileNotFoundError(f"no image file for {image_id} in {gs.PUBLIC_IMAGES}")
+    return hits[0]
+
+
 def guards(perception_model: str, *, out_dir: Path = OUT, sentinel: Path = SENTINEL,
            frozen: Path = freeze.FROZEN, git=freeze.git_state) -> dict:
     """Refuses (SystemExit) unless the tree is clean, the configuration is the frozen
@@ -99,7 +109,7 @@ def run_holdout(max_spend: float, *, perception_model: str, confirm_frozen: bool
     from vqa.pipeline import Pipeline, PipelineConfig
 
     qs = questions if questions is not None else load_questions()
-    image_path = image_path or (lambda i: gs.image_path(i, HALF))
+    image_path = image_path or image_file
     guard = SpendGuard(max_spend)
     records: list[dict] = []
     with tempfile.TemporaryDirectory(prefix="vqa_holdout_cache_") as tmp:
