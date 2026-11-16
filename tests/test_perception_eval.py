@@ -238,3 +238,44 @@ def test_reverify_refuses_a_run_without_cached_replies(fake_set, monkeypatch, tm
 def test_reverify_makes_no_call():
     with pytest.raises(Exception, match="no API calls"):
         pe._NoCalls("claude-haiku-5-5").json_reply(system="s", user="u")
+
+
+# ---------------------------------------------------------------- mean of runs and drafter split
+
+
+def test_pooled_units_sum_an_images_counts_over_runs():
+    a = {"x": {"gold": 2, "found": 1}, "y": {"gold": 1, "found": 1}}
+    b = {"x": {"gold": 2, "found": 2}, "y": {"gold": 1, "found": 0}}
+    assert pe.pooled_units([a, b], ["x", "y"]) == [{"gold": 4, "found": 3}, {"gold": 2, "found": 1}]
+
+
+def test_the_mean_ci_bootstraps_pooled_images_with_the_gate_seed():
+    a = {"x": pe.score_image([g("P.104", 1)], []), "y": pe.score_image([g("P.112", 1)], [g("P.112", 1)])}
+    b = {"x": pe.score_image([g("P.104", 1)], [g("P.104", 1)]), "y": a["y"]}
+    s = pe.summarise([a, b], ["x", "y"])
+    assert s["runs"] == 2 and s["images"] == 2 and s["gold_signs"] == 2
+    assert s["mean_sign_recall"] == pytest.approx((0.5 + 1.0) / 2)
+    assert s["range_sign_recall"] == [0.5, 1.0]
+    ci = pe.GATE["ci"]
+    pooled = pe.pooled_units([a, b], ["x", "y"])
+    assert s["sign_recall_ci95"] == bootstrap_ci(pooled, pe.recall, ci["resamples"], ci["seed"], ci["level"])
+    assert s["sign_code_f1_ci95"] == bootstrap_ci(pooled, pe.code_f1, ci["resamples"], ci["seed"], ci["level"])
+
+
+def test_score_reports_the_mean_and_the_split_by_draft_model(fake_set, monkeypatch):
+    monkeypatch.setattr(pe, "gold_rows", lambda: {
+        "public_test_1_1": {"signs": [g("P.104", 1)], "draft_model": "claude-opus-5-5"},
+        "public_test_1_2": {"signs": [g("P.104", 1), g("P.112", 2)], "draft_model": "claude-haiku-5-5"}})
+    outs = [pe.run("public_dev", "claude-haiku-5-5", 1.0, sdk=FakeSDK(2), out_dir=fake_set / "runs")
+            for _ in range(3)]
+    rep = pe.score(outs)
+    assert rep["gate"]["verdict"] == "FAIL"                     # the gate is unchanged
+    (s,) = rep["summaries"]
+    assert s["model"] == "claude-haiku-5-5" and len(s["run_ids"]) == 3
+    assert s["all_images"]["mean_sign_recall"] == pytest.approx(rep["gate"]["mean_sign_recall"])
+    assert s["non_duplicate_images"]["images"] == 1
+    d = s["by_draft_model"]
+    assert set(d) == {"claude-opus-5-5", "claude-haiku-5-5"}
+    assert d["claude-opus-5-5"]["mean_sign_recall"] == 1.0 and d["claude-opus-5-5"]["non_duplicate_images"] == 0
+    assert d["claude-haiku-5-5"]["mean_sign_recall"] == pytest.approx(0.5)
+    assert d["claude-haiku-5-5"]["gold_signs"] == 2 and d["claude-haiku-5-5"]["non_duplicate_images"] == 1

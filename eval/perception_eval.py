@@ -331,14 +331,20 @@ def load_run(path: Path) -> tuple[dict, list[dict]]:
     return lines[0], lines[1:]
 
 
-def score_run(path: Path) -> dict[str, Any]:
+def run_units(path: Path, gold: dict | None = None, catalog=None) -> tuple[dict, list[dict], dict[str, dict]]:
+    """(head, rows, per-image counts in file order) for one run file."""
     head, rows = load_run(path)
-    gold = gold_rows()
-    catalog = load_catalog()
+    gold = gold if gold is not None else gold_rows()
+    catalog = catalog or load_catalog()
     units = {}
     for r in rows:
         pred = (r["scene"] or {}).get("signs", [])
         units[r["image_id"]] = score_image(gold[r["image_id"]]["signs"], pred, catalog)
+    return head, rows, units
+
+
+def score_run(path: Path, scored: tuple | None = None) -> dict[str, Any]:
+    head, rows, units = scored if scored is not None else run_units(path)
     ids = list(units)
     nd = non_duplicate(head["set"], ids)
     return {"run_id": head["run_id"], "set": head["set"], "model": head["model"],
@@ -349,15 +355,77 @@ def score_run(path: Path) -> dict[str, Any]:
             "non_duplicate_images": metrics([units[i] for i in ids if i in nd], with_ci=True)}
 
 
+def pooled_units(per_run: list[dict[str, dict]], ids: list[str]) -> list[dict[str, int]]:
+    """One unit per image with its counts summed over the runs, so a bootstrap resample
+    keeps an image's runs together (the CI of a mean of runs)."""
+    return [_sum([run[i] for run in per_run]) for i in ids]
+
+
+MEAN_KEYS = ("sign_recall", "sign_code_f1", "sign_code_f1_strict", "sign_code_f1_rule_bearing",
+             "value_accuracy")
+
+
+def summarise(per_run: list[dict[str, dict]], ids: list[str]) -> dict[str, Any]:
+    """Mean of the runs' metrics on `ids`, their range, and pooled bootstrap CIs."""
+    mets = [metrics([r[i] for i in ids], with_ci=False) for r in per_run]
+    out: dict[str, Any] = {"runs": len(per_run), "images": len(ids),
+                           "gold_signs": mets[0]["gold_signs"] if mets else 0}
+    for k in MEAN_KEYS:
+        vals = [m[k] for m in mets if m.get(k) is not None]
+        out[f"mean_{k}"] = statistics.mean(vals) if vals else None
+        if k in ("sign_recall", "sign_code_f1"):
+            out[f"range_{k}"] = [min(vals), max(vals)] if vals else None
+    out["mean_predicted"] = statistics.mean(m["predicted"] for m in mets) if mets else None
+    ci = GATE["ci"]
+    pooled = pooled_units(per_run, ids)
+    out["sign_recall_ci95"] = bootstrap_ci(pooled, recall, ci["resamples"], ci["seed"], ci["level"])
+    out["sign_code_f1_ci95"] = bootstrap_ci(pooled, code_f1, ci["resamples"], ci["seed"], ci["level"])
+    return out
+
+
+def summaries(groups: dict[tuple, list[tuple[dict, dict]]], gold: dict) -> list[dict[str, Any]]:
+    """Per (set, model, prompt) group: the mean of its runs on all and non-duplicate images,
+    and the split by the model that drafted each image's gold (D2 anchoring)."""
+    out = []
+    for (set_name, model, prompt_id), runs in groups.items():
+        per_run = [u for _, u in runs]
+        ids = list(per_run[0])                     # the first run's file order
+        if any(set(u) != set(ids) for u in per_run):
+            raise SystemExit(f"runs of {model} cover different images; cannot pool them")
+        nd = non_duplicate(set_name, ids)
+        by: dict[str, list[str]] = {}
+        for i in ids:
+            by.setdefault(str(gold[i].get("draft_model")), []).append(i)
+        drafters = {}
+        for dm, sel in sorted(by.items()):
+            s = summarise(per_run, sel)
+            s["non_duplicate_images"] = sum(i in nd for i in sel)
+            drafters[dm] = s
+        out.append({"set": set_name, "model": model, "prompt_id": prompt_id,
+                    "run_ids": [h["run_id"] for h, _ in runs],
+                    "cost_usd": round(sum(h["cost_usd"] for h, _ in runs), 4),
+                    "all_images": summarise(per_run, ids),
+                    "non_duplicate_images": summarise(per_run, [i for i in ids if i in nd]),
+                    "by_draft_model": drafters})
+    return out
+
+
 def score(paths: list[Path]) -> dict[str, Any]:
     reps, seen = [], set()
+    gold, catalog = gold_rows(), load_catalog()
+    groups: dict[tuple, list[tuple[dict, dict]]] = {}
     for p in paths:
-        rep = score_run(p)
-        if rep["run_id"] in seen:            # the same run given twice counts once
+        head, rows, units = run_units(p, gold, catalog)
+        if head["run_id"] in seen:           # the same run given twice counts once
             continue
-        seen.add(rep["run_id"])
+        seen.add(head["run_id"])
+        rep = score_run(p, (head, rows, units))
         reps.append(rep)
+        groups.setdefault((head["set"], head["model"], head["prompt_id"]), []).append(
+            ({"run_id": head["run_id"], "cost_usd": rep["cost_usd"]}, units))
     out: dict[str, Any] = {"runs": reps}
+    # reported, not gated: the mean of each configuration's runs with pooled CIs, and the drafter split
+    out["summaries"] = summaries(groups, gold)
     if reps and all(r["set"] == "public_dev" for r in reps):
         rec = statistics.mean(r["all_images"]["sign_recall"] for r in reps)
         f1 = statistics.mean(r["all_images"]["sign_code_f1"] for r in reps)
