@@ -1,0 +1,17 @@
+# Scene prompt v4-tile: the fallback's region pass (docs/plans/phase-3.md, item 7;
+# owner, 2026-11-16). The v4 spec plus a note that the image is one tile. Part of the
+# prompt hash. Not pinned by sha256 until set-T development picks the combining rule.
+max_tokens: 8000
+image:                    # the tile is cut from the original and enlarged up to these limits
+  prep_version: tile1
+  long_edge: 1568
+  max_pixels: 1150000
+  jpeg_quality: 90
+  grid: 2
+  overlap: 0.2
+effort:
+  claude-haiku-5-5: medium
+  claude-sonnet-5-5: medium
+  claude-opus-5-5: medium
+user_text: "This is one tile of a larger photo. Read the road signs in it and reply with the JSON object."
+pictograms: pictograms.yaml

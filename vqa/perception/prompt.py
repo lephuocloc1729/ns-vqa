@@ -156,11 +156,14 @@ def effort_for(model: str, version: str = DEFAULT_VERSION) -> str | None:
     return (config(version).get("effort") or {}).get(model)
 
 
-def user_text() -> str:
-    return "Read the road signs in this photo and reply with the JSON object."
+def user_text(version: str | None = None) -> str:
+    """The instruction after the photo. A version's config may set its own (`user_text`,
+    the fallback's tile and crop prompts); v1-v4 set none and keep this one."""
+    own = config(version).get("user_text") if version else None
+    return own or "Read the road signs in this photo and reply with the JSON object."
 
 
 def user_content(image_block: dict[str, Any], version: str = DEFAULT_VERSION) -> list[dict[str, Any]]:
     """The user turn: reference figures (if the version has them), the photo, the
     instruction. The photo is always the last image."""
-    return [*pictogram_blocks(version), image_block, {"type": "text", "text": user_text()}]
+    return [*pictogram_blocks(version), image_block, {"type": "text", "text": user_text(version)}]

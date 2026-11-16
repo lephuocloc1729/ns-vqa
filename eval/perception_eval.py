@@ -496,6 +496,144 @@ def reverify_run(path: Path) -> Path:
     return out
 
 
+# ---------------------------------------------------------------- the two-pass fallback (plan item 7)
+
+LOG = ROOT / "logs" / "api_calls.jsonl"
+CROP_OUTPUT_TOKENS = {"claude-haiku-5-5": 400, "claude-sonnet-5-5": 150, "claude-opus-5-5": 150}
+CROP_INPUT_TOKENS = 250            # crop image (about 384 x 400 px) plus the instruction
+
+
+def _version_of(prompt_id: str) -> str:
+    return prompt_id.split("/", 1)[1].split("@", 1)[0]
+
+
+def fallback_run(path: Path, max_spend: float, policy: str = "rules", sdk=None, out_dir: Path = RUNS,
+                 replay: Path | None = None, tiles: bool = True, crops: bool = True) -> Path:
+    """Apply the fallback to a pass-1 run file. Pass-1 scenes come from the file, so only
+    tile and crop calls are made; with `replay` (an earlier fallback run of the same
+    pass-1 run) its stored replies are used and no call is made (another policy)."""
+    from vqa.llm.client import LLMClient
+    from vqa.llm.spend import SpendGuard
+    from vqa.perception.cache import SceneCache
+    from vqa.perception.fallback import FallbackConfig, run_fallback
+    from vqa.perception.image import prepare
+    from vqa.schemas import SceneGraph
+
+    head, rows = load_run(path)
+    if head.get("fallback"):
+        raise SystemExit(f"{Path(path).name} already has the fallback; give its pass-1 run")
+    cfg = FallbackConfig(policy=policy, tiles=tiles, crops=crops)
+    stored: dict[str, dict] = {}
+    if replay is not None:
+        rhead, rrows = load_run(replay)
+        fb = rhead.get("fallback") or {}
+        if fb.get("pass1_run") != head["run_id"]:
+            raise SystemExit(f"{Path(replay).name} is not a fallback run of {head['run_id']}")
+        want = cfg.describe()
+        if (fb.get("tile"), fb.get("crop")) != (want["tile"], want["crop"]):
+            raise SystemExit(f"{Path(replay).name} used prompts {fb.get('tile')}, {fb.get('crop')}; "
+                             f"the current ones are {want['tile']}, {want['crop']}")
+        stored = {r["image_id"]: {(x["kind"], tuple(x["box"])): x["raw_text"]
+                                  for x in r.get("fallback_replies", [])} for r in rrows}
+    if head["set"] == "public_dev":
+        print("WARNING: a public_dev fallback run is a recorded checkpoint (plan item 5). Record it in "
+              "docs/status.md; trigger and policy choices come from set T, not from these errors.")
+    run_id = uuid.uuid4().hex[:12]
+    client = None if replay is not None else LLMClient(model=head["model"], guard=SpendGuard(max_spend),
+                                                       sdk=sdk, run_id=run_id)
+    split_of = dict(set_images(head["set"]))
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out = out_dir / f"{head['set']}_{head['model']}_{_version_of(head['prompt_id'])}+fb_{run_id}.jsonl"
+    total = 0.0
+    with open(out, "w", encoding="utf-8") as f:
+        f.write(json.dumps({**head, "run_id": run_id,
+                            "fallback": {**cfg.describe(), "pass1_run": head["run_id"],
+                                         "replayed_from": Path(replay).name if replay else None},
+                            "started": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}) + "\n")
+        for n, r in enumerate(rows, 1):
+            row = {**r, "pass1_cost_usd": r["cost_usd"], "fallback_cost_usd": 0.0, "fallback_replies": []}
+            if r["scene"] is not None:
+                data = gs.image_path(r["image_id"], split_of[r["image_id"]]).read_bytes()
+                img = prepare(data)
+                look = stored.get(r["image_id"], {})
+                fb = run_fallback(SceneGraph.model_validate(r["scene"]), data, img, model=head["model"],
+                                  client=client, cfg=cfg, cache=SceneCache(), use_cache=False,
+                                  replay=(lambda kind, box, look=look: look.get((kind, tuple(box))))
+                                  if replay is not None else None)
+                replies = fb.replies if replay is None else \
+                    [{"kind": k, "box": list(b), "raw_text": t} for (k, b), t in look.items()]
+                row.update(scene=fb.scene.model_dump(mode="json", by_alias=True),
+                           issues=r["issues"] + fb.issues, fallback_cost_usd=fb.cost_usd,
+                           cost_usd=r["cost_usd"] + fb.cost_usd, fallback_replies=replies,
+                           fallback_stats={"tiled": fb.tiled, "tiles_added": fb.tiles_added,
+                                           "crops": fb.crops, "codes_changed": fb.codes_changed})
+                total += fb.cost_usd
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+            f.flush()
+            st = row.get("fallback_stats") or {}
+            print(f"[{n}/{len(rows)}] {r['image_id']}: tiled {st.get('tiled', False)}, "
+                  f"added {st.get('tiles_added', 0)}, crops {st.get('crops', 0)}, "
+                  f"changed {st.get('codes_changed', 0)}  spent ${total:.4f}")
+    print(f"fallback run {run_id} (policy {policy}) -> {out}  (spent ${total:.4f})")
+    return out
+
+
+def _mean_call(model: str, run_id: str | None) -> dict[str, float] | None:
+    """Mean tokens of a run's scene calls, from the usage log (no call)."""
+    if run_id is None or not LOG.exists():
+        return None
+    calls = [json.loads(l) for l in LOG.read_text(encoding="utf-8").splitlines() if l.strip()]
+    calls = [c for c in calls if c.get("run_id") == run_id and c.get("purpose") == "scene"
+             and c.get("status") == "ok"]
+    if not calls:
+        return None
+    m = lambda k: statistics.mean(c.get(k) or 0 for c in calls)  # noqa: E731
+    return {"input_tokens": m("input_tokens"), "output_tokens": m("output_tokens"),
+            "cache_read_tokens": m("cache_read_tokens") + m("cache_write_tokens")}
+
+
+def fallback_estimate(path: Path, runs: int = 1) -> dict[str, Any]:
+    """What the fallback would call on a pass-1 run, and its cost (no call). Tile calls are
+    priced as the run's own mean scene call (usage log); crop calls as the same cached
+    prompt, CROP_INPUT_TOKENS in and CROP_OUTPUT_TOKENS out. Crops of signs the tiles
+    would add are not known in advance: the range adds one crop per tile call."""
+    from vqa.perception.fallback import TILE_GRID, needs_crop, needs_tiles
+    from vqa.schemas import SceneGraph
+
+    head, rows = load_run(path)
+    model = head["model"]
+    scenes = [SceneGraph.model_validate(r["scene"]) for r in rows if r["scene"] is not None]
+    tiled = sum(needs_tiles(s) for s in scenes)
+    tile_calls = tiled * TILE_GRID * TILE_GRID
+    crop_calls = sum(needs_crop(x) and x.position.box is not None for s in scenes for x in s.signs)
+    m = _mean_call(model, head["run_id"])
+    if m is None:
+        raise SystemExit(f"no logged scene calls for run {head['run_id']}; can't price the estimate")
+    # a tile is enlarged to about MAX_PIXELS: its image tokens replace the photo's
+    from PIL import Image
+    from vqa.perception.image import MAX_PIXELS
+    split_of = dict(set_images(head["set"]))
+    photo = statistics.mean(gs.image_tokens(*Image.open(gs.image_path(r["image_id"], split_of[r["image_id"]])).size)
+                            for r in rows)
+    tile_in = m["input_tokens"] - photo + MAX_PIXELS / 750
+    tile_usd = cost_usd(model, input_tokens=round(tile_in), output_tokens=round(m["output_tokens"]),
+                        cache_read_tokens=round(m["cache_read_tokens"]))
+    crop_usd = cost_usd(model, input_tokens=CROP_INPUT_TOKENS, output_tokens=CROP_OUTPUT_TOKENS[model],
+                        cache_read_tokens=round(m["cache_read_tokens"]))
+    # the tile and crop prompts are new prefixes: each is written to the cache once per run
+    write_usd = 2 * cost_usd(model, cache_write_tokens=round(m["cache_read_tokens"]))
+    mid = tile_calls * tile_usd + crop_calls * crop_usd + write_usd
+    hi = tile_calls * tile_usd + (crop_calls + tile_calls) * crop_usd + write_usd
+    return {"run": head["run_id"], "set": head["set"], "model": model, "images": len(rows),
+            "images_tiled": tiled, "tile_calls": tile_calls, "crop_calls": crop_calls,
+            "crop_calls_max": crop_calls + tile_calls,
+            "photo_image_tokens": round(photo), "tile_input_tokens": round(tile_in),
+            "usd_per_tile_call": round(tile_usd, 5), "usd_per_crop_call": round(crop_usd, 5),
+            "usd_per_run": [round(mid, 4), round(hi, 4)], "runs": runs,
+            "usd_total": [round(mid * runs, 4), round(hi * runs, 4)],
+            "worst_case_per_call_usd": round(worst_case_usd(model, round(m["cache_read_tokens"]) + 1500, 8000), 4)}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -516,7 +654,23 @@ def main() -> None:
     rs = sub.add_parser("rescore", help="score runs again; --reverify rebuilds scenes from the cache first")
     rs.add_argument("files", nargs="+", type=Path)
     rs.add_argument("--reverify", action="store_true")
+    fb = sub.add_parser("fallback", help="apply the two-pass fallback (plan item 7) to a pass-1 run")
+    fb.add_argument("file", type=Path)
+    fb.add_argument("--max-spend", type=float)
+    fb.add_argument("--policy", default="rules", choices=["rules", "crop_always", "crop_high", "never"])
+    fb.add_argument("--replay", type=Path, help="an earlier fallback run of the same pass-1 run: no calls")
+    fe = sub.add_parser("fallback-estimate", help="what the fallback would cost on a pass-1 run (no call)")
+    fe.add_argument("file", type=Path)
+    fe.add_argument("--runs", type=int, default=1)
     a = ap.parse_args()
+    if a.cmd == "fallback":
+        if a.replay is None and a.max_spend is None:
+            raise SystemExit("--max-spend is required unless --replay is given")
+        fallback_run(a.file, a.max_spend or 0.0, policy=a.policy, replay=a.replay)
+        return
+    if a.cmd == "fallback-estimate":
+        print(json.dumps(fallback_estimate(a.file, a.runs), indent=2))
+        return
     if a.cmd == "estimate":
         print(json.dumps(estimate(a.set, a.model, a.runs, version=a.version,
                                   output_tokens=a.output_tokens, rerun_share=a.rerun_share), indent=2))

@@ -173,3 +173,31 @@ def test_scene_cache_records_hold_model_outputs_only():
 def test_perception_code_is_scanned():
     names = {p.name for p in inference_files()}
     assert {"image.py", "wire.py", "cache.py"} <= names
+
+
+# ---------------------------------------------------------------- phase 3: the two-pass fallback (plan item 7)
+
+
+def test_the_fallback_is_scanned_and_clean():
+    p = ROOT / "vqa" / "perception" / "fallback.py"
+    assert p in inference_files()
+    assert not violations(p.read_text(encoding="utf-8"), "fallback.py")
+
+
+def test_tile_and_crop_records_are_keyed_by_bytes_model_effort_prompt_and_box_only():
+    import inspect
+    from vqa.perception.cache import REGION_RECORD_FIELDS, region_key
+    assert list(inspect.signature(region_key).parameters) == \
+        ["image_sha256", "model", "effort", "prompt_version", "box"]
+    assert REGION_RECORD_FIELDS == {"key", "image_sha256", "model", "effort", "prompt_version", "box",
+                                    "replies", "created"}
+    with pytest.raises(ValueError):
+        region_key("public_test_1_1.jpg", "claude-haiku-5-5", "medium", "v4-crop", (0, 0, 9, 9))
+
+
+def test_the_fallback_prompts_name_no_public_or_private_image():
+    for version in ("v4-tile", "v4-crop"):
+        for p in (ROOT / "prompts" / "scene" / version).iterdir():
+            if p.is_file():
+                text = p.read_text(encoding="utf-8")
+                assert "public_test" not in text and "private_test" not in text, p

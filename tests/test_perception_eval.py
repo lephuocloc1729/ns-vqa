@@ -312,3 +312,75 @@ def test_one_configuration_still_scores_and_a_header_without_fallback_is_off(fak
     explicit = _relabel(outs[2], fake_set / "off.jsonl", run_id="off", fallback=None)
     rep = pe.score([outs[0], outs[1], explicit])
     assert rep["gate"]["runs"] == 3 and rep["summaries"][0]["fallback"] is False
+
+
+# ---------------------------------------------------------------- the fallback command (plan item 7)
+
+
+def _pass1_run(fake_set, run_id="p1run"):
+    """A hand-made pass-1 run on the fake set: a dense scene (5 signs, one low) per image."""
+    signs = [{"id": f"s{k}", "code": "P.104", "confidence": "low" if k == 3 else "high",
+              "shape": "circle", "border": "red", "background": "white",
+              "position": {"rank_top_down": k, "side": "right", "box": [10 + 50 * k, 10, 40 + 50 * k, 40]}}
+             for k in range(1, 6)]
+    path = fake_set / f"public_dev_claude-haiku-5-5_v4_{run_id}.jsonl"
+    head = {"run_id": run_id, "set": "public_dev", "model": "claude-haiku-5-5",
+            "prompt_id": "scene/v4@153536ec5975", "gate": pe.GATE["name"], "started": "x"}
+    rows = [{"image_id": i, "ok": True, "error": None, "retried": False, "cost_usd": 0.002, "reran": True,
+             "issues": [], "raw_codes": {}, "scene": {"scene_id": "x", "signs": signs}}
+            for i in ("public_test_1_1", "public_test_1_2")]
+    path.write_text("\n".join(json.dumps(x) for x in [head, *rows]) + "\n", encoding="utf-8")
+    return path
+
+
+def test_the_fallback_command_adds_calls_and_marks_the_run(fake_set):
+    p1 = _pass1_run(fake_set)
+    sdk = FakeSDK(0)
+    out = pe.fallback_run(p1, 1.0, sdk=sdk, out_dir=fake_set / "runs")
+    head, rows = pe.load_run(out)
+    assert head["fallback"]["pass1_run"] == "p1run" and head["fallback"]["policy"] == "rules"
+    assert head["fallback"]["tile"].startswith("scene/v4-tile@") and head["run_id"] != "p1run"
+    assert len(sdk.created) == 2 * (4 + 1)                    # per image: 4 tiles, 1 crop
+    for r in rows:
+        assert r["fallback_stats"]["tiled"] and r["fallback_stats"]["crops"] == 1
+        assert r["cost_usd"] == pytest.approx(r["pass1_cost_usd"] + r["fallback_cost_usd"])
+        assert len(r["fallback_replies"]) == 5
+    with pytest.raises(SystemExit, match="already has the fallback"):
+        pe.fallback_run(out, 1.0, sdk=sdk, out_dir=fake_set / "runs")
+
+
+def test_a_replay_makes_no_call_and_checks_its_source(fake_set):
+    p1 = _pass1_run(fake_set)
+    first = pe.fallback_run(p1, 1.0, sdk=FakeSDK(0), out_dir=fake_set / "runs")
+    again = pe.fallback_run(p1, 0.0, policy="never", replay=first, out_dir=fake_set / "runs")
+    (h1, r1), (h2, r2) = pe.load_run(first), pe.load_run(again)
+    assert h2["fallback"]["policy"] == "never" and h2["fallback"]["replayed_from"] == first.name
+    assert all(r["fallback_cost_usd"] == 0.0 for r in r2)
+    other = _pass1_run(fake_set, run_id="other")
+    with pytest.raises(SystemExit, match="not a fallback run of other"):
+        pe.fallback_run(other, 0.0, replay=first, out_dir=fake_set / "runs")
+
+
+def test_the_gate_does_not_mix_pass1_and_fallback_runs(fake_set):
+    p1 = _pass1_run(fake_set)
+    out = pe.fallback_run(p1, 1.0, sdk=FakeSDK(0), out_dir=fake_set / "runs")
+    with pytest.raises(SystemExit, match="fallback off .* fallback on|fallback on .* fallback off"):
+        pe.score([p1, out])
+    rep = pe.score([out])
+    assert rep["summaries"][0]["fallback"] is True and rep["gate"]["runs"] == 1
+
+
+def test_perceive_runs_the_fallback_only_when_asked(fake_set):
+    from vqa.llm.client import LLMClient
+    from vqa.llm.spend import SpendGuard
+    from vqa.perception.fallback import FallbackConfig
+    from vqa.perception.scene import perceive
+    img = fake_set / "public_test_1_1.jpg"
+    sdk = FakeSDK(0)
+    client = LLMClient(model="claude-haiku-5-5", guard=SpendGuard(1.0), sdk=sdk, run_id="t")
+    plain = perceive(img, model="claude-haiku-5-5", version="v4", client=client, use_cache=False)
+    assert plain.fallback is None and len(sdk.created) == 1
+    fbres = perceive(img, model="claude-haiku-5-5", version="v4", client=client, use_cache=False,
+                     fallback=FallbackConfig())
+    assert fbres.fallback is not None and not fbres.fallback.tiled      # one sure sign: nothing to do
+    assert fbres.scene == plain.scene and len(sdk.created) == 2

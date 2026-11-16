@@ -20,6 +20,9 @@ perceive(image_path) -> PerceptionResult
   mode) and the two readings are merged: agreement keeps a sign, disagreement adds
   an AltReading, a sign seen once stays low. The re-run's reply is cached with the
   first, so a cache hit replays it without a call.
+- The two-pass fallback (vqa/perception/fallback.py, plan item 7) runs on top when a
+  FallbackConfig is given: tiles of dense scenes, then crops of low / UNKNOWN signs.
+  Without one, perceive is pass 1 alone, as before.
 """
 
 from __future__ import annotations
@@ -32,7 +35,8 @@ from vqa.llm.client import LLMBadJSON, LLMClient, LLMRefusal, LLMTruncated, pars
 from vqa.llm.spend import SpendGuard
 from vqa.perception import prompt as scene_prompt
 from vqa.perception.cache import CacheRecord, SceneCache
-from vqa.perception.image import PreparedImage, prepare_file
+from vqa.perception.fallback import FallbackConfig, FallbackResult, run_fallback
+from vqa.perception.image import PreparedImage, prepare, prepare_file
 from vqa.perception.verify import merge_rerun, needs_rerun, verify
 from vqa.perception.wire import WireResult, to_scene
 from vqa.schemas import SceneGraph
@@ -57,6 +61,7 @@ class PerceptionResult:
     issues: list[str] = field(default_factory=list)           # verification (item 4)
     replies: list[dict[str, Any]] = field(default_factory=list)
     image: PreparedImage | None = None
+    fallback: FallbackResult | None = None    # plan item 7, when it ran
 
     @property
     def ok(self) -> bool:
@@ -86,11 +91,38 @@ def _convert(text: str, scene_id: str, final: bool) -> tuple[WireResult | None, 
 def perceive(image_path: str | Path, *, model: str = DEFAULT_MODEL, version: str = "v1",
              client: LLMClient | None = None, cache: SceneCache | None = None,
              use_cache: bool = True, guard: SpendGuard | None = None,
-             rerun: bool = True) -> PerceptionResult:
-    """The scene for one image: scene call, verification, and the low-confidence re-run."""
+             rerun: bool = True, fallback: FallbackConfig | None = None) -> PerceptionResult:
+    """The scene for one image: scene call, verification, the low-confidence re-run and,
+    when `fallback` is given, the two-pass fallback (plan item 7) on top."""
     cache = cache if cache is not None else SceneCache()
     if client is None:
         client = LLMClient(model=model, guard=guard or SpendGuard())
+    res = _pass_one(image_path, model=model, version=version, client=client, cache=cache,
+                    use_cache=use_cache, rerun=rerun)
+    if fallback is None or not res.ok:
+        return res
+    return apply_fallback(res, Path(image_path).read_bytes(), fallback, client=client, cache=cache,
+                          use_cache=use_cache)
+
+
+def apply_fallback(res: PerceptionResult, image_bytes: bytes, cfg: FallbackConfig, *, client=None,
+                   cache: SceneCache | None = None, use_cache: bool = True,
+                   replay=None) -> PerceptionResult:
+    """Run the fallback on a pass-1 result. The image bytes must be the ones pass 1 read."""
+    img = res.image if res.image is not None else prepare(image_bytes)
+    if img.sha256 != res.image_sha256:
+        raise ValueError("the image bytes are not the ones pass 1 read")
+    fb = run_fallback(res.scene, image_bytes, img, model=res.model, client=client, cfg=cfg,
+                      cache=cache, use_cache=use_cache, replay=replay)
+    res.scene = fb.scene
+    res.issues = res.issues + fb.issues
+    res.cost_usd += fb.cost_usd
+    res.fallback = fb
+    return res
+
+
+def _pass_one(image_path: str | Path, *, model: str, version: str, client: LLMClient,
+              cache: SceneCache, use_cache: bool, rerun: bool) -> PerceptionResult:
     res = _primary(image_path, model=model, version=version, client=client, cache=cache,
                    use_cache=use_cache)
     if not res.ok:
