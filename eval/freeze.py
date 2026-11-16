@@ -34,6 +34,11 @@ FROZEN = ROOT / "eval" / "frozen_phase4.json"
 # PipelineConfig fields that differ per run by design (the holdout uses its own
 # temporary cache, fresh perception and its own spend limit).
 RUN_SPECIFIC = ("cache_dir", "cache_only", "max_spend")
+# Switches added after the phase-4 freeze, left out of the comparison the same way. Their
+# defaults are the frozen behaviour. `answer_fallback` (phase 4.5): off, a question the
+# rules don't decide gets no fallback call; decided answers are the same either way.
+# Kept apart from RUN_SPECIFIC because the phase-4 record lists RUN_SPECIFIC verbatim.
+POST_FREEZE_SWITCHES = {"answer_fallback": True}
 
 
 def _sha(text: str) -> str:
@@ -50,7 +55,7 @@ def live(perception_model: str | None = None) -> dict[str, Any]:
     from vqa.pipeline import PipelineConfig
 
     c = PipelineConfig(**({"perception_model": perception_model} if perception_model else {}))
-    pc = {k: v for k, v in dataclasses.asdict(c).items() if k not in RUN_SPECIFIC}
+    pc = {k: v for k, v in dataclasses.asdict(c).items() if k not in RUN_SPECIFIC and k not in POST_FREEZE_SWITCHES}
     fc = sfb.FallbackConfig()
     pm = c.perception_model
     parser_system = pp.system_prompt(c.parser_version)

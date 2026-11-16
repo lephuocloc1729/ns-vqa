@@ -188,3 +188,38 @@ def test_only_the_fallback_call_sends_a_json_schema(tmp_path, photo):
     calls = sdk.created + sdk2.created
     with_schema = [role for role, kw in calls if "format" in kw.get("output_config", {})]
     assert with_schema == ["fallback"]
+
+
+# ---------------------------------------------------------------- phase 4.5: fallback off
+
+def pipeline_off(tmp_path, sdk, cache_dir):
+    return pl.Pipeline(pl.PipelineConfig(cache_dir=cache_dir, cache_only=True, max_spend=1.0,
+                                         answer_fallback=False), sdk=sdk)
+
+
+def test_the_fallback_is_on_by_default():
+    assert pl.PipelineConfig().answer_fallback is True
+
+
+def test_fallback_off_makes_no_call_for_a_non_decided_question(tmp_path, photo):
+    prog = {"program": {"intent": "permitted", "action": "enter", "vehicle": {"vehicle_class": "car"}}}
+    sdk = RoutedSDK(parser=[prog])
+    a = pipeline_off(tmp_path, sdk, warm(tmp_path, photo)).answer(photo, "Ô tô có được đi vào không?")
+    assert sdk.roles() == ["parser"]                                 # no fallback, no writer
+    assert (a.answered_by, a.verdict, a.basis, a.citations) == ("not_decided", "unknown", ["not_decided"], [])
+    assert a.trace["fallback"] == {"trigger": "unknown", "status": "off"} and a.text.startswith("Chưa xác định")
+
+
+def test_fallback_off_out_of_scope_gets_an_unknown_that_says_why(tmp_path, photo):
+    sdk = RoutedSDK(parser=[{"program": None, "out_of_scope": True, "out_of_scope_reason": "guide sign"}])
+    a = pipeline_off(tmp_path, sdk, warm(tmp_path, photo)).answer(photo, "Biển chỉ đường đi đâu?")
+    assert sdk.roles() == ["parser"] and a.answered_by == "not_decided" and a.verdict == "unknown"
+    assert "outside what the rules model" in a.proof["note"]
+
+
+def test_fallback_off_leaves_decided_answers_unchanged(tmp_path, photo):
+    on = pipeline(tmp_path, RoutedSDK(parser=[PROG_YES], writer=[WRITER_YES]), warm(tmp_path, photo)).answer(photo, Q_YES)
+    sdk = RoutedSDK(parser=[PROG_YES], writer=[WRITER_YES])
+    off = pipeline_off(tmp_path, sdk, warm(tmp_path, photo)).answer(photo, Q_YES)
+    assert sdk.roles() == ["parser", "writer"]
+    assert (off.answered_by, off.verdict, off.text, off.citations) == (on.answered_by, on.verdict, on.text, on.citations)

@@ -22,6 +22,12 @@ stands, the region is skipped), exactly as the warm step's rebuild check does.
 When the fallback itself fails, the engine's own answer ships through the writer
 (P3); with no engine answer (the parse failed, or there was no scene), the writer
 gets an `unknown` answer that says so.
+
+**Fallback off** (`answer_fallback=False`, phase 4.5): a question that would go to the
+fallback is not decided. No fallback or writer call is made; the answer is the
+deterministic template of the engine's answer (or of an `unknown` that says why), and
+`answered_by` is `not_decided`. Decided answers are exactly as with the fallback on, so
+rules-only figures are the same either way; the switch only saves the calls.
 """
 
 from __future__ import annotations
@@ -34,6 +40,7 @@ from typing import Any
 
 from vqa.answer.digest import build as build_digest
 from vqa.answer.fallback import AnswerFallback, trigger
+from vqa.answer.template import template_answer
 from vqa.answer.writer import AnswerWriter
 from vqa.llm.client import LLMClient, LLMRefusal
 from vqa.llm.spend import SpendGuard
@@ -44,6 +51,12 @@ from vqa.perception.fallback import FallbackConfig
 from vqa.perception.scene import perceive
 from vqa.reasoning.engine import Engine, EngineError
 from vqa.schemas import Answer, Verdict
+
+
+_NO_ANSWER = {"perception_failed": "the scene could not be read",
+              "out_of_scope": "the question is outside what the rules model",
+              "parse_failed": "the question could not be parsed",
+              "program_cannot_run": "the question could not be checked on this scene"}
 
 
 class CacheMissError(RuntimeError):
@@ -63,6 +76,7 @@ class PipelineConfig:
     context_year: int | None = 2025             # the dataset's questions are from 2025
     writer_version: str = "v3"
     answer_fallback_version: str = "v2"
+    answer_fallback: bool = True                # False: non-decided questions get no fallback (phase 4.5)
     max_spend: float | None = None              # None: the spend guard's default
 
 
@@ -70,7 +84,7 @@ class PipelineConfig:
 class PipelineAnswer:
     text: str
     verdict: str | None
-    answered_by: str                            # rules | fallback
+    answered_by: str                            # rules | fallback | not_decided (fallback off)
     basis: list[str] = field(default_factory=list)
     citations: list[str] = field(default_factory=list)
     proof: dict[str, Any] | None = None         # the engine's answer, when it ran
@@ -172,6 +186,16 @@ class Pipeline:
                       engine_error=engine_error is not None)
         trace["fallback"] = {"trigger": why}
 
+        if why is not None and not self.config.answer_fallback:
+            trace["fallback"]["status"] = "off"
+            if engine_answer is None:
+                engine_answer = Answer(verdict=Verdict.unknown, note=_NO_ANSWER.get(why or "") or None)
+            digest = build_digest(engine_answer, scene, self.engine.catalog)
+            return PipelineAnswer(text=template_answer(digest, question), verdict=engine_answer.verdict.value,
+                                  answered_by="not_decided", basis=["not_decided"], citations=[],
+                                  proof=engine_answer.model_dump(mode="json"), trace=trace, cost_usd=cost,
+                                  seconds=time.monotonic() - t0)
+
         if why is not None:
             fa = self.fallback.answer(image_path, question, scene)
             cost += fa.cost_usd
@@ -185,11 +209,7 @@ class Pipeline:
 
         # the rules' answer (or, after a failed fallback, P3: the engine's own answer)
         if engine_answer is None:
-            reason = {"perception_failed": "the scene could not be read",
-                      "out_of_scope": "the question is outside what the rules model",
-                      "parse_failed": "the question could not be parsed",
-                      "program_cannot_run": "the question could not be checked on this scene"}.get(why or "", "")
-            engine_answer = Answer(verdict=Verdict.unknown, note=reason or None)
+            engine_answer = Answer(verdict=Verdict.unknown, note=_NO_ANSWER.get(why or "") or None)
         w = self.writer.write(question, engine_answer, scene)
         cost += w.cost_usd
         trace["writer"] = {"status": w.status, "attempts": w.attempts, "errors": w.errors,

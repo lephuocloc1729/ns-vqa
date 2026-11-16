@@ -267,8 +267,11 @@ def mentioned(paths=SCAN) -> tuple[set[str], set[str]]:
     return imgs, qids
 
 
-def validation_pool() -> dict[str, Any]:
-    rows = json.loads(gs.TRAIN_QA.read_text(encoding="utf-8"))
+def pool() -> tuple[list[str], list[dict], dict[str, set[str]]]:
+    """(pool image ids, their questions as {id, image_id, question_type}, excluded images by
+    reason). Reads ids and types only."""
+    rows = [{k: q[k] for k in ("id", "image_id", "question_type")}
+            for q in json.loads(gs.TRAIN_QA.read_text(encoding="utf-8"))]
     img_of = {q["id"]: q["image_id"] for q in rows}
     all_imgs = {q["image_id"] for q in rows}
     excluded: dict[str, set[str]] = {}
@@ -292,7 +295,14 @@ def validation_pool() -> dict[str, Any]:
     excluded["duplicate_of_an_excluded_train_image"] = near - out_imgs
     bad = set().union(*excluded.values())
     pool_imgs = sorted(all_imgs - bad)
-    pool_qs = [q for q in rows if q["image_id"] in set(pool_imgs)]
+    return pool_imgs, [q for q in rows if q["image_id"] in set(pool_imgs)], excluded
+
+
+def validation_pool() -> dict[str, Any]:
+    pool_imgs, pool_qs, excluded = pool()
+    rows = json.loads(gs.TRAIN_QA.read_text(encoding="utf-8"))
+    all_imgs = {q["image_id"] for q in rows}
+    bad = set().union(*excluded.values())
     return {"train_images": len(all_imgs), "train_questions": len(rows),
             "excluded_images": {k: len(v) for k, v in excluded.items()}, "excluded_total": len(bad),
             "pool_images": len(pool_imgs), "pool_questions": len(pool_qs),

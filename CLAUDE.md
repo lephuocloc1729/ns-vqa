@@ -38,6 +38,7 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
   - The split is saved in `data/splits/public_split.json` (seed 20261114). `eval/make_public_split.py` regenerates it and only reads question and image ids.
   - **Only `public_dev` may be looked at question by question** (images, questions, answers, error analysis).
   - `public_holdout` is for aggregate scores only. Don't read its questions, images or per-question results.
+- **The phase-4.5 validation set** (`data/splits/train_validation.json`, seed 20261116, ids only; built by `eval/make_validation_split.py`) is 110 untouched train questions on 54 images. **It is aggregate only, like `public_holdout`:** don't read its questions, images, answers or per-question results, and never use them for few-shots, fixtures, gold or tuning. It runs only through `eval/e2e_validation.py` (fallback off, sentinels `eval/validation_ran_<label>.json`), once as `baseline` and once as `final`.
 - **Many images repeat across splits.** `data/splits/duplicates.json` lists near-duplicate image groups, made by `eval/find_duplicates.py`. It uses perceptual hashes and reads image files only, never question files.
   - 79 of the 104 private images and 53 of the 90 public images also appear in train.
   - Evaluations report every score twice: on all questions, and without questions whose image is in `duplicated_with_train`. Map image ids to questions at evaluation time.
