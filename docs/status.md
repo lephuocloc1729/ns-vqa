@@ -1,6 +1,6 @@
 # Project status
 
-Last updated 2026-11-16. Branch `phase-3`, on top of `main` at `afe006c` (phase 2 merged in PR #1). **Phase 3 is closed** (see "Phase 3: closing"). The branch is not merged or pushed; that is the owner's decision.
+Last updated 2026-11-16. Branch `phase-4`, from `main` at `7ec1134` (`phase-3` merged locally, not pushed; plan D10). **Phase 3 is closed** (see "Phase 3: closing"). **Phase 4 is approved** (`docs/plans/phase-4.md`, owner, 2026-11-16) and in progress.
 
 ## Done
 
@@ -807,7 +807,9 @@ The triggers were chosen on set T and are measured on set T, so these gains over
 
 ## Next steps, in order
 
-**Next (2026-11-16): phase 3 is closed.** The owner reads DESIGN.md section 3 and `docs/plans/phase-4-draft.md`, then decides whether `phase-3` goes into `main` and approves (or changes) the phase-4 plan. No phase-4 code before that.
+**Next (2026-11-16): phase 4, procedure step 1 (no API).** The owner approved the phase-4 plan with changes (`docs/plans/phase-4.md`). `phase-3` is merged into `main` at `7ec1134` (not pushed), and work is on `phase-4`.
+- Step 1: build items 1–5 with hand-made tests; oracle A's Yes/No part with the engine only; cache warming with its reproduction check.
+- Before step 2 (paid), the owner settles the plan's open points P1–P3. P1: two of the three checkpoint-2 Haiku runs kept no pass-1 raw replies, so they can't be warmed from model outputs.
 
 ### Handoff (2026-11-15): where phase 3 stands, and what comes next (kept as a record)
 
