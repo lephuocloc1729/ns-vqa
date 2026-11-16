@@ -590,7 +590,7 @@ Full test suite: 394 passed. Prolog loads.
   | Opus 5.5 (p1) | 8 (32) | 88.5% (79.2–100) / 82.4% (77.1–91.8) | 78.1% (60.9–100) / 82.8% (71.6–98.0) |
 
   There is no sign that the Haiku pre-fill helped Haiku: it does worse on the images Haiku drafted.
-- **Against set T:** public_dev is a little below set T for Haiku (recall 79.7% vs 83.3%, F1 68.1% vs 72.3%). It is lower on recall for Sonnet (81.8% vs 90.8%) and higher on F1 (75.1% vs 69.8%). That is what the recommendation expected: both models fail on F1, and Sonnet's recall isn't near 90% after all.
+- **Against set T:** public_dev is a little below set T for Haiku (recall 79.7% vs 83.3%, F1 68.1% vs 72.3%). It is lower on recall for Sonnet (81.8% vs 90.8%) and higher on F1 (75.1% vs 69.8%). The recommendation expected both models to fail on F1, and they did. It did not expect Sonnet's recall result: it put Sonnet's recall near 90% on public_dev (about a coin flip against the gate), and the run gave 81.8%.
 - **Spend:** checkpoint 1 cost $0.601 (Haiku $0.198, under its $0.35 ceiling; Sonnet $0.403 for one run). Phase 3 total: $1.84.
 - **public_dev per-image errors were not looked at.** They are a record only, per the handoff rules, and nothing here is drawn from them.
 
