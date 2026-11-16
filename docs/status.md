@@ -805,6 +805,22 @@ The triggers were chosen on set T and are measured on set T, so these gains over
   - the pictogram ablation;
   - the parser-cache key including the catalog hash (open since phase 2).
 
+### Phase 4: answering and the end-to-end pipeline (in progress, branch `phase-4`)
+
+- `7ec1134` `phase-3` merged into `main` (local, not pushed; D10). `a5133c9` plan approved (`docs/plans/phase-4.md`).
+- **Item 1, the answer writer and the faithfulness guard** (procedure step 1, no API):
+  - `vqa/answer/digest.py`: the proof digest, the writer's only input (verdict, value, the signs it rests on, rules fired, reasons, citations). No raw Prolog goals.
+  - `vqa/answer/faithfulness.py`: the guard. It checks the reply shape, the engine's verdict, that cited signs and rules are in the digest, that no code or number is missing from the digest or the question, and the opening word (Đúng/Sai for true/false questions; the verdict's polarity for other yes/no; never a yes/no word for unknown/uncertain).
+  - `vqa/answer/template.py`: deterministic Vietnamese answers for every verdict and value shape. Each passes the guard (tested).
+  - `vqa/answer/writer.py`: Haiku 5.5 (D1). At most two calls: a bad-JSON or guard failure gets one retry that sends only the error; then the template.
+  - `prompts/answer/v1/` (`answer/v1@aed34f731e7f`, pinned in `tests/test_answer_writer.py`): spec, config (Haiku, effort low, 600 max tokens), 6 text-only examples from the train fixtures with the dataset's exact question text.
+  - 678 tests pass (34 new) and Prolog loads.
+- **Readings made while building item 1** (the owner can change them; the prompt is pinned, so a change is a v2):
+  - numbers and codes the question states may appear in the answer;
+  - "one retry" and "one regeneration" are the same single retry, so there are at most two writer calls;
+  - writer effort `low`;
+  - only 6 examples: no Đúng/Sai, `unknown` or meaning example yet, since no train fixture has one.
+
 ## Next steps, in order
 
 **Next (2026-11-16): phase 4, procedure step 1 (no API).** The owner approved the phase-4 plan with changes (`docs/plans/phase-4.md`). `phase-3` is merged into `main` at `7ec1134` (not pushed), and work is on `phase-4`.
