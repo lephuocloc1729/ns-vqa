@@ -279,3 +279,36 @@ def test_score_reports_the_mean_and_the_split_by_draft_model(fake_set, monkeypat
     assert d["claude-opus-5-5"]["mean_sign_recall"] == 1.0 and d["claude-opus-5-5"]["non_duplicate_images"] == 0
     assert d["claude-haiku-5-5"]["mean_sign_recall"] == pytest.approx(0.5)
     assert d["claude-haiku-5-5"]["gold_signs"] == 2 and d["claude-haiku-5-5"]["non_duplicate_images"] == 1
+
+
+# ---------------------------------------------------------------- the gate refuses mixed configurations
+
+
+def _relabel(path, out, **head):
+    lines = path.read_text(encoding="utf-8").splitlines()
+    h = json.loads(lines[0])
+    h.update(head)
+    out.write_text("\n".join([json.dumps(h)] + lines[1:]) + "\n", encoding="utf-8")
+    return out
+
+
+@pytest.mark.parametrize("change", [
+    {"model": "claude-sonnet-5-5"},
+    {"prompt_id": "scene/v3@000000000000"},
+    {"fallback": {"tile": "scene/v4-tile@x", "crop": "scene/v4-crop@y"}},
+    {"set": "T"},
+])
+def test_the_gate_refuses_runs_of_mixed_configurations(fake_set, change):
+    outs = [pe.run("public_dev", "claude-haiku-5-5", 1.0, sdk=FakeSDK(2), out_dir=fake_set / "runs")
+            for _ in range(3)]
+    odd = _relabel(outs[2], fake_set / "odd.jsonl", run_id="odd", **change)
+    with pytest.raises(SystemExit, match="one configuration; these files mix 2"):
+        pe.score([outs[0], outs[1], odd])
+
+
+def test_one_configuration_still_scores_and_a_header_without_fallback_is_off(fake_set):
+    outs = [pe.run("public_dev", "claude-haiku-5-5", 1.0, sdk=FakeSDK(2), out_dir=fake_set / "runs")
+            for _ in range(3)]
+    explicit = _relabel(outs[2], fake_set / "off.jsonl", run_id="off", fallback=None)
+    rep = pe.score([outs[0], outs[1], explicit])
+    assert rep["gate"]["runs"] == 3 and rep["summaries"][0]["fallback"] is False

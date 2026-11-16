@@ -383,11 +383,22 @@ def summarise(per_run: list[dict[str, dict]], ids: list[str]) -> dict[str, Any]:
     return out
 
 
+def configuration(head: dict) -> tuple[str, str, str, bool]:
+    """What makes runs comparable: set, model, prompt version, and whether the
+    two-pass fallback ran (a run header without a `fallback` field predates it: off)."""
+    return (head["set"], head["model"], head["prompt_id"], bool(head.get("fallback")))
+
+
+def _describe(cfg: tuple) -> str:
+    set_name, model, prompt_id, fb = cfg
+    return f"set {set_name}, model {model}, prompt {prompt_id}, fallback {'on' if fb else 'off'}"
+
+
 def summaries(groups: dict[tuple, list[tuple[dict, dict]]], gold: dict) -> list[dict[str, Any]]:
-    """Per (set, model, prompt) group: the mean of its runs on all and non-duplicate images,
-    and the split by the model that drafted each image's gold (D2 anchoring)."""
+    """Per configuration (set, model, prompt, fallback): the mean of its runs on all and
+    non-duplicate images, and the split by the model that drafted each image's gold (D2)."""
     out = []
-    for (set_name, model, prompt_id), runs in groups.items():
+    for (set_name, model, prompt_id, fallback), runs in groups.items():
         per_run = [u for _, u in runs]
         ids = list(per_run[0])                     # the first run's file order
         if any(set(u) != set(ids) for u in per_run):
@@ -401,7 +412,7 @@ def summaries(groups: dict[tuple, list[tuple[dict, dict]]], gold: dict) -> list[
             s = summarise(per_run, sel)
             s["non_duplicate_images"] = sum(i in nd for i in sel)
             drafters[dm] = s
-        out.append({"set": set_name, "model": model, "prompt_id": prompt_id,
+        out.append({"set": set_name, "model": model, "prompt_id": prompt_id, "fallback": fallback,
                     "run_ids": [h["run_id"] for h, _ in runs],
                     "cost_usd": round(sum(h["cost_usd"] for h, _ in runs), 4),
                     "all_images": summarise(per_run, ids),
@@ -421,12 +432,16 @@ def score(paths: list[Path]) -> dict[str, Any]:
         seen.add(head["run_id"])
         rep = score_run(p, (head, rows, units))
         reps.append(rep)
-        groups.setdefault((head["set"], head["model"], head["prompt_id"]), []).append(
+        groups.setdefault(configuration(head), []).append(
             ({"run_id": head["run_id"], "cost_usd": rep["cost_usd"]}, units))
     out: dict[str, Any] = {"runs": reps}
     # reported, not gated: the mean of each configuration's runs with pooled CIs, and the drafter split
     out["summaries"] = summaries(groups, gold)
-    if reps and all(r["set"] == "public_dev" for r in reps):
+    if any(r["set"] == "public_dev" for r in reps):
+        if len(groups) > 1:            # the gate is a mean over runs of one configuration
+            raise SystemExit("the gate needs runs of one configuration; these files mix "
+                             f"{len(groups)}: " + " | ".join(_describe(c) for c in groups)
+                             + ". Score each configuration separately.")
         rec = statistics.mean(r["all_images"]["sign_recall"] for r in reps)
         f1 = statistics.mean(r["all_images"]["sign_code_f1"] for r in reps)
         enough = len(reps) >= GATE["runs"]
