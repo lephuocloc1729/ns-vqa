@@ -1,6 +1,6 @@
 # Project status
 
-Last updated 2026-11-15. Branch `phase-3`, on top of `main` at `afe006c` (phase 2 merged in PR #1).
+Last updated 2026-11-16. Branch `phase-3`, on top of `main` at `afe006c` (phase 2 merged in PR #1). **Phase 3 is closed** (see "Phase 3: closing"). The branch is not merged or pushed; that is the owner's decision.
 
 ## Done
 
@@ -731,9 +731,85 @@ The triggers were chosen on set T and are measured on set T, so these gains over
 - **No checkpoint 3 in phase 3** (d).
 - The comparison with Sonnet rests on one Sonnet run. Haiku's code F1 varies by 2.9 points across its three fallback runs, so a 1.3-point gap is within run-to-run noise.
 
+### Phase 3: closing (2026-11-16)
+
+**Outcome: the perception gate failed.**
+- Haiku v4 + fallback, mean of 3 runs on public_dev: recall **89.98%** (below 90%) and code F1 **75.6%** (below 85%).
+- Sonnet v4 + fallback ran once, by the owner's decision on cost: recall 95.8%, code F1 76.9%, not decided.
+- Under policy (d), fixed before checkpoint 2, **phase 4 uses Haiku v4 + the fallback**, and the gate is recorded as failed. There is no checkpoint 3.
+- DESIGN.md section 3 has the as-built design and the figures (`1986de3`).
+
+**What was done (main commits):**
+- **Plan and gold:**
+  - plan `6113e00` (D1–D10);
+  - gold tooling and guide `13eb3a0`, `c88f928`, set T `7961c6f` and `10c6730`;
+  - gold signs v1 `9387764`: 81 images, every sign reviewed by the owner;
+  - later gold changes `c6fb83f`, `f9998a1`, `677a87b`, and the last gold commit `ddb044b`;
+  - the D10 visual check `4605a36` (55 rows human-reviewed).
+- **Catalog:** P.118 and P.119 (`750011a`, `6945a25`, reviewed in `c308cbb`); R.403a/b, R.404a, R.307 (`9b5b9fa`); the effect_unmodelled rows (`87f894c`).
+- **Perception code:**
+  - image prep `03cf04b`, wire `3282a94`, cache `d2b3ccd`, leakage guard `8d10df4`;
+  - prompt builder `b86effc`, scene call `d87b65d`, verification and re-run `bcc636c`;
+  - `perception_eval.py` with the pinned GATE `1c6dc57`; gate v2 matching `b722247`.
+- **Prompts:**
+  - v2 `19bd70c`;
+  - v3 with pictograms `a792fdc`, under the dataset-rule exception in CLAUDE.md `ccb2648`;
+  - v4 `4cc8717`, pinned in `07aa01b`.
+- **Checkpoint tooling:** mean-of-runs summaries and the drafter split `493b897`; the mixed-configuration refusal `6338059`.
+- **Fallback:**
+  - proposal `99140cf`, approval `7bdd290`;
+  - implementation `47f0335`; pins and `compare` `c7a7bc3`;
+  - the retry and `--use-cache` `d7ac725`; `crop_always` and the cached-run guard `086f1ee`;
+  - checkpoint-2 decisions recorded before scoring `cc06067`.
+- 644 tests pass and Prolog loads (as of `086f1ee`; no code has changed since).
+
+**The configuration going into phase 4:**
+
+| part | value |
+|---|---|
+| scene model | `claude-haiku-5-5`, effort medium (each prompt config's `effort`) |
+| pass-1 prompt | `scene/v4@153536ec5975`. Pinned in `tests/test_scene_prompt_v3.py` (`V4_SHA256`: spec `4757bbb2…`, config `3c3f60ce…`, examples `def4618e…`, pictograms manifest `d4b38018…`) |
+| tile prompt | `scene/v4-tile@a052a9fc72f7`. Pinned in `tests/test_perception_fallback.py` (`V4_TILE_SHA256`: spec `d9eb38db…`, config `26d51b4b…`, examples `def4618e…`, manifest `040bfd12…`) |
+| crop prompt | `scene/v4-crop@30e2d18b84d9`. Pinned there too (`V4_CROP_SHA256`: spec `d2fbec72…`, config `8a58a28e…`, examples `cd6e0aa5…`, manifest `2ca9fbc2…`) |
+| combining rule | `vqa.perception.fallback.CHOSEN_POLICY = "crop_always"` (pinned) |
+| fallback constants | tiles at ≥ 5 signs, 2 × 2 with 20% overlap, dedup IoU 0.30; crop margins 0.5 / 0.5 / 0.5 / 1.0, minimum 128 px, upscale to 384 px (pinned) |
+| gate | `perception_gate_v2` (pinned) |
+| pictograms | the local copies come from `tools/build_scene_pictograms.py --version v4`, `v4-tile` and `v4-crop`; the prompts refuse to build without them |
+| entry point | `perceive(image_path, model="claude-haiku-5-5", version="v4", fallback=FallbackConfig())` |
+
+**Spend:** **$3.34** over 1,375 calls, all from the usage log:
+
+| | cost |
+|---|---|
+| gold pre-fill | $0.35 |
+| scene calls | $0.99 |
+| re-runs | $0.50 |
+| tiles | $0.69 |
+| crops | $0.66 |
+| crop retries | $0.14 |
+
+**Open items:**
+- **Owner reviews pending:**
+  - catalog rows with `reviewed_by: none`: R.403a, R.403b, R.307, R.404a, and the effect_unmodelled rows R.302(a,b,c), R.303, R.411, R.420;
+  - the IE.451b visual (catalog background blue; the train_7_23 gold says green) and IE.464 (catalog shape other; seen as a rectangle);
+  - train_7_25's four arrow boards: gold I.407c, both models I.415 (the owner kept I.407c);
+  - standalone local notices: labelled `local_notice` and out of the gate, still not modelled by the engine;
+  - the five visual rows still `visual_reviewed_by: assistant`: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473.
+- **Perception limits carried into phase 4:**
+  - code F1 is about 10 points short of the gate;
+  - tile-added signs often get the wrong code;
+  - Sonnet answers crops in prose before the JSON (34 of 77 retried, 4 still failed);
+  - every gain on set T is in-sample.
+- **Not done in phase 3 (proposed):**
+  - the private gold labels (C2, after the benchmark run);
+  - the pictogram ablation;
+  - the parser-cache key including the catalog hash (open since phase 2).
+
 ## Next steps, in order
 
-### Handoff (2026-11-15): where phase 3 stands, and what comes next
+**Next (2026-11-16): phase 3 is closed.** The owner reads DESIGN.md section 3 and `docs/plans/phase-4-draft.md`, then decides whether `phase-3` goes into `main` and approves (or changes) the phase-4 plan. No phase-4 code before that.
+
+### Handoff (2026-11-15): where phase 3 stands, and what comes next (kept as a record)
 
 **Where things stand** (branch `phase-3`, not pushed):
 - **Gold signs v1:** 81 images (45 public_dev, 36 set T), hand-reviewed by the owner, in `data/annotations/gold_signs_v1/gold_signs_v1.jsonl`. Last gold commit `ddb044b` (train_7_23 s4 = DP.134).
