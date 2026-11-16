@@ -1,0 +1,8 @@
+# Answer-level fallback, prompt v2 (v1 + a structured-output schema for {verdict, answer}
+# on this call only, and one line: claim nothing about a sign that is not in the scene
+# graph; tuning T2, owner 2026-11-16) (docs/plans/phase-4.md; D3: Sonnet 5.5, inputs
+# image + question + scene graph only; no law_db, no retrieval).
+model: claude-sonnet-5-5
+effort: medium
+max_tokens: 1500
+output_schema: schema.json   # sent as output_config.format (json_schema)

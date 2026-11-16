@@ -176,3 +176,15 @@ def test_the_trace_keeps_the_raw_writer_and_fallback_replies(tmp_path, photo):
     sdk = RoutedSDK(parser=[prog], fallback=["prose", {"verdict": "no", "answer": "Không."}])
     a = pipeline(tmp_path, sdk, warm(tmp_path, photo)).answer(photo, "Ô tô có được đi vào không?")
     assert a.trace["fallback"]["raw"][0] == "prose" and len(a.trace["fallback"]["raw"]) == 2
+
+
+def test_only_the_fallback_call_sends_a_json_schema(tmp_path, photo):
+    """T2: the structured-output schema is on the fallback call only (not parser or writer)."""
+    prog = {"program": {"intent": "permitted", "action": "enter", "vehicle": {"vehicle_class": "car"}}}
+    sdk = RoutedSDK(parser=[prog], fallback=[{"verdict": "no", "answer": "Không."}])
+    pipeline(tmp_path, sdk, warm(tmp_path, photo)).answer(photo, "Ô tô có được đi vào không?")
+    sdk2 = RoutedSDK(parser=[PROG_YES], writer=[WRITER_YES])
+    pipeline(tmp_path, sdk2, warm(tmp_path, photo)).answer(photo, Q_YES)
+    calls = sdk.created + sdk2.created
+    with_schema = [role for role, kw in calls if "format" in kw.get("output_config", {})]
+    assert with_schema == ["fallback"]

@@ -2,10 +2,13 @@
 
 - The API key comes from the environment (ANTHROPIC_API_KEY, or any credential
   source the SDK resolves); it is never passed in code or written anywhere.
-- No JSON schema is sent (output_config.format). The API caps strict schemas at 24
-  optional and 16 union-typed parameters in total, far below what the query DSL
-  needs, so the reply is plain text: a bare JSON object, or one in a ```json fence.
-  Anything else raises LLMBadJSON; callers validate the object themselves.
+- By default no JSON schema is sent (output_config.format). The API caps strict
+  schemas at 24 optional and 16 union-typed parameters in total, far below what the
+  query DSL needs, so the reply is plain text: a bare JSON object, or one in a
+  ```json fence. Anything else raises LLMBadJSON; callers validate the object
+  themselves. A caller with a small flat reply may pass `output_schema`, sent as
+  output_config.format (json_schema); only the answer-level fallback from prompt v2
+  on does (tuning T2, owner 2026-11-16).
 - Before a request, its prompt is counted (messages.count_tokens) and the worst
   case (whole prompt as a cache write, full max_tokens out) is checked against
   the SpendGuard.
@@ -113,7 +116,8 @@ class LLMClient:
 
     def json_reply(self, *, system: str, user: str | list[dict[str, Any]], max_tokens: int = 4096,
                    effort: str | None = None, purpose: str = "",
-                   extra_messages: list[dict] | None = None) -> CallResult:
+                   extra_messages: list[dict] | None = None,
+                   output_schema: dict[str, Any] | None = None) -> CallResult:
         """One call whose reply must be a JSON object. Raises LLMRefusal,
         LLMTruncated, LLMBadJSON (after logging and counting the cost), or the
         SDK's own error for HTTP failures (logged with cost 0)."""
@@ -121,7 +125,10 @@ class LLMClient:
         images = 0 if isinstance(user, str) else sum(b["type"] == "image" for b in user)
         messages = [{"role": "user", "content": user}] + (extra_messages or [])
         sys_blocks = self.system_blocks(system)
-        kw: dict[str, Any] = {"output_config": {"effort": effort}} if effort else {}
+        oc: dict[str, Any] = {"effort": effort} if effort else {}
+        if output_schema is not None:
+            oc["format"] = {"type": "json_schema", "schema": output_schema}
+        kw: dict[str, Any] = {"output_config": oc} if oc else {}
         try:
             counted = self.sdk.messages.count_tokens(model=self.model, system=sys_blocks,
                                                      messages=messages, **kw)

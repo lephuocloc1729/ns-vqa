@@ -62,7 +62,7 @@ class PipelineConfig:
     parser_version: str = "v6"
     context_year: int | None = 2025             # the dataset's questions are from 2025
     writer_version: str = "v3"
-    answer_fallback_version: str = "v1"
+    answer_fallback_version: str = "v2"
     max_spend: float | None = None              # None: the spend guard's default
 
 

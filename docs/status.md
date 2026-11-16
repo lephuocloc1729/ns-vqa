@@ -1075,7 +1075,7 @@ Changes: writer prompt `answer/v3@7d0f2b8ddf1f` (T1: `max_tokens` 1200, at most 
 
 ## Next steps, in order
 
-**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). Next: T2 (fallback prompt v2), then T4. Then step 5 (freeze) and step 6 (holdout once, Haiku + fallback, about $0.67).
+**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). T2 built: fallback prompt `answer_fallback/v2@8678a19681a9` (a structured-output schema for {verdict, answer} on the fallback call only, plus "claim nothing about a sign that is not in the scene graph"), now the default; v1 stays. The T2 replay of the T1 runs (about $0.92) waits for the owner. Then T4. Then step 5 (freeze) and step 6 (holdout once, Haiku + fallback, about $0.67).
 
 All public_dev figures are labelled **tuned**.
 

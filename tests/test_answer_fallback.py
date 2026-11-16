@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DATASET_DIR = Path(os.environ.get("VQA_DATASET_DIR", ROOT / "VLSP2025-MLQA-Natural"))
 TRAIN_FILE = DATASET_DIR / "dataset" / "train data" / "vlsp_2025_train.json"
 V1_SHA = "dd75b41f09cde7e42178e90a6b9d5b6249b52fba195f3d1e1f9fa5bc5350b0da"
+V2_SHA = "8678a19681a93267548117372239d113225880ff45f937dc694fce358a9828f5"
 
 
 # ---------------------------------------------------------------- triggers (D3)
@@ -67,8 +68,9 @@ def test_prompt_is_pinned_sonnet_and_train_only():
         assert fb.check_reply(e["reply"], e["question"]) == [], e
 
 
-def test_prompt_never_mentions_law_articles_retrieval():
-    text = fb.system_prompt("v1").lower()
+@pytest.mark.parametrize("version", ["v1", "v2"])
+def test_prompt_never_mentions_law_articles_retrieval(version):
+    text = fb.system_prompt(version).lower()
     assert "law_db" not in text and "retriev" not in text
 
 
@@ -76,8 +78,9 @@ def test_examples_use_the_datasets_exact_text_and_answers():
     if not TRAIN_FILE.exists():
         pytest.skip("dataset not available")
     train = {x["id"]: x for x in json.loads(TRAIN_FILE.read_text(encoding="utf-8"))}
-    for e in fb.examples("v1"):
-        assert e["question"] == train[e["question_id"]]["question"]
+    for v in ("v1", "v2"):
+        for e in fb.examples(v):
+            assert e["question"] == train[e["question_id"]]["question"]
         assert e["reply"]["answer"] == train[e["question_id"]]["answer"]
 
 
@@ -95,6 +98,21 @@ def test_examples_use_the_datasets_exact_text_and_answers():
 ])
 def test_reply_check(reply, q, ok):
     assert (fb.check_reply(reply, q) == []) is ok
+
+
+def test_v2_is_pinned_the_default_and_v1_plus_a_schema_and_one_line():
+    """Tuning T2 (owner, 2026-11-16)."""
+    assert fb.prompt_id("v2") == "answer_fallback/v2@" + V2_SHA[:12], "prompt changed: make a new version"
+    assert fb.DEFAULT_VERSION == "v2" and fb.output_schema("v1") is None
+    assert fb.examples("v2") == fb.examples("v1")
+    v1 = (fb.PROMPTS_DIR / "v1" / "spec.md").read_text(encoding="utf-8").splitlines()
+    v2 = (fb.PROMPTS_DIR / "v2" / "spec.md").read_text(encoding="utf-8").splitlines()
+    assert [l for l in v2 if l not in v1] == ["- Claim nothing about a sign that is not in the scene graph."]
+    assert [l for l in v1 if l not in v2] == []
+    sch = fb.output_schema("v2")
+    assert sch["required"] == ["verdict", "answer"] and sch["additionalProperties"] is False
+    assert sch["properties"]["verdict"]["enum"] == list(fb.VERDICTS)
+    assert {k: v for k, v in fb.config("v2").items() if k != "output_schema"} == fb.config("v1")
 
 
 # ---------------------------------------------------------------- the call (fake SDK)
@@ -132,9 +150,9 @@ SCENE = SceneGraph.model_validate({"scene_id": "t", "signs": [
      "position": {"rank_top_down": 1, "side": "right"}}]})
 
 
-def run(photo, replies, scene=SCENE):
+def run(photo, replies, scene=SCENE, version=fb.DEFAULT_VERSION):
     sdk = FakeSDK(replies)
-    f = fb.AnswerFallback(llm=LLMClient(model="claude-sonnet-5-5", sdk=sdk, guard=SpendGuard(1.0)))
+    f = fb.AnswerFallback(llm=LLMClient(model="claude-sonnet-5-5", sdk=sdk, guard=SpendGuard(1.0)), version=version)
     return f.answer(photo, "Biển trong ảnh có ý nghĩa gì?", scene), sdk
 
 
@@ -163,3 +181,12 @@ def test_two_failures_or_a_refusal_fail(photo):
     assert (r.status, r.attempts) == ("failed", 2)
     r, sdk = run(photo, [("", "refusal")])
     assert (r.status, r.attempts, len(sdk.created)) == ("failed", 1, 1)
+
+
+def test_v2_sends_the_schema_as_output_config_format_and_v1_does_not(photo):
+    ok = (json.dumps({"verdict": "value", "answer": "Cấm đỗ xe."}, ensure_ascii=False), "end_turn")
+    _, sdk = run(photo, [ok], version="v2")
+    oc = sdk.created[0]["output_config"]
+    assert oc == {"effort": "medium", "format": {"type": "json_schema", "schema": fb.output_schema("v2")}}
+    _, sdk = run(photo, [ok], version="v1")
+    assert sdk.created[0]["output_config"] == {"effort": "medium"}

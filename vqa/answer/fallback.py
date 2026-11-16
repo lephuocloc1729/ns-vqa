@@ -6,7 +6,8 @@ When the rules can't answer, one Sonnet 5.5 vision call answers from:
 - the pass-1 scene graph (or null when perception failed).
 
 Nothing else: no law articles, no retrieval, no train QA beyond the prompt's fixed
-style examples. The reply is one plain JSON object `{"verdict", "answer"}`,
+style examples. The reply is one JSON object `{"verdict", "answer"}` (from prompt
+v2 on, constrained by a structured-output schema on this call),
 checked in Python, with one retry that sends only the error. The answer is
 marked `basis: ["fallback"]` and carries no rule citation, so it is never shown
 as a rule-engine conclusion.
@@ -42,7 +43,7 @@ from vqa.perception.wire import retry_messages
 from vqa.schemas import Answer, SceneGraph, Verdict
 
 PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts" / "answer_fallback"
-DEFAULT_VERSION = "v1"
+DEFAULT_VERSION = "v2"           # tuning T2 (owner, 2026-11-16); v1: step 2 and T1
 VERDICTS = ("yes", "no", "value", "unknown")
 TRIGGERS = ("perception_failed", "out_of_scope", "parse_failed", "program_cannot_run",
             "unreadable_sign", "uncertain", "unknown")
@@ -101,9 +102,18 @@ def system_prompt(version: str = DEFAULT_VERSION) -> str:
     return spec + "\n\n" + "\n\n".join(shots)
 
 
+def output_schema(version: str = DEFAULT_VERSION) -> dict[str, Any] | None:
+    """The reply's JSON schema (prompt v2 on: sent as output_config.format), or None."""
+    name = config(version).get("output_schema")
+    return json.loads((_dir(version) / name).read_text(encoding="utf-8")) if name else None
+
+
 def prompt_hash(version: str = DEFAULT_VERSION) -> str:
     cfg = (_dir(version) / "config.yaml").read_text(encoding="utf-8")
-    return hashlib.sha256((system_prompt(version) + "\n--config--\n" + cfg).encode("utf-8")).hexdigest()
+    text = system_prompt(version) + "\n--config--\n" + cfg
+    if name := config(version).get("output_schema"):        # v2 on; v1's hash is unchanged
+        text += "\n--schema--\n" + (_dir(version) / name).read_text(encoding="utf-8")
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def prompt_id(version: str = DEFAULT_VERSION) -> str:
@@ -172,6 +182,7 @@ class AnswerFallback:
         self.effort = cfg.get("effort")
         self.max_tokens = int(cfg.get("max_tokens", 1500))
         self._system = system_prompt(version)
+        self._schema = output_schema(version)
         self.prompt_id = prompt_id(version)
 
     def answer(self, image_path: str | Path, question: str, scene: SceneGraph | None) -> FallbackAnswer:
@@ -185,7 +196,7 @@ class AnswerFallback:
             try:
                 call = self.llm.json_reply(system=self._system, user=user, max_tokens=self.max_tokens,
                                            effort=self.effort, purpose="answer fallback",
-                                           extra_messages=extra)
+                                           extra_messages=extra, output_schema=self._schema)
             except SpendLimitExceeded:
                 raise
             except LLMBadJSON as e:

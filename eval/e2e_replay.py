@@ -35,8 +35,9 @@ from eval import gold_signs as gs  # noqa: E402
 from eval import perception_eval as pe  # noqa: E402
 
 RUNS = ee.RUNS
-# Per-call costs for the estimate (step-2 measurements: logs/api_calls.jsonl).
-COST = {"writer": 0.0004, "fallback": 0.011, "judge": 0.0065}
+# Per-question costs for the estimate (step 2, measured: writer and judge per call, the
+# fallback per question with its retries; logs/api_calls.jsonl and the H run traces).
+COST = {"writer": 0.0004, "fallback": 0.006, "judge": 0.0055}
 
 
 class StoredParser:
