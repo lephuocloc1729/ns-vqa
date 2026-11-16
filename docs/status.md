@@ -1180,7 +1180,7 @@ Replays of the T2 runs with the T4 scenes (`--allow-scene-changes`; scenes chang
 
 ### Step 6, first start stopped before any call (2026-11-16)
 
-The first holdout start (run `ec99ce25eb37`, 07:31 UTC, commit `db587c1`) stopped on its first question, before any API call, with `KeyError: 'public_holdout'`:
+The first holdout start (run `ec99ce25eb37`, 07:31 UTC, commit `db587c1`) stopped before any API call, with `KeyError: 'public_holdout'`:
 - **Cause:** the default image resolver called `gold_signs.image_path`, which knows only train and public_dev. The test had passed its own resolver.
 - **What happened:** the usage log has no call after the start; nothing was answered, scored or printed. Only the sentinel `eval/holdout_ran.json` (status `started`) was written, as designed.
 - **Fix:** `e2e_holdout.image_file` reads the public test image folder. Tested, including a run through the default resolver; all 49 holdout questions' images resolve (count only).
