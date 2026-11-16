@@ -314,7 +314,10 @@ def run(set_name: str, model: str, max_spend: float, sdk=None, out_dir: Path = R
                                 "retried": res.retried, "cost_usd": res.cost_usd,
                                 "reran": any(r["pass"] == "rerun" for r in res.replies),
                                 "issues": res.issues, "raw_codes": res.raw_codes,
-                                "scene": res.scene.model_dump(mode="json", by_alias=True) if res.scene else None},
+                                "scene": res.scene.model_dump(mode="json", by_alias=True) if res.scene else None,
+                                # phase 4, P1: the raw pass-1 / re-run replies (model outputs
+                                # only), so `warm` can rebuild this run's cache records
+                                "effort": res.effort, "replies": res.replies},
                                ensure_ascii=False) + "\n")
             f.flush()
             print(f"[{n}/{len(images)}] {image_id}: {'ok' if res.ok else res.error}  "
@@ -751,6 +754,145 @@ def compare(pass1: Path, fallbacks: list[Path]) -> dict[str, Any]:
     return out
 
 
+# ---------------------------------------------------------------- warming the scene cache (phase 4, P1)
+#
+# A run file keeps its raw replies: the pass-1 / re-run replies (`replies`, from the
+# run command since phase 4) and the tile / crop replies (`fallback_replies`). `warm`
+# writes them back as scene-cache records in a dedicated directory, which it empties
+# first, so the cache holds one run's model outputs and nothing else. It then rebuilds
+# every scene from that cache with no API call and checks it equals the run file's.
+
+WARM_DIR = ROOT / "cache" / "warm"
+WARM_MARKER = "WARMED_RUN.json"
+
+
+def _sha256_file(path: Path) -> str:
+    import hashlib
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def _scene_json(scene) -> Any:
+    return scene.model_dump(mode="json", by_alias=True) if scene is not None else None
+
+
+def backfill_raw(path: Path, cache_dir: Path | None = None, log: Path | None = None) -> Path:
+    """For a fallback run made before phase 4 (no `replies` in its rows): copy each
+    image's pass-1 / re-run replies from the scene cache into <run>.withraw.jsonl. Only
+    if every cached reply's request id belongs to the run's pass-1 run in the usage log,
+    so another run's replies can never be copied in. No API call."""
+    from vqa.perception.cache import SceneCache
+
+    head, rows = load_run(path)
+    p1 = (head.get("fallback") or {}).get("pass1_run")
+    if not p1:
+        raise SystemExit(f"{Path(path).name}: not a fallback run (no pass1_run)")
+    if any("replies" in r for r in rows):
+        raise SystemExit(f"{Path(path).name} already keeps its raw replies")
+    log = Path(log) if log else LOG
+    ids = {c.get("request_id") for c in (json.loads(l) for l in log.read_text(encoding="utf-8").splitlines()
+                                         if l.strip()) if c.get("run_id") == p1}
+    ids.discard(None)
+    version = _version_of(head["prompt_id"])
+    if scene_prompt.prompt_id(version) != head["prompt_id"]:
+        raise SystemExit(f"{Path(path).name}: prompt {head['prompt_id']} is not the current one")
+    effort = scene_prompt.effort_for(head["model"], version)
+    cache = SceneCache(cache_dir)
+    split_of = dict(set_images(head["set"]))
+    out_rows, bad = [], []
+    for r in rows:
+        sha = _sha256_file(gs.image_path(r["image_id"], split_of[r["image_id"]]))
+        rec = cache.get(sha, head["model"], effort, head["prompt_id"])
+        replies = rec.replies if rec else []
+        rids = [x.get("request_id") for x in replies if x.get("request_id")]
+        if r["scene"] is not None and (not rids or any(x not in ids for x in rids)):
+            bad.append(r["image_id"])
+        elif r["scene"] is not None and any(x["pass"] == "rerun" for x in replies) != bool(r.get("reran")):
+            bad.append(r["image_id"])
+        out_rows.append({**r, "effort": effort, "replies": replies})
+    if bad:
+        raise SystemExit(f"the scene cache does not hold pass-1 run {p1}'s replies for: {', '.join(bad)}")
+    out = Path(path).with_name(Path(path).name.replace(".jsonl", ".withraw.jsonl"))
+    with open(out, "w", encoding="utf-8") as f:
+        f.write(json.dumps({**head, "raw_backfilled": {"from": "scene cache", "pass1_run": p1,
+                                                       "checked": "request ids against the usage log"}},
+                           ensure_ascii=False) + "\n")
+        for r in out_rows:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    return out
+
+
+def _clear_cache_dir(d: Path) -> None:
+    from vqa.perception.cache import CACHE_DIR
+    if d.resolve() == CACHE_DIR.resolve():
+        raise SystemExit("warm never writes into the main scene cache; give a dedicated directory")
+    if d.exists():
+        for f in d.glob("*/*.json"):
+            f.unlink()
+        (d / WARM_MARKER).unlink(missing_ok=True)
+
+
+def warm_run(path: Path, cache_dir: Path | None = None) -> dict[str, Any]:
+    """Rebuild one run's scene-cache records from its run file in `cache_dir` (emptied
+    first), then rebuild every scene from that cache with no call and compare."""
+    from vqa.perception.cache import CacheRecord, RegionRecord, SceneCache
+    from vqa.perception.fallback import FallbackConfig
+    from vqa.perception.scene import perceive
+
+    head, rows = load_run(path)
+    d = Path(cache_dir) if cache_dir else WARM_DIR
+    version = _version_of(head["prompt_id"])
+    if scene_prompt.prompt_id(version) != head["prompt_id"]:
+        raise SystemExit(f"{Path(path).name}: prompt {head['prompt_id']} is not the current one")
+    missing = [r["image_id"] for r in rows if r["scene"] is not None and not r.get("replies")]
+    if missing:
+        raise SystemExit(f"{Path(path).name} keeps no raw pass-1 replies for {len(missing)} images "
+                         "(run `backfill-raw`, or use a run made since phase 4)")
+    fb = head.get("fallback")
+    cfg = None
+    if fb:
+        cfg = FallbackConfig(policy=fb["policy"])
+        want = cfg.describe()
+        if (fb.get("tile"), fb.get("crop")) != (want["tile"], want["crop"]):
+            raise SystemExit(f"{Path(path).name}: fallback prompts {fb.get('tile')}, {fb.get('crop')} "
+                             f"are not the current {want['tile']}, {want['crop']}")
+    _clear_cache_dir(d)
+    cache = SceneCache(d)
+    effort = scene_prompt.effort_for(head["model"], version)
+    split_of = dict(set_images(head["set"]))
+    records = 0
+    for r in rows:
+        img = gs.image_path(r["image_id"], split_of[r["image_id"]])
+        sha = _sha256_file(img)
+        if r.get("replies"):
+            cache.put(CacheRecord(sha, head["model"], r.get("effort", effort), head["prompt_id"],
+                                  replies=r["replies"]))
+            records += 1
+        for x in r.get("fallback_replies", []):
+            if x.get("failed"):
+                continue
+            v = _version_of(x["prompt_id"])
+            if scene_prompt.prompt_id(v) != x["prompt_id"]:
+                raise SystemExit(f"{r['image_id']}: region prompt {x['prompt_id']} is not the current one")
+            kind = x["kind"]
+            cache.put_region(RegionRecord(sha, head["model"], scene_prompt.effort_for(head["model"], v),
+                                          x["prompt_id"], tuple(x["box"]), replies=[{
+                "pass": kind if x.get("attempt", 1) == 1 else f"{kind} retry",
+                "raw_text": x["raw_text"], "stop_reason": "end_turn", "usage": x.get("usage") or {},
+                "cost_usd": x.get("cost_usd", 0.0), "request_id": x.get("request_id")}]))
+            records += 1
+    mismatches = []
+    for r in rows:
+        img = gs.image_path(r["image_id"], split_of[r["image_id"]])
+        res = perceive(img, model=head["model"], version=version, client=_NoCalls(head["model"]),
+                       cache=cache, use_cache=True, fallback=cfg)
+        if _scene_json(res.scene) != r["scene"]:
+            mismatches.append(r["image_id"])
+    report = {"run_id": head["run_id"], "run_file": Path(path).name, "cache_dir": str(d),
+              "images": len(rows), "records": records, "mismatches": mismatches, "ok": not mismatches}
+    (d / WARM_MARKER).write_text(json.dumps(report, indent=1), encoding="utf-8")
+    return report
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -787,7 +929,23 @@ def main() -> None:
     fe.add_argument("--runs", type=int, default=1)
     fe.add_argument("--calibrate", type=Path, nargs="+",
                     help="fallback runs whose logged calls set the per-call costs and retry shares")
+    bf = sub.add_parser("backfill-raw", help="copy a pre-phase-4 run's pass-1 replies from the scene cache "
+                                             "into <run>.withraw.jsonl (checked against the usage log; no call)")
+    bf.add_argument("file", type=Path)
+    wm = sub.add_parser("warm", help="rebuild one run's scene-cache records in a dedicated directory "
+                                     "(emptied first) and check the rebuilt scenes (no call)")
+    wm.add_argument("file", type=Path)
+    wm.add_argument("--cache-dir", type=Path, default=None, help=f"default {WARM_DIR}")
     a = ap.parse_args()
+    if a.cmd == "backfill-raw":
+        print(backfill_raw(a.file))
+        return
+    if a.cmd == "warm":
+        rep = warm_run(a.file, a.cache_dir)
+        print(json.dumps(rep, indent=2))
+        if not rep["ok"]:
+            raise SystemExit(1)
+        return
     if a.cmd == "fallback":
         if a.replay is None and a.max_spend is None:
             raise SystemExit("--max-spend is required unless --replay is given")

@@ -75,7 +75,7 @@ Not in phase 4:
   - one regeneration, with the failure as the error;
   - if that fails too, the deterministic **template answer**: the verdict, plus the proof's main reason and citation. So the shipped answer never contradicts the engine;
   - the template rate counts toward D5's 5% limit.
-- **Prompt:** `prompts/answer/v1/`, with text-only examples from train answers in the dataset's style. It is versioned and pinned like the other prompts.
+- **Prompt:** `prompts/answer/v1/`, with text-only examples from train answers in the dataset's style. It is versioned and pinned like the other prompts. **v2** (owner, 2026-11-16) adds a Đúng/Sai, an `unknown` and a sign-meaning example, and it is the version used from step 2 on.
 
 ### 2. The answer-level fallback (D3; not yet in DESIGN)
 
@@ -106,7 +106,7 @@ Not in phase 4:
   - it uses one cache directory per run (`$VQA_SCENE_CACHE_DIR`). The three H runs share cache keys (same image, model, effort and prompt), so they can't share one directory;
   - **cache-only mode:** a development run on a warmed cache treats a cache miss as an error and makes no perception call;
   - **reproduction check (no API):** the scene each image's warmed cache rebuilds must equal the scene stored in the run file. A run that fails this check is not used.
-  - **Open point P1** below: two of the three H runs can't be warmed as planned.
+  - **P1 (decided below):** H is `9981d8112688` plus two fresh Haiku runs whose run files keep their raw replies. H is warmed and run one run at a time.
 
 ### 4. End-to-end eval (`eval/e2e_eval.py`) and the judge (`eval/judge.py`)
 
@@ -148,7 +148,7 @@ Not in phase 4:
    - Run oracle A's **Yes/No part** on public_dev with the engine only (verdicts, no writer). That checks DESIGN's claim that the rule engine is close to 100% with gold scenes and programs, at no cost.
    - Run the cache warming and its reproduction check.
 2. **Development runs on public_dev, reusing the checkpoint-2 scenes** through warmed caches (no new perception spend):
-   - **H:** Haiku + fallback scenes, the 3 runs `b83d5dae690e`, `023c1a474288` and `9981d8112688` (see P1);
+   - **H:** Haiku + fallback scenes: `9981d8112688` plus two fresh Haiku pass-1 + fallback runs made by the owner (P1);
    - **S:** Sonnet + fallback scenes, the 1 run `949418393534`;
    - **O:** oracle A (gold scenes and programs), plus oracle B on each H run.
 
@@ -198,7 +198,21 @@ Per-question costs, from phase-2 and phase-3 logs where measured:
 
 Every paid step shows its estimate and waits for the owner's go-ahead, under the spend guard. **The phase ceiling is $10 (D9).** If spend nears it, tuning runs stop first, so the holdout run stays funded.
 
-## Open points for the owner (must be settled before procedure step 2)
+## Decisions on the open points (owner, 2026-11-16)
+
+- **P1, decided: neither (b) nor (c).** Fresh Haiku runs would overwrite `9981d8112688`'s cache record too, since the three runs share keys. So:
+  1. `perception_eval.py run` (and `fallback`) store the pass-1 and re-run raw replies in the run file. This is eval-only, with no scoring change, and it is tested.
+  2. An eval-side **`warm`** step rebuilds the cache records of one run from its run file. It checks that the rebuilt verified scenes equal the file's scenes.
+  3. **The H set = `9981d8112688` + two fresh Haiku pass-1 runs, each followed by the fallback.** The owner runs them. `9981d8112688`'s pass-1 replies are copied from the scene cache into a copy of its run file before any fresh run. They are checked against the usage log's request ids for pass-1 run `932c3d2b7009`.
+  4. **The pipeline runs H one run at a time:** warm, run, next. A test checks that warming run k leaves no record of any run j ≠ k behind.
+- **P2, accepted as proposed.** Faithfulness and the template rate are both counted over the answers that go through the writer path (writer, regeneration or template), pooled over the 3 H runs. Fallback answers are left out and reported separately.
+- **P3, accepted as proposed.** When the fallback call fails after its retry, the engine's own answer ships through the writer path, counted as a fallback failure.
+- **Writer prompt v2, before any step-2 result:** `prompts/answer/v2` adds examples for a Đúng/Sai answer, an `unknown` answer and a sign-meaning answer.
+  - They use train questions with their exact text, and hand-made scenes modelled on them (no dataset files are copied).
+  - v2 is pinned and v1 stays.
+  - The other writer readings are accepted: question numbers and codes may appear in the answer; at most two writer calls; effort `low`.
+
+## Open points as first written (kept as a record)
 
 These came up while writing the plan. None of them changes step 1.
 
