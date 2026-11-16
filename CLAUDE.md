@@ -103,8 +103,9 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
   - **Affected verdicts:** a "yes" from `permitted`/`speed_ok`, or a "no" from `required`/`exists_violation`. The answer lists the sign in `uncertain_signs`.
   - **Relevance comes from the sign's visible category** (`Engine.visual_category`, `could_matter`):
     - red-bordered circle (prohibitory): permissions, speed, violations;
+    - rectangle with a red background or red border (local ban notices, red plates): counts as prohibitory, so permissions, speed, violations;
     - blue circle (mandatory): directions, speed, `required`;
-    - blue/green/white rectangle (board): speed, or a claim about a given lane;
+    - other rectangles (blue/green/white board): speed, or a claim about a given lane;
     - triangle (warning) and end-of-restriction signs: never;
     - nothing recorded: always.
   - **Not affected:** answers decided by a readable sign.

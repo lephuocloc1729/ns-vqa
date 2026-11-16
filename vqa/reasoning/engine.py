@@ -200,8 +200,12 @@ class Engine:
     def visual_category(sign) -> str:
         """What an unreadable sign could be, from how it looks (QCVN 41 sign groups):
         red_circle (prohibitory, incl. P.130/P.131 on blue), blue_circle (mandatory),
+        red_board (a rectangle with a red background or border: local ban notices and
+        red plates, treated as prohibitory; owner, 2026-11-16, plan item 1b.4),
         board (blue/green/white rectangle: information, lane boards, plates),
-        warning (triangle), octagon (R.122 stop), or unknown (nothing recorded)."""
+        warning (triangle), octagon (R.122 stop), or unknown (nothing recorded).
+        Relevance only: the gate's matching (vqa.perception.matching) keeps its own
+        groups, where every rectangle is a board."""
         shape = sign.shape.value if sign.shape else None
         border = sign.border.value if sign.border else None
         bg = sign.background.value if sign.background else None
@@ -209,6 +213,8 @@ class Engine:
             return "red_circle"
         if shape == "circle" and bg == "blue":
             return "blue_circle"
+        if shape in ("rectangle", "square") and "red" in (border, bg):
+            return "red_board"
         if shape in ("rectangle", "square"):
             return "board"
         if shape in ("triangle", "diamond"):
@@ -228,6 +234,8 @@ class Engine:
         if category in ("warning", "end_of_restriction"):
             return False
         lane = getattr(p, "lane", None)
+        if category == "red_board":          # counts as prohibitory (plan item 1b.4)
+            category = "red_circle"
         if isinstance(p, Permitted):
             if category == "red_circle":
                 return True
