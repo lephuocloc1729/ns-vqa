@@ -561,6 +561,39 @@ Full test suite: 394 passed. Prolog loads.
   - **Upper bounds** if every one of those were fixed: code F1 about 85% for Haiku and 88% for Sonnet. Realistically about half get fixed, so roughly 78–80%.
   - **Recall needs a region-level pass,** not box crops: tile dense scenes, or crop whole gantries and boards, then read each part. Haiku is 8 signs short of 90% recall on set T; its 12 dense-scene misses are the pool.
 
+**public_dev checkpoint 1 (gate v2, prompt v4), 2026-11-16.** `perception_gate_v2`, `scene/v4@153536ec5975`, 45 gate images (143 gold signs; 31 `readable: false` and 2 `local_notice` excluded), 17 non-duplicates (27 gold signs; duplicate = also in train). CIs are image bootstraps from `eval/report.py` (`bootstrap_ci`, 10,000 resamples, seed 20261115); the split uses `duplicated_images`. The CI of a mean pools each image's counts over the runs. Not tuned: no prompt or trigger change came from public_dev.
+
+- **Runs:** Haiku `e0128c462ed3`, `2dd3a6e61573`, `932c3d2b7009`; Sonnet `f19dd5bc36f6`.
+- **Sonnet has one run, not three (owner's decision, 2026-11-16).** After the first run the owner chose to report without the other two. Its verdict is "not decided (1 of 3 runs)", indicative FAIL. To pass, the two missing runs would have to average about 90% code F1, against Haiku's run-to-run spread of 6 points.
+
+| public_dev checkpoint 1 | Haiku v4, mean of 3 | Haiku runs (e012 / 2dd3 / 932c) | Sonnet v4, 1 run |
+|---|---|---|---|
+| recall, all (95% CI) | **79.7%** (69.1–92.5) | 79.0% (67.9–92.4) / 79.7% (69.4–92.6) / 80.4% (69.8–93.3) | **81.8%** (69.6–96.3) |
+| code F1 row-level, all (CI) | **68.1%** (59.6–78.4) | 71.0% (62.6–81.9) / 64.9% (56.7–75.3) / 68.4% (58.1–80.3) | **75.1%** (67.7–84.6) |
+| code F1 strict, all | 67.9% | 71.0% / 64.9% / 67.7% | 74.3% |
+| rule-bearing F1, all (reported, not gated) | 70.2% | 73.1% / 66.3% / 71.2% | 77.6% |
+| value accuracy, all | 88.1% | 78.6% / 92.9% / 92.9% | 76.5% |
+| recall, non-duplicates (CI) | 87.7% (75.4–100) | 92.6% (84.4–100) / 85.2% (70.3–100) / 85.2% (70.3–100) | 100% (100–100) |
+| code F1, non-duplicates (CI) | 71.2% (57.5–91.8) | 74.1% (56.8–100) / 64.2% (49.1–84.2) / 75.5% (60.6–95.2) | 80.7% (70.1–94.7) |
+| code F1 strict / rule-bearing, non-dup | 70.0% / 67.9% | 74.1% / 64.2% / 71.7% · 66.7% / 60.9% / 76.2% | 77.2% / 78.3% |
+| predictions (gold 143) | 118 | 116 / 119 / 120 | 126 |
+| re-runs · retries · errors | 22.3/45 · 2.7 · 0 | 19 · 2 · 0 / 24 · 3 · 0 / 24 · 3 · 0 | 20/45 · 1 · 0 |
+| UNKNOWN codes | 12 | 8 / 13 / 15 | 18 |
+| cost | $0.198 ($0.0015/image) | $0.062 / $0.068 / $0.067 | $0.403 ($0.0090/image) |
+| **gate verdict** (recall ≥ 90% and F1 ≥ 85%) | **FAIL** | | **not decided (1 of 3), indicative FAIL** |
+
+- **Anchoring (plan item 6, D2).** Results by the model that drafted the gold, mean over runs, all images. The 8 Opus images are none of the non-duplicates, so this split is confounded with image difficulty.
+
+  | drafted by | images (gold) | Haiku v4 recall / F1 | Sonnet v4 recall / F1 |
+  |---|---|---|---|
+  | Haiku 5.5 (p2), "anchored (Haiku pre-fill)" | 37 (111) | 77.2% (65.6–92.4) / 63.8% (55.6–76.0) | 82.9% (68.4–98.7) / 73.0% (64.9–83.8) |
+  | Opus 5.5 (p1) | 8 (32) | 88.5% (79.2–100) / 82.4% (77.1–91.8) | 78.1% (60.9–100) / 82.8% (71.6–98.0) |
+
+  There is no sign that the Haiku pre-fill helped Haiku: it does worse on the images Haiku drafted.
+- **Against set T:** public_dev is a little below set T for Haiku (recall 79.7% vs 83.3%, F1 68.1% vs 72.3%). It is lower on recall for Sonnet (81.8% vs 90.8%) and higher on F1 (75.1% vs 69.8%). That is what the recommendation expected: both models fail on F1, and Sonnet's recall isn't near 90% after all.
+- **Spend:** checkpoint 1 cost $0.601 (Haiku $0.198, under its $0.35 ceiling; Sonnet $0.403 for one run). Phase 3 total: $1.84.
+- **public_dev per-image errors were not looked at.** They are a record only, per the handoff rules, and nothing here is drawn from them.
+
 ## Next steps, in order
 
 ### Handoff (2026-11-15): where phase 3 stands, and what comes next
@@ -581,7 +614,9 @@ Full test suite: 394 passed. Prolog loads.
 - **Phase-3 API spend so far: $1.24** over 421 calls. That is the gold pre-fill ($0.29 Opus + $0.06 Haiku) and six set-T runs ($0.89: Haiku v1–v4 $0.20, Sonnet v2 and v4 $0.68). There has been no public_dev run.
 - `ANTHROPIC_API_KEY` is not set in the assistant's shell: the owner runs the paid commands.
 
-**Checkpoint 1 procedure** (approved by the owner; run exactly this):
+**Checkpoint 1: done (2026-11-16).** Haiku v4 FAIL (recall 79.7%, code F1 68.1%, mean of 3). Sonnet v4 was run once (owner's decision): recall 81.8%, F1 75.1%, not decided, indicative FAIL. The results entry is above. Phase-3 spend is now $1.84. Next: the owner's decision on plan item 7 (the fallback, built on set T; see "Open owner decisions"), then checkpoint 2.
+
+**Checkpoint 1 procedure** (approved by the owner; kept as a record; Sonnet stopped after 1 of 3 runs):
 1. **Haiku v4 × 3 on public_dev**, each run with `--max-spend 0.5`; ceiling **$0.35** for the three runs (estimate $0.20 calibrated, range $0.13–0.25):
    `.venv/bin/python eval/perception_eval.py run --set public_dev --model claude-haiku-5-5 --version v4 --max-spend 0.5` (three times)
 2. Score with the gate (mean of 3): `.venv/bin/python eval/perception_eval.py score <the three run files>`.
