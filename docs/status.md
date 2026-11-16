@@ -968,15 +968,92 @@ So the rules decide **29 of 47 (62%)** with gold parts. The decided Yes/No answe
 - The engine's Đúng is believed correct. The image shows the truck plate, and the owner's gold note agrees.
 - It is **scored as is** (counted wrong) in every report.
 
+### Step 2 results (public_dev, tuned, 2026-11-16)
+
+Runs (owner, 2026-11-16): fresh Haiku pass-1 runs `04d55157f9ce` and `63128b1c2fd6` with fallbacks `1c9ca7368074` and `b490cd60479f`; pipeline runs H1 `e3a07fadeb7a` (scenes `9981d8112688`), H2 `fd6c15ef8d69`, H3 `d052db954849`, S `4ac8ae832b37` (scenes `949418393534`); oracle A `5f0160f4bd7c`; oracle B on H1 only, `71f861f94792` (owner decision: no oracle B for H2 and H3). Writer `answer/v2@4887560f8b50`, fallback `answer_fallback/v1@dd75b41f09cd`, parser v6, judge `judge/v1@7c500c35df27`. Outputs (local, gitignored): `eval/runs/e2e/score_tuned.json`, `eval/runs/e2e/attribution_H1.json`.
+
+**Spend for step 2: $2.20** (perception $0.25, pipeline runs and oracles $1.95). Phase 4 so far: $2.20 of the $10 ceiling.
+
+| run | questions | overall | strict | Yes/No | Natural QA | non-dup (95% CI) | rule coverage | rules-only | fallback rate | template rate |
+|---|---|---|---|---|---|---|---|---|---|---|
+| H1 | 51 | 81.4% | 78.4% | 20/24 | 79.6% | 92.1% (72–98) | 56.9% | 86.2% (29) | 43.1% | 2/30 |
+| H2 | 51 | 82.4% | 78.4% | 21/24 | 77.8% | 84.2% (62–94) | 49.0% | 86.0% (25) | 51.0% | 2/28 |
+| H3 | 51 | 78.4% | 74.5% | 19/24 | 77.8% | 78.9% (57–91) | 58.8% | 88.3% (30) | 41.2% | 3/32 |
+| **H pooled** | 153 | **80.7%** | 77.1% | 83.3% | 78.4% | **85.1% (74–92)** | 54.9% | 86.9% (84) | 45.1% | **7/90 = 7.8%** |
+| S | 51 | 80.4% | 78.4% | 18/24 | 85.2% | 86.8% (65–96) | 66.7% | 80.9% (34) | 33.3% | 1/34 |
+| oracle A | 47 | 86.2% | 83.0% | 16/20 | 90.7% | 94.1% (73–99) | 78.7% | 86.5% (37) | 21.3% | 4/37 |
+| oracle B (H1) | 47 | 79.8% | 74.5% | 16/20 | 79.6% | 94.1% (73–99) | 57.4% | 83.3% (27) | 42.6% | 3/28 |
+
+- Non-duplicate subsets: 19 questions per pipeline run (57 pooled), 17 for the oracles. "Duplicate" means the image is also in train.
+- **Gate (D5): FAIL.** Faithfulness 100% (90 of 90 writer-path answers), but the template rate is 7.8% (7 of 90), above the 5% cap.
+- **Perception rule (D2): Haiku + fallback goes to holdout.** S 80.4% is below the H mean 80.7% + 5 points and below the best H run 82.4%.
+- **Fallback triggers, H pooled:** uncertain 34, out_of_scope 24, unreadable_sign 7, unknown 2, parse_failed 2. Fallback failures (P3): 6.
+- **Stage attribution, H1 only** (11 answers not fully correct): perception 3 (`0002`, `0036`, `0051`), parser 1 (`0065`), rules, writer or fallback 7.
+
+### Step 2 diagnosis (public_dev, tuned, 2026-11-16; no API calls, nothing changed)
+
+**1. The 7 template answers (D5) all come from the writer reply being cut off at `max_tokens=600`.**
+- Cases: `0026` in H1, H2 and H3; `0094` in H1, H2 and H3; `0065` in H3. Each has one attempt with the error "the reply was cut off at max_tokens=600". By design, the writer does not retry after a cut-off.
+- No template case comes from a guard rule: the guard never rejected a complete writer reply in step 2.
+- **Cause: the writer config (`prompts/answer/v2/config.yaml`, `max_tokens: 600`), not the guard or the digest.**
+  - The three questions have large digests: a local plate and two or more applying signs (`0026`, `0094`), or five signs (`0065`).
+  - Complete writer replies reach 582 output tokens (median 188, 90th percentile 462). 15 of the 189 writer calls in the log hit 600.
+  - The raw cut-off replies are not kept in the run files, so it is not known whether the length is answer text or reasoning.
+- The template answers themselves were right in 4 of 7 cases (`0026` ×3, `0065`). `0094` is wrong in all three, for the reason in part 4.
+
+**2. The 34 "uncertain" triggers.** Each was replayed with the engine only, on the run's warmed scene and parsed program, removing one source of alternative readings at a time. Sources:
+- pass 1's own `alt` field: the model gives a second reading, usually the sibling variant, e.g. P.131b vs P.131c;
+- re-run disagreement (`verify.merge`);
+- `crop_always` keeping pass 1's reading as an alternative after the crop replaced it.
+
+Results:
+
+| alternative that causes "uncertain" | cases | rules answer if dropped | likely right | wrong | needs the judge | still unknown |
+|---|---|---|---|---|---|---|
+| pass 1's own `alt` only | 21 | 20 | 15 | 3 | 2 | 1 |
+| re-run disagreement only | 4 | 2 | 1 | 2 | 0 | 2 |
+| `crop_always`'s kept pass-1 reading only | 4 | 4 | 4 | 0 | 0 | 0 |
+| several sources (all include crop_always) | 5 | 4 | 1 | 2 | 1 | 1 |
+
+- **So 25 of the 34 come from readings that disagree within pass 1 itself** (its own `alt`, or the re-run). 4 come from crop_always alone, and 5 mix crop_always with pass-1 sources.
+- How "right" was judged:
+  - Yes/No: against the gold answer.
+  - Natural QA: against oracle A's engine value, where the judge marked oracle A correct. Sign ids and catalog-variant names with the same meaning count as the same.
+  - "Needs the judge": `0086` (a guide-sign list).
+- **Net against the fallback answers the runs actually shipped:**
+  - dropping pass 1's own `alt`: **about +6 to +7 correct over 153 pooled H answers** (+1 `0036`, +0.5 ×2 `0036`, +1 ×3 `0038`/`0037`, +1 ×2 `0083`, −0.5 `0092`, and `0086` ±0.5 ×2);
+  - dropping re-run alternatives: −1.5;
+  - dropping crop_always's alternative: +1, and that +1 is `0068`, the disputed gold answer;
+  - dropping all alternatives in the mixed cases: −1.5.
+- 19 of the 20 pass-1-`alt` cases that the rules would answer are on signs whose crop **agreed** with pass 1's main code (confidence raised to medium).
+- The 3 wrong ones: `0002` ×2 (pass 1 and the crop agree on P.130; gold P.131a) and `0092` (part 4).
+
+**3. The 6 fallback failures (P3): all are Sonnet replying with prose around the JSON, on both attempts.** The errors are "must be only a JSON object" 11 times and "Extra data" once.
+- Cases: `0068` (H1), `0036`, `0038`, `0049` (H2), `0037`, `0038` (H3). Five came from uncertain triggers and one (`0049`) from an unknown trigger.
+- The shipped writer answers scored 0.5 once and 0 five times.
+- **The same error drives the retries:** 32 of the 69 H fallback calls (46%) failed the first attempt this way. S had 2 of 17. Failed fallback replies run 97–332 output tokens, against a median of 87 for good ones.
+- **Cause: the fallback reply format.** The client accepts only a bare or fenced JSON object, and the fallback prompt doesn't hold Sonnet to it on image questions. It is not a trigger or guard problem.
+
+**4. The 7 H1 errors in "rules, writer or fallback":**
+- `0011` (rules): P.125 with "kể cả xe được ưu tiên". The B.25 exception is not modelled (deferred). All three runs wrong.
+- `0043` (rules or gold reading, 0.5): `ban_times` returns both condition groups' windows (6:00–22:00 for heavy vehicles, plus the three short windows). The gold answer lists only the short windows. Same in oracles A and B.
+- `0063` (fallback, out_of_scope guide content): Sonnet reads the Đại Lộc guide sign as a plain crossroads (Sai; gold Đúng). Same in all three.
+- `0068` (fallback failure plus disputed gold): H1's scene is uncertain, the fallback failed (part 3), and the shipped answer is "Chưa chắc chắn". Oracle A gives Đúng against gold Sai (disputed).
+- `0087` (fallback, 0.5): the answer "giảm tốc độ" is right, but Sonnet adds a 5.0 m height-limit claim the judge calls unsupported. Same in all three.
+- `0092` (writer or template phrasing plus vehicle mapping):
+  - `which_vehicles banned` gives `banned: []`, with P.111b/d conditional on the plate's time windows, and the answer opens "Không có loại xe nào", which the judge reads as contradicting the gold answer;
+  - oracle A also returns motor_tricycle (the gold plate mapping) where gold names rudimentary three-wheelers.
+- `0094` (vehicle mapping, not the gold-fix timing):
+  - **Oracle A ran after the gold fix** (it started 13:11 +07; `8b588c5` is 11:52 +07). An engine-only rerun now (free) gives the same Đúng.
+  - The question's "xe thô sơ 3 bánh" parses to `cyclo`. The fixed gold plate "CẤM XE 3 BÁNH VÀ 4 BÁNH THÔ SƠ" maps to `motor_tricycle` + `similar_rudimentary`.
+  - So the plate does not cover `cyclo` (`vehicle_not_covered`), and Đúng follows.
+  - For Sai, the plate's "3 bánh ... thô sơ" would have to cover rudimentary three-wheelers (cyclo and the like). This is the owner's gold reading to decide.
+
 ## Next steps, in order
 
-**Next (2026-11-16): phase 4, procedure step 2 (paid; the owner runs it), on the fixed engine (1b).** Step 1 and item 1b are done. Estimate **$3.33** (range $1.7–5.0), including about $0.25 for the two fresh Haiku perception runs. In order:
-1. two fresh Haiku v4 pass-1 runs, each followed by the fallback; `warm` each to check it;
-2. pipeline runs H1 (`9981d8112688.withraw`), H2, H3 and S (`949418393534.withraw`), one at a time;
-3. oracle A, and oracle B on each H run;
-4. `score` and `attribution`.
+**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). The tuning proposal waits for the owner's decision; nothing has been tuned yet. Then step 5 (freeze) and step 6 (holdout once, Haiku + fallback, about $0.67).
 
-All public_dev figures are now labelled **tuned**. The owner first fixes 0094's gold plate vehicles.
+All public_dev figures are labelled **tuned**.
 
 ### Handoff (2026-11-15): where phase 3 stands, and what comes next (kept as a record)
 

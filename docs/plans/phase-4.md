@@ -237,6 +237,8 @@ Every paid step shows its estimate and waits for the owner's go-ahead, under the
   - a **`perception_failed`** fallback trigger: no scene at all goes to the fallback, with the scene graph sent as `null`;
   - **oracle gold scenes** drop standalone local notices (the engine does not model them) and keep unreadable gold signs as `UNKNOWN`.
 
+- **Oracle B on H1 only (owner, 2026-11-16).** Step 2 skips oracle B for H2 and H3, so procedure step 2's "oracle B on each H run" becomes oracle B on H1. Stage attribution uses H1 only (H1 pipeline, oracle A, oracle B H1).
+
 ## Open points as first written (kept as a record)
 
 These came up while writing the plan. None of them changes step 1.
