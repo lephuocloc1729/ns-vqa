@@ -1,0 +1,12 @@
+# Two-pass perception trial, pass 1 "find" (owner, 2026-11-16; eval/two_pass_trial.py).
+# Trial only: never used by vqa/. Part of the prompt hash, pinned in the trial module.
+max_tokens: 8000
+image:                    # the photo is prepared as for the scene call (vqa/perception/image.py)
+  prep_version: img1
+  long_edge: 1568
+  max_pixels: 1150000
+  jpeg_quality: 90
+effort:
+  claude-haiku-5-5: medium
+retry: 1                  # one retry that sends only the error
+user_text: "Find the road signs and plates in this photo and reply with the JSON object."

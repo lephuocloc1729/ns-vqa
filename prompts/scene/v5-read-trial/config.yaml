@@ -1,0 +1,15 @@
+# Two-pass perception trial, pass 2 "read" (owner, 2026-11-16; eval/two_pass_trial.py).
+# Trial only: never used by vqa/. Part of the prompt hash, pinned in the trial module.
+max_tokens: 8000
+crop:                     # each find box, cut from the original image
+  prep_version: trialcrop1
+  pad: 0.20               # share of the box's width / height added on each side
+  min_side: 48            # px on the original, before the upscale
+  short_side: 256         # enlarged to at least this on its short side
+  long_edge: 768          # never larger than this on its long side
+  jpeg_quality: 90
+effort:
+  claude-haiku-5-5: medium
+retry: 1                  # one retry that sends only the error
+pictograms_from: v4       # the existing pictogram set (prompts/scene/v4/pictograms.yaml), unchanged
+user_text: "Read the object at the centre of each crop and reply with the JSON object."

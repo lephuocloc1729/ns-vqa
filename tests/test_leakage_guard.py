@@ -115,7 +115,9 @@ EVAL_QUESTION_READERS = [ROOT / "eval" / "parser_eval.py", ROOT / "eval" / "gold
                          ROOT / "eval" / "gold_signs.py", ROOT / "eval" / "perception_eval.py",
                          # phase 4: the public_dev end-to-end eval and the judge (the one
                          # holdout run is eval/e2e_holdout.py, aggregate only)
-                         ROOT / "eval" / "e2e_eval.py", ROOT / "eval" / "judge.py"]
+                         ROOT / "eval" / "e2e_eval.py", ROOT / "eval" / "judge.py",
+                         # the two-pass perception trial (set T and public_dev only)
+                         ROOT / "eval" / "two_pass_trial.py"]
 HOLDOUT_OR_PRIVATE = ("public_holdout", "holdout", "private_test", "vlsp_2025_private")
 
 
