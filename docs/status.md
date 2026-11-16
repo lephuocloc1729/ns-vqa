@@ -1343,6 +1343,14 @@ A perception-only trial of the original two-pass design (owner's brief): **find*
 - **Before the run (free):** today's errors on set T were 13 misses, 6 confident wrong codes, 15 low/UNKNOWN wrong codes, 0 of 14 wrong numbers, 9 of 14 wrong plates (6 missing); public_dev (mean of 3): 14.3, 10.7, 9.7, 2.3 of 17, 9 of 17.3.
 - Report code changed after the runs, scoring only: a key-name typo, and false positives split by UNKNOWN. Re-scoring is free from the stored replies (`two_pass_trial.py report`, `rebuild`).
 
+### Two-pass trial: free variants and the phase-4.5 option (2026-11-16; no API calls)
+
+- `eval/two_pass_variants.py` (stored replies and runs only; nothing in `vqa/` changed): **trial minus UNKNOWN** (UNKNOWN signs dropped after the fact) and **hybrid** (frozen scene plus trial signs with a catalog code whose box overlaps no frozen sign), scored like the trial, plus an engine-only answer replay. public_dev frozen scenes are those of the frozen runs H1-H3 (perception `9981d8112688`, `1c9ca7368074`, `b490cd60479f`, rebuilt with T4; the replay reproduces all 153 stored routes and verdicts). Set T uses `d1ff09db5bf4`'s stored scenes (no raw replies, so pre-T4).
+- **Code F1, set T / public_dev (tuned):** frozen 73.5% / 73.3%; trial 67.1% / 66.7%; minus UNKNOWN **77.4% / 76.5%**; hybrid 74.7% / 73.9%. Recall: frozen 89.2% / 91.1%; trial 95.8% / 93.7%; minus UNKNOWN 93.3% / 88.8%; hybrid 94.2% / 92.8%. One trial run; Haiku varies about 2.9 points of code F1 between runs.
+- **Minus UNKNOWN loses real signs:** 4 of the 44 dropped on set T and 9 of 51 on public_dev matched a readable gold sign.
+- **Answers (public_dev, 153 question-runs):** trial 43 changed, graded net −6, estimate −3.5; minus UNKNOWN 44 changed, graded net −9, bounds −30.5 to −1.5; hybrid 4 changed, net 0, estimate +0.3. Set T: only 6 questions have a program without a parser call; the hybrid changes none, the others 2 each (ungraded).
+- **Recommendation: keep the frozen system** (`docs/plans/phase-4.5-option-perception.md`, an option, not approved). Cost per image as a real pipeline: frozen $0.0028, minus UNKNOWN $0.0014, hybrid $0.0042.
+
 ## Next steps, in order
 
 **Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Phase 4 closed (2026-11-16; closing entry above).** Phase 5 plan approved (2026-11-16). **Next: the one private-test run** (`eval/e2e_private.py run --confirm-frozen --max-spend 3`), on the owner's go-ahead on its $1.83 estimate.
