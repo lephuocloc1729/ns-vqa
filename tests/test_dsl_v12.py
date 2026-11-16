@@ -221,3 +221,23 @@ def test_choose_with_forbidden_options(engine):
         for h in (5, 7, 12)]))
     assert a.value["holding"] == ["7h"]
     assert a.value["not_holding"] == ["5h", "12h"]
+
+
+def test_width_limit_p118(engine):
+    """P.118 bans vehicles wider than the value, priority vehicles included (B.18 b)."""
+    sc = scene(sign("s1", "P.118", value=2.5))
+    wide = permitted(engine, sc, "enter", V("truck", width_m=2.8))
+    assert wide.verdict == Verdict.no and "B.18" in articles(wide)
+    assert permitted(engine, sc, "enter", V("car", width_m=1.8)).verdict == Verdict.yes
+    assert permitted(engine, sc, "enter", V("truck", width_m=2.8, priority=True)).verdict == Verdict.no
+    assert permitted(engine, sc, "enter", V("truck")).verdict == Verdict.unknown
+
+
+def test_length_limit_p119(engine):
+    """P.119 bans vehicles longer than the value, priority vehicles included (B.19 a)."""
+    sc = scene(sign("s1", "P.119", value=9))
+    long_ = permitted(engine, sc, "enter", V("truck", length_m=12))
+    assert long_.verdict == Verdict.no and "B.19" in articles(long_)
+    assert permitted(engine, sc, "enter", V("car", length_m=4.5)).verdict == Verdict.yes
+    assert permitted(engine, sc, "enter", V("truck", length_m=12, priority=True)).verdict == Verdict.no
+    assert permitted(engine, sc, "enter", V("truck")).verdict == Verdict.unknown

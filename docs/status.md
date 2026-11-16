@@ -1,6 +1,6 @@
 # Project status
 
-Last updated 2026-11-15. Branch `phase-2` (not merged), on top of `main` at `9264d55`.
+Last updated 2026-11-16. Branch `phase-3`, on top of `main` at `afe006c` (phase 2 merged in PR #1). **Phase 3 is closed** (see "Phase 3: closing"). The branch is not merged or pushed; that is the owner's decision.
 
 ## Done
 
@@ -33,7 +33,7 @@ Last updated 2026-11-15. Branch `phase-2` (not merged), on top of `main` at `926
 - `2ca5d04` Applied the meaning-row review: IE.473 renamed, IE.472 split into two rows, visual fixes, review flags.
 - `9264d55` `every_vehicle` for "các loại xe"; local-plate assumptions recorded.
 
-### Phase 2: question parser (in progress, branch `phase-2`)
+### Phase 2: question parser (merged into `main` at `afe006c`)
 
 - `f89b1be` `every_vehicle`: members on both sides of a threshold are counterexamples, reported with their condition.
 - `aa85801` Catalog `reviewed_by` / `visual_reviewed_by` (human | assistant | none).
@@ -190,7 +190,694 @@ Still open: `also_accept` for the equivalent selectors (0002, 0025, 0043). This 
   - Results: 63 ok, 19 out of scope, 6 invalid. Four of the six were `meaning` or `is_sign` with no `sign`.
 - The owner's review covered 87 rows: 80 ok, 7 fix and 1 skip (public_natural_0096). Rows marked ok include the 18 out-of-scope drafts that were kept.
 
+### Phase 3: perception v1 (in progress, branch `phase-3`)
+
+Plan: `docs/plans/phase-3.md`, approved with D1–D10 (`6113e00`).
+
+- `13eb3a0` `docs/gold_signs_guide.md`: the labeller's rules (what counts as a sign, `readable: false`, fields, plates, lane boards, vehicles, the label file, the D10 check).
+- `c88f928` `eval/gold_signs.py`: `select`, `estimate`, `prefill`, `sheet`, `import`.
+  - `prefill` is written but not run. It goes through the spend guard before every call and logs each one. It calls the SDK directly, because `LLMClient` takes text only until item 3.
+  - Private labels are written only to `data/annotations/gold_signs_private/` (gitignored), and only if git ignores that path.
+  - `.gitignore` covers the gold-sign working files and the private folder.
+- `7961c6f` Set T: 36 train images in `data/splits/gold_signs_set_t.json` (ids only, seed 20261115). 31 train images were excluded as duplicates of public_dev images.
+- `46c095f` Tests for the tooling; `eval/gold_signs.py` added to `EVAL_QUESTION_READERS` in the leakage guard.
+
+Full test suite: 365 passed.
+
+**Pre-fill estimate (2026-11-15, no API call):** 81 images (45 public_dev, 36 set T), Opus 5.5 at medium, prompt `p1` (sha `42def04109fc`).
+- Rough method: the system prompt at 2.04 bytes per token (measured on the parser prompt), about 10,970 tokens; images at width × height / 750 after resizing.
+- Expected: **$2.85** sequential with caching, at 1,500 output tokens per image. $5.28 if outputs are twice that. $6.18 with no cache hits. Worst case (every call writes the whole prompt and uses all 8,000 output tokens): $17.65.
+- Output is most of the cost (121,500 tokens, about $2.43).
+- Superseded by the stage-1 measurement below.
+
+- `10c6730` Set T excludes train images that share a duplicate group with **any** public test image (6 of the 36 shared one with a public_holdout image). Ids come from `public_split.json` only. `select` re-run with the same seed and n=36: 57 train images excluded (was 31), pool 247. 23 of the 36 images changed, since the smaller pool reshuffles the round-robin. A test checks that no set-T image shares a group with any public image.
+- `047a7f7` `prefill` logs `http_error` (cost 0, status, request id, error text) when `count_tokens` or `create` fails, then re-raises.
+
+Full test suite: 369 passed.
+
+**Pre-fill stage 1 (2026-11-15, owner-approved, `--max-spend 0.5`, run by the owner):** the spend guard stopped it before image 9 (public_test_3_10), as intended (spent $0.2946; that call's worst case was $0.21).
+- 8 images drafted, all public_dev. Status: 6 ok, 2 invalid, 0 bad_json, 0 truncated, 0 refused.
+  - public_test_2_1: `UNKNOWN` on a sign marked readable.
+  - public_test_3_1: `R.412`, a stem of eight separate rows, where the guide asks for the variant.
+
+  Invalid drafts still go to the sheet; the reviewer fixes them.
+- **Cost: $0.2946.** The first call wrote the cache ($0.077); the other seven averaged $0.031.
+- **Output tokens:** mean 1,312, max 3,245 (public_test_2_11, 13 signs), min 553.
+- **Cache:** the system prompt is 9,690 tokens (the rough estimate said 10,970). Calls 2–8 read it from the cache: 93% of their prompt tokens. 82% over all 8 calls, counting the first call's write.
+- **Image and user tokens per call:** 198–1,526.
+- **Projection for the other 73 images:** about $2.3 at $0.031 per image, about $2.9 if outputs run 25% longer. Add about $0.05 if the cache has expired and is written again. Stage 1 plus stage 2 comes to about $2.6–3.2, against the $2.85 estimate.
+
+- `a3e2da2` Pre-fill drafter: Haiku 5.5 for the remaining 73 images (the owner's D2 change). `prefill --model` (default Opus), recorded per draft; prompt version p2 = p1's text drafted by Haiku. `import` records each label's `draft_model`. `estimate` now prices each call on its own: summing first priced 73 Haiku calls as one 747K-token request at the long-prompt rate ($0.31 instead of $0.067).
+
+Full test suite: 373 passed.
+
+**Pre-fill stage 2, Haiku 5.5 (2026-11-15, owner-approved, `--max-spend 0.25`, run by the owner, run id `1d3b02b2b076`):** all 73 remaining images drafted (37 public_dev, 36 set T); the 8 Opus drafts were not redone.
+- **Cost: $0.0599** (estimate $0.067).
+- **Output tokens:** mean 1,307, median 1,106, max 4,089, min 179.
+- **Cache:** one cache write (9,690 tokens, call 1). Calls 2–73 read 94.6% of their prompt tokens from the cache; 93.3% over all 73.
+- **Status:** 42 ok, **31 invalid (42.5%)**, 0 bad_json, 0 truncated, 0 refused. That is above the owner's 30% stop line, so `sheet` was not run.
+- **Why the 31 are invalid.** An image can have several causes; the count in brackets is images with that cause alone.
+  - 13 (8): an extra field on a sign, mostly a per-sign `notes` (also `notes_text`, `notes_on_sign`, `text`);
+  - 8 (3): a vehicle written as a bare string (`"car"`) instead of `{class: car}`;
+  - 5 (3): a bad enum value (`days: [even]` as a list, `op: lte`, colour `dark`);
+  - 5 (4): a made-up code (`local`, `LOCAL`, `P.UNKNOWN`) for local or unread signs;
+  - 5 (2): a family code in the wrong form (`W.201(a,b)`, `R.301(a,...,h)`, `I.444 (… family)`);
+  - 4 (1): `UNKNOWN` on a sign marked readable;
+  - 2 (1): a real code missing from the catalog (P.116, P.118).
+- Most causes are format slips, which the reviewer would fix by hand. P.116 and P.118 are a catalog gap (P.118 / P.119 size limits are already a phase 1.7 open item).
+- **Pre-fill total so far: $0.3545** (stage 1 Opus $0.2946 + stage 2 Haiku $0.0599). `logs/api_calls.jsonl`: 663 lines.
+
+- `48a594c` `sheet` cleans up the format of each draft as it writes the label YAML, and flags what it doesn't fix. The owner chose this instead of a re-draft or a p3.
+  - Two lossless fixes: a vehicle given as a bare `VehicleClass` string becomes `{class: ...}`; a sign's extra text fields (`notes`, `notes_text`, `notes_on_sign`, `text`, ...) move verbatim into a YAML comment above that sign.
+  - Everything else stays as drafted, with a `# needs fix: ...` comment above the sign and a red line in `sheet.html`.
+  - `drafts.jsonl` is only read (same sha256 before and after); existing YAMLs are never overwritten.
+
+Full test suite: 385 passed.
+
+**Review sheet (2026-11-15, no API call):** 81 label files written: `data/annotations/gold_signs_v1/work/labels/public_dev/` (45) and `.../labels/train/` (36). Page: `data/annotations/gold_signs_v1/work/sheet.html`.
+- **33 drafts were invalid** (31 Haiku, 2 Opus). After the clean-up, **11 are valid** (all Haiku) and **22 still need a fix** (20 Haiku, 2 Opus). No draft became invalid. 53 draft text fields were moved into comments.
+- **Still to fix, by reason.** "Images" counts label files with that reason; a file can have several.
+
+  | images | flags | reason |
+  |---|---|---|
+  | 6 | 6 | family code written wrongly, or a stem of several rows (`W.201(a,b)`, `R.301(a,…,h)`, `I.444 (…)`, `R.412`) |
+  | 5 | 5 | `UNKNOWN` on a sign marked readable |
+  | 5 | 5 | made-up code (`local`, `LOCAL`, `P.UNKNOWN`) |
+  | 2 | 2 | `days` as a list |
+  | 2 | 2 | code missing from the catalog (P.116, P.118) |
+  | 2 | 3 | colour `dark` (1 image); `op: lte` (1 image) |
+  | 1 | 3 | extra non-text plate fields (`conditions`, `value`, `unit` on a plate; public_test_5_1) |
+  | 1 | 5 | vehicles that aren't class names, left as is (public_test_8_9) |
+  | 1 | 1 | condition groups together with a vehicle/time plate (public_test_6_5) |
+  | 1 | 1 | plate `actions` not a list (public_test_6_8) |
+
+- The last two were hidden behind other errors before the clean-up, so they are new in the list but not new errors.
+
+- `90b3949` Guide: partial readings go in the label's top-level `notes`, naming the sign by its rank; the family-code example now uses the real row code (`W.207(a,b,c,d,e,f,g,h,i,k,l)`) or its stem. Pre-fill prompt hash 42def04109fc → d8fecd3b2cce.
+- `9f3f96f` `import` never writes an empty or shrinking gold file without `--replace`, writes atomically, and prints done / todo / rejected counts first. The same rules apply to the private path.
+- `750011a` Catalog: **P.118** "Hạn chế chiều ngang xe" (B.18), a rule row on the P.117 pattern: `width_m` gt the value, priority vehicles included. **`reviewed_by: none`, waiting for the owner's review of the row.**
+- `6945a25` Catalog: **P.119** "Hạn chế chiều dài xe" (B.19), the same pattern: `length_m` gt the value. B.19 a) covers priority vehicles too, quoted in the YAML, and B.19 b)'s "đối với xe đơn chiếc" is noted. **`reviewed_by: none`, waiting for the owner's review.**
+  - P.116 (axle load) is not added, and there is no axle attribute. Its only draft (public_test_8_3, Haiku, "9 m") is likely a misread P.119; the owner will check the image.
+- **Prompt hashes moved with the catalog.** Both prompts below are built with the catalog in them.
+
+  | prompt | before | after P.118 | after P.119 |
+  |---|---|---|---|
+  | parser v6, built system prompt | 93ba1cf3ada9 | f5ed53804834 | e08989d2b637 |
+  | gold-sign pre-fill | d8fecd3b2cce | 34008e80ae62 | e9aae8315b6d |
+
+  - The phase-2 parser gate (Sonnet 5.5, v6) was measured on 93ba1cf3ada9 and was not re-run; the change is two catalog lines.
+  - Existing pre-fill drafts keep their recorded `prompt_sha` and are not re-run.
+
+Full test suite: 394 passed. Prolog loads.
+
+**Review sheet after P.118 / P.119 (no API call):** `sheet` re-run; all 81 label YAMLs kept unchanged (none overwritten), and `sheet.html` recomputed. Still **22 files need a fix**.
+- The P.118 flag cleared. Its only file, train_8_32, still needs a fix for `UNKNOWN` on a readable sign. Its YAML keeps the old `# needs fix` comment for P.118, since `sheet` never rewrites an existing file; the flag is gone from `sheet.html`.
+- What remains, by reason (files, flags, then the files):
+  - 6 / 6: a family code written wrongly, or a stem of several rows: public_test_3_1, 4_6, 5_6, 6_11, 7_12, train_6_39;
+  - 5 / 5: `UNKNOWN` on a readable sign: public_test_2_1, 3_8, 5_6, train_6_7, train_8_32;
+  - 5 / 5: made-up code (`local`, `LOCAL`, `P.UNKNOWN`): public_test_4_4, 7_10, 8_9, train_2_10, train_5_29;
+  - 2 / 2: `days` as a list: public_test_7_12, train_6_8;
+  - 1 / 1 each: `op: lte` (public_test_3_6); condition groups with a vehicle/time plate (public_test_6_5); plate `actions` not a list (public_test_6_8); P.116 (public_test_8_3);
+  - 1 / 2: colour `dark` (train_8_8);
+  - 1 / 3: extra non-text plate fields (public_test_5_1);
+  - 1 / 5: vehicles that aren't class names (public_test_8_9).
+
+**Owner's hand review (2026-11-15): 66 of 81 label files done, 15 left as todo.** The 15 were blocked by readable QCVN 41 codes missing from the catalog and by standalone local notices.
+- `9b5b9fa` Catalog: **R.403a** "Đường dành cho xe ô tô" and **R.403b** "Đường dành cho xe ô tô, xe máy" are bans on entry for every vehicle except the classes shown (D.11 l). **R.404a** ends R.403a (D.12). **R.307** ends R.306 (D.7). All `reviewed_by: none`.
+  - law_db has no article D.11: its text sits at the end of D.10, so the R.403 rows cite D.10.
+  - Not added: **R.302(a,b,c), R.303, R.411, R.420**. They have no effect the engine can model, and `test_catalog` allows meaning-only rows only for warning and information signs (a mandatory row with no effect would turn "unknown" into a confident "yes"). They need an owner decision.
+  - Prompt hashes: parser v6 e08989d2b637 → 785ef169881f; pre-fill e9aae8315b6d → 348b93a1f952.
+- `b789ad9` Gold signs: the **`local_notice`** marker. A readable standalone local notice is `code: UNKNOWN`, `readable: true`, `local_notice: "<text>"`. Plan D7 (owner-approved, before any result): such signs are scored like `readable: false` and reported apart. Pre-fill prompt hash 348b93a1f952 → cc0bf58890b4.
+- **The 15 files now** (checked read-only; no label YAML was edited):
+  - 5 have no errors left and need only `status: done`: public_test_3_1, public_test_6_8, train_3_25, train_6_29, train_7_23;
+  - 3 need the owner to switch their notice to `local_notice`: public_test_2_1, public_test_7_10, train_6_7;
+  - 7 wait on R.302a / R.303 / R.411 / R.420: public_test_5_6, 7_4, 7_12, 8_9, train_1_6, train_6_38 (which also has a notice), train_7_18.
+- **Uncommitted, the owner's:** `reviewed_by: human` on P.118 and P.119, and a `tests/test_meaning_rows.py` edit that still expects 39 human-reviewed rows (there are 41 with those two). With the edit, that test fails; every committed state passes (407 tests).
+
+- `87f894c` Catalog: **R.302(a,b,c), R.303, R.411, R.420** as `effect_unmodelled` rows (D.2, D.3, D.13, D.17). These are mandatory signs whose effects can't be modelled yet.
+  - `vqa/kb.py` and `vqa/reasoning/engine.py`: the engine treats them like unreadable signs of their visible kind for closed-world claims, and lists them in `uncertain_signs` with a note. Identity and meaning claims work.
+  - All `reviewed_by: none`. Tests cover the flag on each row.
+  - Prompt hashes: parser v6 785ef169881f → 2d0ec50e3611; pre-fill cc0bf58890b4 → ee8106d9539c.
+- **Label edits (2026-11-15, at the owner's request; the label YAMLs are gitignored, so there is no commit):**
+  - the four freestanding notices now use `local_notice` with their text verbatim: public_test_2_1, public_test_7_10, train_6_7, train_6_38. public_test_2_1's plate reading (car and motorcycle, "cấm đỗ") is now only in the notice text;
+  - every P.102 is `border: red, background: red`, as the catalog row has it. 8 signs changed (border none → red): public_test_5_6 s14–s18, public_test_7_12 s1, train_1_6 s14, train_8_32 s1 (a done file). The owner checks them against the images: labels record what is seen, not the catalog, so label YAMLs are not edited by the assistant again. A copy of the labels from before both edits is in `data/annotations/gold_signs_v1/work/backup_pre_p102/` (gitignored);
+  - the owner's notes ("REVIEW BLOCKED …") were left as written.
+- **All 81 label files now validate:** 66 `done`, and 15 `todo` with no errors left. The owner sets those 15 to `done`, then `import`.
+
+- **Gold signs v1 (`9387764`, updated `c6fb83f`, 2026-11-15): 81 images imported, 0 rejected.** The owner reviewed every label by hand. The assistant set the last 15 files to `status: done` at the owner's request (status line only), and the owner re-checked them.
+
+  | split | images | Opus-drafted | Haiku-drafted | readable signs | readable:false | local_notice |
+  |---|---|---|---|---|---|---|
+  | public_dev | 45 | 8 | 37 | 143 | 31 | 2 |
+  | set T | 36 | 0 | 36 | 120 | 14 | 2 |
+
+  14 vehicles are labelled, on 3 violation images.
+- **Anchoring, per drafter.** A sign counts as kept if the final label equals a draft sign exactly, after the sheet clean-up.
+
+  | drafter | images | draft signs | final signs | kept unchanged | changed or added |
+  |---|---|---|---|---|---|
+  | Opus 5.5 | 8 | 35 | 39 | 22 (56%) | 17 |
+  | Haiku 5.5 | 73 | 256 | 273 | 71 (26%) | 202 |
+
+  - `b79e0bc`: `import` now counts anchoring sign by sign against the cleaned-up draft, including drafts invalid as a whole. Each row stores `draft_signs`, `draft_signs_invalid`, `final_signs`, `kept` and `changed_or_added`. The table above is the stored figure: invalid draft signs were 2 for Opus and 24 for Haiku. The first import's field had counted 0 kept for the 33 invalid drafts (totals 19 and 53).
+  - `c6fb83f`: re-imported the same 81 ids. The owner re-checked the 15 files the assistant set to done and cleared every "REVIEW BLOCKED" note; none remains in the gold file. No sign labels changed.
+  - Low "kept" figures mean the owner changed most drafted signs, so the anchoring towards the drafters is weak. Exact equality also counts small edits (a side or a rank) as changes.
+- **D10 visual-review list (55 rows):** the rows in the set-T gold, `tests/fixtures/train_*.json` and train question text.
+  - **The list:** P.102, P.103a, P.103c, P.106a, P.106b, P.107, P.107a, P.110a, P.111a, P.111b, P.111d, P.112, P.115, P.117, P.123b, P.124c, P.125, P.130, P.131a, P.131b, P.131c, P.127, P.127b, P.127c, R.306, R.403a, R.307, R.404a, R.302(a,b,c), R.303, R.411, R.420, R.412f, R.415a, R.415b, W.201b, W.203(a,b,c), W.205(a,b,c,d,e), W.207(a,b,c,d,e,f,g,h,i,k,l), W.210, W.224, W.227, W.244, W.245a, I.407(a,b,c), I.408, I.409, I.414(a,b,c,d), I.415, I.423(a,b), IE.451b, IE.452, IE.464, IE.465, IE.466.
+  - None of the 55 is `visual_reviewed_by: human` yet.
+  - **Rows only in the public_dev gold (21; record-only under D10, not on the list):** P.104, P.105, P.119, P.124b, P.126, P.128, R.403b, R.301b, R.412d, W.206, W.221b, W.239b, W.240, W.245b, I.417(a,b,c), I.419a, I.434a, I.439, I.441(a,b,c), IE.467, IE.473.
+
+- `acdeb47` `tools/draft_catalog_rows.py`: a `VISUAL_REVIEWED` set writes `visual_reviewed_by: human` (over `VISUAL_OVERRIDES`' `assistant`). With an empty set, regenerating is byte-identical.
+- **D10 visual check (owner, 2026-11-15): all 55 rows `visual_reviewed_by: human`** (51 ok, 4 fixed, 0 skipped), applied exactly as the owner's list in `data/annotations/visual_review/notes.txt` (gitignored).
+  - **35 rule rows** in `kb/sign_catalog.yaml`. One fix: **P.102 `border: none`** (background stays red). This settles the P.102 convention for the catalog. The 8 P.102 label signs the assistant had set to `border: red` were not changed back: labels record what is seen, and are the owner's to check.
+  - **20 meaning rows** through `VISUAL_REVIEWED` and regenerated. Three fixes, as `VISUAL_OVERRIDES`: **I.415 `shape: other`**, **IE.451b `background: blue`**, **IE.464 `shape: other`**.
+  - `test_review_provenance` now pins 55 human visual reviews (35 rule, 20 meaning) and the four fixed values. The 5 `assistant` rows are unchanged: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. None of them is on the D10 list.
+  - **Prompt hashes:** the parser's built prompt is unchanged at 2d0ec50e3611, since its catalog table has no visuals. The gold pre-fill prompt goes from ee8106d9539c to 73022496646a; existing drafts keep their recorded hash. `prompts/scene/v1` doesn't exist yet and will be built on the reviewed catalog.
+
+- `f9998a1` Gold: all 12 P.102 signs set to `border: none`. This was the owner's convention decision and the one label edit the owner authorized; no other label field changed. The recomputed anchoring moved on 3 images whose drafts said red: public_test_7_4, 7_12 and 8_2, 4 kept signs fewer in all, all Haiku-drafted. Opus stays at 22 of 39 kept; Haiku goes from 71 to 67 of 273.
+- **Phase 3 item 3, first chunk** (no API calls):
+  - `03cf04b` `vqa/perception/image.py`: EXIF orientation, RGB, native size, scale factor, sha256 of the original bytes. Pillow is now a main dependency.
+  - `354138c` `json_reply` accepts image and text content blocks; the parser's string turn is unchanged.
+  - `3282a94` `vqa/perception/wire.py`: the reply format to `SceneGraph`, in strict and final modes.
+  - `d2b3ccd` `vqa/perception/cache.py`: the key is image sha256 + model + effort + prompt version (D5), and records hold model outputs only. `cache/scenes/` is gitignored, and CLAUDE.md is updated.
+  - `8d10df4` Leakage guard: the phase-3 strings, and checks on the cache key and record fields.
+
+- **Phase 3 item 3, second chunk** (no API calls):
+  - `b86effc` `prompts/scene/v1` (spec, config, one train example: train_1_3) and `vqa/perception/prompt.py`. The prompt id is `scene/v1@d6be305ababc`; its hash covers the catalog. train_2_26 was left out of the examples: it is the same street as public_test_8_9, which the duplicate check missed.
+  - `d87b65d` `perceive()`: plain JSON, one retry that sends only the error (the rejected reply is not echoed), refusal / max_tokens without retry, spend guard, scene cache.
+  - `bcc636c` Verification (plan item 4) and the low-confidence re-run; `vqa/perception/matching.py` is shared with the eval.
+  - `1c6dc57` `eval/perception_eval.py`: `GATE` (perception_gate_v1, pinned), matching, image-level bootstrap in `eval/report.py`, `--set T|public_dev` (a public_dev run warns that it is a recorded checkpoint).
+  - Full test suite: 529 passed.
+- **Estimates (2026-11-15, no API call; Haiku 5.5 at medium, scene/v1):** about 10,870 system tokens and 1,300 output tokens per image.
+  - set T, 1 run (36 images): **$0.031** with no re-runs to **$0.060** if every image is re-run. Worst case $0.40 ($0.0056 per call).
+  - public_dev, 3 runs (45 images): **$0.11 to $0.22**. Worst case $1.50.
+  - Waiting for the owner's yes on the first paid run: Haiku, set T.
+
+**First paid perception run (2026-11-15): Haiku 5.5, medium, `scene/v1@d6be305ababc`, set T. These are development figures, not the gate.** Run `c11b768af950`, run by the owner with `--max-spend 0.5`. The spend guard didn't stop it.
+
+| set T, development | images | sign recall (95% CI) | code F1, catalog row (95% CI) | code F1, strict |
+|---|---|---|---|---|
+| all images | 36 | 86.7% (77.8–96.7%) | 60.8% (51.3–71.0%) | 59.9% |
+| non-duplicates (no public or private copy) | 26 | 82.2% (72.4–94.4%) | 59.8% (49.4–72.6%) | 59.8% |
+
+- **Counts:** 120 scored gold signs (14 readable:false and 2 local notices excluded; 1 of the 2 notices was found) and 117 predictions. 104 gold signs were found, 72 with the right code.
+- **Cost:** $0.0528 in all, $0.0015 per image, over 61 calls (40 scene calls including 4 retries, plus 21 re-runs). That is within the $0.031–0.060 estimate.
+  - Output tokens: mean 1,376, median 1,373, max 3,704.
+  - One cache write; 92.6% of prompt tokens were read from the cache.
+- **Status:** 36 ok, 4 retried, 0 bad_json, 0 refused, 0 truncated.
+  - Retry causes: 3 replies put a `box` on a plate; 1 wrote `I.451b` for IE.451b.
+- **Re-runs:** 21 of 36 images (58%). Of the signs paired by re-runs, 68 agreed and 20 got an alternative reading; 6 were seen in the re-run only and 3 in the first reading only.
+- **Verification issues:** 11 id renumberings, 10 look mismatches, 1 lane-row renumbering, 1 missing value.
+  - Of the look mismatches, 9 lowered a sign (human-reviewed rows) and 1 was recorded only.
+  - The lowerings include IE.451b (seen green, catalog now blue) and IE.464 (seen rectangle, catalog now other). Both are D10 fixes that disagree with the gold labels.
+- **Accuracy:** value 80% (12 of 15); shape 100%; background 100%; border 81.7%.
+  - Border: 14 of the 19 mismatches are blue boards that the gold labels `border: white` and the model calls `none` (as does the catalog). This is a convention question, not a misread.
+- **Errors (set T only), 16 missed gold signs and 32 wrong codes:**
+  - **UNKNOWN for a readable sign (10):** train_1_6 I.409, train_2_8 W.203c, train_2_41 W.207, train_3_25 R.404a, train_6_29 R.403a, train_6_39 W.205 and W.245a, train_6_41 P.130, train_7_46 P.103a, train_8_8 P.125.
+  - **Look-alike pictograms (10 wrong, 1 missed):** P.131a→P.130 (train_1_6, 7_37); P.123b→P.123a (1_6); P.111b→P.131a / P.104 / P.106a (2_11, 3_25, 6_7); P.125→P.103a (7_37); P.103c→P.124b (7_46); P.117→P.118 and P.124c→P.124a (8_32); R.307 read as P.127 (7_23, unmatched).
+  - **Lane boards (4):** P.127c↔P.127b (2_11, 6_41 ×2); R.415a→I.417c (1_6).
+  - **Guide and information boards (8 wrong, 4 missed):**
+    - I.444 for I.414 (1_6, 6_38), W.244 (6_38) and R.403a (6_38);
+    - IE.466 read as IE.454, IE.464 or I.414 (1_8, 1_19, 6_40); IE.452→I.444 (6_40);
+    - four I.407c arrow boards read as I.415 with `shape: other`, copying the catalog's new look, so they can't be paired (7_25).
+  - **Small, distant or dense (11 missed):** train_1_6 (collage: R.411, R.420, P.102, R.302a), train_6_38 (R.403a, I.414 ×2, P.130, R.302a), train_3_25 (I.415, R.404a).
+  - **Catalog gap:** none (no uncatalogued code after the retry).
+  - **Matching artefact:** train_7_23's two P.127 values (100, 80) show as swapped. The model ranked the green board first, so its ranks are off by one, and the pinned matching puts rank above side. Both values were read correctly.
+
+**Owner decisions after the first set-T run (2026-11-15):**
+- `677a87b` **Border convention:** a thin white rim on a blue sign is `border: none`, as in the catalog. The guide says so. 69 blue-background gold signs in 23 images went from white to none (the owner authorized this label edit). The gold diff is exactly those 69 values plus recomputed anchoring on 7 images.
+- `6258779` **Look check (D10 refinement):** on a human-reviewed row, only a shape or background mismatch lowers a sign; a border-only mismatch is recorded. Plan updated, with tests.
+- `b722247` **Matching:** same side now comes before closest rank. The gate is now `perception_gate_v2`, changed before any public_dev result; v1 is in `1c6dc57`. Plan updated, pin test updated.
+- **Re-scoring run c11b768af950 (no new calls), set T, development:**
+
+  | | gold | recall | code F1 | strict F1 | value acc. | border acc. |
+  |---|---|---|---|---|---|---|
+  | v1 matching | as at the run | 86.7% | 60.8% | 59.9% | 80.0% | 81.7% |
+  | v1 matching | border convention applied | 86.7% | 60.8% | 59.9% | 80.0% | 96.2% |
+  | **v2 matching** | border convention applied | **86.7%** | **60.8%** | 59.9% | **93.3%** | 96.2% |
+
+  Non-duplicates under v2: recall 82.2%, code F1 59.8%, value accuracy 100%. The CIs are unchanged.
+- **IE.451b, IE.464:** the owner re-checks them. I.415 stays.
+- **Possible gold errors on set T (reported, not changed):**
+  - **train_7_23 s4: gold R.307 (40).** The sign is a white disc with a thin blue-grey ring, outlined digits and a hatched diagonal. That matches the DP.134 "Hết tốc độ tối đa cho phép" figure (B.34, image174); R.307's figure (D.7, image308) is a blue disc with a white number and a red slash. The model read P.127 40, which is also wrong.
+  - **train_7_46 s2: gold P.103a, readable: true.** It is a small distant sign; the model said UNKNOWN. Check whether it is readable.
+  - **train_8_32: gold P.124c (bottom right, cut off by the frame).** The model read P.124a. The image shows too little to decide.
+  - **train_7_25 s3–s6: gold I.407c ×4.** The model read I.415 for all four. These are blue rectangular arrow boards on barriers; I.407 is "Đường một chiều" and I.415 "Mũi tên chỉ hướng đi". It's the owner's reading to confirm.
+  - Checked against the images and **found right**: P.117 (train_8_32), P.127b (6_41), P.127c (2_11), P.131a (7_37), P.111b (2_11), P.103c (7_46), and P.106b 2.5 t (7_37, the number is faint).
+- `19bd70c` **Prompt v2** (`scene/v2@26be620fb386`): proposed changes 1–6. The pictogram notes quote catalog names only (tested). v1 is pinned by sha256. `perception_eval.py` takes `--version`.
+- **Estimates for set T, 1 run, v2 (no API call), 12,148 system tokens:**
+  - **Haiku 5.5: $0.031** with no re-runs to **$0.061** if every image is re-run. Worst case $0.41. v1's real cost was $0.053, at a 58% re-run rate.
+  - **Sonnet 5.5: $0.58** with no re-runs to **$1.14** if every image is re-run, about $2.10 if outputs double. Worst case $8.23 ($0.114 per call); the spend guard caps it at the limit.
+- Full test suite: 535 passed.
+
+**Set-T runs with prompt v2 (2026-11-15), run by the owner. Set T, development, gate v2 matching, gold after `ddb044b` (train_7_23 s4 = DP.134):**
+
+| set T, development | Haiku v1 (re-scored) | Haiku v2 | Sonnet v2 |
+|---|---|---|---|
+| run | c11b768af950 | aa8cc8952831 | f200a07b933e |
+| recall, all 36 (95% CI) | 86.7% (77.8–96.7) | 89.2% (81.9–97.7) | **92.5%** (85.9–100) |
+| code F1 row-level, all (CI) | 60.8% (51.3–71.0) | 64.7% (57.5–72.5) | **70.4%** (61.9–79.4) |
+| code F1 strict, all | 59.9% | 64.7% | 69.5% |
+| recall, 26 non-duplicates (CI) | 82.2% (72.4–94.4) | 87.8% (80.2–98.2) | 90.0% (82.8–100) |
+| code F1, non-duplicates (CI) | 59.8% (49.4–72.6) | 64.0% (55.9–73.5) | 68.6% (59.3–79.0) |
+| value accuracy, all / non-duplicates | 93.3% / 100% | 93.3% / 100% | 68.8% / 58.3% (artefacts, see below) |
+| re-runs / retries | 21/36 · 4 | 19/36 · 0 | 17/36 · 1 |
+| cost, total (per image) | $0.0528 ($0.0015) | $0.0453 ($0.0013) | $0.3242 ($0.0090) |
+| output tokens, mean / max | 1,376 / 3,704 | 1,267 / 3,139 | 318 / 749 |
+
+- **Haiku v1 → v2,** per gold sign: 9 fixed, 3 broken, 4 wrong → missed, 4 missed → wrong.
+  - **Fixed:** the plate-box retries (0 now); I.414 (×2, plus 2 found that were missed); P.127c (2_11); P.131a (7_37); R.403a and P.130 (no longer UNKNOWN); R.411 found.
+  - **Remain:** the vehicle-ban pictograms, P.117/P.118, P.124c, P.123b, IE.466, the dense-scene misses.
+  - **v2 side effects:**
+    - "always guess" turned 6 false UNKNOWNs into wrong codes;
+    - the train_6_41 P.127b boards were split into P.127 and R.306 discs;
+    - the I.407c boards are now found but read as I.415;
+    - three new errors: IE.465→IE.464, IE.451b→IE.452, P.110a→P.104.
+- **Sonnet v2 vs Haiku v2,** per gold sign: 11 that Haiku gets wrong or misses are right for Sonnet; 7 that Haiku gets right are wrong for Sonnet; 30 are wrong or missed by both.
+  - **Sonnet only right:** IE.465, P.131a (1_6), R.415a, W.203c (as W.203a, row-level), P.110a, IE.452, P.127b (6_41 r1), IE.451b, DP.134, P.103c, P.117.
+  - **Sonnet only wrong:** IE.464→IE.464b, P.127c→R.415a (2_11), P.127c→P.127b (3_25), P.111a→P.104, R.403a→R.412b, I.414→I.444 (6_38), P.106b→P.107.
+  - **Both wrong:**
+    - P.111b ×3 and P.125 ×2 (pictogram confusion);
+    - P.123b, P.124c and P.103a (7_46);
+    - the W.207 / W.205 / W.245a triangles;
+    - IE.466 ×3, I.409, W.244, R.404a;
+    - I.407c ×4 (both models say I.415).
+  - **Both missed:** the 9 dense-scene signs (train_1_6 ×3, train_6_38 ×4, train_3_25 ×2).
+- **Sonnet's value accuracy is a set of artefacts, all on train_7_23:**
+  - Sonnet gives every gantry sign `side: overhead`, so side can't break ties and the pairing falls back to shifted ranks.
+  - `merge_rerun` kept two entries for the "40" sign: the first reading said DP.134 and the re-run P.127 40, and their visual categories differ, so they weren't paired.
+  - Verification dropped DP.134's 40 ("the row takes no value"), although an end-of-limit sign shows the limit it ends.
+
+  Sonnet read every number correctly.
+- **Cost:** Sonnet cost $0.009 per image, below the $0.58–1.14 estimate, because its outputs are short. That is about 7× Haiku's cost per image.
+
+**Artefact fixes and re-verification (2026-11-15, no API calls):**
+- `6771e52` Verification: end-of-limit signs (rows with `ends`) keep the limit they end; it is checked as a speed when they end a speed limit.
+- `31a32e2` Re-run pairing relates same-family readings and end/limit pairs (DP.134 ↔ P.127, R.307 ↔ R.306). The gate's matching never relates.
+- `935df91` Gantry sides: matching already falls back to rank for all-`overhead` predictions, so an "overhead matches any side" rule would change nothing. The fix is real sides from the model, proposed for v3. A test pins both halves.
+- `1745a9e` `rescore --reverify` rebuilds scenes from the cached replies with the current code and makes no calls. A reported, ungated metric is added: code F1 on rule-bearing signs (68 of the 120 set-T gold signs).
+- **Set T, development, gate v2, before → after re-verification:**
+
+  | | recall (CI) | code F1 (CI) | strict | rule-bearing F1 | value acc. |
+  |---|---|---|---|---|---|
+  | Haiku v1 | 86.7% (77.8–96.7) | 60.8% (51.3–71.0) | 59.9% | 68.8% | 93.3% (unchanged) |
+  | Haiku v2 | 89.2% (81.9–97.7) | 64.7% (57.5–72.5) | 64.7% | 68.1% | 93.3% (unchanged) |
+  | Sonnet v2, before | 92.5% (85.9–100) | 70.4% (61.9–79.4) | 69.5% | 72.7% | 68.8% |
+  | **Sonnet v2, after** | 92.5% (85.9–100) | **70.7%** (62.1–80.0) | 69.8% | **73.3%** | **75.0%** |
+
+  - Non-duplicates, after: Haiku v1 82.2% / 59.8%, Haiku v2 87.8% / 64.0%, Sonnet v2 90.0% / 69.0% (recall / code F1). Rule-bearing F1 on non-duplicates: 72.5%, 70.8%, 73.7%.
+  - Only Sonnet changes: one duplicate sign on train_7_23 is gone (113 → 112 predictions), and the DP.134 value now counts. Its remaining value misses come from the all-`overhead` gantry sides.
+  - On rule-bearing signs, Haiku v2 is no better than v1 (68.1% vs 68.8%). Its gains were on guide boards.
+- **Proposal, waiting for the owner:** `docs/plans/phase-3-proposal-v3-pictograms.md`. It covers scene prompt v3 with reference pictograms for 41 confused rows (43 law_db figures, about 2,500 cached image tokens). It needs a dataset-rule exception: local gitignored copies made by a `tools/` builder, pinned by a committed sha256 manifest. It also proposes three text changes (gantry sides, lane boards as one sign, a softer "always guess").
+
+**Prompt v3 with reference pictograms (2026-11-15):**
+- `ccb2648` CLAUDE.md: the dataset-rule exception for law_db figures (local gitignored copies, committed sha256 manifest).
+- `a792fdc` `scene/v3@69d91ed6a300`: 53 rows over 51 figures (≤ 320 px), about 3,069 cached tokens.
+  - The rows are the 41 confused rows, the owner's 7, and 5 more so no observed confusion pair is half-pictured: I.401, IE.451b, IE.474, P.115, W.246.
+  - Figures chosen by hand: IE.452 → image026, R.415a → its own figure (W.244's "W.224" caption is a law_db typo).
+  - Plus v3's three text changes. v1 and v2 prompt ids are unchanged (pinned).
+- **Haiku v3 on set T (run f16a09d95189, $0.051, $0.0014 per image), development, gate v2:**
+
+  | | Haiku v2 | **Haiku v3** | Sonnet v2 (after fixes) |
+  |---|---|---|---|
+  | recall, all (95% CI) | 89.2% (81.9–97.7) | 81.7% (72.3–92.3) | 92.5% (85.9–100) |
+  | code F1 row-level (CI) | 64.7% (57.5–72.5) | **73.5%** (64.7–82.5) | 70.7% (62.1–80.0) |
+  | code F1 strict | 64.7% | 71.7% | 69.8% |
+  | rule-bearing F1 | 68.1% | **75.8%** | 73.3% |
+  | non-duplicates: recall / code F1 | 87.8% / 64.0% | 77.8% / **74.4%** | 90.0% / 69.0% |
+  | value accuracy | 93.3% | 100% | 75.0% |
+  | predictions (gold 120) | 121 | 103 | 112 |
+  | re-runs / retries | 19/36 · 0 | 18/36 · 1 | 17/36 · 1 |
+
+  - **Pictograms fixed 10 signs, all pictured rows:** IE.465, IE.466 ×2, IE.452, IE.451b, P.131a (1_6), W.203c, P.110a, P.103c, P.124c.
+  - **9 signs that were wrong are now missing:** I.407c ×4, W.205, W.245a, I.409, W.244, P.103a. The softer guessing rule made Haiku leave unsure signs out instead of writing UNKNOWN.
+  - **6 signs that were right are now wrong or missed:**
+    - R.411 and I.414 on the train_1_6 collage are missed;
+    - P.127 and R.306 on 6_40 (separate discs) are missed, probably swallowed by the lane-board rule;
+    - P.131a became P.130 on 7_37; W.201b became W.201a.
+  - **Introduced by a pictogram:** the train_6_41 green P.127b boards are read as IE.452 (3 IE.452 predictions against 1 gold).
+  - **Still wrong:** P.111b ×3, P.125 ×2, P.117→P.118, P.123b→P.123a, and the dense-scene misses.
+  - **Sonnet v3** was held: its uncalibrated estimate ($0.60–1.17) was over the owner's $0.60 ceiling.
+
+**Prompt v4, the last set-T tuning round (2026-11-15).** `4cc8717`, `scene/v4@153536ec5975`: v3 plus "list every sign", "separate discs stay separate", and P.127b vs IE.452. Runs: Haiku `4e6780670d2f` ($0.054), Sonnet `7a4f533fc335` ($0.360). Set T, development, gate v2:
+
+| set T, development | Haiku v3 | Haiku v4 | Sonnet v2 (after fixes) | Sonnet v4 |
+|---|---|---|---|---|
+| recall, all (95% CI) | 81.7% (72.3–92.3) | 83.3% (73.9–94.1) | 92.5% (85.9–100) | **90.8%** (84.6–97.9) |
+| code F1 row-level (CI) | **73.5%** (64.7–82.5) | 72.3% (65.1–80.6) | 70.7% (62.1–80.0) | 69.8% (60.4–79.6) |
+| code F1 strict | 71.7% | 69.6% | 69.8% | 69.0% |
+| rule-bearing F1 | 75.8% | 76.2% | 73.3% | **79.0%** |
+| non-duplicates: recall / code F1 | 77.8% / 74.4% | 80.0% / 70.7% | 90.0% / 69.0% | 87.8% / 69.0% |
+| non-duplicates: rule-bearing F1 | 77.8% | 77.8% | 73.7% | 79.1% |
+| value accuracy | 100% | 100% | 75.0% | 100% |
+| predictions (gold 120) | 103 | 104 | 112 | 112 |
+| re-runs / retries | 18/36 · 1 | 22/36 · 0 | 17/36 · 1 | 19/36 · 2 (1 bad_json) |
+| cost per image | $0.0014 | $0.0015 | $0.0090 | $0.0100 |
+
+- **v4 vs v3 for Haiku:** within noise.
+  - **Worked:** P.127b vs IE.452 (both train_6_41 boards right; IE.452 down from 3 predictions to 1).
+  - **Barely worked:** "list every sign". UNKNOWN rose from 9 to 12 and predictions from 103 to 104. The I.407c ×4, W.205 and W.245a still vanish.
+  - **Didn't work:** separate discs (train_6_40's P.127 and R.306 are still missed).
+  - About 6 signs flipped each way (the IE.464/465/466 boards, P.124c, P.111a). That is single-run noise.
+- **Sonnet v2 → v4:** 8 signs fixed and 10 broken.
+  - **Fixed:** IE.466 (1_8), P.127c ×2, W.207, I.415, R.403a (6_29), P.125 (7_37), P.124c.
+  - **Broken:** P.127 and R.306 (6_40) missed; I.414 (6_38, 3_25) missed or wrong; P.117→P.118; W.201b→W.201a; the train_6_41 P.127b boards → IE.452, despite the v4 note.
+  - Rule-bearing F1 rose from 73.3% to 79.0% and value accuracy from 75% to 100%. Overall code F1 stayed level, because guide boards got worse.
+- **Remaining errors by cause (Haiku v4 / Sonnet v4, 39 each):**
+
+  | cause | Haiku v4 | Sonnet v4 |
+  |---|---|---|
+  | dense-scene misses (train_1_6, 6_38, 3_25) | 12 | 8 |
+  | other misses | 8 (I.407c ×4, W.205, W.245a, P.127 and R.306 on 6_40) | 3 (I.408, P.127 and R.306) |
+  | listed as UNKNOWN | 5 | 11 (I.407c ×4, W.244, W.245a, R.403a, R.404a, R.420, P.103a, P.125) |
+  | prohibitory look-alikes | 9 (P.111b ×3, P.125, P.131a, P.111a, P.117, P.123b, P.124c) | 7 (P.111b ×3, P.111a, P.106b, P.117, P.123b) |
+  | guide / expressway boards | 5 | 8 |
+  | warning triangles | 0 | 2 |
+
+- **What crops (plan item 7) can and can't do:**
+  - Every prediction carries a box (Haiku 111/111, Sonnet 119/119).
+  - **None of the misses (Haiku 20, Sonnet 11) can be recovered by box crops.** On every image with a missed gold sign, every listed sign was paired: the missed signs were never listed.
+  - Box crops could re-read the code of signs listed wrong at low confidence or as UNKNOWN: 14 for Haiku (5 UNKNOWN) and 21 for Sonnet (11 UNKNOWN).
+  - **Upper bounds** if every one of those were fixed: code F1 about 85% for Haiku and 88% for Sonnet. Realistically about half get fixed, so roughly 78–80%.
+  - **Recall needs a region-level pass,** not box crops: tile dense scenes, or crop whole gantries and boards, then read each part. Haiku is 8 signs short of 90% recall on set T; its 12 dense-scene misses are the pool.
+
+**public_dev checkpoint 1 (gate v2, prompt v4), 2026-11-16.** `perception_gate_v2`, `scene/v4@153536ec5975`, 45 gate images (143 gold signs; 31 `readable: false` and 2 `local_notice` excluded), 17 non-duplicates (27 gold signs; duplicate = also in train). CIs are image bootstraps from `eval/report.py` (`bootstrap_ci`, 10,000 resamples, seed 20261115); the split uses `duplicated_images`. The CI of a mean pools each image's counts over the runs. Not tuned: no prompt or trigger change came from public_dev.
+
+- **Runs:** Haiku `e0128c462ed3`, `2dd3a6e61573`, `932c3d2b7009`; Sonnet `f19dd5bc36f6`.
+- **Sonnet has one run, not three (owner's decision, 2026-11-16).** After the first run the owner chose to report without the other two. Its verdict is "not decided (1 of 3 runs)", indicative FAIL. To pass, the two missing runs would have to average about 90% code F1, against Haiku's run-to-run spread of 6 points.
+
+| public_dev checkpoint 1 | Haiku v4, mean of 3 | Haiku runs (e012 / 2dd3 / 932c) | Sonnet v4, 1 run |
+|---|---|---|---|
+| recall, all (95% CI) | **79.7%** (69.1–92.5) | 79.0% (67.9–92.4) / 79.7% (69.4–92.6) / 80.4% (69.8–93.3) | **81.8%** (69.6–96.3) |
+| code F1 row-level, all (CI) | **68.1%** (59.6–78.4) | 71.0% (62.6–81.9) / 64.9% (56.7–75.3) / 68.4% (58.1–80.3) | **75.1%** (67.7–84.6) |
+| code F1 strict, all | 67.9% | 71.0% / 64.9% / 67.7% | 74.3% |
+| rule-bearing F1, all (reported, not gated) | 70.2% | 73.1% / 66.3% / 71.2% | 77.6% |
+| value accuracy, all | 88.1% | 78.6% / 92.9% / 92.9% | 76.5% |
+| recall, non-duplicates (CI) | 87.7% (75.4–100) | 92.6% (84.4–100) / 85.2% (70.3–100) / 85.2% (70.3–100) | 100% (100–100) |
+| code F1, non-duplicates (CI) | 71.2% (57.5–91.8) | 74.1% (56.8–100) / 64.2% (49.1–84.2) / 75.5% (60.6–95.2) | 80.7% (70.1–94.7) |
+| code F1 strict / rule-bearing, non-dup | 70.0% / 67.9% | 74.1% / 64.2% / 71.7% · 66.7% / 60.9% / 76.2% | 77.2% / 78.3% |
+| predictions (gold 143) | 118 | 116 / 119 / 120 | 126 |
+| re-runs · retries · errors | 22.3/45 · 2.7 · 0 | 19 · 2 · 0 / 24 · 3 · 0 / 24 · 3 · 0 | 20/45 · 1 · 0 |
+| UNKNOWN codes | 12 | 8 / 13 / 15 | 18 |
+| cost | $0.198 ($0.0015/image) | $0.062 / $0.068 / $0.067 | $0.403 ($0.0090/image) |
+| **gate verdict** (recall ≥ 90% and F1 ≥ 85%) | **FAIL** | | **not decided (1 of 3), indicative FAIL** |
+
+- **Anchoring (plan item 6, D2).** Results by the model that drafted the gold, mean over runs, all images. The 8 Opus images are none of the non-duplicates, so this split is confounded with image difficulty.
+
+  | drafted by | images (gold) | Haiku v4 recall / F1 | Sonnet v4 recall / F1 |
+  |---|---|---|---|
+  | Haiku 5.5 (p2), "anchored (Haiku pre-fill)" | 37 (111) | 77.2% (65.6–92.4) / 63.8% (55.6–76.0) | 82.9% (68.4–98.7) / 73.0% (64.9–83.8) |
+  | Opus 5.5 (p1) | 8 (32) | 88.5% (79.2–100) / 82.4% (77.1–91.8) | 78.1% (60.9–100) / 82.8% (71.6–98.0) |
+
+  There is no sign that the Haiku pre-fill helped Haiku: it does worse on the images Haiku drafted.
+- **Against set T:** public_dev is a little below set T for Haiku (recall 79.7% vs 83.3%, F1 68.1% vs 72.3%). It is lower on recall for Sonnet (81.8% vs 90.8%) and higher on F1 (75.1% vs 69.8%). The recommendation expected both models to fail on F1, and they did. It did not expect Sonnet's recall result: it put Sonnet's recall near 90% on public_dev (about a coin flip against the gate), and the run gave 81.8%.
+- **Spend:** checkpoint 1 cost $0.601 (Haiku $0.198, under its $0.35 ceiling; Sonnet $0.403 for one run). Phase 3 total: $1.84.
+- **public_dev per-image errors were not looked at.** They are a record only, per the handoff rules, and nothing here is drawn from them.
+
+**The two-pass fallback on set T (plan item 7), 2026-11-16. Set T, development, in-sample.**
+
+The triggers were chosen on set T and are measured on set T, so these gains overstate what public_dev will show.
+
+- **Commits:** the design and its approval (`7bdd290`), the implementation (`47f0335`), and the pin and `compare` command (this commit).
+- **Runs on the frozen v4 pass-1 runs:**
+  - Haiku: pass 1 `4e6780670d2f`; fallback "rules" `a3d4be075b54` (paid by the owner);
+  - Sonnet: pass 1 `7a4f533fc335`; fallback "rules" `01f062ee69c7` (paid by the owner);
+  - replays (no API calls; `logs/api_calls.jsonl` stayed at 1,439 lines):
+    - crop_always: Haiku `d1ff09db5bf4`, Sonnet `d082c4d6cb96`;
+    - crop_high: Haiku `adf1e6477e5d`, Sonnet `9d43a8024287`;
+    - never: Haiku `5dbc44e65299`, Sonnet `7f82d17118aa`.
+  - A "rules" replay reproduced both paid runs' scenes exactly.
+- **Prompts:** `scene/v4-tile@a052a9fc72f7`, `scene/v4-crop@30e2d18b84d9`. The figures come from `perception_eval.py compare`.
+
+| set T, development, in-sample | recall | code F1 | strict F1 | rule-bearing F1 | non-dup recall / F1 | predictions (gold 120) | codes fixed (tiles + crops) | codes broken |
+|---|---|---|---|---|---|---|---|---|
+| **Haiku pass 1** | 83.3% | 72.3% | 69.6% | 76.2% | 80.0% / 70.7% | 104 | | |
+| Haiku + rules | 88.3% | 71.8% | 69.2% | 74.2% | 87.8% / 71.3% | 114 | 3 + 3 | 3 |
+| Haiku + crop_always | 89.2% | **73.5%** | 70.9% | 77.3% | 88.9% / 74.7% | 114 | 3 + 7 | 5 |
+| Haiku + crop_high | 87.5% | 69.5% | 67.0% | 73.4% | 86.7% / 69.4% | 113 | 2 + 0 | 2 |
+| Haiku + never | 88.3% | 71.2% | 68.7% | 76.6% | 86.7% / 69.4% | 113 | 2 + 0 | 0 |
+| **Sonnet pass 1** | 90.8% | 69.8% | 69.0% | 79.0% | 87.8% / 69.0% | 112 | | |
+| Sonnet + rules | 95.8% | **75.4%** | 74.6% | 81.8% | 94.4% / 75.4% | 124 | 1 + 10 | 0 |
+| Sonnet + crop_always | 95.8% | **75.4%** | 74.6% | 81.8% | 94.4% / 75.4% | 124 | 2 + 10 | 1 |
+| Sonnet + crop_high | 95.8% | 74.6% | 73.8% | 81.8% | 94.4% / 74.3% | 124 | 1 + 9 | 0 |
+| Sonnet + never | 95.8% | 67.2% | 66.4% | 78.1% | 94.4% / 65.6% | 124 | 1 + 0 | 0 |
+
+"Fixed" means a gold sign that pass 1 missed or misread and the fallback got right. "Broken" means one pass 1 had right and the fallback got wrong.
+
+**Triggers:**
+
+| | images tiled | tile signs added | crops | crops with no reply | crops that changed a code |
+|---|---|---|---|---|---|
+| Haiku | 6 / 36 | 12 | 52 | 0 | rules 16 (30.8%), crop_always 24 (46.2%), crop_high 6 (11.5%) |
+| Sonnet | 7 / 36 | 15 | 56 | **26 (46%)** | rules 16 (28.6%), crop_always 18 (32.1%), crop_high 12 (21.4%) |
+
+**Spend against the estimate:**
+- Haiku: $0.0446 ($0.0238 for 24 tiles, $0.0208 for 52 crops), against $0.041–0.050.
+- Sonnet: $0.433 ($0.242 for 28 tiles, $0.191 for 56 crops), against $0.42–0.52.
+- Per call, Sonnet tiles cost $0.0087 against the estimated $0.0073, and crops $0.0034 against $0.0035.
+- The 26 failed Sonnet crops were billed. Phase-3 spend is now **$2.32** ($1.84 + $0.48).
+
+**The combining rule: "rules", kept by the owner's 1-point rule.**
+- Mean code F1 over both models: crop_always **74.46%**, rules 73.60%, crop_high 72.06%, never 69.23% (pass 1: 71.07%).
+- rules is 0.86 points behind the best, inside the 1-point margin, so it stays.
+- Frozen as `fallback.CHOSEN_POLICY = "rules"`. The v4-tile and v4-crop files are pinned by sha256 in `tests/test_perception_fallback.py`.
+
+**What it shows:**
+- **Recall rose as expected:** Haiku +5.0 points, Sonnet +5.0. Code F1 rose less than the proposal's realistic figure:
+  - Haiku + rules 71.8% (proposal: 78.4%), **0.5 points below pass 1**;
+  - Sonnet + rules 75.4% (proposal: 78.2%), +5.6.
+- **Haiku's tiles add predictions that are mostly wrong.** 12 tile signs added, 6 more gold signs found, but only 3 with the right code, so precision falls. Haiku's crops under rules fixed 3 codes and broke 3.
+  - Under (d), a configuration whose mean code F1 doesn't rise keeps pass 1 alone. If public_dev looks like set T, that would apply to Haiku.
+- **Sonnet's crop pass lost almost half its replies.** 26 of 56 crop calls came back `bad_json`: the reply was not a bare JSON object (87–166 output tokens, `end_turn`). Haiku had 0 of 52.
+  - The fallback skips a failed crop with no retry, and the failed replies' text was not kept.
+  - So Sonnet's crop figures come from 30 readings, and its policy comparison is weaker than Haiku's.
+  - This looks like phase 2's Sonnet prose-around-JSON problem.
+
+**The crop retry and Sonnet's repair run (2026-11-16). Set T, development, in-sample.**
+
+- **The retry** (`d7ac725`): tile and crop calls get one retry on bad JSON that sends only the error (D4), and each failed attempt's raw text is kept.
+- **The repair run:** Sonnet fallback `7ea7aa8dcc8f`, run by the owner with `--use-cache`, cost **$0.1829**.
+  - The 28 tiles and 30 crops came from the cache; only the 26 crops that failed before were paid.
+  - 25 of the 26 were prose again on the first attempt, and **all 25 retries were usable**.
+  - **No crop failed after the retry.** The first attempts reason in prose and then give the JSON. For example: "…That matches R.420 "Bắt đầu khu đông dân cư" (start of a built-up area).\n\n{"code":"R.420","confidence":"high"}".
+- **Sonnet replays** (no API call; the log stayed at 1,490 lines): crop_always `a366b7c37100`, crop_high `40ba9224e784`, never `2907c1e78596`. A "rules" replay reproduced the repair run's scenes exactly. Haiku's files stand (0 failed calls).
+
+| set T, development, in-sample, Sonnet after the retry | recall | code F1 | strict F1 | rule-bearing F1 | non-dup recall / F1 | codes fixed (tiles + crops) | broken | crops changing a code |
+|---|---|---|---|---|---|---|---|---|
+| pass 1 | 90.8% | 69.8% | 69.0% | 79.0% | 87.8% / 69.0% | | | |
+| rules | 95.8% | 77.9% | 77.0% | 81.5% | 94.4% / 77.6% | 2 + 12 | 0 | 23 of 56 (41.1%) |
+| crop_always | 95.8% | **78.7%** | 77.9% | 81.5% | 94.4% / 79.8% | 4 + 14 | 3 | 33 (58.9%) |
+| crop_high | 95.8% | 74.6% | 73.8% | 81.8% | 94.4% / 74.3% | 1 + 9 | 0 | 14 (25.0%) |
+| never | 95.8% | 67.2% | 66.4% | 78.1% | 94.4% / 65.6% | 1 + 0 | 0 | 0 |
+
+**The combining rule changes to crop_always** (`086f1ee`):
+- mean code F1 over both models (Haiku as before): crop_always **76.10%** (Haiku 73.50%, Sonnet 78.69%), rules 74.83%, crop_high 72.06%, never 69.23%; pass 1 71.07%;
+- rules is 1.27 points behind, outside the owner's 1-point rule, so `CHOSEN_POLICY = "crop_always"`, and the fallback command defaults to it;
+- under crop_always, both models' code F1 rises over pass 1 on set T: Haiku +1.2 points, Sonnet +8.9.
+
+**Guard** (`086f1ee`): `score` refuses a public_dev run whose header has `use_cache: true`, because gate runs must be independent calls.
+
+**Spend:** phase 3 is now **$2.50**.
+
+**public_dev checkpoint 2 (gate v2, prompt v4 + fallback), 2026-11-16.**
+
+- **Configuration:** `perception_gate_v2`; pass 1 `scene/v4@153536ec5975`; fallback v4-tile `a052a9fc72f7`, v4-crop `30e2d18b84d9`, `crop_always`, one retry on bad JSON.
+- **Gate set:** 45 images (143 gold signs) and 17 non-duplicates (27 gold signs).
+- **Statistics:** CIs are image bootstraps (`eval/report.py`); the CI of a mean pools each image's counts over the runs.
+- **Not tuned:** the triggers, prompts and combining rule came from set T only. The changes after the approval were recorded before scoring (`cc06067`).
+- **Runs:** pass 1 is reused from checkpoint 1.
+  - Haiku fallback `b83d5dae690e`, `023c1a474288`, `9981d8112688` (on `e0128c462ed3`, `2dd3a6e61573`, `932c3d2b7009`);
+  - Sonnet fallback `949418393534` (on `f19dd5bc36f6`). **Sonnet ran once, by the owner's decision on cost.**
+- **Per-image errors were not looked at.**
+
+| public_dev checkpoint 2 | Haiku pass 1, mean of 3 | **Haiku + fallback, mean of 3** | Haiku + fallback runs (b83d / 023c / 9981) | Sonnet pass 1, 1 run | **Sonnet + fallback, 1 run** |
+|---|---|---|---|---|---|
+| recall, all (95% CI) | 79.7% (69.1–92.5) | **90.0%** (85.3–95.7); exactly 89.98% | 90.2% / 90.2% / 89.5% | 81.8% (69.6–96.3) | **95.8%** (90.3–99.2) |
+| code F1, all (CI) | 68.1% (59.6–78.4) | **75.6%** (69.2–83.0) | 77.1% / 75.4% / 74.2% | 75.1% (67.7–84.6) | **76.9%** (68.9–84.8) |
+| code F1 strict | 67.9% | 74.9% | 76.4% / 74.7% / 73.5% | 74.3% | 76.3% |
+| rule-bearing F1 (reported, not gated) | 70.2% | 78.8% | 81.3% / 79.1% / 75.8% | 77.6% | 81.5% |
+| value accuracy | 88.1% | 86.4% | 76.5% / 88.9% / 93.8% | 76.5% | 73.7% |
+| recall, non-duplicates (CI) | 87.7% (75.4–100) | 86.4% (73.0–100) | 88.9% / 85.2% / 85.2% | 100% | 100% |
+| code F1, non-duplicates (CI) | 71.2% (57.5–91.8) | 74.9% (61.4–95.7) | 72.7% / 74.1% / 77.8% | 80.7% (70.1–94.7) | 66.7% (49.4–93.9) |
+| predictions (gold 143) | 118.3 | 143.7 | 137 / 146 / 148 | 126 | 156 |
+| **gate** (recall ≥ 90% and F1 ≥ 85%) | FAIL | **FAIL** | | not decided | **not decided (1 of 3 runs); indicative FAIL on F1** |
+
+**The fallback's work** (paired with each pass-1 run; reported, not gated):
+
+| | images tiled | tile signs added | crops | crops with no reply after the retry | crops that changed a code | fixed (tiles + crops) | broken | fallback cost |
+|---|---|---|---|---|---|---|---|---|
+| Haiku (b83d / 023c / 9981) | 8 / 7 / 8 | 27 / 32 / 30 | 67 / 81 / 80 | 0 / 0 / 0 | 38.8% / 46.9% / 43.8% | 11+8 / 11+15 / 8+12 | 3 / 2 / 2 | $0.189 in all |
+| Sonnet (9494) | 9 | 35 | 77 | **4** (34 retried) | 42.9% | 16+2 | 4 | $0.647 |
+
+- **Anchoring (D2)**, fallback mean by gold drafter:
+  - Haiku: on the 37 Haiku-drafted images, recall 88.0% and F1 72.4%; on the 8 Opus-drafted images, 96.9% and 87.0%;
+  - Sonnet: 98.2% / 75.1% (Haiku-drafted) and 87.5% / 83.9% (Opus-drafted).
+- **Against set T** (in-sample): Haiku + fallback recall 90.0% vs 89.2% and F1 75.6% vs 73.5%. Sonnet + fallback recall 95.8% vs 95.8% and F1 76.9% vs 78.7%.
+  - Haiku gained more on public_dev (+7.5 F1 points) than on set T (+1.2).
+  - Sonnet's crops fixed only 2 codes here (14 on set T), while its tiles fixed 16.
+  - Sonnet's non-duplicate F1 fell (80.7% to 66.7%, on 27 gold signs).
+- **Spend:** checkpoint 2 cost **$0.836** (Haiku $0.189, Sonnet $0.647), within the estimates. Phase 3 is now **$3.34**.
+- **Cost per image, all-in (pass 1 + fallback):** Haiku about $0.0028, Sonnet about $0.023.
+
+**Policy (d), applied as written:**
+1. **No configuration passes the gate.**
+   - Haiku + fallback fails code F1 by 9.4 points. Its recall is 89.98%, 0.02 points under 90%.
+   - Sonnet + fallback is not decided on one run, and its F1 (76.9%) is far under 85% even at the top of its CI (84.8%).
+2. **The highest mean code F1 on all 45 images** is Sonnet + fallback at 76.9%, from 1 of 3 runs.
+3. **Haiku + fallback (75.6%) is 1.3 points behind it,** within 2 points, so **Haiku** is chosen.
+4. **The fallback raised Haiku's mean code F1** from 68.1% to 75.6%, so it stays.
+
+**→ Phase 4 perception: Haiku 5.5, prompt v4 + the fallback** (v4-tile, v4-crop, `crop_always`), with the perception gate recorded as **failed**.
+- **No checkpoint 3 in phase 3** (d).
+- The comparison with Sonnet rests on one Sonnet run. Haiku's code F1 varies by 2.9 points across its three fallback runs, so a 1.3-point gap is within run-to-run noise.
+
+### Phase 3: closing (2026-11-16)
+
+**Outcome: the perception gate failed.**
+- Haiku v4 + fallback, mean of 3 runs on public_dev: recall **89.98%** (below 90%) and code F1 **75.6%** (below 85%).
+- Sonnet v4 + fallback ran once, by the owner's decision on cost: recall 95.8%, code F1 76.9%, not decided.
+- Under policy (d), fixed before checkpoint 2, **phase 4 uses Haiku v4 + the fallback**, and the gate is recorded as failed. There is no checkpoint 3.
+- DESIGN.md section 3 has the as-built design and the figures (`1986de3`).
+
+**What was done (main commits):**
+- **Plan and gold:**
+  - plan `6113e00` (D1–D10);
+  - gold tooling and guide `13eb3a0`, `c88f928`, set T `7961c6f` and `10c6730`;
+  - gold signs v1 `9387764`: 81 images, every sign reviewed by the owner;
+  - later gold changes `c6fb83f`, `f9998a1`, `677a87b`, and the last gold commit `ddb044b`;
+  - the D10 visual check `4605a36` (55 rows human-reviewed).
+- **Catalog:** P.118 and P.119 (`750011a`, `6945a25`, reviewed in `c308cbb`); R.403a/b, R.404a, R.307 (`9b5b9fa`); the effect_unmodelled rows (`87f894c`).
+- **Perception code:**
+  - image prep `03cf04b`, wire `3282a94`, cache `d2b3ccd`, leakage guard `8d10df4`;
+  - prompt builder `b86effc`, scene call `d87b65d`, verification and re-run `bcc636c`;
+  - `perception_eval.py` with the pinned GATE `1c6dc57`; gate v2 matching `b722247`.
+- **Prompts:**
+  - v2 `19bd70c`;
+  - v3 with pictograms `a792fdc`, under the dataset-rule exception in CLAUDE.md `ccb2648`;
+  - v4 `4cc8717`, pinned in `07aa01b`.
+- **Checkpoint tooling:** mean-of-runs summaries and the drafter split `493b897`; the mixed-configuration refusal `6338059`.
+- **Fallback:**
+  - proposal `99140cf`, approval `7bdd290`;
+  - implementation `47f0335`; pins and `compare` `c7a7bc3`;
+  - the retry and `--use-cache` `d7ac725`; `crop_always` and the cached-run guard `086f1ee`;
+  - checkpoint-2 decisions recorded before scoring `cc06067`.
+- 644 tests pass and Prolog loads (as of `086f1ee`; no code has changed since).
+
+**The configuration going into phase 4:**
+
+| part | value |
+|---|---|
+| scene model | `claude-haiku-5-5`, effort medium (each prompt config's `effort`) |
+| pass-1 prompt | `scene/v4@153536ec5975`. Pinned in `tests/test_scene_prompt_v3.py` (`V4_SHA256`: spec `4757bbb2…`, config `3c3f60ce…`, examples `def4618e…`, pictograms manifest `d4b38018…`) |
+| tile prompt | `scene/v4-tile@a052a9fc72f7`. Pinned in `tests/test_perception_fallback.py` (`V4_TILE_SHA256`: spec `d9eb38db…`, config `26d51b4b…`, examples `def4618e…`, manifest `040bfd12…`) |
+| crop prompt | `scene/v4-crop@30e2d18b84d9`. Pinned there too (`V4_CROP_SHA256`: spec `d2fbec72…`, config `8a58a28e…`, examples `cd6e0aa5…`, manifest `2ca9fbc2…`) |
+| combining rule | `vqa.perception.fallback.CHOSEN_POLICY = "crop_always"` (pinned) |
+| fallback constants | tiles at ≥ 5 signs, 2 × 2 with 20% overlap, dedup IoU 0.30; crop margins 0.5 / 0.5 / 0.5 / 1.0, minimum 128 px, upscale to 384 px (pinned) |
+| gate | `perception_gate_v2` (pinned) |
+| pictograms | the local copies come from `tools/build_scene_pictograms.py --version v4`, `v4-tile` and `v4-crop`; the prompts refuse to build without them |
+| entry point | `perceive(image_path, model="claude-haiku-5-5", version="v4", fallback=FallbackConfig())` |
+
+**Spend:** **$3.34** over 1,375 calls, all from the usage log:
+
+| | cost |
+|---|---|
+| gold pre-fill | $0.35 |
+| scene calls | $0.99 |
+| re-runs | $0.50 |
+| tiles | $0.69 |
+| crops | $0.66 |
+| crop retries | $0.14 |
+
+**Open items:**
+- **Owner reviews pending:**
+  - catalog rows with `reviewed_by: none`: R.403a, R.403b, R.307, R.404a, and the effect_unmodelled rows R.302(a,b,c), R.303, R.411, R.420;
+  - the IE.451b visual (catalog background blue; the train_7_23 gold says green) and IE.464 (catalog shape other; seen as a rectangle);
+  - train_7_25's four arrow boards: gold I.407c, both models I.415 (the owner kept I.407c);
+  - standalone local notices: labelled `local_notice` and out of the gate, still not modelled by the engine;
+  - the five visual rows still `visual_reviewed_by: assistant`: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473.
+- **Perception limits carried into phase 4:**
+  - code F1 is about 10 points short of the gate;
+  - tile-added signs often get the wrong code;
+  - Sonnet answers crops in prose before the JSON (34 of 77 retried, 4 still failed);
+  - every gain on set T is in-sample.
+- **Not done in phase 3 (proposed):**
+  - the private gold labels (C2, after the benchmark run);
+  - the pictogram ablation;
+  - the parser-cache key including the catalog hash (open since phase 2).
+
 ## Next steps, in order
+
+**Next (2026-11-16): phase 3 is closed.** The owner reads DESIGN.md section 3 and `docs/plans/phase-4-draft.md`, then decides whether `phase-3` goes into `main` and approves (or changes) the phase-4 plan. No phase-4 code before that.
+
+### Handoff (2026-11-15): where phase 3 stands, and what comes next (kept as a record)
+
+**Where things stand** (branch `phase-3`, not pushed):
+- **Gold signs v1:** 81 images (45 public_dev, 36 set T), hand-reviewed by the owner, in `data/annotations/gold_signs_v1/gold_signs_v1.jsonl`. Last gold commit `ddb044b` (train_7_23 s4 = DP.134).
+- **Set-T results** (development, gate v2):
+
+  | | recall | code F1 | rule-bearing F1 |
+  |---|---|---|---|
+  | Haiku v4 | 83.3% | 72.3% | 76.2% |
+  | Sonnet v4 | 90.8% | 69.8% | 79.0% |
+  | Haiku v3 (best Haiku F1) | 81.7% | 73.5% | 75.8% |
+
+  No configuration is near 85% code F1; the 95% CIs top out around 80–83%. The full tables are in the entries below.
+- **Prompt:** `scene/v4@153536ec5975`, pinned by sha256 at `07aa01b` (v1–v4 are all pinned). The v3/v4 pictograms are local, gitignored copies; rebuild them with `tools/build_scene_pictograms.py --version v4` if they are missing (the prompt refuses to build otherwise).
+- **Gate:** `perception_gate_v2` in `eval/perception_eval.py`, pinned by a test: recall ≥ 0.90 and code F1 ≥ 0.85 on the mean of 3 runs; readable:false and local_notice gold excluded; side before rank in matching.
+- **Phase-3 API spend so far: $1.24** over 421 calls. That is the gold pre-fill ($0.29 Opus + $0.06 Haiku) and six set-T runs ($0.89: Haiku v1–v4 $0.20, Sonnet v2 and v4 $0.68). There has been no public_dev run.
+- `ANTHROPIC_API_KEY` is not set in the assistant's shell: the owner runs the paid commands.
+
+**Fallback on set T: done (2026-11-16).** "rules" frozen. v4-tile and v4-crop are pinned. Spend is $2.32. See the entry above.
+
+**Checkpoint 2: done (2026-11-16).** Haiku + fallback FAIL: recall 89.98%, code F1 75.6% (mean of 3). Sonnet + fallback: 1 run, not decided, recall 95.8%, F1 76.9%. The results entry is above.
+
+- **Policy (d):** phase 4 uses **Haiku v4 + fallback** (`crop_always`). The perception gate is recorded as failed. No checkpoint 3.
+- **Spend:** phase 3 is $3.34.
+- **Left in phase 3:**
+  - plan item 9's DESIGN.md updates: the plain-JSON scene call, the gold-label decision, the gate on public_dev, matching and CI, the model choice, and the fallback;
+  - the open catalog reviews.
+
+**Checkpoint 1: done (2026-11-16).** Haiku v4 FAIL (recall 79.7%, code F1 68.1%, mean of 3). Sonnet v4 was run once (owner's decision): recall 81.8%, F1 75.1%, not decided, indicative FAIL. The results entry is above. Phase-3 spend is now $1.84. Next: the owner's decision on plan item 7 (the fallback, built on set T; see "Open owner decisions"), then checkpoint 2.
+
+**Checkpoint 1 procedure** (approved by the owner; kept as a record; Sonnet stopped after 1 of 3 runs):
+1. **Haiku v4 × 3 on public_dev**, each run with `--max-spend 0.5`; ceiling **$0.35** for the three runs (estimate $0.20 calibrated, range $0.13–0.25):
+   `.venv/bin/python eval/perception_eval.py run --set public_dev --model claude-haiku-5-5 --version v4 --max-spend 0.5` (three times)
+2. Score with the gate (mean of 3): `.venv/bin/python eval/perception_eval.py score <the three run files>`.
+3. **If Haiku fails: Sonnet v4 × 3**, each run with `--max-spend 1.0`; ceiling **$1.80** (estimate $1.28 calibrated, range $0.88–1.64):
+   `.venv/bin/python eval/perception_eval.py run --set public_dev --model claude-sonnet-5-5 --version v4 --max-spend 1.0` (three times), then score.
+   Opus is skipped (owner's decision).
+4. **Report** via `eval/report.py`, labelled **"public_dev checkpoint 1 (gate v2, prompt v4)"**:
+   - both scores, on all 45 images and on the 17 non-duplicates, with 95% CIs, per run and the mean;
+   - recall, code F1 (row and strict), rule-bearing F1 (reported, not gated), value accuracy, cost;
+   - the gate verdict for each model.
+
+   Then one status commit and stop.
+
+**Rules:**
+- public_dev per-image errors are a record only. They are never used to design the fallback or any prompt. The fallback trigger is chosen from set-T errors only.
+- No new prompt versions without the owner's decision.
+- No push.
+
+**Open owner decisions:**
+- **The plan-item-7 change:** box crops that re-read low-confidence / UNKNOWN codes, plus a region pass (tiles or whole-board crops) on dense scenes. Box crops can't recover a missed sign: on set T every missed sign was never listed.
+- **What happens if the gate still fails after the fallback.**
+
+**Other open items:**
+- Catalog rows waiting for the owner's review (`reviewed_by: none`): R.403a, R.403b, R.307, R.404a, and the effect_unmodelled rows R.302(a,b,c), R.303, R.411, R.420.
+- IE.451b (catalog background blue; the train_7_23 gold says green) and IE.464 (catalog shape other; seen as a rectangle): the owner re-checks them.
+- train_7_25's four arrow boards: gold I.407c, while both models say I.415 (the owner kept I.407c).
+- Standalone local notices: labelled `local_notice` and excluded from scoring; still not modelled by the engine.
+
+
+0. **Recommendation for the public_dev checkpoint** (owner's decision; no more set-T prompt versions):
+   - **Prompt v4 for both models, in plan item 6's order:** Haiku v4 × 3, then Sonnet v4 × 3, since Haiku will very likely fail.
+     - Expected cost about $0.20 for Haiku (45 images × $0.0015 × 3) and $1.35 for Sonnet (45 × $0.0100 × 3), about $1.55 in all. Spend limits $0.5 and $2.5.
+   - **Expected result: both FAIL** on code F1 ≥ 85%. Set T gives 70–74% with 95% CIs topping out near 80–83%.
+     - Sonnet's recall (90.8% on set T, CI 84.6–97.9%) is about a coin flip against 90%.
+     - Haiku's recall (83%) very likely fails.
+     - public_dev is not the tuning set, so expect at or below set T.
+   - **Then the fallback (plan item 7), built on set T:** box crops that re-read low / UNKNOWN codes, plus a region pass (tiles or board crops) on dense scenes for never-listed signs. Then the plan's second public_dev checkpoint.
+   - **The model to carry forward: Sonnet v4.** It has recall near the gate, the best rule-bearing F1 (79%) and 100% value accuracy, at about $0.01 per image.
 
 1. **Visual corrections.** Five rows are still `visual_reviewed_by: assistant`, waiting for the owner's check: W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473. Set each confirmed row to `human` in `tools/draft_catalog_rows.py` and regenerate.
 2. **Done: the parser gate.** It passed for Sonnet 5.5 at medium on prompt v6; see the results above. The rest of this step is kept as a record. **Haiku on prompt v6, medium effort, three runs:**
@@ -211,6 +898,10 @@ Still open: `also_accept` for the equivalent selectors (0002, 0025, 0043). This 
 
 ## Open items
 
+- **The parser's version key should include the catalog hash,** as the phase-3 scene prompt does. The parser prompt is built from `prompts/parser/<version>/` plus the catalog table, but only the spec and few-shot files are pinned. So a catalog change (P.118 and P.119 here) changes the prompt the parser actually sends, under the same version name.
+- **P.118 and P.119 rows wait for the owner's review** (`reviewed_by: none` in git; the owner has marked them `human` locally, not committed).
+- **R.302(a,b,c), R.303, R.411, R.420** are in the catalog with `effect_unmodelled` (`87f894c`). Their effects are still to be modelled; until then they make closed-world answers unknown where they could matter.
+- **R.403a, R.403b, R.404a, R.307, R.302(a,b,c), R.303, R.411, R.420 wait for the owner's review** (`reviewed_by: none`).
 - **Sonnet's bad_json first replies.** 16 of 141 first replies (11%) across the three v6 runs had prose around the JSON and needed the retry; Haiku had 0 of 141. One retry, on 0005 in run f20993f4ac4e, was refused with category `reasoning_extraction`.
   - The likely cause is the retry wording. `ClaudeParser.parse` sends the rejected reply back as the assistant turn, prose included, followed by "That answer is not valid: …. Reply with only the corrected JSON object."
   - Candidates for a v7: don't echo the prose back (send a placeholder or only the error); tell the model more firmly to reply with nothing but the object; or accept "prose, then one ```json fence".

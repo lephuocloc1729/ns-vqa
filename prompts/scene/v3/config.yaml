@@ -1,0 +1,13 @@
+# Scene prompt v1 (docs/plans/phase-3.md, item 3). Part of the prompt hash.
+max_tokens: 8000          # dense scenes ran to ~4,100 output tokens in the Haiku pre-fill
+image:                    # vqa/perception/image.py
+  prep_version: img1
+  long_edge: 1568
+  max_pixels: 1150000
+  jpeg_quality: 90
+effort:                   # per model (plan D3: Haiku at its default, medium)
+  claude-haiku-5-5: medium
+  claude-sonnet-5-5: medium
+  claude-opus-5-5: medium
+retry: 1                  # one retry that sends only the error
+pictograms: pictograms.yaml   # reference figures before the photo (CLAUDE.md exception)

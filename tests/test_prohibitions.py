@@ -168,3 +168,29 @@ def test_no_violation_and_unknown_action(engine):
     sc = scene(sign("s1", "P.123a"),
                vehicles=[{"id": "v1", "class": "passenger_car", "action": "unknown"}])
     assert engine.answer(sc, ExistsViolation()).verdict == Verdict.unknown
+
+
+# ---------------------------------------------------------------- reserved roads (QCVN 41 D.11, D.12)
+
+def test_car_road_r403a_bars_every_other_vehicle(engine):
+    """D.11 l): vehicles not shown on R.403a may not enter; law_db files D.11 under D.10."""
+    sc = scene(sign("s1", "R.403a"))
+    bike = permitted(engine, sc, "enter", V("motorbike"))
+    assert bike.verdict == Verdict.no and "D.10" in articles(bike)
+    assert permitted(engine, sc, "enter", V("bicycle")).verdict == Verdict.no
+    assert permitted(engine, sc, "enter", V("passenger_car")).verdict == Verdict.yes
+    assert permitted(engine, sc, "enter", V("truck")).verdict == Verdict.yes      # truck is_a car
+    assert permitted(engine, sc, "enter", V("vehicle")).verdict == Verdict.unknown
+
+
+def test_car_and_motorbike_road_r403b(engine):
+    sc = scene(sign("s1", "R.403b"))
+    assert permitted(engine, sc, "enter", V("moped")).verdict == Verdict.yes
+    assert permitted(engine, sc, "enter", V("coach")).verdict == Verdict.yes
+    assert permitted(engine, sc, "enter", V("bicycle")).verdict == Verdict.no
+
+
+def test_end_of_car_road_r404a_seen_with_r403a_is_unknown(engine):
+    """Both visible: a still image can't show which side of R.404a we are on."""
+    sc = scene(sign("s1", "R.403a"), sign("s2", "R.404a"))
+    assert permitted(engine, sc, "enter", V("motorbike")).verdict == Verdict.unknown

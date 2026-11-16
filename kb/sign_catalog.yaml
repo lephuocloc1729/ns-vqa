@@ -27,6 +27,10 @@
 #                                       R.301 family (D.1a): directions allowed and their scope
 #                                       for each placement the article describes; scope is
 #                                       intersection_behind | intersection_ahead | until_next_intersection
+#   effect_unmodelled: true             the sign has a legal effect the rules don't model yet
+#                                       (no effect keys). Questions about its identity and
+#                                       meaning work; closed-world claims treat it like an
+#                                       unreadable sign of its visible kind (CLAUDE.md).
 #   source                              law_id + article_id, same format as relevant_articles
 #
 # VehicleSpec is {class, conditions: [{attr, op, value}]} as in vqa/schemas.py.
@@ -65,10 +69,11 @@ signs:
     name_vi: Cấm đi ngược chiều
     name_en: No entry
     category: prohibitory
-    visual: {shape: circle, border: red, background: red}
+    visual: {shape: circle, border: none, background: red}
     effect:
       prohibits: [{actions: [enter], vehicles: [{class: vehicle}]}]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.2"}
+    visual_reviewed_by: human
 
   - code: P.103a
     key: no_cars
@@ -82,6 +87,7 @@ signs:
       prohibits: [{actions: [enter], vehicles: [{class: motor_vehicle}]}]
       except: [motorcycle, moped]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.3"}
+    visual_reviewed_by: human
 
   - code: P.103b
     key: no_right_turn_for_cars
@@ -106,6 +112,7 @@ signs:
       prohibits: [{actions: [turn_left], vehicles: [{class: motor_vehicle}]}]
       except: [motorcycle, moped]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.3"}
+    visual_reviewed_by: human
 
   - code: P.104
     key: no_motorbikes
@@ -141,6 +148,7 @@ signs:
       prohibits:
         - {actions: [enter], vehicles: [{class: truck}, {class: tractor}, {class: special_machine}]}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.6"}
+    visual_reviewed_by: human
 
   - code: P.106b
     key: no_trucks_over_load
@@ -154,6 +162,7 @@ signs:
         - {actions: [enter], vehicles: [{class: truck}, {class: tractor}, {class: special_machine}]}
       value: {attr: load_t, op: gt, unit: t, applies_to: [truck]}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.6"}
+    visual_reviewed_by: human
 
   - code: P.107
     key: no_buses_and_trucks
@@ -167,6 +176,7 @@ signs:
         - actions: [enter]
           vehicles: [{class: bus}, {class: truck}, {class: tractor}, {class: special_machine}]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.7"}
+    visual_reviewed_by: human
 
   - code: P.107a
     key: no_buses_coaches
@@ -181,6 +191,7 @@ signs:
       # seat count written on the symbol or on a plate (B.7a b)
       value: {attr: seats, op: gt, unit: seats, applies_to: [bus]}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.7a"}
+    visual_reviewed_by: human
 
   - code: P.107b
     key: no_taxis
@@ -214,6 +225,7 @@ signs:
     effect:
       prohibits: [{actions: [enter], vehicles: [{class: bicycle}]}]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.10"}
+    visual_reviewed_by: human
 
   - code: P.110b
     key: no_cargo_bicycles
@@ -236,6 +248,7 @@ signs:
     effect:
       prohibits: [{actions: [enter], vehicles: [{class: moped}]}]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.11"}
+    visual_reviewed_by: human
 
   - code: P.111b
     key: no_motor_tricycles
@@ -247,6 +260,7 @@ signs:
     effect:
       prohibits: [{actions: [enter], vehicles: [{class: motor_tricycle}]}]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.11"}
+    visual_reviewed_by: human
 
   - code: P.111d
     key: no_non_motorised_tricycles
@@ -258,6 +272,7 @@ signs:
     effect:
       prohibits: [{actions: [enter], vehicles: [{class: cyclo}]}]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.11"}
+    visual_reviewed_by: human
 
   - code: P.112
     key: no_pedestrians
@@ -269,6 +284,7 @@ signs:
     effect:
       prohibits: [{actions: [enter], vehicles: [{class: pedestrian}]}]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.12"}
+    visual_reviewed_by: human
 
   - code: P.115
     key: gross_weight_limit
@@ -282,6 +298,7 @@ signs:
       priority_exempt: false   # "kể cả các xe được ưu tiên theo quy định"
       value: {attr: gross_t, op: gt, unit: t, applies_to: [vehicle]}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.15"}
+    visual_reviewed_by: human
 
   - code: P.117
     key: height_limit
@@ -294,6 +311,39 @@ signs:
       priority_exempt: false
       value: {attr: height_m, op: gt, unit: m, applies_to: [vehicle]}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.17"}
+    visual_reviewed_by: human
+
+  # B.18 b): "có hiệu lực cấm các xe (cơ giới và thô sơ) kể cả các xe được ưu tiên
+  # theo quy định có chiều ngang (kể cả xe và hàng hóa) vượt quá trị số ghi trên biển"
+  - code: P.118
+    key: width_limit
+    name_vi: Hạn chế chiều ngang xe
+    name_en: Width limit
+    category: prohibitory
+    visual: {shape: circle, border: red, background: white}
+    effect:
+      prohibits: [{actions: [enter], vehicles: [{class: vehicle}]}]
+      priority_exempt: false   # "kể cả các xe được ưu tiên theo quy định"
+      value: {attr: width_m, op: gt, unit: m, applies_to: [vehicle]}
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.18"}
+    reviewed_by: human
+
+  # B.19 a): "Để báo đường cấm các loại xe (cơ giới và thô sơ) kể cả các xe được ưu tiên
+  # theo quy định, có độ dài toàn bộ kể cả xe và hàng lớn hơn trị số ghi trên biển đi qua"
+  # B.19 b): the value is the longest length allowed "đối với xe đơn chiếc" (for a
+  # single vehicle); combinations are not modelled separately.
+  - code: P.119
+    key: length_limit
+    name_vi: Hạn chế chiều dài xe
+    name_en: Length limit
+    category: prohibitory
+    visual: {shape: circle, border: red, background: white}
+    effect:
+      prohibits: [{actions: [enter], vehicles: [{class: vehicle}]}]
+      priority_exempt: false   # "kể cả các xe được ưu tiên theo quy định"
+      value: {attr: length_m, op: gt, unit: m, applies_to: [vehicle]}
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.19"}
+    reviewed_by: human
 
   - code: P.123a
     key: no_left_turn
@@ -317,6 +367,7 @@ signs:
     effect:
       prohibits: [{actions: [turn_right], vehicles: [{class: vehicle}]}]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.23"}
+    visual_reviewed_by: human
 
   - code: P.124a
     key: no_u_turn
@@ -351,6 +402,7 @@ signs:
     effect:
       prohibits: [{actions: [turn_left, u_turn], vehicles: [{class: vehicle}]}]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.24"}
+    visual_reviewed_by: human
 
   - code: P.124d
     key: no_right_turn_and_no_u_turn
@@ -376,6 +428,7 @@ signs:
       prohibits: [{actions: [overtake], vehicles: [{class: motor_vehicle}]}]
       priority_exempt: false   # "kể cả xe được ưu tiên theo quy định"
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.25"}
+    visual_reviewed_by: human
 
   - code: P.126
     key: no_overtaking_by_trucks
@@ -411,6 +464,7 @@ signs:
     effect:
       prohibits: [{actions: [stop, park], vehicles: [{class: motor_vehicle}]}]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.30"}
+    visual_reviewed_by: human
 
   - code: P.131a
     key: no_parking
@@ -422,6 +476,7 @@ signs:
     effect:
       prohibits: [{actions: [park], vehicles: [{class: motor_vehicle}]}]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.31"}
+    visual_reviewed_by: human
 
   - code: P.131b
     key: no_parking_on_odd_days
@@ -434,6 +489,7 @@ signs:
       prohibits: [{actions: [park], vehicles: [{class: motor_vehicle}]}]
       days: odd
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.31"}
+    visual_reviewed_by: human
 
   - code: P.131c
     key: no_parking_on_even_days
@@ -446,6 +502,7 @@ signs:
       prohibits: [{actions: [park], vehicles: [{class: motor_vehicle}]}]
       days: even
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.31"}
+    visual_reviewed_by: human
 
   - code: P.136
     key: no_straight_ahead
@@ -501,6 +558,7 @@ signs:
     effect:
       max_speed: [motor_vehicle]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.27"}
+    visual_reviewed_by: human
 
   - code: P.127a
     key: max_speed_at_night
@@ -524,6 +582,7 @@ signs:
     effect:
       lane_board: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.27b"}
+    visual_reviewed_by: human
 
   - code: P.127c
     key: max_speed_per_lane_and_vehicle
@@ -536,6 +595,7 @@ signs:
       # "Các loại phương tiện phải đi đúng làn đường và tuân thủ tốc độ tối đa"
       lane_board: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.27c"}
+    visual_reviewed_by: human
 
   - code: R.306
     key: min_speed
@@ -547,6 +607,38 @@ signs:
     effect:
       min_speed: [motor_vehicle]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.6"}
+    visual_reviewed_by: human
+
+  # D.11 l): "Ngoài các loại phương tiện quy định trên biển được đi lại, các loại phương
+  # tiện giao thông khác không được phép đi vào đoạn đường có đặt các biển số R.403a,
+  # R 403b, ..." law_db has no article D.11: its text is merged into the end of D.10,
+  # so the rows cite D.10. Only the variants seen in the gold (a, b) are added.
+  - code: R.403a
+    key: car_road
+    tags: [vehicle_ban]
+    name_vi: Đường dành cho xe ô tô
+    name_en: Road for cars
+    category: mandatory
+    visual: {shape: rectangle, border: white, background: blue}
+    effect:
+      # a): "Để báo hiệu bắt đầu đường dành cho các loại ô tô đi lại"
+      prohibits: [{actions: [enter], vehicles: [{class: vehicle}]}]
+      except: [car]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.10"}
+    visual_reviewed_by: human
+
+  - code: R.403b
+    key: car_and_motorbike_road
+    tags: [vehicle_ban]
+    name_vi: Đường dành cho xe ô tô, xe máy
+    name_en: Road for cars and motorbikes
+    category: mandatory
+    visual: {shape: rectangle, border: white, background: blue}
+    effect:
+      # b): "Để báo hiệu bắt đầu đường dành cho các loại ô tô, xe máy đi lại"
+      prohibits: [{actions: [enter], vehicles: [{class: vehicle}]}]
+      except: [car, motorbike]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.10"}
 
   # ------------------------------------------------------------------ end of restriction
   - code: DP.127
@@ -592,6 +684,33 @@ signs:
     effect:
       ends: [P.121, P.125, P.126, P.127, P.128, P.130, P.131a, P.131b, P.131c]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.35"}
+
+  # D.7 b): "hiệu lực của biển số R.306 hết tác dụng, kể từ biển này các xe được phép
+  # chạy chậm hơn trị số ghi trên biển nhưng không được gây cản trở các xe khác"
+  - code: R.307
+    key: end_of_minimum_speed
+    tags: [end_of_restriction]
+    name_vi: Hết tốc độ tối thiểu
+    name_en: End of minimum speed
+    category: end_of_restriction
+    visual: {shape: circle, border: none, background: blue}
+    effect:
+      ends: [R.306]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.7"}
+    visual_reviewed_by: human
+
+  # D.12 a): "Đến hết đoạn đường dành cho ô tô đi lại, đặt biển số R404a"
+  - code: R.404a
+    key: end_of_car_road
+    tags: [end_of_restriction]
+    name_vi: Hết đoạn đường dành cho xe ô tô
+    name_en: End of road for cars
+    category: end_of_restriction
+    visual: {shape: rectangle, border: white, background: blue}
+    effect:
+      ends: [R.403a]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.12"}
+    visual_reviewed_by: human
 
   # ------------------------------------------------------------------ mandatory directions
   - code: R.301a
@@ -717,6 +836,59 @@ signs:
         after_intersection: {directions: [turn_left, u_turn, turn_right], scope: intersection_ahead}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.1a"}
 
+  # Mandatory signs whose effect the rules don't model yet (effect_unmodelled): known by
+  # code and meaning; closed-world claims treat them like unreadable signs of their kind.
+
+  # D.2 c): "Biển có hiệu lực bắt buộc các loại xe phải đi vòng chướng ngại vật theo
+  # hướng mũi tên chỉ." Also used with P.102 on a median for one-way carriageways.
+  - code: R.302(a,b,c)
+    key: pass_obstacle_this_side
+    name_vi: Hướng phải đi vòng chướng ngại vật
+    name_en: Pass the obstacle on the side shown
+    category: mandatory
+    visual: {shape: circle, border: none, background: blue}
+    variants: [a, b, c]
+    effect_unmodelled: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.2"}
+    visual_reviewed_by: human
+
+  # D.3 b): "Biển có hiệu lực bắt buộc các loại xe muốn chuyển hướng phải chạy vòng
+  # theo đảo an toàn theo hướng mũi tên."
+  - code: R.303
+    key: roundabout
+    name_vi: Nơi giao nhau chạy theo vòng xuyến
+    name_en: Roundabout
+    category: mandatory
+    visual: {shape: circle, border: none, background: blue}
+    effect_unmodelled: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.3"}
+    visual_reviewed_by: human
+
+  # D.13: "Biển có tác dụng bắt buộc người tham gia giao thông phải đi đúng làn đường
+  # đã được chỉ dẫn hướng phù hợp với hành trình của xe." Lane rows don't carry
+  # directions yet.
+  - code: R.411
+    key: lane_directions
+    name_vi: Hướng đi trên mỗi làn đường phải theo
+    name_en: Directions per lane
+    category: mandatory
+    visual: {shape: rectangle, border: white, background: blue}
+    effect_unmodelled: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.13"}
+    visual_reviewed_by: human
+
+  # D.17 b): "phạm vi phải tuân theo những quy định đi đường được áp dụng ở khu đông
+  # dân cư" (e.g. built-up-area speed limits, which are not modelled).
+  - code: R.420
+    key: built_up_area_start
+    name_vi: Bắt đầu khu đông dân cư
+    name_en: Start of built-up area
+    category: mandatory
+    visual: {shape: rectangle, border: white, background: blue}
+    effect_unmodelled: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.17"}
+    visual_reviewed_by: human
+
   # ------------------------------------------------------------------ reserved lanes
   - code: R.412a
     key: bus_and_coach_lane
@@ -782,6 +954,7 @@ signs:
     visual: {shape: rectangle, border: none, background: blue}
     effect: {lane_reserved: [car]}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.14"}
+    visual_reviewed_by: human
 
   - code: R.412g
     key: motorbike_and_bicycle_lane
@@ -815,6 +988,7 @@ signs:
       # "Biển không áp dụng với các xe chuyển làn để ra vào hoặc dừng, đỗ bên đường."
       lane_board: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.16"}
+    visual_reviewed_by: human
 
   - code: R.415b
     key: end_of_lanes_by_vehicle
@@ -826,6 +1000,7 @@ signs:
     effect:
       ends: [R.415a]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.16"}
+    visual_reviewed_by: human
 
   # ------------------------------------------------------------------ auxiliary plates
   - code: S.504

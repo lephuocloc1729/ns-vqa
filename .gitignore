@@ -15,3 +15,22 @@ logs/
 data/annotations/gold_intents_v1/*
 !data/annotations/gold_intents_v1/gold_intents_v1.jsonl
 !data/annotations/gold_intents_v1/gold_intents_v2.jsonl
+
+# gold-sign working files (drafts with model replies, label YAMLs, review sheet): local only;
+# gold_signs_v1.jsonl keeps image ids and labels. Private labels (plan D1, C2) never leave this machine.
+data/annotations/gold_signs_v1/*
+!data/annotations/gold_signs_v1/gold_signs_v1.jsonl
+data/annotations/gold_signs_private/
+
+# D10 visual review page (links dataset and law_db images; local only)
+data/annotations/visual_review/
+
+# scene cache: model outputs only, keyed by image sha256 + model + effort + prompt version
+cache/scenes/
+
+# perception eval runs (model scenes per image; local only)
+eval/runs/
+
+# scene prompt pictograms: resized law_db figures (dataset files), local only;
+# the committed manifest prompts/scene/<version>/pictograms.yaml pins their sha256
+prompts/scene/*/pictograms/

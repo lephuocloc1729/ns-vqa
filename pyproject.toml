@@ -12,6 +12,7 @@ dependencies = [
     "pyyaml>=6.0",
     "janus-swi>=1.5",
     "anthropic>=2.8,<3",
+    "Pillow>=10",          # vqa/perception/image.py
 ]
 
 [project.optional-dependencies]

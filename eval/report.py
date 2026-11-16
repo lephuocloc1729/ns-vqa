@@ -87,3 +87,29 @@ def format_report(rep: dict[str, Any]) -> str:
             f"non-duplicate {pct(nd['accuracy'])} (n={nd['n']}, 95% CI {pct(lo)}-{pct(hi)}) | "
             f"duplicate {pct(d['accuracy'])} (n={d['n']}; duplicates of "
             f"{', '.join(rep['against']) or 'none'})")
+
+
+def bootstrap_ci(units: list[Any], metric, resamples: int = 10_000, seed: int = 20261115,
+                 level: float = 0.95) -> tuple[float | None, float | None]:
+    """Percentile bootstrap CI for a metric computed over resampled units.
+
+    `units` are per-image records (signs on one image are not independent, so the
+    image is the unit); `metric(list_of_units)` returns a float or None. Images are
+    drawn with replacement `resamples` times with a fixed seed, so the interval is
+    reproducible."""
+    import random
+
+    if not units:
+        return (None, None)
+    rng = random.Random(seed)
+    n, vals = len(units), []
+    for _ in range(resamples):
+        v = metric([units[rng.randrange(n)] for _ in range(n)])
+        if v is not None:
+            vals.append(v)
+    if not vals:
+        return (None, None)
+    vals.sort()
+    lo = vals[int((1 - level) / 2 * (len(vals) - 1))]
+    hi = vals[int((1 + level) / 2 * (len(vals) - 1))]
+    return (lo, hi)

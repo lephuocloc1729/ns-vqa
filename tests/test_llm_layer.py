@@ -150,3 +150,34 @@ def test_http_errors_are_logged_with_zero_cost(tmp_log):
     rec = json.loads(tmp_log.read_text())
     assert rec["status"] == "http_error" and rec["cost_usd"] == 0.0 and rec["http_status"] == 400
     assert rec["request_id"] == "req_x" and "grammar" in rec["error"] and c.guard.spent == 0
+
+
+# ---------------------------------------------------------------- content blocks (scene call)
+
+def test_text_user_turn_is_sent_unchanged(tmp_log):
+    """The parser's calls: a string user turn goes out as the same string, and the log
+    record has no images field."""
+    sdk = FakeSDK([('{"ok": true}', "end_turn", {})])
+    LLMClient(model="claude-haiku-5-5", sdk=sdk).json_reply(system="S", user="Question: X?")
+    assert sdk.created[0]["messages"] == [{"role": "user", "content": "Question: X?"}]
+    assert "images" not in json.loads(tmp_log.read_text().splitlines()[0])
+
+
+def test_image_and_text_blocks_are_sent_and_logged(tmp_log):
+    sdk = FakeSDK([('{"signs": []}', "end_turn", {})])
+    img = {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": "AAAA"}}
+    blocks = [img, {"type": "text", "text": "Read the signs."}]
+    r = LLMClient(model="claude-haiku-5-5", sdk=sdk).json_reply(system="S", user=blocks, purpose="scene")
+    assert r.data == {"signs": []}
+    assert sdk.created[0]["messages"] == [{"role": "user", "content": blocks}]
+    rec = json.loads(tmp_log.read_text().splitlines()[0])
+    assert rec["images"] == 1 and rec["purpose"] == "scene"
+    assert "AAAA" not in tmp_log.read_text()                       # image bytes never logged
+
+
+@pytest.mark.parametrize("bad", [[], [{"type": "document"}], ["text"], 5])
+def test_bad_content_is_rejected_before_any_request(bad):
+    sdk = FakeSDK([])
+    with pytest.raises(TypeError):
+        LLMClient(model="claude-haiku-5-5", sdk=sdk).json_reply(system="S", user=bad)
+    assert sdk.created == []

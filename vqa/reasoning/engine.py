@@ -174,6 +174,11 @@ class Engine:
     def unreadable_signs(self, scene: SceneGraph) -> list[str]:
         return [sg.id for sg in scene.signs if not self.catalog.has(sg.code)]
 
+    def unmodelled_signs(self, scene: SceneGraph) -> list[str]:
+        """Catalogued signs whose legal effect the rules don't model (effect_unmodelled)."""
+        return [sg.id for sg in scene.signs
+                if self.catalog.has(sg.code) and self.catalog.get(sg.code).effect_unmodelled]
+
     @staticmethod
     def visual_category(sign) -> str:
         """What an unreadable sign could be, from how it looks (QCVN 41 sign groups):
@@ -232,11 +237,16 @@ class Engine:
         cw = self._CLOSED_WORLD.get(type(p))
         unread = [sid for sid in self.unreadable_signs(scene)
                   if self.could_matter(self.visual_category(scene.sign(sid)), p)]
-        if cw is not None and unread and ans.verdict == cw:
+        unmodelled = [sid for sid in self.unmodelled_signs(scene)
+                      if self.could_matter(self.visual_category(scene.sign(sid)), p)]
+        if cw is not None and (unread or unmodelled) and ans.verdict == cw:
+            note = ("a sign in the scene could not be read; it may change this answer" if unread
+                    else "a sign in the scene has an effect the rules don't model; "
+                         "it may change this answer")
             ans = ans.model_copy(update={
                 "verdict": Verdict.unknown,
-                "uncertain_signs": sorted(set(ans.uncertain_signs) | set(unread)),
-                "note": "a sign in the scene could not be read; it may change this answer"})
+                "uncertain_signs": sorted(set(ans.uncertain_signs) | set(unread) | set(unmodelled)),
+                "note": note})
         return ans
 
     def _dispatch(self, scene: SceneGraph, p: Program) -> Answer:

@@ -1,0 +1,448 @@
+version: v4
+max_long_edge: 320
+note: Copies are local and gitignored; build them with tools/build_scene_pictograms.py.
+rows:
+- code: P.103a
+  name_vi: Cấm xe ô tô
+  article: B.3
+  figures:
+  - source: image094.jpg
+    caption: Hình B.3 - Biển số P.103
+    file: image094.png
+    sha256: 64d1df2d7dabedfe542aa88b463d53fa725d8cb7ec99b97c5cf1fa8ccb86d8c1
+- code: P.104
+  name_vi: Cấm xe máy
+  article: B.4
+  figures:
+  - source: image096.jpg
+    caption: Hình B.4 - Biển số P.104
+    file: image096.png
+    sha256: 1508443d3a247d96aa74ac9ba11841614ced4abce22a45fd1bf3187dacba43d5
+- code: P.106a
+  name_vi: Cấm xe ô tô tải
+  article: B.6
+  figures:
+  - source: image100.jpg
+    caption: ''
+    file: image100.png
+    sha256: 8560321f21d33e6a373abc6cbf05df47af95d106852f9d3ef3c2dd5e579ba7a8
+- code: P.110a
+  name_vi: Cấm xe đạp
+  article: B.10
+  figures:
+  - source: image114.jpg
+    caption: ''
+    file: image114.png
+    sha256: 55cec65231b84a45f8cf24f53ec7b9b3f44c30b40f21c7ddb3d692d05645edac
+- code: P.111a
+  name_vi: Cấm xe gắn máy
+  article: B.11
+  figures:
+  - source: image118.jpg
+    caption: Hình B.11 - Biển số P.111
+    file: image118.png
+    sha256: 00573f5538a2c7449bc4863a890f75e9b0cee295b247ec22f97e4ec68bcae890
+- code: P.111b
+  name_vi: Cấm xe ba bánh loại có động cơ
+  article: B.11
+  figures:
+  - source: image118.jpg
+    caption: Hình B.11 - Biển số P.111
+    file: image118.png
+    sha256: 00573f5538a2c7449bc4863a890f75e9b0cee295b247ec22f97e4ec68bcae890
+- code: P.125
+  name_vi: Cấm vượt
+  article: B.25
+  figures:
+  - source: image144.jpg
+    caption: Hình B.25- Biển số P.125
+    file: image144.png
+    sha256: 700d36b0e10ef38dd9bc390d5e0b4b1b721c68ddfa61e2825d3f27ae5c3ae440
+- code: P.103c
+  name_vi: Cấm xe ô tô rẽ trái
+  article: B.3
+  figures:
+  - source: image094.jpg
+    caption: Hình B.3 - Biển số P.103
+    file: image094.png
+    sha256: 64d1df2d7dabedfe542aa88b463d53fa725d8cb7ec99b97c5cf1fa8ccb86d8c1
+- code: P.123a
+  name_vi: Cấm rẽ trái
+  article: B.23
+  figures:
+  - source: image140.jpg
+    caption: Hình B.23 - Biển số P.123
+    file: image140.png
+    sha256: efabded7245f6fc114a483df2fb95f16975f0b254247388d2f330f79f6b7a982
+- code: P.123b
+  name_vi: Cấm rẽ phải
+  article: B.23
+  figures:
+  - source: image140.jpg
+    caption: Hình B.23 - Biển số P.123
+    file: image140.png
+    sha256: efabded7245f6fc114a483df2fb95f16975f0b254247388d2f330f79f6b7a982
+- code: P.124a
+  name_vi: Cấm quay đầu xe
+  article: B.24
+  figures:
+  - source: image142.jpg
+    caption: Hình B.24- Biển số P.124
+    file: image142.png
+    sha256: 8c9a2faeb106ba9d0e62905721fba5f170fa57236ddb1c1537673484a1ce18b9
+- code: P.124b
+  name_vi: Cấm ô tô quay đầu xe
+  article: B.24
+  figures:
+  - source: image142.jpg
+    caption: Hình B.24- Biển số P.124
+    file: image142.png
+    sha256: 8c9a2faeb106ba9d0e62905721fba5f170fa57236ddb1c1537673484a1ce18b9
+- code: P.124c
+  name_vi: Cấm rẽ trái và quay đầu xe
+  article: B.24
+  figures:
+  - source: image142.jpg
+    caption: Hình B.24- Biển số P.124
+    file: image142.png
+    sha256: 8c9a2faeb106ba9d0e62905721fba5f170fa57236ddb1c1537673484a1ce18b9
+- code: P.117
+  name_vi: Hạn chế chiều cao
+  article: B.17
+  figures:
+  - source: image130.jpg
+    caption: Hình B.17 - Biển số P.117
+    file: image130.png
+    sha256: b0506e29943b95e7485a32aaac23e740ed3a530846fe63873856e1f4e8cfe035
+- code: P.118
+  name_vi: Hạn chế chiều ngang xe
+  article: B.18
+  figures:
+  - source: image132.jpg
+    caption: Hình B.18- Biển số P.118
+    file: image132.png
+    sha256: 6ea24a2ceb89664233cf27fbb6c8a2390ab0146a8cd8f9dd74640a6ce1a08c05
+- code: P.119
+  name_vi: Hạn chế chiều dài xe
+  article: B.19
+  figures:
+  - source: image134.jpg
+    caption: Hình B.19- Biển số P.119
+    file: image134.png
+    sha256: 2ab2e34634424b0f8fd2bb46bb18816f9042c6bb79c767471653043e778fe085
+- code: P.130
+  name_vi: Cấm dừng xe và đỗ xe
+  article: B.30
+  figures:
+  - source: image166.jpg
+    caption: Hình B.30- Biển số P.130
+    file: image166.png
+    sha256: d6d39b518f0b6f847c652395e5661f583a86de5cf501ae3a780b8ffbc25f0aae
+- code: P.131a
+  name_vi: Cấm đỗ xe
+  article: B.31
+  figures:
+  - source: image168.jpg
+    caption: Hình B.31 - Biển số P.131
+    file: image168.png
+    sha256: 835188f1f2b5e3753f451c85770ea851341b3fd8e02a3767e97bf174211d883d
+- code: DP.134
+  name_vi: Hết tốc độ tối đa cho phép
+  article: B.34
+  figures:
+  - source: image174.jpg
+    caption: Hình B.34 - Biển số DP.134
+    file: image174.png
+    sha256: 6badd07294f6540bfb5bc9a31cc1a48d357feb46bd84d42351257afe01132bd0
+- code: R.307
+  name_vi: Hết tốc độ tối thiểu
+  article: D.7
+  figures:
+  - source: image308.jpg
+    caption: Hình D.9 - Biển số R.307
+    file: image308.png
+    sha256: 48b773fffc059931be2ba19122d69b1a85244361ae57c999a89887f03c8c2e07
+- code: R.404a
+  name_vi: Hết đoạn đường dành cho xe ô tô
+  article: D.12
+  figures:
+  - source: image320.jpg
+    caption: Hình D.14- Biển số R.404
+    file: image320.png
+    sha256: 34486a9ac69a39f0a4020266d7324699bac361d87afe894bc7ccf4c6c4edf1e3
+- code: P.127b
+  name_vi: Biển ghép tốc độ tối đa cho phép trên từng làn đường
+  article: B.27b
+  figures:
+  - source: image154.jpg
+    caption: Hình B.27d - Biển số P.127b
+    file: image154.png
+    sha256: a4115cd1e760d2b9008cdfb750be083e5763c0ca5823c356911869aaf82f8bc6
+- code: P.127c
+  name_vi: Biển ghép tốc độ tối đa cho phép theo phương tiện, trên từng làn đường
+  article: B.27c
+  figures:
+  - source: image156.jpg
+    caption: Hình B.27e - Biển số P.127c
+    file: image156.png
+    sha256: d0ec147dcc82e6bdf64fd4060241d739b01d4df2adc0a4fcc055c1e5751f6beb
+- code: R.415a
+  name_vi: Biển gộp làn đường theo phương tiện
+  article: D.16
+  figures:
+  - source: image332.jpg
+    caption: a) Hình D.18 - Biển số R.415a
+    file: image332.png
+    sha256: ccea74cf4fb809d798a23e3a183bfd522e22d253e67b31656d124ab20831615b
+- code: I.417(a,b,c)
+  name_vi: Chỉ hướng đường phải đi cho từng loại xe
+  article: E.17
+  figures:
+  - source: image372.jpg
+    caption: Hình E.17 - Biển số I.417
+    file: image372.png
+    sha256: 89c89b807f47df62b7ebb4f02b5dcc174237de223a1729296ddd40c47e69c0b1
+- code: I.407(a,b,c)
+  name_vi: Đường một chiều
+  article: E.7
+  figures:
+  - source: image354.jpg
+    caption: Hình E.7 - Biển số I.407
+    file: image354.png
+    sha256: b5f048821e163dd55e72daef9190b48a3354cbbfe3b9cea23f6e04de17ccee39
+- code: I.409
+  name_vi: Chỗ quay xe
+  article: E.9
+  figures:
+  - source: image360.jpg
+    caption: ''
+    file: image360.png
+    sha256: 33d4ec5acb24262df9980899fcca5f8c6044554bae90dd51e18f24306b7bc97b
+- code: I.414(a,b,c,d)
+  name_vi: Chỉ hướng đường
+  article: E.14
+  figures:
+  - source: image366.jpg
+    caption: Hình E.14 - Biển số I.414
+    file: image366.png
+    sha256: cacc9edbce58957d05dd45fa86b6fb77d26749c72508c193c38d75699c906248
+- code: I.415
+  name_vi: Mũi tên chỉ hướng đi
+  article: E.15
+  figures:
+  - source: image368.jpg
+    caption: Hình E.15 - Biển số I.415
+    file: image368.png
+    sha256: a4220a4af82691417d32f892c990e7bf9c636312b4fe1320dfdc21b02471d200
+- code: I.444(a,b,c,d,e,f,g,h,i,j,k,l,m)
+  name_vi: Biển báo chỉ dẫn địa điểm
+  article: E.47
+  figures:
+  - source: image436.jpg
+    caption: Hình E.48 - Biển số I.444 (d,e,f)
+    file: image436.png
+    sha256: ff2badf35e30e9dde226bee0fc8537091d5f0b13e4b1a0225f5f0dfdd067d0ae
+  - source: image438.jpg
+    caption: Hình E.49 - Biển số I.444 (g,h,i)
+    file: image438.png
+    sha256: 3f716fa05f85503537f89bb16347d9dab91c8d5c794d41eacb42ac7d19a685a5
+  - source: image440.jpg
+    caption: Hình E.50 - Biển số I.444(j,k,l)
+    file: image440.png
+    sha256: f61602708b41fea14b695c3942564e6348482db33587101f5e57c8d949148abf
+- code: IE.452
+  name_vi: Chỉ dẫn bắt đầu đường cao tốc
+  article: '47'
+  figures:
+  - source: image026.jpg
+    caption: Hình 9b - Biển chỉ dẫn bắt đầu đường cao tốc phân làn đường có tốc độ khác nhau
+    file: image026.png
+    sha256: 4bf93b0c33daf8227a3c05fbb015ce394a3865165abe72133ba68d7cbec7394d
+- code: IE.454
+  name_vi: Chỉ dẫn khoảng cách đến lối ra phía trước
+  article: '47'
+  figures:
+  - source: image032.jpg
+    caption: Hình 11 - Biển số IE.454 chỉ dẫn khoảng cách đến lối ra phía trước
+    file: image032.png
+    sha256: 2249d2cb771d8beb2af17e28efd162f7795dd72570d74ad10b1c797ac4526821
+- code: IE.464
+  name_vi: Chỉ dẫn địa điểm và phương hướng
+  article: '47'
+  figures:
+  - source: image058.jpg
+    caption: Hình 23 - Biển số IE.464 chỉ dẫn địa điểm và phương hướng
+    file: image058.png
+    sha256: 57d598444bb26a8fc0dfdbc36c20b4ff8a71d7f117c1516f6bba51607c9cd301
+- code: IE.465
+  name_vi: Chỉ dẫn địa điểm và khoảng cách
+  article: '47'
+  figures:
+  - source: image060.jpg
+    caption: Hình 24 - Biển số IE.465 chỉ dẫn địa điểm và khoảng cách
+    file: image060.png
+    sha256: 4b76190bdb6fa84dc204a23dcad8e7c9b0262cc2877a7d8671a1fc770e4f5370
+- code: IE.466
+  name_vi: Chỉ dẫn sơ đồ lối ra một chiều tại tất cả các nút giao trên đường cao tốc
+  article: '47'
+  figures:
+  - source: image062.jpg
+    caption: Hình 25 - Biển số IE.466 chỉ dẫn sơ đồ lối ra một chiều
+    file: image062.png
+    sha256: 24bb9a74f36eb6ff0488d914ca9851a535082a40015bf99f011b040412b2affb
+- code: W.203(a,b,c)
+  name_vi: Đường bị thu hẹp
+  article: C.3
+  figures:
+  - source: image194.jpg
+    caption: Hình C.3 - Biển số W.203 (a,b,c)
+    file: image194.png
+    sha256: 3bb5a0125437a15d4883f2cc4bd42b2eada71704672dfd5ddc89cc9de6afa347
+- code: W.205(a,b,c,d,e)
+  name_vi: Đường giao nhau
+  article: C.5
+  figures:
+  - source: image198.jpg
+    caption: Hình C.5 - Biển số W.205
+    file: image198.png
+    sha256: a89d195af3d056337035a4897424c07133d4ea17173da087a1c56ccf77334559
+- code: W.207(a,b,c,d,e,f,g,h,i,k,l)
+  name_vi: Giao nhau với đường không ưu tiên (đường nhánh)
+  article: C.7
+  figures:
+  - source: image202.jpg
+    caption: Hình C.7 - Biển số W.207(a,b,c,d,e)
+    file: image202.png
+    sha256: 68e398102551cc39e7c10d7ce45e44722076ad651f73bfb8b8480f42bcc22c1f
+  - source: image204.jpg
+    caption: Hình C.8 - Biển số W.207(f,g,h)
+    file: image204.png
+    sha256: cad2530b993b2a733ac9dc8c6a80ada635f6f3928ce2d840d64f648f5a4b62c0
+  - source: image206.jpg
+    caption: Hình C.9 - Biển số W.207 (i,k,l)
+    file: image206.png
+    sha256: 5a5b96162515ca0dafca4330c370361d419fb7a32c5a9e529450e809c93ad53c
+- code: W.233
+  name_vi: Nguy hiểm khác
+  article: C.33
+  figures:
+  - source: image260.jpg
+    caption: Hình C.35 - Biển số W.233
+    file: image260.png
+    sha256: 5c639eb2edd4243d8b11494cb6c537e8f22f9fcb17ff8b44a04a27135ac7ed4d
+- code: W.244
+  name_vi: Đoạn đường hay xảy ra tai nạn
+  article: C.44
+  figures:
+  - source: image284.jpg
+    caption: Hình C.46 - Biển số W.224
+    file: image284.png
+    sha256: ebb4370acde31917193420338f3444cdb3a2201629a6b0b2e0a606fa2d3fbab8
+- code: W.245a
+  name_vi: Đi chậm
+  article: C.45
+  figures:
+  - source: image286.jpg
+    caption: Hình C.47 - Biển số W.245
+    file: image286.png
+    sha256: 118d9ef436272a2b48864a1b0a18852c09593edad1f48ccdfd901d834e3eb4d5
+- code: P.106b
+  name_vi: Cấm xe ô tô tải có khối lượng chuyên chở lớn hơn giá trị ghi trên biển
+  article: B.6
+  figures:
+  - source: image100.jpg
+    caption: ''
+    file: image100.png
+    sha256: 8560321f21d33e6a373abc6cbf05df47af95d106852f9d3ef3c2dd5e579ba7a8
+- code: P.107
+  name_vi: Cấm xe ô tô khách và xe ô tô tải
+  article: B.7
+  figures:
+  - source: image102.jpg
+    caption: Hình B.7 - Biển số P.107
+    file: image102.png
+    sha256: 922e60504f33c3ecb80ce47090ce03f0f39dccc40cd8b54cc7481c21bc9def81
+- code: P.127
+  name_vi: Tốc độ tối đa cho phép
+  article: B.27
+  figures:
+  - source: image150.jpg
+    caption: Hình B.27b - Biển số P.127
+    file: image150.png
+    sha256: cebaaffa582513a6adef216e43003e3db2851d364c069a4dad0a48f7764870be
+- code: R.306
+  name_vi: Tốc độ tối thiểu cho phép
+  article: D.6
+  figures:
+  - source: image306.jpg
+    caption: Hình D.8 - Biển số R306
+    file: image306.png
+    sha256: 4397530aa170a1f4b3885fae38b936299f17cf3bb034f2ba1f67009a94775029
+- code: IE.464b
+  name_vi: Chỉ dẫn hướng ra tại lối ra
+  article: '47'
+  figures:
+  - source: image058.jpg
+    caption: Hình 23 - Biển số IE.464 chỉ dẫn địa điểm và phương hướng
+    file: image058.png
+    sha256: 57d598444bb26a8fc0dfdbc36c20b4ff8a71d7f117c1516f6bba51607c9cd301
+- code: R.403a
+  name_vi: Đường dành cho xe ô tô
+  article: D.10
+  figures:
+  - source: image316.jpg
+    caption: Hình D.13 - Biển số R.403
+    file: image316.png
+    sha256: b7203598b99ebf6ef50e923409378d9350048a8d663cd79cddf6873fb1fb2078
+- code: R.412b
+  name_vi: Làn đường dành cho xe ô tô con
+  article: D.14
+  figures:
+  - source: image324.jpg
+    caption: ''
+    file: image324.png
+    sha256: f143d55bf0d408e72a56c9de2a2619fee38f5d8cc4bba97f786a23cb1aaff255
+  - source: image326.jpg
+    caption: '(Ví dụ: Biển làn đường dành riêng cho nhóm xe khách và xe con)'
+    file: image326.png
+    sha256: cf7c87466e27599a2f54f84686d098aa2436c1f3fdd104b598890539c613e5d4
+- code: I.401
+  name_vi: Bắt đầu đường ưu tiên
+  article: E.1
+  figures:
+  - source: image346.jpg
+    caption: Hình E.1 - Biển số I.401
+    file: image346.png
+    sha256: 3e02d78d1c5f0e02073421d0840e98f7cc14c9f5b8a7472e67daf7921cab3853
+- code: IE.451b
+  name_vi: Chỉ dẫn lối vào đường cao tốc
+  article: '47'
+  figures:
+  - source: image024.jpg
+    caption: Hình 8 - Biển số IE.451 chỉ dẫn lối vào, khoảng cách đến lối vào đường cao tốc
+    file: image024.png
+    sha256: abb3e4cd3de4ec2c9464b5cadbcbd5c58edffa7884f59e1b4e43de2c5d06f2a1
+- code: IE.474
+  name_vi: Chỉ dẫn lối ra
+  article: '47'
+  figures:
+  - source: image080.jpg
+    caption: Hình 33 - Biển số IE.474 chỉ dẫn lối ra
+    file: image080.png
+    sha256: dd0ed3bdef3732f373f2e497bcccaf8872592da0d9e5b1606ce4a6f1ab0793a3
+- code: P.115
+  name_vi: Hạn chế trọng tải toàn bộ xe
+  article: B.15
+  figures:
+  - source: image126.jpg
+    caption: Hình B.15 - Biển số P.115
+    file: image126.png
+    sha256: f8b4c383b612554ec062f3ba3df26f24ecb512a5419956bf7e318d306ca3e1b4
+- code: W.246(a,b,c)
+  name_vi: Chú ý chướng ngại vật
+  article: C.46
+  figures:
+  - source: image288.jpg
+    caption: Hình C.48 - Biển số W.246
+    file: image288.png
+    sha256: df3f4ba3c69c6321e7b9200f5626db3d53953aee3b0949eed45cc947822c68bd

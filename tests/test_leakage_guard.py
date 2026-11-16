@@ -23,6 +23,9 @@ FORBIDDEN_STRINGS = (
     "data/splits", "duplicates.json", "public_split", "vlsp_2025_train",
     "vlsp_2025_public_test", "vlsp_2025_private_test", "train_images",
     "VLSP2025-MLQA-Natural", "VQA_DATASET_DIR",
+    # phase 3 (plan item 8): gold labels, split halves, and the law_db figures, which
+    # stay out of the scene prompt until an approved ablation
+    "gold_signs", "gold_intents", "public_dev", "public_holdout", "images.fld", "law_db",
 )
 
 
@@ -108,7 +111,8 @@ def test_wilson_ci_known_value():
 
 # Eval tools that read dataset questions may read public_dev and train only:
 # never public_holdout or private questions (CLAUDE.md, "Dataset rules").
-EVAL_QUESTION_READERS = [ROOT / "eval" / "parser_eval.py", ROOT / "eval" / "gold_intents.py"]
+EVAL_QUESTION_READERS = [ROOT / "eval" / "parser_eval.py", ROOT / "eval" / "gold_intents.py",
+                         ROOT / "eval" / "gold_signs.py", ROOT / "eval" / "perception_eval.py"]
 HOLDOUT_OR_PRIVATE = ("public_holdout", "holdout", "private_test", "vlsp_2025_private")
 
 
@@ -135,3 +139,65 @@ def test_eval_question_readers_never_name_holdout_or_private(path):
 def test_the_holdout_check_catches_a_subscript():
     assert any("holdout" in s for _, s in _code_strings('x = split["public_holdout"]'))
     assert not _code_strings('"""Never reads public_holdout."""')
+
+
+# ---------------------------------------------------------------- phase 3: perception
+
+@pytest.mark.parametrize("snippet", [
+    "path = 'data/annotations/gold_signs_v1/gold_signs_v1.jsonl'",
+    "ids = split['public_dev']['images']",
+    "x = 'public_holdout'",
+    "fig = law_dir / 'images.fld' / 'image092.jpg'",
+    "g = 'gold_intents_v1.jsonl'",
+])
+def test_guard_catches_phase3_strings(snippet):
+    assert violations(snippet)
+
+
+def test_scene_cache_key_takes_no_file_name_or_scene_id():
+    import inspect
+    from vqa.perception.cache import scene_key
+    assert list(inspect.signature(scene_key).parameters) == \
+        ["image_sha256", "model", "effort", "prompt_version"]
+    with pytest.raises(ValueError):
+        scene_key("public_test_1_1.jpg", "claude-haiku-5-5", "medium", "v1")
+
+
+def test_scene_cache_records_hold_model_outputs_only():
+    from vqa.perception.cache import RECORD_FIELDS, REPLY_FIELDS
+    assert REPLY_FIELDS == {"pass", "raw_text", "stop_reason", "usage", "cost_usd", "request_id"}
+    assert RECORD_FIELDS == {"key", "image_sha256", "model", "effort", "prompt_version",
+                             "replies", "created"}
+
+
+def test_perception_code_is_scanned():
+    names = {p.name for p in inference_files()}
+    assert {"image.py", "wire.py", "cache.py"} <= names
+
+
+# ---------------------------------------------------------------- phase 3: the two-pass fallback (plan item 7)
+
+
+def test_the_fallback_is_scanned_and_clean():
+    p = ROOT / "vqa" / "perception" / "fallback.py"
+    assert p in inference_files()
+    assert not violations(p.read_text(encoding="utf-8"), "fallback.py")
+
+
+def test_tile_and_crop_records_are_keyed_by_bytes_model_effort_prompt_and_box_only():
+    import inspect
+    from vqa.perception.cache import REGION_RECORD_FIELDS, region_key
+    assert list(inspect.signature(region_key).parameters) == \
+        ["image_sha256", "model", "effort", "prompt_version", "box"]
+    assert REGION_RECORD_FIELDS == {"key", "image_sha256", "model", "effort", "prompt_version", "box",
+                                    "replies", "created"}
+    with pytest.raises(ValueError):
+        region_key("public_test_1_1.jpg", "claude-haiku-5-5", "medium", "v4-crop", (0, 0, 9, 9))
+
+
+def test_the_fallback_prompts_name_no_public_or_private_image():
+    for version in ("v4-tile", "v4-crop"):
+        for p in (ROOT / "prompts" / "scene" / version).iterdir():
+            if p.is_file():
+                text = p.read_text(encoding="utf-8")
+                assert "public_test" not in text and "private_test" not in text, p
