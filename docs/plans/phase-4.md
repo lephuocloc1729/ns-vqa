@@ -239,6 +239,23 @@ Every paid step shows its estimate and waits for the owner's go-ahead, under the
 
 - **Oracle B on H1 only (owner, 2026-11-16).** Step 2 skips oracle B for H2 and H3, so procedure step 2's "oracle B on each H run" becomes oracle B on H1. Stage attribution uses H1 only (H1 pipeline, oracle A, oracle B H1).
 
+## Tuning on public_dev (owner, 2026-11-16; procedure step 4, D8)
+
+Step 2 failed D5 on the template rate (7 of 90 = 7.8%; every case a writer reply cut off at `max_tokens=600`). Approved tuning, each step its own tuning run, in this order (D8 count: 3 of 5):
+
+- **The replay tool (eval-side, `eval/e2e_replay.py`).** It reuses the stored scenes (warmed from each H run's perception file, one run at a time) and the stored parsed programs of H1–H3, so the D5 gate is re-checked pooled over H1–H3 without re-parsing. Within that:
+  - the writer, the engine and the triggers always run with the current code;
+  - a stored fallback outcome is reused when the trigger is the same and the fallback prompt id is unchanged; otherwise the fallback is called;
+  - a stored judge grade is reused when the answer text is unchanged; Yes/No needs no judge.
+- **T1 + T3 together (one run).**
+  - T1: `prompts/answer/v3` = v2 plus `max_tokens: 1200` and "at most two sentences"; the raw writer reply is kept in the trace. v3 is pinned; v2 stays.
+  - T3: template and writer wording for a conditional `which_vehicles` answer: lead with the conditionally banned vehicles and the condition. Tests with hand-made scenes modelled on train questions.
+- **T2 (one run).** `prompts/answer_fallback/v2`: a structured-output schema for {verdict, answer} on the fallback call only, plus one line: claim nothing about a sign that is not in the scene graph. Pinned.
+- **T4 (one run; a perception change).** In `vqa/perception`, after `combine`: when a crop agrees with pass 1's main code, pass 1's own `alt` for that sign is dropped. Nothing else in perception changes (CHOSEN_POLICY, triggers and prompts stay).
+  - Then a free replay of set T (both models' v4+fb files) and the public_dev checkpoint-2 Haiku files with T4. The code F1 and recall change is reported next to the end-to-end change, labelled "tuned, after the gate".
+- **Each step:** build and test (full suite green, Prolog loads); the owner runs the paid command after an estimate; then a free score (D5 pooled over H1–H3 via replay, plus all reported figures), recorded in `docs/status.md` as "public_dev, tuned, T<n>", committed.
+- 0094's gold plate reading is the owner's decision.
+
 ## Open points as first written (kept as a record)
 
 These came up while writing the plan. None of them changes step 1.

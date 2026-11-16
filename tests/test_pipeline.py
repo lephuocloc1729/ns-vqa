@@ -164,3 +164,15 @@ def test_without_cache_only_perception_calls_the_model(tmp_path, photo):
 def test_the_spend_guard_is_shared_across_stages(tmp_path, photo):
     p = pipeline(tmp_path, RoutedSDK(), warm(tmp_path, photo))
     assert p.parser.llm.guard is p.writer.llm.guard is p.fallback.llm.guard is p.guard
+
+
+def test_the_trace_keeps_the_raw_writer_and_fallback_replies(tmp_path, photo):
+    """T1 (owner, 2026-11-16): the writer's reply text of every attempt is kept."""
+    sdk = RoutedSDK(parser=[PROG_YES], writer=[WRITER_YES])
+    a = pipeline(tmp_path, sdk, warm(tmp_path, photo)).answer(photo, Q_YES)
+    assert a.trace["writer"]["prompt_id"].startswith("answer/v3@")
+    assert [json.loads(r) for r in a.trace["writer"]["raw"]] == [WRITER_YES]
+    prog = {"program": {"intent": "permitted", "action": "enter", "vehicle": {"vehicle_class": "car"}}}
+    sdk = RoutedSDK(parser=[prog], fallback=["prose", {"verdict": "no", "answer": "Không."}])
+    a = pipeline(tmp_path, sdk, warm(tmp_path, photo)).answer(photo, "Ô tô có được đi vào không?")
+    assert a.trace["fallback"]["raw"][0] == "prose" and len(a.trace["fallback"]["raw"]) == 2

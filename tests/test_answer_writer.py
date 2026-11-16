@@ -211,7 +211,7 @@ def test_template_for_other_verdicts_and_values(d, start):
 
 # ---------------------------------------------------------------- prompt
 
-@pytest.mark.parametrize("version", ["v1", "v2"])
+@pytest.mark.parametrize("version", ["v1", "v2", "v3"])
 def test_examples_are_train_only_and_pass_the_guard(version):
     exs = answer_prompt.examples(version)
     assert exs and all(e["question_id"].startswith("train_") for e in exs)
@@ -220,7 +220,7 @@ def test_examples_are_train_only_and_pass_the_guard(version):
         assert check(e["reply"], e["engine"], e["question"]) == [], e["question_id"]
 
 
-@pytest.mark.parametrize("version", ["v1", "v2"])
+@pytest.mark.parametrize("version", ["v1", "v2", "v3"])
 def test_examples_use_the_datasets_exact_question_text(version):
     if not TRAIN_FILE.exists():
         pytest.skip("dataset not available")
@@ -239,9 +239,37 @@ V1_SHA = "aed34f731e7f9340e6b6fc3c687fb2c21cb18d7c9fa39d98858ff3226cd675fa"
 V2_SHA = "4887560f8b50b88df76d187dec4b7548be267463dc2057a813fdb42c381b59fe"
 
 
-def test_v2_is_pinned_and_the_default():
+V3_SHA = "7d0f2b8ddf1fad80f06b7e56346ebeced17e60616409089c2557b6030a1a810b"
+
+
+def test_v2_is_pinned():
     assert answer_prompt.prompt_id("v2") == "answer/v2@" + V2_SHA[:12], "prompt v2 changed; make a new version"
-    assert answer_prompt.DEFAULT_VERSION == "v2"
+
+
+def test_v3_is_pinned_and_the_default():
+    assert answer_prompt.prompt_id("v3") == "answer/v3@" + V3_SHA[:12], "prompt v3 changed; make a new version"
+    assert answer_prompt.DEFAULT_VERSION == "v3"
+
+
+def test_v3_is_v2_plus_a_longer_cap_two_sentences_and_the_conditional_example(engine):
+    """Tuning T1 + T3 (owner, 2026-11-16)."""
+    assert answer_prompt.config("v2")["max_tokens"] == 600 and answer_prompt.config("v3")["max_tokens"] == 1200
+    assert {k: v for k, v in answer_prompt.config("v3").items() if k != "max_tokens"} == \
+        {k: v for k, v in answer_prompt.config("v2").items() if k != "max_tokens"}
+    spec = (answer_prompt.PROMPTS_DIR / "v3" / "spec.md").read_text(encoding="utf-8")
+    assert "at most two sentences" in spec and "Không có loại xe nào" in spec
+    v2, v3 = answer_prompt.examples("v2"), answer_prompt.examples("v3")
+    assert v3[:len(v2)] == v2 and len(v3) == len(v2) + 1
+    new = v3[-1]
+    assert new["question_id"] == "train_317" and new["engine"]["value"]["conditional"] == ["bicycle"]
+    assert new["reply"]["answer"].startswith("Xe đạp bị cấm")
+    x = json.loads((ROOT / "tests" / "fixtures" / "answer_v3_scenes.json").read_text(encoding="utf-8"))["examples"][0]
+    scene = SceneGraph.model_validate(x["scene"])
+    assert build(engine.answer(scene, _program.validate_python(x["program"])), scene) == new["engine"]
+
+
+def test_the_writer_uses_v3_by_default():
+    assert AnswerWriter(llm=LLMClient(model="claude-haiku-5-5", sdk=object())).max_tokens == 1200
 
 
 def test_v2_adds_dung_sai_unknown_and_meaning_examples_from_hand_made_scenes(engine):
@@ -354,3 +382,42 @@ def test_write_builds_the_digest_from_an_engine_answer(engine):
     ans = engine.answer(scene, _program.validate_python(fx["cases"][0]["program"]))
     w, _ = writer([(GOOD, "end_turn")])
     assert w.write(Q, ans, scene).status == "first_try"
+
+
+# ---------------------------------------------------------------- T3: a conditional which_vehicles answer
+
+Q_317 = "Theo các biển trong ảnh, loại xe nào bị cấm đi vào?"
+
+
+def _v3_digest(engine, i):
+    x = json.loads((ROOT / "tests" / "fixtures" / "answer_v3_scenes.json").read_text(encoding="utf-8"))["examples"][i]
+    scene = SceneGraph.model_validate(x["scene"])
+    return build(engine.answer(scene, _program.validate_python(x["program"])), scene)
+
+
+def test_a_conditional_ban_leads_with_the_vehicles_and_the_condition(engine):
+    """Modelled on train_317: P.110a with a 6:00 - 9:00 plate, no time in the question."""
+    d = _v3_digest(engine, 0)
+    assert (d["value"]["banned"], d["value"]["conditional"]) == ([], ["bicycle"])
+    text = template_answer(d, Q_317)
+    assert text.startswith("Xe đạp bị cấm khi đúng điều kiện trên biển: biển phụ «6:00 - 9:00» của biển P.110a.")
+    assert "Không có loại xe nào" not in text
+    assert check(template_reply(d, Q_317), d, Q_317) == []
+
+
+def test_outright_bans_come_first_then_the_conditional_ones(engine):
+    d = _v3_digest(engine, 1)
+    assert d["value"]["conditional"] == ["bicycle"] and "truck" in d["value"]["banned"]
+    text = template_answer(d, Q_317)
+    first, second = text.split(". ", 1)
+    assert first.startswith("Xe ô tô tải") and first.endswith("bị cấm") and second.startswith("Xe đạp bị cấm khi đúng điều kiện")
+    assert check(template_reply(d, Q_317), d, Q_317) == []
+
+
+def test_a_conditional_ban_with_no_plate_still_names_the_vehicles():
+    d = {"verdict": "value", "signs": [{"id": "s1", "code": "P.106b", "readable": True, "name_vi": "Cấm xe ô tô tải"}],
+         "rules": [], "reasons": [{"sign_id": "s1", "truth": "unknown"}], "citations": [],
+         "value": {"banned": [], "conditional": ["truck"], "per_class": {}}}
+    text = template_answer(d, Q_317)
+    assert text.startswith("Xe ô tô tải bị cấm khi đúng điều kiện trên biển.")
+    assert check(template_reply(d, Q_317), d, Q_317) == []

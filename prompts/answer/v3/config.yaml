@@ -1,0 +1,4 @@
+# Answer writer, prompt v3 (v2 + max_tokens 1200, "at most two sentences", conditional which_vehicles wording; tuning T1 + T3, owner 2026-11-16) (docs/plans/phase-4.md; D1: Haiku 5.5).
+model: claude-haiku-5-5
+effort: low            # the writer only verbalises a fixed verdict
+max_tokens: 1200       # T1: v2's 600 cut off 7 of 90 step-2 replies

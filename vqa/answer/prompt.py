@@ -22,7 +22,7 @@ import yaml
 from vqa.answer.digest import to_text
 
 PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts" / "answer"
-DEFAULT_VERSION = "v2"           # owner, 2026-11-16: v2 from procedure step 2 on
+DEFAULT_VERSION = "v3"           # owner, 2026-11-16: v3 from tuning T1 + T3 on (v2: step 2)
 
 
 def _dir(version: str) -> Path:

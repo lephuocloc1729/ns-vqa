@@ -7,7 +7,7 @@ Stages:
    cache;
 2. the parser: Sonnet 5.5, prompt v6. It sees the question only (D7);
 3. the rule engine;
-4. the answer writer and the faithfulness guard (prompt answer/v2);
+4. the answer writer and the faithfulness guard (prompt answer/v3);
 5. the answer-level fallback (Sonnet 5.5), when one of its triggers fires (D3).
 
 `answer()` takes an image path and a question string, nothing else. The run's
@@ -61,7 +61,7 @@ class PipelineConfig:
     parser_effort: str | None = "medium"
     parser_version: str = "v6"
     context_year: int | None = 2025             # the dataset's questions are from 2025
-    writer_version: str = "v2"
+    writer_version: str = "v3"
     answer_fallback_version: str = "v1"
     max_spend: float | None = None              # None: the spend guard's default
 
@@ -176,7 +176,7 @@ class Pipeline:
             fa = self.fallback.answer(image_path, question, scene)
             cost += fa.cost_usd
             trace["fallback"].update(status=fa.status, attempts=fa.attempts, errors=fa.errors,
-                                     cost_usd=fa.cost_usd, prompt_id=fa.prompt_id)
+                                     cost_usd=fa.cost_usd, prompt_id=fa.prompt_id, raw=fa.raw)
             if fa.status == "ok":
                 return PipelineAnswer(text=fa.text, verdict=fa.verdict, answered_by="fallback",
                                       basis=["fallback"], citations=[],
@@ -194,7 +194,8 @@ class Pipeline:
         cost += w.cost_usd
         trace["writer"] = {"status": w.status, "attempts": w.attempts, "errors": w.errors,
                            "cost_usd": w.cost_usd, "prompt_id": w.prompt_id,
-                           "cited_signs": w.cited_signs, "cited_rules": w.cited_rules}
+                           "cited_signs": w.cited_signs, "cited_rules": w.cited_rules,
+                           "raw": w.raw}                    # T1: every attempt's reply text
         digest = build_digest(engine_answer, scene, self.engine.catalog)
         return PipelineAnswer(text=w.text, verdict=w.verdict, answered_by="rules",
                               basis=["rules", *engine_answer.basis],

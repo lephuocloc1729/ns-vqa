@@ -96,6 +96,20 @@ def _vehicles(classes: list[str]) -> str:
     return _join([VEHICLE_VI.get(c, c) for c in classes])
 
 
+def _conditions(digest: dict[str, Any]) -> str:
+    """The plate texts of the signs whose reason is still open (truth unknown): the
+    condition a conditional answer depends on, e.g. a plate's time windows."""
+    open_ids = [r.get("sign_id") for r in digest.get("reasons", []) if r.get("truth") == "unknown"]
+    texts = []
+    for s in digest.get("signs", []):
+        if s["id"] in open_ids:
+            for p in s.get("plates", []):
+                t = " ".join(str(p).split())
+                if t and t not in texts:
+                    texts.append(f"biển phụ «{t}» của biển {s['code']}")
+    return "; ".join(texts)
+
+
 def _value_text(digest: dict[str, Any]) -> str:
     v = digest.get("value")
     if isinstance(v, list):                                    # meaning
@@ -132,6 +146,13 @@ def _value_text(digest: dict[str, Any]) -> str:
         text = (_join(hold) + ".") if hold else "Không có phương án nào."
         if v.get("unknown"):
             text += " Chưa xác định được: " + _join(v["unknown"]) + "."
+        return text[:1].upper() + text[1:]
+    if v.get("conditional") and "banned" in v:                # which_vehicles, a conditional ban (T3)
+        cond = _conditions(digest)
+        text = (_vehicles(v["conditional"]) + " bị cấm khi đúng điều kiện trên biển"
+                + (f": {cond}" if cond else "") + ".")
+        if hits := v.get("banned") or []:          # outright bans first, then the conditional ones
+            text = _vehicles(hits) + " bị cấm. " + text[:1].upper() + text[1:]
         return text[:1].upper() + text[1:]
     for status in ("banned", "allowed"):                       # which_vehicles / lane_vehicles
         if status in v:

@@ -210,7 +210,7 @@ def test_run_warms_then_runs_the_pipeline_cache_only(fake_set):
     out = ee.run_pipeline(fb, "H1", 1.0, sdk=sdk, warm_dir=fake_set / "warm", out_dir=fake_set / "e2e", questions=QS)
     head, rows = ee.load(out)
     assert head["kind"] == "pipeline" and head["scenes_from"] == pe.load_run(fb)[0]["run_id"]
-    assert head["writer"].startswith("answer/v2@") and head["judge"].startswith("judge/v1@")
+    assert head["writer"].startswith("answer/v3@") and head["judge"].startswith("judge/v1@")
     assert "perception" not in sdk.created                               # cache-only: no perception call
     assert [(r["answered_by"], r["verdict"], r["correct"]) for r in rows] == [("rules", "yes", 1.0),
                                                                            ("rules", "value", 1.0)]

@@ -1051,7 +1051,7 @@ Results:
 
 ## Next steps, in order
 
-**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). The tuning proposal waits for the owner's decision; nothing has been tuned yet. Then step 5 (freeze) and step 6 (holdout once, Haiku + fallback, about $0.67).
+**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). Built: the replay tool `eval/e2e_replay.py`, writer prompt `answer/v3@7d0f2b8ddf1f` (T1, now the default; v2 stays), the conditional `which_vehicles` wording (T3). The T1 + T3 replay (about $0.36) waits for the owner. Then step 5 (freeze) and step 6 (holdout once, Haiku + fallback, about $0.67).
 
 All public_dev figures are labelled **tuned**.
 
