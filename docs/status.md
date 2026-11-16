@@ -1185,6 +1185,11 @@ The first holdout start (run `ec99ce25eb37`, 07:31 UTC, commit `db587c1`) stoppe
 - **What happened:** the usage log has no call after the start; nothing was answered, scored or printed. Only the sentinel `eval/holdout_ran.json` (status `started`) was written, as designed.
 - **Fix:** `e2e_holdout.image_file` reads the public test image folder. Tested, including a run through the default resolver; all 49 holdout questions' images resolve (count only).
 - **The sentinel is left in place and uncommitted:** whether this start counts as the one run is the owner's decision.
+- **Voided by the owner (2026-11-16):**
+  - the start: sentinel run_id `ec99ce25eb37`, started 2026-11-16T07:31:29 UTC at commit `db587c1`;
+  - the error: `KeyError: 'public_holdout'`;
+  - the usage log has no API call after 07:31 UTC, and the start produced no result.
+  - The sentinel `eval/holdout_ran.json` was deleted (never committed). The one holdout run is still to come.
 
 ## Next steps, in order
 
