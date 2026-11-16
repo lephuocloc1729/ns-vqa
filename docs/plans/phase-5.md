@@ -4,7 +4,11 @@ DESIGN.md roadmap phase 5: "Freeze the system, then run the private test once as
 
 **Status: approved (owner, 2026-11-16)**, with the decisions in the last section. It replaces `phase-5-draft.md`. No API call is made until each paid step has the owner's go-ahead on its estimate.
 
-**ON HOLD (owner, 2026-11-16): the private run is held.** `eval/e2e_private.py` is not run. The requirement changed: the report counts rule-based answers only (the answer fallback is for the demo), with a target of about 80% rule coverage, where coverage is the share of questions the rules *decide* (yes / no / value; unknown, uncertain and out_of_scope count as not covered). The plan for reaching it is proposed in `docs/plans/phase-4.5.md`; the private run waits for that phase and a new freeze. Items 1–6 below stand until the owner revises them.
+**ON HOLD (owner, 2026-11-16): the private run is held.** `eval/e2e_private.py` is not run. The requirement changed: the report counts rule-based answers only (the answer fallback is for the demo), with a target of about 80% rule coverage, where coverage is the share of questions the rules *decide* (yes / no / value; unknown, uncertain and out_of_scope count as not covered). Phase 4.5 (`docs/plans/phase-4.5.md`) is **approved** (owner, 2026-11-16); the private run is held until its new freeze. **Changes to this plan (owner, 2026-11-16, phase-4.5 Q1–Q6):**
+- **P11 is replaced:** the private run uses the phase-4.5 freeze, not the phase-4 one.
+- **P3:** A1 "no answer fallback" is now **the main system**: the report's headline is the rules-only figures (decided coverage, accuracy on decided, overall with non-decided counted wrong). The with-fallback figure is the demo figure, from the same private run (fallback on, Q6).
+- The private run's report (item 1) adds the three rules-only figures with CIs; the guards check the phase-4.5 freeze record.
+- Everything else below stands until the owner revises it.
 
 **Starting point:**
 - phase 4 is closed (`docs/status.md`, "Phase 4: closing"). The configuration is frozen in `eval/frozen_phase4.json`, and public_holdout ran once: 83.7% overall, 89.6% on non-duplicate images (n=24, 95% CI 72–97);

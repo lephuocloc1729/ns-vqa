@@ -1,6 +1,6 @@
 # Phase 4.5 plan (proposed): rule coverage for a rules-only report
 
-**Status: proposed, for the owner's approval (2026-11-16).** Nothing is built. No API calls were made for this proposal; every figure comes from stored runs (`eval/coverage_analysis.py`). The private run is on hold (`docs/plans/phase-5.md`).
+**Status: approved (owner, 2026-11-16):** Q1–Q6 yes, as proposed. **The targets in section 4 are fixed and don't move after any result: 80% decided coverage is the aim; the 70% floor is what must hold.** Every fix is built from train and public_dev only; tests use hand-made scenes modelled on train; the owner reviews new catalog rows before the new freeze. The figures below come from stored runs (`eval/coverage_analysis.py`, no API call). The private run is on hold (`docs/plans/phase-5.md`).
 
 **The change of requirement (owner, 2026-11-16):** the report counts rule-based answers only; the answer fallback is for the demo. A question is **decided** when the rules answer it with yes, no or a value. Unknown, uncertain, out_of_scope, parse failures and programs that can't run are not decided. The report gives three figures:
 - **decided coverage**;
@@ -132,9 +132,9 @@ Measured once, on the validation set (section 5), after the phase-4.5 freeze:
 - **public_holdout** stays used: it is not run again. The validation set takes its role for phase 4.5.
 - The two-pass perception option (`phase-4.5-option-perception.md`) stays not adopted. It adds at most 2 points of coverage.
 
-## Decisions for the owner
+## Decisions (owner, 2026-11-16: all approved as proposed)
 
-| | question | proposed |
+| | question | decision |
 |---|---|---|
 | Q1 | Approve this plan as phase 4.5, before the private run | yes |
 | Q2 | The targets and floors in section 4 | as written |
