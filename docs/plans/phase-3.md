@@ -202,6 +202,10 @@ Approved from `docs/plans/phase-3-proposal-fallback.md` (`99140cf`), sections (a
   - prompt v4 pass 1 plus the frozen fallback;
   - pass 1 reused from checkpoint 1 for Haiku (`e0128c462ed3`, `2dd3a6e61573`, `932c3d2b7009`); for Sonnet, `f19dd5bc36f6` plus two new pass-1 runs;
   - **ceiling $2.95** ($0.35 Haiku, $2.60 Sonnet).
+- **Changes to (c) after set-T development** (recorded on 2026-11-16, after the checkpoint-2 runs were made and before any of them was scored):
+  - the combining rule is `crop_always`, chosen on set T by the owner's 1-point rule; tile and crop calls get one retry on bad JSON (`d7ac725`, `086f1ee`);
+  - **Sonnet × 1 run, not 3** (owner, 2026-11-16, on cost): the fallback on `f19dd5bc36f6` only, with no new pass-1 runs. Sonnet was run before Haiku's runs were scored, so its run does not depend on Haiku's result;
+  - consequences, as the gate already defines them: Sonnet's gate verdict is "not decided (1 of 3 runs)", and Sonnet can't be declared passing from one run. In (d), its figure is reported and compared labelled "1 of 3 runs".
 - **(d) If the gate fails at checkpoint 2:**
   - report as in the proposal, with a FAIL stated as a FAIL; no threshold moved and no metric promoted after the result;
   - phase 4 takes the cheapest passing configuration; if none passes, the highest mean code F1 on all 45 images, and Haiku if it is within 2 points of Sonnet; the fallback is kept only if it raised that configuration's mean code F1;
