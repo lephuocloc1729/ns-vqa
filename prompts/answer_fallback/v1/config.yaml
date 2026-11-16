@@ -1,0 +1,5 @@
+# Answer-level fallback, prompt v1 (docs/plans/phase-4.md, item 2; D3: Sonnet 5.5,
+# inputs image + question + scene graph only; no law_db, no retrieval).
+model: claude-sonnet-5-5
+effort: medium
+max_tokens: 1500
