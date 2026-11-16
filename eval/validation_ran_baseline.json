@@ -1,0 +1,13 @@
+{
+  "what": "the one baseline validation run (phase 4.5); its existence blocks a second run",
+  "run_id": "5c9251f5f207",
+  "started": "2026-11-16T15:47:10+00:00",
+  "git_commit": "2e1ff41a00b650e1e71c08afa156d4fb0a69eace",
+  "status": "finished",
+  "frozen_record": "frozen_phase4.json",
+  "frozen_record_sha256": "4e6eb1ee759e36ed0f91ada4a1928f5e3a86f0df60d4ad811ea4a8b8e099f7b1",
+  "split_sha256": "b23e283a748b5f26d1abb66faf379695155428b1c78652bed4ab2a036ca520f0",
+  "finished": "2026-11-16T16:25:21+00:00",
+  "report": "validation_aggregate_baseline_5c9251f5f207.json",
+  "spent_usd": 0.6634
+}

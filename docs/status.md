@@ -1377,6 +1377,21 @@ A perception-only trial of the original two-pass design (owner's brief): **find*
   - Tests: `tests/test_validation.py` (18), fallback-off pipeline tests (4), the freeze switch test; leakage scan extended. Full suite 927 passed.
 - **Baseline estimate:** $0.67 (range $0.34–1.01; $0.88 if every question is decided), about 55 minutes.
 
+### Phase 4.5 baseline validation (Q4), once, frozen phase-4 system, fallback off (2026-11-16)
+
+Run `5c9251f5f207`, 15:47–16:25 UTC, at commit `2e1ff41`, with `eval/frozen_phase4.json` (prompt ids as phase 4). Guards passed. Fresh perception. 110 untouched train questions on 54 images (split sha256 `b23e283a748b…`). **Aggregate only:** the report `eval/runs/e2e/validation_aggregate_baseline_5c9251f5f207.json` (local) has no question or image ids. Sentinel `eval/validation_ran_baseline.json` committed with this entry. **Spend $0.663** ($0.0060 and 20.3 s per question).
+
+| | baseline (validation, 110) | target | floor | public_holdout | public_dev T4 (tuned) |
+|---|---|---|---|---|---|
+| **decided coverage** (95% CI) | **30.0%** (22–39) | 80% | 70% | 51.0% | 61.4% |
+| **accuracy on decided** (95% CI) | **72.7%** (56–85; strict 63.6%) | 88% | 85% | 78.0% | 88.8% |
+| **overall, non-decided = wrong** (95% CI) | **21.8%** (15–30) | 70% | 60% | 39.8% | 54.6% |
+
+- **Not decided (77 of 110), by cause:** out_of_scope 43, uncertain 12, unreadable sign 8, program can't run 8, unknown 4, parse failed 2.
+- **By question type:** Yes/No 16 of 53 decided (30.2%), 87.5% right; Natural QA 17 of 57 decided (29.8%), 58.8% right (judge: 7 correct, 6 partial, 4 wrong).
+- **Every target and floor is missed at the start**, as expected for a baseline. The main gap is out_of_scope: 39% of validation questions against 16% on public_dev. The fixes in `phase-4.5.md` were sized on public_dev's causes, so on this set they cover a smaller share of the gap.
+- Nothing is tuned on this run. The validation questions stay unread; the targets don't move.
+
 ## Next steps, in order
 
 **Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Phase 4 closed (2026-11-16; closing entry above).** Phase 5 plan approved (2026-11-16). **Next: the one private-test run** (`eval/e2e_private.py run --confirm-frozen --max-spend 3`), on the owner's go-ahead on its $1.83 estimate.
