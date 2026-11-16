@@ -932,13 +932,51 @@ So the rules decide **29 of 47 (62%)** with gold parts. The decided Yes/No answe
 - **The image** (public_dev, allowed): the plate under P.123b shows a box truck and "6:00-22:00". The red strip at the right edge is a cropped roadside banner, not a sign.
 - **Verdict: the gold label and the rule are right; the gold answer is very likely wrong.** Under F.5 the sign applies only to trucks, so a motorbike may turn right at 10:00. The dataset's "Sai" probably reads P.123b as a ban for every vehicle and ignores the plate. Only the dataset can be blamed here; nothing to change in kb/ or gold.
 
+### Engine fixes 1b and oracle A rerun (tuned, development, public_dev, 2026-11-16)
+
+**Fixes** (plan item 1b; each with tests on hand-made scenes modelled on train questions; full suite green and Prolog loads after each):
+- `674641d` 1b.1: single-sign selector. Unreadable candidates are dropped; readable candidates sharing one code decide, with the unreadable ones in `uncertain_signs`; different codes stay unknown.
+- `5f486fb` 1b.2: meaning over several signs answers for the readable signs and lists the unreadable ones.
+- `4b07a60` 1b.3 (kb/): load > x implies gross mass > x.
+  - It is a `vehicle_interpretations` entry with `attribute_rule: load_implies_gross`, sourced from QCVN 41 B.15's definition of gross mass.
+  - It shows in proofs as `cite(r_load_implies_gross)`. Its `rule_source` law_id is `interpretation`, so `explain.citations` leaves it out. No cut.
+- `c0d8b90` 1b.4: an unreadable rectangle with a red background or border is category `red_board`, treated as prohibitory for relevance. The perception gate's matching groups are unchanged.
+- Deferred, not in phase 4: the warning-sign rule, counting signs, guide-sign content.
+- 769 tests pass.
+
+**Oracle A, engine only, tuned** (gold scenes + gold programs; 47 questions with a gold program):
+
+| | yes | no | value | unknown | uncertain | out_of_scope | decided |
+|---|---|---|---|---|---|---|---|
+| before 1b | 9 | 6 | 14 | 10 | 0 | 8 | 29 (62%) |
+| **after 1b (tuned)** | 11 | 7 | 19 | 2 | 0 | 8 | **37 (79%)** |
+
+- **Yes/No accuracy (tuned): 9 of 20 = 45%** (before: 7 of 20).
+  - Non-duplicate images: 4 of 7 = 57% (95% CI 25–84%).
+  - Duplicates of train: 5 of 13.
+- **Of the 12 decided Yes/No answers, 9 are right.** The 3 wrong:
+  - `0011`: the B.25 overtaking exception (deferred KB);
+  - `0068`: a disputed gold answer, below;
+  - `0094`: the gold plate has no vehicles; the owner fixes it.
+- **The 8 undecided Yes/No:**
+  - 6 out_of_scope: guide content 3, warning behaviour 2, traffic lights 1;
+  - 2 unknown: `0044` (IE.465 / IE.464 / IE.467: different readable codes) and `0084` (P.102 + R.302a). Both stay unknown under the 1b.1 rule.
+- **The remaining unknowns are those 2.** The out_of_scope 8 are unchanged: counting 1, guide content 3, warning behaviour 3, traffic lights 1.
+
+**Disputed gold answer: public_natural_0068.**
+- The gold answer is **Sai**. The engine answers **Đúng**: P.123b's S.505a plate shows a truck, so under F.5 only trucks may not turn right 6:00–22:00.
+- The engine's Đúng is believed correct. The image shows the truck plate, and the owner's gold note agrees.
+- It is **scored as is** (counted wrong) in every report.
+
 ## Next steps, in order
 
-**Next (2026-11-16): phase 4, procedure step 2 (paid; the owner runs it).** Step 1 is done. Estimate: **$3.33** for step 2 including the two perception runs (range $1.7–5.0). The commands are in the phase-4 entry of the plan's procedure and in the last handoff message; in order:
-1. two fresh Haiku v4 pass-1 runs, each followed by the fallback; then `warm` each to check it;
+**Next (2026-11-16): phase 4, procedure step 2 (paid; the owner runs it), on the fixed engine (1b).** Step 1 and item 1b are done. Estimate **$3.33** (range $1.7–5.0), including about $0.25 for the two fresh Haiku perception runs. In order:
+1. two fresh Haiku v4 pass-1 runs, each followed by the fallback; `warm` each to check it;
 2. pipeline runs H1 (`9981d8112688.withraw`), H2, H3 and S (`949418393534.withraw`), one at a time;
 3. oracle A, and oracle B on each H run;
 4. `score` and `attribution`.
+
+All public_dev figures are now labelled **tuned**. The owner first fixes 0094's gold plate vehicles.
 
 ### Handoff (2026-11-15): where phase 3 stands, and what comes next (kept as a record)
 
