@@ -60,8 +60,10 @@ CROP_UPSCALE_SHORT = 384
 POLICIES = ("rules", "crop_always", "crop_high", "never")
 # The combining rule frozen for checkpoint 2 (owner's rule, 2026-11-16: the best mean code
 # F1 over both models on set T, but the approved "rules" if within 1 point of it). Set T,
-# development, in-sample: crop_always 74.46%, rules 73.60% (0.86 points behind): "rules".
-CHOSEN_POLICY = "rules"
+# development, in-sample, after the crop retry (Sonnet repair run 7ea7aa8dcc8f, no crop
+# left unread): crop_always 76.10%, rules 74.83% (1.27 points behind): "crop_always".
+# (Before the retry, with 26 of Sonnet's 56 crops unread, rules was kept at 0.86 behind.)
+CHOSEN_POLICY = "crop_always"
 _RANK = {Confidence.high: 0, Confidence.medium: 1, Confidence.low: 2}
 
 Box = tuple[int, int, int, int]

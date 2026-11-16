@@ -492,7 +492,7 @@ def test_fallback_prompt_files_and_ids_are_frozen(version, pins, pid):
 
 
 def test_the_combining_rule_is_frozen():
-    assert fb.CHOSEN_POLICY == "rules"
+    assert fb.CHOSEN_POLICY == "crop_always"     # set T after the crop retry, 2026-11-16
     assert fb.FallbackConfig().policy == fb.CHOSEN_POLICY
     assert (fb.DENSE_MIN_SIGNS, fb.TILE_GRID, fb.TILE_OVERLAP, fb.DEDUP_IOU) == (5, 2, 0.20, 0.30)
     assert (fb.CROP_MARGIN, fb.CROP_MIN_SHORT, fb.CROP_UPSCALE_SHORT) == \

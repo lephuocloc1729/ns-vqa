@@ -338,7 +338,8 @@ def test_the_fallback_command_adds_calls_and_marks_the_run(fake_set):
     sdk = FakeSDK(0)
     out = pe.fallback_run(p1, 1.0, sdk=sdk, out_dir=fake_set / "runs")
     head, rows = pe.load_run(out)
-    assert head["fallback"]["pass1_run"] == "p1run" and head["fallback"]["policy"] == "rules"
+    from vqa.perception.fallback import CHOSEN_POLICY
+    assert head["fallback"]["pass1_run"] == "p1run" and head["fallback"]["policy"] == CHOSEN_POLICY
     assert head["fallback"]["tile"].startswith("scene/v4-tile@") and head["run_id"] != "p1run"
     assert len(sdk.created) == 2 * (4 + 1)                    # per image: 4 tiles, 1 crop
     for r in rows:
@@ -391,7 +392,8 @@ def test_compare_counts_fixed_and_broken_against_pass1(fake_set):
     out = pe.fallback_run(p1, 1.0, sdk=FakeSDK(0), out_dir=fake_set / "runs")
     rep = pe.compare(p1, [out])
     (x,) = rep["fallback"]
-    assert x["policy"] == "rules" and x["images_tiled"] == 2 and x["crops"] == 2
+    from vqa.perception.fallback import CHOSEN_POLICY
+    assert x["policy"] == CHOSEN_POLICY and x["images_tiled"] == 2 and x["crops"] == 2
     assert x["fixed_by_tiles"] + x["fixed_by_crops"] >= 0 and x["broken"] >= 0
     assert rep["pass1"]["run_id"] == "p1run"
     with pytest.raises(SystemExit, match="not a fallback run"):
@@ -413,3 +415,25 @@ def test_a_replay_skips_failed_attempts_and_the_cache_option_is_recorded(fake_se
     out.write_text("\n".join(json.dumps(x) for x in [head, *rows]) + "\n", encoding="utf-8")
     again = pe.fallback_run(p1, 0.0, replay=out, out_dir=fake_set / "runs")
     assert [r["scene"] for r in pe.load_run(again)[1]] == [r["scene"] for r in rows]
+
+
+@pytest.mark.parametrize("where", ["fallback", "top"])
+def test_score_refuses_a_public_dev_run_made_with_the_cache(fake_set, where):
+    p1 = _pass1_run(fake_set)
+    out = pe.fallback_run(p1, 1.0, sdk=FakeSDK(0), out_dir=fake_set / "runs", use_cache=True)
+    if where == "top":                     # a header that says so at the top level
+        head, rows = pe.load_run(out)
+        head = {**head, "use_cache": True, "fallback": {**head["fallback"], "use_cache": False}}
+        out.write_text("\n".join(json.dumps(x) for x in [head, *rows]) + "\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="use_cache can't be scored; gate runs must be independent"):
+        pe.score([out])
+
+
+def test_a_set_t_run_made_with_the_cache_still_scores(fake_set):
+    p1 = _pass1_run(fake_set)
+    out = pe.fallback_run(p1, 1.0, sdk=FakeSDK(0), out_dir=fake_set / "runs", use_cache=True)
+    head, rows = pe.load_run(out)
+    t = fake_set / "t.jsonl"
+    t.write_text("\n".join(json.dumps(x) for x in [{**head, "set": "T"}, *rows]) + "\n", encoding="utf-8")
+    rep = pe.score([t])
+    assert rep["runs"][0]["set"] == "T" and "gate" not in rep

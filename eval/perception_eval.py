@@ -430,6 +430,9 @@ def score(paths: list[Path]) -> dict[str, Any]:
         if head["run_id"] in seen:           # the same run given twice counts once
             continue
         seen.add(head["run_id"])
+        if head["set"] == "public_dev" and (head.get("use_cache") or (head.get("fallback") or {}).get("use_cache")):
+            raise SystemExit(f"{Path(p).name}: a public_dev run made with use_cache can't be scored; "
+                             "gate runs must be independent calls")
         rep = score_run(p, (head, rows, units))
         reps.append(rep)
         groups.setdefault(configuration(head), []).append(
@@ -507,7 +510,7 @@ def _version_of(prompt_id: str) -> str:
     return prompt_id.split("/", 1)[1].split("@", 1)[0]
 
 
-def fallback_run(path: Path, max_spend: float, policy: str = "rules", sdk=None, out_dir: Path = RUNS,
+def fallback_run(path: Path, max_spend: float, policy: str | None = None, sdk=None, out_dir: Path = RUNS,
                  replay: Path | None = None, tiles: bool = True, crops: bool = True,
                  use_cache: bool = False) -> Path:
     """Apply the fallback to a pass-1 run file. Pass-1 scenes come from the file, so only
@@ -523,9 +526,12 @@ def fallback_run(path: Path, max_spend: float, policy: str = "rules", sdk=None, 
     from vqa.perception.image import prepare
     from vqa.schemas import SceneGraph
 
+    from vqa.perception.fallback import CHOSEN_POLICY
+
     head, rows = load_run(path)
     if head.get("fallback"):
         raise SystemExit(f"{Path(path).name} already has the fallback; give its pass-1 run")
+    policy = policy or CHOSEN_POLICY               # the rule frozen for checkpoint 2
     cfg = FallbackConfig(policy=policy, tiles=tiles, crops=crops)
     stored: dict[str, dict] = {}
     if replay is not None:
@@ -727,7 +733,8 @@ def main() -> None:
     fb = sub.add_parser("fallback", help="apply the two-pass fallback (plan item 7) to a pass-1 run")
     fb.add_argument("file", type=Path)
     fb.add_argument("--max-spend", type=float)
-    fb.add_argument("--policy", default="rules", choices=["rules", "crop_always", "crop_high", "never"])
+    fb.add_argument("--policy", choices=["rules", "crop_always", "crop_high", "never"],
+                    help="combining rule; default: the frozen CHOSEN_POLICY")
     fb.add_argument("--replay", type=Path, help="an earlier fallback run of the same pass-1 run: no calls")
     fb.add_argument("--use-cache", action="store_true",
                     help="read usable tile and crop replies from the scene cache: pay only for the rest")
