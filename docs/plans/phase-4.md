@@ -212,6 +212,10 @@ Every paid step shows its estimate and waits for the owner's go-ahead, under the
   - v2 is pinned and v1 stays.
   - The other writer readings are accepted: question numbers and codes may appear in the answer; at most two writer calls; effort `low`.
 
+- **Two readings accepted (owner, 2026-11-16):**
+  - a **`perception_failed`** fallback trigger: no scene at all goes to the fallback, with the scene graph sent as `null`;
+  - **oracle gold scenes** drop standalone local notices (the engine does not model them) and keep unreadable gold signs as `UNKNOWN`.
+
 ## Open points as first written (kept as a record)
 
 These came up while writing the plan. None of them changes step 1.

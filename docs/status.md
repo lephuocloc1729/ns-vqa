@@ -849,6 +849,89 @@ The triggers were chosen on set T and are measured on set T, so these gains over
   - a `perception_failed` fallback trigger (no scene at all), which is not in D3's list;
   - gold scenes for oracles drop standalone local notices and keep unreadable gold signs as `UNKNOWN`.
 
+### Oracle A diagnosis (development, public_dev, 2026-11-16)
+
+Engine only, no API. Gold scenes (gold signs v1, with the accepted readings: local notices dropped, unreadable signs as `UNKNOWN`) and gold programs (gold intents v1). Nothing in kb/ or gold was changed.
+
+**Coverage.** 47 questions have a gold program. The plan's 48 counted `0096`, which gold v1 skipped (P.118/P.119 size limits); the other 3 missing are parser few-shots.
+
+**Verdicts:**
+
+| yes | no | value | unknown | uncertain | out_of_scope |
+|---|---|---|---|---|---|
+| 9 | 6 | 14 | 10 | 0 | 8 |
+
+So the rules decide **29 of 47 (62%)** with gold parts. The decided Yes/No answers were scored in the earlier check: 7 of 10 right. Natural-QA values need the writer and the judge, so they are not scored here.
+
+**Each unknown and out_of_scope, with its reason:**
+
+| id | intent | verdict | reason (from the proof or the gold program) |
+|---|---|---|---|
+| 0001 | meaning, `only` | unknown | expected exactly one sign: 3 × P.131c + 5 unreadable |
+| 0022 | meaning, `only` | unknown | expected exactly one sign: I.423b + 1 unreadable |
+| 0036 | meaning, `only` | unknown | expected exactly one sign: P.131b + 1 unreadable |
+| 0044 | is_sign, `only` | unknown | expected exactly one sign: IE.465, IE.464, IE.467 + 1 unreadable |
+| 0045 | meaning, `only` | unknown | expected exactly one sign: P.125 + 2 unreadable |
+| 0053 | is_sign, `only` | unknown | expected exactly one sign: P.125 + 2 unreadable |
+| 0080 | is_sign, `only` | unknown | expected exactly one sign: I.419a + 1 unreadable |
+| 0084 | is_sign, `only` | unknown | expected exactly one sign: P.102 + R.302a (both readable) |
+| 0086 | meaning, all signs | unknown | one of the 5 signs is unreadable, so `_meaning` returns unknown for the whole list |
+| 0095 | permitted | unknown | `vehicle-unknown`: the program has `load_t > 10`, while P.115 limits `gross_t > 10`; the rules don't know that gross ≥ load |
+| 0021 | — | out_of_scope | counting signs |
+| 0055 | — | out_of_scope | guide-sign content (direction to a place) |
+| 0063 | — | out_of_scope | guide-sign content (junction shape) |
+| 0070 | — | out_of_scope | guide-sign content (route / exit) |
+| 0067 | — | out_of_scope | driver behaviour required by a warning sign (reduce speed) |
+| 0073 | — | out_of_scope | driver behaviour in response to a warning sign |
+| 0087 | — | out_of_scope | what a driver should do (gold: reduce speed; warning signs) |
+| 0085 | — | out_of_scope | traffic lights (turning on red) |
+
+**Causes, with counts and fixes:**
+
+1. **`only` selector finds several signs: 8** (0001, 0022, 0036, 0044, 0045, 0053, 0080, 0084).
+   - In 7 of them the extra signs are unreadable ones (and in 0001 there are also 3 identical readable signs). 0084 has two different readable signs.
+   - **Fix:** engine / DSL semantics in Python (`Engine.resolve` and `_meaning` / `_is_sign` in `vqa/reasoning/engine.py`), not kb/:
+     - `only` resolves to the readable signs when they all share one catalog row;
+     - for `is_sign` with several different readable candidates, a decision is needed: every candidate must match (0044 then depends on whether IE.464/465/467 all carry that meaning), or any may (0084 then becomes "yes").
+   - **Owner decision:** whether an unreadable extra sign may be ignored for "đây là biển gì?". The pipeline will see the same pattern, since perception also lists UNKNOWN signs.
+   - **Size:** small, about half a day with tests. It would likely decide 7–8 of the 8.
+2. **Meaning over several signs, one unreadable: 1** (0086).
+   - **Fix:** in `_meaning`, return the readable signs' meanings as a value and list the unreadable ones, rather than making the whole answer unknown. This is engine Python.
+   - **Size:** small, about an hour. The gold answer ("biển chỉ dẫn") is a category even though R.412d is mandatory, so expect at most partial credit.
+3. **Weight attribute mismatch, load vs gross: 1** (0095).
+   - **Fix:** a KB rule that `load_t > x` implies `gross_t > x` (gross weight ≥ load). It would sit in the vehicle-spec matching in `kb/rules/common.pl` (`any_spec_match`) or the ontology. Alternative: a parser/gold convention that "trên 10t" under a P.115 means gross weight.
+   - **Size:** small KB change plus tests, about half a day.
+4. **Guide-sign content: 3** (0055, 0063, 0070).
+   - Genuinely beyond the rules: the scene graph doesn't hold destinations, arrows or junction shapes. These stay with the fallback.
+   - **Size if attempted:** large (a new scene-graph field and new perception prompts). Not recommended in phase 4.
+5. **Warning-sign driver behaviour: 3** (0067, 0073, 0087).
+   - Already listed for phase 1.7 ("phải giảm tốc độ").
+   - **Fix:** a KB rule citing the QCVN 41 warning-sign article, a DSL action or claim (e.g. `required(reduce_speed)` for warning signs), parser prompt v7, and gold intents v2 for these rows.
+   - **Size:** medium, 1–2 days, and it reopens the parser gate (a new prompt version and new parser runs).
+6. **Counting signs: 1** (0021).
+   - Phase 1.7 item.
+   - **Fix:** a DSL `count` intent over a selector or category, the engine, parser v7 and gold v2.
+   - **Size:** small to medium; it shares the parser-v7 cost with cause 5.
+7. **Traffic lights: 1** (0085). Out of v1 scope; stays with the fallback.
+
+**What fixing them could do to rule coverage with gold parts:** causes 1–3 are Python plus one small KB rule, with no parser change: from 29/47 (62%) to about 38/47 (81%). Adding cause 5 brings it to about 41/47 (87%), but that needs parser v7.
+
+**Also seen (not a cause of unknowns):**
+- **The B.25 overtaking exception (0011)** gives a wrong "yes" (KB, phase 1.7).
+- **0094's gold local plate has no structured `vehicles`.** That is a gold-scene labelling gap, so cyclos look allowed under P.111b.
+- **The relevance rule treats every rectangle as an information board.** So an unreadable red or local rectangle can never make a turn or permission answer unknown. Local notices are often red rectangles. This is a possible gap in `Engine.could_matter`; it did not change any answer here.
+
+**public_natural_0068: which is wrong?**
+- **Question and gold answer:** "Người điều khiển xe máy được rẽ phải vào đường Hồng Hà lúc 10 giờ sáng, đúng hay sai?" Gold: **Sai**.
+- **Gold scene:** s2 is `P.123b` with two plates:
+  - `{"kind": "vehicle", "code": "S.505a", "text": "", "vehicles": [{"class": "truck"}]}`;
+  - `{"kind": "time", "code": "S.508a", "text": "6:00 - 22:00", "time_windows": [06:00–22:00]}`.
+
+  The other signs are the overhead guide I.414 "ĐƯỜNG HỒNG HÀ" with a bent-right arrow, and two unreadable ones. The owner's gold note says the plate pictogram is a truck, not a car.
+- **Engine proof:** `clears(turn_right, motorbike, 10:00, s2, plate_vehicle_not_covered)`. P.123b prohibits turning right for every vehicle (B.23, art. 22), but the S.505a plate (art. 41, F.5) narrows it to trucks: `any_spec_match([spec(truck)], motorbike) = false`. The time window holds (6:00–22:00 includes 10:00). Verdict: **yes (Đúng)**.
+- **The image** (public_dev, allowed): the plate under P.123b shows a box truck and "6:00-22:00". The red strip at the right edge is a cropped roadside banner, not a sign.
+- **Verdict: the gold label and the rule are right; the gold answer is very likely wrong.** Under F.5 the sign applies only to trucks, so a motorbike may turn right at 10:00. The dataset's "Sai" probably reads P.123b as a ban for every vehicle and ignores the plate. Only the dataset can be blamed here; nothing to change in kb/ or gold.
+
 ## Next steps, in order
 
 **Next (2026-11-16): phase 4, procedure step 2 (paid; the owner runs it).** Step 1 is done. Estimate: **$3.33** for step 2 including the two perception runs (range $1.7–5.0). The commands are in the phase-4 entry of the plan's procedure and in the last handoff message; in order:
