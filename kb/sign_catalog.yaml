@@ -51,6 +51,17 @@ vehicle_interpretations:
       It names no four-wheeled class, so "xe 4 bánh thô sơ" is read as 34(2)(e).
     source: {law_id: "36/2024/QH15", article_id: "34"}
 
+  - attribute_rule: load_implies_gross
+    label_vi: "khối lượng chuyên chở trên x tấn thì trọng tải toàn bộ trên x tấn"
+    note: >-
+      Interpretation: QCVN 41 B.15 (P.115) defines the gross mass as "trọng tải bản thân
+      xe cộng với khối lượng người, hành lý và hàng hóa xếp trên xe", so gross >= load.
+      A question that states the load ("xe tải chở trên 10 tấn") therefore bounds the
+      gross mass from below: load > x implies gross > x. Used only when the gross mass
+      is not stated. Cited in proofs as rule r_load_implies_gross (an interpretation,
+      not law text). Owner, 2026-11-16 (phase-4 plan item 1b.3).
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.15"}
+
 signs:
   # ------------------------------------------------------------------ prohibitory
   - code: P.101

@@ -29,6 +29,9 @@ rule_source(r_min_speed,           'QCVN 41:2024/BGTVT', 'D.6').
 rule_source(r_lane_reserved,       'QCVN 41:2024/BGTVT', 'D.14').
 rule_source(r_aux_plate,           'QCVN 41:2024/BGTVT', '41').
 rule_source(r_sign_groups,         'QCVN 41:2024/BGTVT', '11').
+% Interpretations: our readings, not law text. Their law_id is `interpretation`, so a
+% proof shows them but they never count as a law citation (vqa.reasoning.explain).
+rule_source(r_load_implies_gross,  interpretation, load_implies_gross).
 
 % --------------------------------------------------------------------------
 % Three-valued logic (leaves: evaluated directly, shown as one proof node)
@@ -83,7 +86,23 @@ cmp(le, X, Y) :- X =< Y.
 % --------------------------------------------------------------------------
 
 veh_attr(veh(_, Attrs), A, V) :- memberchk(a(A, V), Attrs), !.
+veh_attr(veh(_, Attrs), gross_t, V) :-
+    derived_gross(Attrs, V), !.
 veh_attr(_, _, unknown).
+
+%!  derived_gross(+Attrs, -Gross) is semidet.
+%   Interpretation load_implies_gross (catalog vehicle_interpretations): QCVN 41 B.15
+%   defines the gross mass as the vehicle's own mass plus people, luggage and goods,
+%   so gross >= load. A known load (exact or bounded below) bounds the gross mass from
+%   below: load > x implies gross > x. Used only when the gross mass is not stated.
+derived_gross(Attrs, iv(Lo, LI, 1000000000000000000, true)) :-
+    attr_interpretation(load_implies_gross),
+    \+ memberchk(a(gross_t, _), Attrs),
+    memberchk(a(load_t, L), Attrs),
+    load_floor(L, Lo, LI).
+
+load_floor(iv(Lo, LI, _, _), Lo, LI).
+load_floor(L, L, true) :- number(L).
 
 leaf(class_truth(_, _, _)).
 %!  class_truth(+SpecClass, +VehClass, -T) is det.
@@ -349,11 +368,20 @@ applies(S, Code, Specs, Veh, Ctx, T) :-
 %!  vehicle_basis(+Veh) is det.
 %   A vehicle class that is our interpretation of the law (class_interpretation/3)
 %   is shown in the proof with its source, so the reading is visible and cited.
-vehicle_basis(veh(C, _)) :-
+vehicle_basis(veh(C, Attrs)) :-
     (   interpreted_class(C)
     ->  class_interpretation(C, _, _)
     ;   true
+    ),
+    (   gross_from_load(Attrs)
+    ->  attr_interpretation(load_implies_gross),
+        cite(r_load_implies_gross)
+    ;   true
     ).
+
+leaf(gross_from_load(_)).
+%!  gross_from_load(+Attrs) is semidet.  The gross mass is read from the load (above).
+gross_from_load(Attrs) :- derived_gross(Attrs, _).
 
 leaf(interpreted_class(_)).
 interpreted_class(C) :- class_interpretation(C, _, _), !.

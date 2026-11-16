@@ -76,12 +76,21 @@ class PlacementRules(_M):
 
 
 class VehicleInterpretation(_M):
-    """A vehicle class that is our reading of the law rather than a class it names."""
+    """Our reading of the law where it names no class or rule: either a vehicle class
+    (`class`, e.g. similar_rudimentary) or an attribute rule (`attribute_rule`, e.g.
+    load_implies_gross: a load above x t means a gross mass above x t). Exactly one."""
 
-    cls: VehicleClass = Field(alias="class")
+    cls: VehicleClass | None = Field(default=None, alias="class")
+    attribute_rule: Literal["load_implies_gross"] | None = None
     label_vi: str
     note: str
     source: Citation
+
+    @model_validator(mode="after")
+    def _one_kind(self) -> "VehicleInterpretation":
+        if (self.cls is None) == (self.attribute_rule is None):
+            raise ValueError("a vehicle interpretation names exactly one of class / attribute_rule")
+        return self
 
 
 class Visual(_M):
@@ -270,8 +279,11 @@ class Catalog(_M):
                         out.append(Term("placement_effect", c, atom(name),
                                         [atom(d) for d in eff.directions], atom(eff.scope)))
         for vi in self.vehicle_interpretations:
-            out.append(Term("class_interpretation", atom(vi.cls.value),
-                            atom(vi.source.law_id), atom(vi.source.article_id)))
+            if vi.cls is not None:
+                out.append(Term("class_interpretation", atom(vi.cls.value),
+                                atom(vi.source.law_id), atom(vi.source.article_id)))
+            else:
+                out.append(Term("attr_interpretation", atom(vi.attribute_rule)))
         return out
 
 

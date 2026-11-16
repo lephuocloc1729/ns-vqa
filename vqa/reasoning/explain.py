@@ -6,6 +6,10 @@ from typing import Any, Iterator
 
 from vqa.schemas import Citation, ProofNode
 
+# The law_id of rule_source entries that are our interpretations, not law text
+# (kb/rules/common.pl). Proofs show them; citations leave them out.
+INTERPRETATION = "interpretation"
+
 
 def to_node(d: dict[str, Any]) -> ProofNode:
     return ProofNode(
@@ -29,7 +33,7 @@ def citations(node: ProofNode | None) -> list[Citation]:
         return []
     seen: dict[tuple[str, str], Citation] = {}
     for n in walk(node):
-        if n.source and n.source.key() not in seen:
+        if n.source and n.source.law_id != INTERPRETATION and n.source.key() not in seen:
             seen[n.source.key()] = n.source
     return list(seen.values())
 

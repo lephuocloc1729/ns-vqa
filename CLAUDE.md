@@ -129,6 +129,7 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
   - "xe khách" means `coach`, a bus that is not a city bus.
   - "xe ba bánh" / "xe lam" means `motor_tricycle`, which falls under B.11, not P.104.
   - "xe 4 bánh thô sơ" means `similar_rudimentary`, our interpretation of Law 36 art. 34(2)(e). Interpretations like this are listed under `vehicle_interpretations` in the catalog and shown in proofs.
+  - A stated load bounds the gross mass: load > x implies gross > x (`load_implies_gross`, from QCVN 41 B.15's definition of gross mass). It is a `vehicle_interpretations` entry with an `attribute_rule`, shown in proofs as `cite(r_load_implies_gross)`. Its `rule_source` has law_id `interpretation`, so it is never counted as a law citation.
 - **Vehicle attributes are exact or bounded** (`seats_gt=29`), never both. In Prolog a bounded attribute is an interval `iv(Lo, LoIn, Hi, HiIn)`.
 - **Time intervals need a quantifier** (`all` or `any`), which applies to what the program states. For a ban, write `Forbidden`, not `Verify(Permitted, expect=False)`.
 - **A sign with several (vehicle, time) pairs uses condition groups (`Sign.rules`)**, not separate vehicle and time plates.
