@@ -1073,9 +1073,33 @@ Changes: writer prompt `answer/v3@7d0f2b8ddf1f` (T1: `max_tokens` 1200, at most 
 - The 7 former template cases (`0026` ×3, `0094` ×3, `0065`) now pass on the writer's reply. Their scores are unchanged; `0094` stays wrong (the gold plate reading, the owner's decision).
 - The one regeneration: `0026` in H2. The first reply opened a true/false answer without "Đúng"; the second passed.
 
+### Tuning T2 (public_dev, tuned, T2; 2026-11-16)
+
+Change: fallback prompt `answer_fallback/v2@8678a19681a9` (a structured-output schema for {verdict, answer} on the fallback call only, plus "claim nothing about a sign that is not in the scene graph"), commit `905f717`. Replays of the T1 runs (writer v3 kept; every fallback question asked again): `361287ed6b2f`, `34822ca744ea`, `1ce1a8d55ffd`. Score output (local): `eval/runs/e2e/score_tuned_T2.json`. **Spend $0.59.** D8 count: 2 of 5.
+
+| pooled over H1–H3 | T1 | T2 |
+|---|---|---|
+| overall | 81.0% | **81.7%** |
+| strict | 77.8% | 79.1% |
+| Yes/No | 83.3% | 83.3% |
+| Natural QA | 79.0% | 80.2% |
+| non-duplicate (n=57; 95% CI) | 85.1% (74–92) | 86.8% (76–93) |
+| rule coverage | 54.9% | 54.9% |
+| rules-only (n=84) | 87.5% | 87.5% |
+| fallback answers correct (69) | 50.5 (73.2%) | 51.5 (74.6%) |
+| fallback first-try JSON | 37 of 69 | **68 of 69** |
+| fallback failures (P3) | 6 | **1** |
+| template rate, faithfulness | 0%, 100% | 0%, 100% (85 writer answers) |
+
+- **Gate (D5): PASS** (template 0 of 85, faithfulness 100%).
+- Per run, overall: T2-H1 84.3% (from 82.4%), T2-H2 78.4% (82.4%), T2-H3 82.4% (78.4%).
+- **The format problem is gone, the answers barely move.** 17 question scores changed, all on fallback answers: +6.5 and −5.5, net +1 over 153. Most changes are Sonnet answering the same inputs differently, not the prompt; e.g. `0068` flips Sai/Đúng between runs, and `0087`'s near-identical height-limit answer is graded 0.5 or 1.
+- **The one failure is new:** `0038` in H2 stopped at `max_tokens=1500` while the kept reply is a short complete JSON object, so the budget almost certainly went to the model's reasoning. Raising it would be a new prompt version (not done; owner's call).
+- The new scene-graph line may make the fallback more cautious: `0038` in H1 answered "Chưa xác định được" (1 → 0), but `0038` in H3 went 0 → 1.
+
 ## Next steps, in order
 
-**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). T2 built: fallback prompt `answer_fallback/v2@8678a19681a9` (a structured-output schema for {verdict, answer} on the fallback call only, plus "claim nothing about a sign that is not in the scene graph"), now the default; v1 stays. The T2 replay of the T1 runs (about $0.92) waits for the owner. Then T4. Then step 5 (freeze) and step 6 (holdout once, Haiku + fallback, about $0.67).
+**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. Next: T4 (perception: drop pass 1's own alt when the crop agrees). Then step 5 (freeze) and step 6 (holdout once, Haiku + fallback, about $0.67).
 
 All public_dev figures are labelled **tuned**.
 
