@@ -679,6 +679,58 @@ The triggers were chosen on set T and are measured on set T, so these gains over
 
 **Spend:** phase 3 is now **$2.50**.
 
+**public_dev checkpoint 2 (gate v2, prompt v4 + fallback), 2026-11-16.**
+
+- **Configuration:** `perception_gate_v2`; pass 1 `scene/v4@153536ec5975`; fallback v4-tile `a052a9fc72f7`, v4-crop `30e2d18b84d9`, `crop_always`, one retry on bad JSON.
+- **Gate set:** 45 images (143 gold signs) and 17 non-duplicates (27 gold signs).
+- **Statistics:** CIs are image bootstraps (`eval/report.py`); the CI of a mean pools each image's counts over the runs.
+- **Not tuned:** the triggers, prompts and combining rule came from set T only. The changes after the approval were recorded before scoring (`cc06067`).
+- **Runs:** pass 1 is reused from checkpoint 1.
+  - Haiku fallback `b83d5dae690e`, `023c1a474288`, `9981d8112688` (on `e0128c462ed3`, `2dd3a6e61573`, `932c3d2b7009`);
+  - Sonnet fallback `949418393534` (on `f19dd5bc36f6`). **Sonnet ran once, by the owner's decision on cost.**
+- **Per-image errors were not looked at.**
+
+| public_dev checkpoint 2 | Haiku pass 1, mean of 3 | **Haiku + fallback, mean of 3** | Haiku + fallback runs (b83d / 023c / 9981) | Sonnet pass 1, 1 run | **Sonnet + fallback, 1 run** |
+|---|---|---|---|---|---|
+| recall, all (95% CI) | 79.7% (69.1–92.5) | **90.0%** (85.3–95.7); exactly 89.98% | 90.2% / 90.2% / 89.5% | 81.8% (69.6–96.3) | **95.8%** (90.3–99.2) |
+| code F1, all (CI) | 68.1% (59.6–78.4) | **75.6%** (69.2–83.0) | 77.1% / 75.4% / 74.2% | 75.1% (67.7–84.6) | **76.9%** (68.9–84.8) |
+| code F1 strict | 67.9% | 74.9% | 76.4% / 74.7% / 73.5% | 74.3% | 76.3% |
+| rule-bearing F1 (reported, not gated) | 70.2% | 78.8% | 81.3% / 79.1% / 75.8% | 77.6% | 81.5% |
+| value accuracy | 88.1% | 86.4% | 76.5% / 88.9% / 93.8% | 76.5% | 73.7% |
+| recall, non-duplicates (CI) | 87.7% (75.4–100) | 86.4% (73.0–100) | 88.9% / 85.2% / 85.2% | 100% | 100% |
+| code F1, non-duplicates (CI) | 71.2% (57.5–91.8) | 74.9% (61.4–95.7) | 72.7% / 74.1% / 77.8% | 80.7% (70.1–94.7) | 66.7% (49.4–93.9) |
+| predictions (gold 143) | 118.3 | 143.7 | 137 / 146 / 148 | 126 | 156 |
+| **gate** (recall ≥ 90% and F1 ≥ 85%) | FAIL | **FAIL** | | not decided | **not decided (1 of 3 runs); indicative FAIL on F1** |
+
+**The fallback's work** (paired with each pass-1 run; reported, not gated):
+
+| | images tiled | tile signs added | crops | crops with no reply after the retry | crops that changed a code | fixed (tiles + crops) | broken | fallback cost |
+|---|---|---|---|---|---|---|---|---|
+| Haiku (b83d / 023c / 9981) | 8 / 7 / 8 | 27 / 32 / 30 | 67 / 81 / 80 | 0 / 0 / 0 | 38.8% / 46.9% / 43.8% | 11+8 / 11+15 / 8+12 | 3 / 2 / 2 | $0.189 in all |
+| Sonnet (9494) | 9 | 35 | 77 | **4** (34 retried) | 42.9% | 16+2 | 4 | $0.647 |
+
+- **Anchoring (D2)**, fallback mean by gold drafter:
+  - Haiku: on the 37 Haiku-drafted images, recall 88.0% and F1 72.4%; on the 8 Opus-drafted images, 96.9% and 87.0%;
+  - Sonnet: 98.2% / 75.1% (Haiku-drafted) and 87.5% / 83.9% (Opus-drafted).
+- **Against set T** (in-sample): Haiku + fallback recall 90.0% vs 89.2% and F1 75.6% vs 73.5%. Sonnet + fallback recall 95.8% vs 95.8% and F1 76.9% vs 78.7%.
+  - Haiku gained more on public_dev (+7.5 F1 points) than on set T (+1.2).
+  - Sonnet's crops fixed only 2 codes here (14 on set T), while its tiles fixed 16.
+  - Sonnet's non-duplicate F1 fell (80.7% to 66.7%, on 27 gold signs).
+- **Spend:** checkpoint 2 cost **$0.836** (Haiku $0.189, Sonnet $0.647), within the estimates. Phase 3 is now **$3.34**.
+- **Cost per image, all-in (pass 1 + fallback):** Haiku about $0.0028, Sonnet about $0.023.
+
+**Policy (d), applied as written:**
+1. **No configuration passes the gate.**
+   - Haiku + fallback fails code F1 by 9.4 points. Its recall is 89.98%, 0.02 points under 90%.
+   - Sonnet + fallback is not decided on one run, and its F1 (76.9%) is far under 85% even at the top of its CI (84.8%).
+2. **The highest mean code F1 on all 45 images** is Sonnet + fallback at 76.9%, from 1 of 3 runs.
+3. **Haiku + fallback (75.6%) is 1.3 points behind it,** within 2 points, so **Haiku** is chosen.
+4. **The fallback raised Haiku's mean code F1** from 68.1% to 75.6%, so it stays.
+
+**→ Phase 4 perception: Haiku 5.5, prompt v4 + the fallback** (v4-tile, v4-crop, `crop_always`), with the perception gate recorded as **failed**.
+- **No checkpoint 3 in phase 3** (d).
+- The comparison with Sonnet rests on one Sonnet run. Haiku's code F1 varies by 2.9 points across its three fallback runs, so a 1.3-point gap is within run-to-run noise.
+
 ## Next steps, in order
 
 ### Handoff (2026-11-15): where phase 3 stands, and what comes next
@@ -701,20 +753,13 @@ The triggers were chosen on set T and are measured on set T, so these gains over
 
 **Fallback on set T: done (2026-11-16).** "rules" frozen. v4-tile and v4-crop are pinned. Spend is $2.32. See the entry above.
 
-**Checkpoint 2: ready, waiting for the owner's ceiling decision (2026-11-16).** The fallback is frozen: v4-tile `a052a9fc72f7`, v4-crop `30e2d18b84d9`, `crop_always`, and one retry on bad JSON.
+**Checkpoint 2: done (2026-11-16).** Haiku + fallback FAIL: recall 89.98%, code F1 75.6% (mean of 3). Sonnet + fallback: 1 run, not decided, recall 95.8%, F1 76.9%. The results entry is above.
 
-The estimate is from `fallback-estimate --calibrate`, which prices calls and retries from the logged set-T fallback calls:
-
-| | what | estimate | ceiling |
-|---|---|---|---|
-| Haiku | fallback on `e0128c462ed3`, `2dd3a6e61573`, `932c3d2b7009` (32 / 28 / 32 tiles, 40–82 crops per run; no retries on set T) | **$0.15–0.18** | $0.35 |
-| Sonnet | 2 new pass-1 runs ($0.40 each, as `f19dd5bc36f6`) | $0.81 | |
-| Sonnet | fallback on 3 runs ($0.50–0.66 each; 36 tiles and 42–78 crops each, from `f19dd5bc36f6`; 46% of crops retried at $0.0024) | $1.50–1.99 | |
-| Sonnet | **total** | **$2.31–2.80** | **$2.60** (the owner offered $3.00) |
-
-- The range runs from the listed crops to one more crop per tile call, at the measured retry rates.
-- If every call retried once: Haiku $0.37, Sonnet $4.03. On set T no tile and no Haiku call needed a retry.
-- **The top of Sonnet's range is $0.20 over the current $2.60 ceiling and $0.20 under $3.00.** The ceiling is the owner's to change.
+- **Policy (d):** phase 4 uses **Haiku v4 + fallback** (`crop_always`). The perception gate is recorded as failed. No checkpoint 3.
+- **Spend:** phase 3 is $3.34.
+- **Left in phase 3:**
+  - plan item 9's DESIGN.md updates: the plain-JSON scene call, the gold-label decision, the gate on public_dev, matching and CI, the model choice, and the fallback;
+  - the open catalog reviews.
 
 **Checkpoint 1: done (2026-11-16).** Haiku v4 FAIL (recall 79.7%, code F1 68.1%, mean of 3). Sonnet v4 was run once (owner's decision): recall 81.8%, F1 75.1%, not decided, indicative FAIL. The results entry is above. Phase-3 spend is now $1.84. Next: the owner's decision on plan item 7 (the fallback, built on set T; see "Open owner decisions"), then checkpoint 2.
 
