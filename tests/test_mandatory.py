@@ -79,7 +79,7 @@ def test_no_direction_sign(engine):
 # ---------------------------------------------------------------- similar_rudimentary
 
 def test_interpretation_recorded_in_catalog():
-    [vi] = load_catalog().vehicle_interpretations
+    [vi] = [v for v in load_catalog().vehicle_interpretations if v.cls is not None]
     assert vi.cls.value == "similar_rudimentary"
     assert (vi.source.law_id, vi.source.article_id) == ("36/2024/QH15", "34")
     assert "Interpretation" in vi.note

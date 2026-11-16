@@ -78,6 +78,8 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
   - `pricing.py`.
   - `spend.py`: the spend guard (default $2, `VQA_SPEND_LIMIT` or `--max-spend`) and the usage log `logs/api_calls.jsonl` (gitignored).
   - The key comes from `ANTHROPIC_API_KEY` only and is never committed.
+- `vqa/pipeline.py` (phase 4): `answer(image_path, question)`. `vqa/answer/`: the proof digest, the faithfulness guard, template answers, the writer (`prompts/answer/`), the answer-level fallback (`prompts/answer_fallback/`).
+- `eval/e2e_eval.py` (public_dev, warm, run, next; oracles; scores), `eval/judge.py` (`eval/prompts/judge/`), `eval/e2e_holdout.py` (aggregate only).
 - `vqa/reasoning/`:
   - `terms.py`: Python values to Prolog text.
   - `facts.py`: SceneGraph to scene facts, plus the variants for alternative sign readings.
@@ -101,11 +103,13 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
   - **Affected verdicts:** a "yes" from `permitted`/`speed_ok`, or a "no" from `required`/`exists_violation`. The answer lists the sign in `uncertain_signs`.
   - **Relevance comes from the sign's visible category** (`Engine.visual_category`, `could_matter`):
     - red-bordered circle (prohibitory): permissions, speed, violations;
+    - rectangle with a red background or red border (local ban notices, red plates): counts as prohibitory, so permissions, speed, violations;
     - blue circle (mandatory): directions, speed, `required`;
-    - blue/green/white rectangle (board): speed, or a claim about a given lane;
+    - other rectangles (blue/green/white board): speed, or a claim about a given lane;
     - triangle (warning) and end-of-restriction signs: never;
     - nothing recorded: always.
   - **Not affected:** answers decided by a readable sign.
+  - **Single-sign questions** (`only`, "Đây là biển gì?"): unreadable candidates are dropped. If every readable candidate has the same code, the answer is decided with it and the unreadable signs go in `uncertain_signs`; if the readable codes differ, the answer stays unknown (`Engine.single_sign`).
   - **In the full pipeline**, an answer that is unknown because of an unreadable sign goes to the fallback.
 - **`every_vehicle` claims quantify over members, not just classes.** A class whose answer depends on unstated weight or seats is tried at the scene's thresholds. A failing member makes the class a counterexample, reported with its condition.
 - **Every rule and catalog row cites its source** as `law_id` + `article_id`, using the dataset's `relevant_articles` format, e.g. `QCVN 41:2024/BGTVT` + `B.25`.
@@ -126,6 +130,7 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
   - "xe khách" means `coach`, a bus that is not a city bus.
   - "xe ba bánh" / "xe lam" means `motor_tricycle`, which falls under B.11, not P.104.
   - "xe 4 bánh thô sơ" means `similar_rudimentary`, our interpretation of Law 36 art. 34(2)(e). Interpretations like this are listed under `vehicle_interpretations` in the catalog and shown in proofs.
+  - A stated load bounds the gross mass: load > x implies gross > x (`load_implies_gross`, from QCVN 41 B.15's definition of gross mass). It is a `vehicle_interpretations` entry with an `attribute_rule`, shown in proofs as `cite(r_load_implies_gross)`. Its `rule_source` has law_id `interpretation`, so it is never counted as a law citation.
 - **Vehicle attributes are exact or bounded** (`seats_gt=29`), never both. In Prolog a bounded attribute is an interval `iv(Lo, LoIn, Hi, HiIn)`.
 - **Time intervals need a quantifier** (`all` or `any`), which applies to what the program states. For a ban, write `Forbidden`, not `Verify(Permitted, expect=False)`.
 - **A sign with several (vehicle, time) pairs uses condition groups (`Sign.rules`)**, not separate vehicle and time plates.

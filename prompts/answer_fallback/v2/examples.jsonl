@@ -1,0 +1,6 @@
+{"question_id": "train_181", "question": "Đường này có cấm ô tô từ 6:00 đến 22:00 không?", "true_false": false, "reply": {"verdict": "yes", "answer": "Có"}}
+{"question_id": "train_163", "question": "Người đi xe đạp có được đi vào hầm này không?", "true_false": false, "reply": {"verdict": "no", "answer": "Không được"}}
+{"question_id": "train_275", "question": "Taxi đi vào đường này lúc 22 giờ thì vẫn đúng quy định phải không?", "true_false": true, "reply": {"verdict": "yes", "answer": "Đúng"}}
+{"question_id": "train_1", "question": "Xe khách trên 29 chỗ bị cấm đi vào những khung giờ nào?", "true_false": false, "reply": {"verdict": "value", "answer": "Từ 6:30 đến 8:00 và từ 16:30 đến 18:30."}}
+{"question_id": "train_89", "question": "Biển trong ảnh có ý nghĩa gì?", "true_false": false, "reply": {"verdict": "value", "answer": "Cấm dừng và đỗ xe."}}
+{"question_id": "train_217", "question": "Muốn chạy 90 km/h trên đoạn đường này thì phải đi làn nào?", "true_false": false, "reply": {"verdict": "value", "answer": "Làn ngoài cùng bên trái."}}

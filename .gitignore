@@ -27,6 +27,7 @@ data/annotations/visual_review/
 
 # scene cache: model outputs only, keyed by image sha256 + model + effort + prompt version
 cache/scenes/
+cache/warm/
 
 # perception eval runs (model scenes per image; local only)
 eval/runs/

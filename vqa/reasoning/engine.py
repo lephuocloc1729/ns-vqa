@@ -141,6 +141,23 @@ class Engine:
                 out = [s for s in ranked if s.position.rank_top_down == r]
         return [s.id for s in out]
 
+    def single_sign(self, scene: SceneGraph, ids: list[str]) -> tuple[list[str] | None, list[str]]:
+        """Resolve a single-sign selector (`only`: "Đây là biển gì?") over its candidates
+        (owner, 2026-11-16, plan item 1b): unreadable signs are dropped; if every
+        readable candidate has the same catalog code, they are the selection and the
+        unreadable ones are returned for `uncertain_signs`; if the readable codes
+        differ (or none is readable), the selection is None and the answer stays
+        unknown. A lone candidate is returned as is. Selector resolution only: what
+        the sign means or forbids is still decided by the catalog and Prolog."""
+        if len(ids) == 1:
+            return ids, []
+        readable = [i for i in ids if self.catalog.has(scene.sign(i).code)]
+        unread = [i for i in ids if i not in readable]
+        codes = {self.catalog.get(scene.sign(i).code).code for i in readable}
+        if len(codes) != 1:
+            return None, unread
+        return readable, unread
+
     # ------------------------------------------------------------------ entry point
     def answer(self, scene: SceneGraph, query: QueryProgram | Program) -> Answer:
         if isinstance(query, QueryProgram) and query.out_of_scope:
@@ -183,8 +200,12 @@ class Engine:
     def visual_category(sign) -> str:
         """What an unreadable sign could be, from how it looks (QCVN 41 sign groups):
         red_circle (prohibitory, incl. P.130/P.131 on blue), blue_circle (mandatory),
+        red_board (a rectangle with a red background or border: local ban notices and
+        red plates, treated as prohibitory; owner, 2026-11-16, plan item 1b.4),
         board (blue/green/white rectangle: information, lane boards, plates),
-        warning (triangle), octagon (R.122 stop), or unknown (nothing recorded)."""
+        warning (triangle), octagon (R.122 stop), or unknown (nothing recorded).
+        Relevance only: the gate's matching (vqa.perception.matching) keeps its own
+        groups, where every rectangle is a board."""
         shape = sign.shape.value if sign.shape else None
         border = sign.border.value if sign.border else None
         bg = sign.background.value if sign.background else None
@@ -192,6 +213,8 @@ class Engine:
             return "red_circle"
         if shape == "circle" and bg == "blue":
             return "blue_circle"
+        if shape in ("rectangle", "square") and "red" in (border, bg):
+            return "red_board"
         if shape in ("rectangle", "square"):
             return "board"
         if shape in ("triangle", "diamond"):
@@ -211,6 +234,8 @@ class Engine:
         if category in ("warning", "end_of_restriction"):
             return False
         lane = getattr(p, "lane", None)
+        if category == "red_board":          # counts as prohibitory (plan item 1b.4)
+            category = "red_circle"
         if isinstance(p, Permitted):
             if category == "red_circle":
                 return True
@@ -357,9 +382,14 @@ class Engine:
 
     def _meaning(self, scene: SceneGraph, p: Meaning) -> Answer:
         ids = self.resolve(scene, p.sign)
-        if p.sign.only and len(ids) != 1:
-            return Answer(verdict=Verdict.unknown, value={"candidates": ids},
-                          note="expected exactly one sign in the scene")
+        unread_only: list[str] = []
+        if p.sign.only:
+            chosen, unread_only = self.single_sign(scene, ids)
+            if chosen is None:
+                return Answer(verdict=Verdict.unknown, value={"candidates": ids},
+                              uncertain_signs=unread_only,
+                              note="expected exactly one sign in the scene")
+            ids = chosen[:1]               # same code: one meaning
         out, cites = [], []
         for sid in ids:
             s = scene.sign(sid)
@@ -373,8 +403,11 @@ class Engine:
             cites.append(e.source)
         if not out:
             return Answer(verdict=Verdict.unknown, note="no sign in the scene matches the selector")
-        verdict = Verdict.value if all(o["known"] for o in out) else Verdict.unknown
-        return Answer(verdict=verdict, value=out, citations=cites)
+        # plan item 1b.2: answer for the readable signs; the unreadable ones stay in the
+        # value (known: false) and are listed in uncertain_signs
+        unread = unread_only + [o["sign_id"] for o in out if not o["known"]]
+        verdict = Verdict.value if any(o["known"] for o in out) else Verdict.unknown
+        return Answer(verdict=verdict, value=out, citations=cites, uncertain_signs=unread)
 
     def _violations(self, scene: SceneGraph, p: ExistsViolation) -> Answer:
         self.load_scene(scene)
@@ -649,9 +682,14 @@ class Engine:
         ids = self.resolve(scene, p.sign)
         if not ids:
             return Answer(verdict=Verdict.unknown, note="no sign in the scene matches the selector")
-        if p.sign.only and len(ids) != 1:
-            return Answer(verdict=Verdict.unknown, value={"candidates": ids},
-                          note="expected exactly one sign in the scene")
+        unread_only: list[str] = []
+        if p.sign.only:
+            chosen, unread_only = self.single_sign(scene, ids)
+            if chosen is None:
+                return Answer(verdict=Verdict.unknown, value={"candidates": ids},
+                              uncertain_signs=unread_only,
+                              note="expected exactly one sign in the scene")
+            ids = chosen
         unread = [i for i in ids if not self.catalog.has(scene.sign(i).code)]
         if unread:
             return Answer(verdict=Verdict.unknown, uncertain_signs=unread,
@@ -673,7 +711,7 @@ class Engine:
         actual = [{"sign_id": i, "code": self.catalog.get(scene.sign(i).code).code,
                    "name_vi": self.catalog.get(scene.sign(i).code).name_vi} for i in ids]
         return Answer(verdict=Verdict(out["verdict"]), value={"signs": actual},
-                      reasons=reasons, citations=_cites(reasons))
+                      reasons=reasons, citations=_cites(reasons), uncertain_signs=unread_only)
 
     def _connective(self, scene: SceneGraph, p: AllOf | AnyOf) -> Answer:
         """Three-valued AND / OR over claims. Citations come from the parts that decide."""

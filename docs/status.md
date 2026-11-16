@@ -1,6 +1,6 @@
 # Project status
 
-Last updated 2026-11-16. Branch `phase-3`, on top of `main` at `afe006c` (phase 2 merged in PR #1). **Phase 3 is closed** (see "Phase 3: closing"). The branch is not merged or pushed; that is the owner's decision.
+Last updated 2026-11-16. Branch `phase-4`, from `main` at `7ec1134` (`phase-3` merged locally, not pushed; plan D10). **Phase 3 is closed** (see "Phase 3: closing"). **Phase 4 is approved** (`docs/plans/phase-4.md`, owner, 2026-11-16) and in progress.
 
 ## Done
 
@@ -805,9 +805,504 @@ The triggers were chosen on set T and are measured on set T, so these gains over
   - the pictogram ablation;
   - the parser-cache key including the catalog hash (open since phase 2).
 
+### Phase 4: answering and the end-to-end pipeline (closed 2026-11-16, branch `phase-4`, not merged or pushed)
+
+- `7ec1134` `phase-3` merged into `main` (local, not pushed; D10). `a5133c9` plan approved (`docs/plans/phase-4.md`).
+- **Item 1, the answer writer and the faithfulness guard** (procedure step 1, no API):
+  - `vqa/answer/digest.py`: the proof digest, the writer's only input (verdict, value, the signs it rests on, rules fired, reasons, citations). No raw Prolog goals.
+  - `vqa/answer/faithfulness.py`: the guard. It checks the reply shape, the engine's verdict, that cited signs and rules are in the digest, that no code or number is missing from the digest or the question, and the opening word (Đúng/Sai for true/false questions; the verdict's polarity for other yes/no; never a yes/no word for unknown/uncertain).
+  - `vqa/answer/template.py`: deterministic Vietnamese answers for every verdict and value shape. Each passes the guard (tested).
+  - `vqa/answer/writer.py`: Haiku 5.5 (D1). At most two calls: a bad-JSON or guard failure gets one retry that sends only the error; then the template.
+  - `prompts/answer/v1/` (`answer/v1@aed34f731e7f`, pinned in `tests/test_answer_writer.py`): spec, config (Haiku, effort low, 600 max tokens), 6 text-only examples from the train fixtures with the dataset's exact question text.
+  - 678 tests pass (34 new) and Prolog loads.
+- **Readings made while building item 1** (the owner can change them; the prompt is pinned, so a change is a v2):
+  - numbers and codes the question states may appear in the answer;
+  - "one retry" and "one regeneration" are the same single retry, so there are at most two writer calls;
+  - writer effort `low`;
+  - only 6 examples: no Đúng/Sai, `unknown` or meaning example yet, since no train fixture has one.
+
+- **Owner decisions (2026-11-16)** on P1–P3 and writer v2 are recorded in the plan.
+- **P1 tooling** (`557c5ff`):
+  - `perception_eval.py run` now keeps the raw pass-1 / re-run replies in each row;
+  - `backfill-raw` copies a pre-phase-4 run's replies out of the scene cache into `<run>.withraw.jsonl`, checked against the usage log's request ids;
+  - `warm` rebuilds one run's cache records in a dedicated, emptied directory (`cache/warm/`, gitignored) and checks the rebuilt scenes.
+  - **Done locally:** `9981d8112688` (H) and `949418393534` (S) backfilled and warmed: 45/45 scenes rebuilt exactly, from model outputs alone. `b83d5dae690e` is refused (its pass-1 replies are gone).
+- **Writer prompt v2** (`c42f4cd`, `answer/v2@4887560f8b50`, the default; v1 kept): adds a Đúng/Sai (train_275), a sign-meaning (train_96) and an `unknown` (train_144) example. The hand-made scenes are in `tests/fixtures/answer_v2_scenes.json`.
+- **Items 2–3** (`a74a1e2`):
+  - `vqa/answer/fallback.py`: Sonnet, image + question + scene graph, prompt `answer_fallback/v1@dd75b41f09cd`, train-only style examples;
+  - `vqa/pipeline.py`: `answer(image_path, question)`, with cache-only mode and P3.
+- **Items 4–5** (this commit):
+  - `eval/e2e_eval.py`: public_dev runs (warm, run, next), oracles A/B called directly, `score`, gate D5, rule D2, `attribution`, `estimate`;
+  - `eval/judge.py`: Opus, `judge/v1@7c500c35df27`, pinned;
+  - `eval/e2e_holdout.py`: aggregate only, temporary cache, refuses without `--confirm-frozen`;
+  - leakage tests for scene reuse, oracles, the judge, prompts and `answer()`'s signature.
+  - 747 tests pass and Prolog loads.
+- **Oracle A, Yes/No part (free, gold scenes + gold programs, engine verdicts): 7 of 20 correct** (non-duplicates 3 of 7). This is far below DESIGN's "close to 100%":
+  - 6 gold programs are `out_of_scope` and 4 verdicts are `unknown`. In the pipeline these 10 go to the fallback;
+  - of the 10 the engine decided, 7 are right and 3 wrong:
+    - `0011`: the B.25 overtaking exception, not modelled (phase 1.7);
+    - `0068`: the gold scene's S.505a plate under P.123b lists trucks only, so motorbikes may turn right; the gold answer says Sai;
+    - `0094`: the gold local plate "CẤM XE 3 BÁNH VÀ 4 BÁNH THÔ SƠ" has no structured `vehicles`, so P.111b's own vehicles apply.
+  - The 4 public_dev few-shot questions have no gold program.
+  - Gold and kb/ were not changed.
+- **Readings for the owner to confirm:**
+  - a `perception_failed` fallback trigger (no scene at all), which is not in D3's list;
+  - gold scenes for oracles drop standalone local notices and keep unreadable gold signs as `UNKNOWN`.
+
+### Oracle A diagnosis (development, public_dev, 2026-11-16)
+
+Engine only, no API. Gold scenes (gold signs v1, with the accepted readings: local notices dropped, unreadable signs as `UNKNOWN`) and gold programs (gold intents v1). Nothing in kb/ or gold was changed.
+
+**Coverage.** 47 questions have a gold program. The plan's 48 counted `0096`, which gold v1 skipped (P.118/P.119 size limits); the other 3 missing are parser few-shots.
+
+**Verdicts:**
+
+| yes | no | value | unknown | uncertain | out_of_scope |
+|---|---|---|---|---|---|
+| 9 | 6 | 14 | 10 | 0 | 8 |
+
+So the rules decide **29 of 47 (62%)** with gold parts. The decided Yes/No answers were scored in the earlier check: 7 of 10 right. Natural-QA values need the writer and the judge, so they are not scored here.
+
+**Each unknown and out_of_scope, with its reason:**
+
+| id | intent | verdict | reason (from the proof or the gold program) |
+|---|---|---|---|
+| 0001 | meaning, `only` | unknown | expected exactly one sign: 3 × P.131c + 5 unreadable |
+| 0022 | meaning, `only` | unknown | expected exactly one sign: I.423b + 1 unreadable |
+| 0036 | meaning, `only` | unknown | expected exactly one sign: P.131b + 1 unreadable |
+| 0044 | is_sign, `only` | unknown | expected exactly one sign: IE.465, IE.464, IE.467 + 1 unreadable |
+| 0045 | meaning, `only` | unknown | expected exactly one sign: P.125 + 2 unreadable |
+| 0053 | is_sign, `only` | unknown | expected exactly one sign: P.125 + 2 unreadable |
+| 0080 | is_sign, `only` | unknown | expected exactly one sign: I.419a + 1 unreadable |
+| 0084 | is_sign, `only` | unknown | expected exactly one sign: P.102 + R.302a (both readable) |
+| 0086 | meaning, all signs | unknown | one of the 5 signs is unreadable, so `_meaning` returns unknown for the whole list |
+| 0095 | permitted | unknown | `vehicle-unknown`: the program has `load_t > 10`, while P.115 limits `gross_t > 10`; the rules don't know that gross ≥ load |
+| 0021 | — | out_of_scope | counting signs |
+| 0055 | — | out_of_scope | guide-sign content (direction to a place) |
+| 0063 | — | out_of_scope | guide-sign content (junction shape) |
+| 0070 | — | out_of_scope | guide-sign content (route / exit) |
+| 0067 | — | out_of_scope | driver behaviour required by a warning sign (reduce speed) |
+| 0073 | — | out_of_scope | driver behaviour in response to a warning sign |
+| 0087 | — | out_of_scope | what a driver should do (gold: reduce speed; warning signs) |
+| 0085 | — | out_of_scope | traffic lights (turning on red) |
+
+**Causes, with counts and fixes:**
+
+1. **`only` selector finds several signs: 8** (0001, 0022, 0036, 0044, 0045, 0053, 0080, 0084).
+   - In 7 of them the extra signs are unreadable ones (and in 0001 there are also 3 identical readable signs). 0084 has two different readable signs.
+   - **Fix:** engine / DSL semantics in Python (`Engine.resolve` and `_meaning` / `_is_sign` in `vqa/reasoning/engine.py`), not kb/:
+     - `only` resolves to the readable signs when they all share one catalog row;
+     - for `is_sign` with several different readable candidates, a decision is needed: every candidate must match (0044 then depends on whether IE.464/465/467 all carry that meaning), or any may (0084 then becomes "yes").
+   - **Owner decision:** whether an unreadable extra sign may be ignored for "đây là biển gì?". The pipeline will see the same pattern, since perception also lists UNKNOWN signs.
+   - **Size:** small, about half a day with tests. It would likely decide 7–8 of the 8.
+2. **Meaning over several signs, one unreadable: 1** (0086).
+   - **Fix:** in `_meaning`, return the readable signs' meanings as a value and list the unreadable ones, rather than making the whole answer unknown. This is engine Python.
+   - **Size:** small, about an hour. The gold answer ("biển chỉ dẫn") is a category even though R.412d is mandatory, so expect at most partial credit.
+3. **Weight attribute mismatch, load vs gross: 1** (0095).
+   - **Fix:** a KB rule that `load_t > x` implies `gross_t > x` (gross weight ≥ load). It would sit in the vehicle-spec matching in `kb/rules/common.pl` (`any_spec_match`) or the ontology. Alternative: a parser/gold convention that "trên 10t" under a P.115 means gross weight.
+   - **Size:** small KB change plus tests, about half a day.
+4. **Guide-sign content: 3** (0055, 0063, 0070).
+   - Genuinely beyond the rules: the scene graph doesn't hold destinations, arrows or junction shapes. These stay with the fallback.
+   - **Size if attempted:** large (a new scene-graph field and new perception prompts). Not recommended in phase 4.
+5. **Warning-sign driver behaviour: 3** (0067, 0073, 0087).
+   - Already listed for phase 1.7 ("phải giảm tốc độ").
+   - **Fix:** a KB rule citing the QCVN 41 warning-sign article, a DSL action or claim (e.g. `required(reduce_speed)` for warning signs), parser prompt v7, and gold intents v2 for these rows.
+   - **Size:** medium, 1–2 days, and it reopens the parser gate (a new prompt version and new parser runs).
+6. **Counting signs: 1** (0021).
+   - Phase 1.7 item.
+   - **Fix:** a DSL `count` intent over a selector or category, the engine, parser v7 and gold v2.
+   - **Size:** small to medium; it shares the parser-v7 cost with cause 5.
+7. **Traffic lights: 1** (0085). Out of v1 scope; stays with the fallback.
+
+**What fixing them could do to rule coverage with gold parts:** causes 1–3 are Python plus one small KB rule, with no parser change: from 29/47 (62%) to about 38/47 (81%). Adding cause 5 brings it to about 41/47 (87%), but that needs parser v7.
+
+**Also seen (not a cause of unknowns):**
+- **The B.25 overtaking exception (0011)** gives a wrong "yes" (KB, phase 1.7).
+- **0094's gold local plate has no structured `vehicles`.** That is a gold-scene labelling gap, so cyclos look allowed under P.111b.
+- **The relevance rule treats every rectangle as an information board.** So an unreadable red or local rectangle can never make a turn or permission answer unknown. Local notices are often red rectangles. This is a possible gap in `Engine.could_matter`; it did not change any answer here.
+
+**public_natural_0068: which is wrong?**
+- **Question and gold answer:** "Người điều khiển xe máy được rẽ phải vào đường Hồng Hà lúc 10 giờ sáng, đúng hay sai?" Gold: **Sai**.
+- **Gold scene:** s2 is `P.123b` with two plates:
+  - `{"kind": "vehicle", "code": "S.505a", "text": "", "vehicles": [{"class": "truck"}]}`;
+  - `{"kind": "time", "code": "S.508a", "text": "6:00 - 22:00", "time_windows": [06:00–22:00]}`.
+
+  The other signs are the overhead guide I.414 "ĐƯỜNG HỒNG HÀ" with a bent-right arrow, and two unreadable ones. The owner's gold note says the plate pictogram is a truck, not a car.
+- **Engine proof:** `clears(turn_right, motorbike, 10:00, s2, plate_vehicle_not_covered)`. P.123b prohibits turning right for every vehicle (B.23, art. 22), but the S.505a plate (art. 41, F.5) narrows it to trucks: `any_spec_match([spec(truck)], motorbike) = false`. The time window holds (6:00–22:00 includes 10:00). Verdict: **yes (Đúng)**.
+- **The image** (public_dev, allowed): the plate under P.123b shows a box truck and "6:00-22:00". The red strip at the right edge is a cropped roadside banner, not a sign.
+- **Verdict: the gold label and the rule are right; the gold answer is very likely wrong.** Under F.5 the sign applies only to trucks, so a motorbike may turn right at 10:00. The dataset's "Sai" probably reads P.123b as a ban for every vehicle and ignores the plate. Only the dataset can be blamed here; nothing to change in kb/ or gold.
+
+### Engine fixes 1b and oracle A rerun (tuned, development, public_dev, 2026-11-16)
+
+**Fixes** (plan item 1b; each with tests on hand-made scenes modelled on train questions; full suite green and Prolog loads after each):
+- `674641d` 1b.1: single-sign selector. Unreadable candidates are dropped; readable candidates sharing one code decide, with the unreadable ones in `uncertain_signs`; different codes stay unknown.
+- `5f486fb` 1b.2: meaning over several signs answers for the readable signs and lists the unreadable ones.
+- `4b07a60` 1b.3 (kb/): load > x implies gross mass > x.
+  - It is a `vehicle_interpretations` entry with `attribute_rule: load_implies_gross`, sourced from QCVN 41 B.15's definition of gross mass.
+  - It shows in proofs as `cite(r_load_implies_gross)`. Its `rule_source` law_id is `interpretation`, so `explain.citations` leaves it out. No cut.
+- `c0d8b90` 1b.4: an unreadable rectangle with a red background or border is category `red_board`, treated as prohibitory for relevance. The perception gate's matching groups are unchanged.
+- Deferred, not in phase 4: the warning-sign rule, counting signs, guide-sign content.
+- 769 tests pass.
+
+**Oracle A, engine only, tuned** (gold scenes + gold programs; 47 questions with a gold program):
+
+| | yes | no | value | unknown | uncertain | out_of_scope | decided |
+|---|---|---|---|---|---|---|---|
+| before 1b | 9 | 6 | 14 | 10 | 0 | 8 | 29 (62%) |
+| **after 1b (tuned)** | 11 | 7 | 19 | 2 | 0 | 8 | **37 (79%)** |
+
+- **Yes/No accuracy (tuned): 9 of 20 = 45%** (before: 7 of 20).
+  - Non-duplicate images: 4 of 7 = 57% (95% CI 25–84%).
+  - Duplicates of train: 5 of 13.
+- **Of the 12 decided Yes/No answers, 9 are right.** The 3 wrong:
+  - `0011`: the B.25 overtaking exception (deferred KB);
+  - `0068`: a disputed gold answer, below;
+  - `0094`: the gold plate has no vehicles; the owner fixes it.
+- **The 8 undecided Yes/No:**
+  - 6 out_of_scope: guide content 3, warning behaviour 2, traffic lights 1;
+  - 2 unknown: `0044` (IE.465 / IE.464 / IE.467: different readable codes) and `0084` (P.102 + R.302a). Both stay unknown under the 1b.1 rule.
+- **The remaining unknowns are those 2.** The out_of_scope 8 are unchanged: counting 1, guide content 3, warning behaviour 3, traffic lights 1.
+
+**Disputed gold answer: public_natural_0068.**
+- The gold answer is **Sai**. The engine answers **Đúng**: P.123b's S.505a plate shows a truck, so under F.5 only trucks may not turn right 6:00–22:00.
+- The engine's Đúng is believed correct. The image shows the truck plate, and the owner's gold note agrees.
+- It is **scored as is** (counted wrong) in every report.
+
+### Step 2 results (public_dev, tuned, 2026-11-16)
+
+Runs (owner, 2026-11-16): fresh Haiku pass-1 runs `04d55157f9ce` and `63128b1c2fd6` with fallbacks `1c9ca7368074` and `b490cd60479f`; pipeline runs H1 `e3a07fadeb7a` (scenes `9981d8112688`), H2 `fd6c15ef8d69`, H3 `d052db954849`, S `4ac8ae832b37` (scenes `949418393534`); oracle A `5f0160f4bd7c`; oracle B on H1 only, `71f861f94792` (owner decision: no oracle B for H2 and H3). Writer `answer/v2@4887560f8b50`, fallback `answer_fallback/v1@dd75b41f09cd`, parser v6, judge `judge/v1@7c500c35df27`. Outputs (local, gitignored): `eval/runs/e2e/score_tuned.json`, `eval/runs/e2e/attribution_H1.json`.
+
+**Spend for step 2: $2.20** (perception $0.25, pipeline runs and oracles $1.95). Phase 4 so far: $2.20 of the $10 ceiling.
+
+| run | questions | overall | strict | Yes/No | Natural QA | non-dup (95% CI) | rule coverage | rules-only | fallback rate | template rate |
+|---|---|---|---|---|---|---|---|---|---|---|
+| H1 | 51 | 81.4% | 78.4% | 20/24 | 79.6% | 92.1% (72–98) | 56.9% | 86.2% (29) | 43.1% | 2/30 |
+| H2 | 51 | 82.4% | 78.4% | 21/24 | 77.8% | 84.2% (62–94) | 49.0% | 86.0% (25) | 51.0% | 2/28 |
+| H3 | 51 | 78.4% | 74.5% | 19/24 | 77.8% | 78.9% (57–91) | 58.8% | 88.3% (30) | 41.2% | 3/32 |
+| **H pooled** | 153 | **80.7%** | 77.1% | 83.3% | 78.4% | **85.1% (74–92)** | 54.9% | 86.9% (84) | 45.1% | **7/90 = 7.8%** |
+| S | 51 | 80.4% | 78.4% | 18/24 | 85.2% | 86.8% (65–96) | 66.7% | 80.9% (34) | 33.3% | 1/34 |
+| oracle A | 47 | 86.2% | 83.0% | 16/20 | 90.7% | 94.1% (73–99) | 78.7% | 86.5% (37) | 21.3% | 4/37 |
+| oracle B (H1) | 47 | 79.8% | 74.5% | 16/20 | 79.6% | 94.1% (73–99) | 57.4% | 83.3% (27) | 42.6% | 3/28 |
+
+- Non-duplicate subsets: 19 questions per pipeline run (57 pooled), 17 for the oracles. "Duplicate" means the image is also in train.
+- **Gate (D5): FAIL.** Faithfulness 100% (90 of 90 writer-path answers), but the template rate is 7.8% (7 of 90), above the 5% cap.
+- **Perception rule (D2): Haiku + fallback goes to holdout.** S 80.4% is below the H mean 80.7% + 5 points and below the best H run 82.4%.
+- **Fallback triggers, H pooled:** uncertain 34, out_of_scope 24, unreadable_sign 7, unknown 2, parse_failed 2. Fallback failures (P3): 6.
+- **Stage attribution, H1 only** (11 answers not fully correct): perception 3 (`0002`, `0036`, `0051`), parser 1 (`0065`), rules, writer or fallback 7.
+
+### Step 2 diagnosis (public_dev, tuned, 2026-11-16; no API calls, nothing changed)
+
+**1. The 7 template answers (D5) all come from the writer reply being cut off at `max_tokens=600`.**
+- Cases: `0026` in H1, H2 and H3; `0094` in H1, H2 and H3; `0065` in H3. Each has one attempt with the error "the reply was cut off at max_tokens=600". By design, the writer does not retry after a cut-off.
+- No template case comes from a guard rule: the guard never rejected a complete writer reply in step 2.
+- **Cause: the writer config (`prompts/answer/v2/config.yaml`, `max_tokens: 600`), not the guard or the digest.**
+  - The three questions have large digests: a local plate and two or more applying signs (`0026`, `0094`), or five signs (`0065`).
+  - Complete writer replies reach 582 output tokens (median 188, 90th percentile 462). 15 of the 189 writer calls in the log hit 600.
+  - The raw cut-off replies are not kept in the run files, so it is not known whether the length is answer text or reasoning.
+- The template answers themselves were right in 4 of 7 cases (`0026` ×3, `0065`). `0094` is wrong in all three, for the reason in part 4.
+
+**2. The 34 "uncertain" triggers.** Each was replayed with the engine only, on the run's warmed scene and parsed program, removing one source of alternative readings at a time. Sources:
+- pass 1's own `alt` field: the model gives a second reading, usually the sibling variant, e.g. P.131b vs P.131c;
+- re-run disagreement (`verify.merge`);
+- `crop_always` keeping pass 1's reading as an alternative after the crop replaced it.
+
+Results:
+
+| alternative that causes "uncertain" | cases | rules answer if dropped | likely right | wrong | needs the judge | still unknown |
+|---|---|---|---|---|---|---|
+| pass 1's own `alt` only | 21 | 20 | 15 | 3 | 2 | 1 |
+| re-run disagreement only | 4 | 2 | 1 | 2 | 0 | 2 |
+| `crop_always`'s kept pass-1 reading only | 4 | 4 | 4 | 0 | 0 | 0 |
+| several sources (all include crop_always) | 5 | 4 | 1 | 2 | 1 | 1 |
+
+- **So 25 of the 34 come from readings that disagree within pass 1 itself** (its own `alt`, or the re-run). 4 come from crop_always alone, and 5 mix crop_always with pass-1 sources.
+- How "right" was judged:
+  - Yes/No: against the gold answer.
+  - Natural QA: against oracle A's engine value, where the judge marked oracle A correct. Sign ids and catalog-variant names with the same meaning count as the same.
+  - "Needs the judge": `0086` (a guide-sign list).
+- **Net against the fallback answers the runs actually shipped:**
+  - dropping pass 1's own `alt`: **about +6 to +7 correct over 153 pooled H answers** (+1 `0036`, +0.5 ×2 `0036`, +1 ×3 `0038`/`0037`, +1 ×2 `0083`, −0.5 `0092`, and `0086` ±0.5 ×2);
+  - dropping re-run alternatives: −1.5;
+  - dropping crop_always's alternative: +1, and that +1 is `0068`, the disputed gold answer;
+  - dropping all alternatives in the mixed cases: −1.5.
+- 19 of the 20 pass-1-`alt` cases that the rules would answer are on signs whose crop **agreed** with pass 1's main code (confidence raised to medium).
+- The 3 wrong ones: `0002` ×2 (pass 1 and the crop agree on P.130; gold P.131a) and `0092` (part 4).
+
+**3. The 6 fallback failures (P3): all are Sonnet replying with prose around the JSON, on both attempts.** The errors are "must be only a JSON object" 11 times and "Extra data" once.
+- Cases: `0068` (H1), `0036`, `0038`, `0049` (H2), `0037`, `0038` (H3). Five came from uncertain triggers and one (`0049`) from an unknown trigger.
+- The shipped writer answers scored 0.5 once and 0 five times.
+- **The same error drives the retries:** 32 of the 69 H fallback calls (46%) failed the first attempt this way. S had 2 of 17. Failed fallback replies run 97–332 output tokens, against a median of 87 for good ones.
+- **Cause: the fallback reply format.** The client accepts only a bare or fenced JSON object, and the fallback prompt doesn't hold Sonnet to it on image questions. It is not a trigger or guard problem.
+
+**4. The 7 H1 errors in "rules, writer or fallback":**
+- `0011` (rules): P.125 with "kể cả xe được ưu tiên". The B.25 exception is not modelled (deferred). All three runs wrong.
+- `0043` (rules or gold reading, 0.5): `ban_times` returns both condition groups' windows (6:00–22:00 for heavy vehicles, plus the three short windows). The gold answer lists only the short windows. Same in oracles A and B.
+- `0063` (fallback, out_of_scope guide content): Sonnet reads the Đại Lộc guide sign as a plain crossroads (Sai; gold Đúng). Same in all three.
+- `0068` (fallback failure plus disputed gold): H1's scene is uncertain, the fallback failed (part 3), and the shipped answer is "Chưa chắc chắn". Oracle A gives Đúng against gold Sai (disputed).
+- `0087` (fallback, 0.5): the answer "giảm tốc độ" is right, but Sonnet adds a 5.0 m height-limit claim the judge calls unsupported. Same in all three.
+- `0092` (writer or template phrasing plus vehicle mapping):
+  - `which_vehicles banned` gives `banned: []`, with P.111b/d conditional on the plate's time windows, and the answer opens "Không có loại xe nào", which the judge reads as contradicting the gold answer;
+  - oracle A also returns motor_tricycle (the gold plate mapping) where gold names rudimentary three-wheelers.
+- `0094` (vehicle mapping, not the gold-fix timing):
+  - **Oracle A ran after the gold fix** (it started 13:11 +07; `8b588c5` is 11:52 +07). An engine-only rerun now (free) gives the same Đúng.
+  - The question's "xe thô sơ 3 bánh" parses to `cyclo`. The fixed gold plate "CẤM XE 3 BÁNH VÀ 4 BÁNH THÔ SƠ" maps to `motor_tricycle` + `similar_rudimentary`.
+  - So the plate does not cover `cyclo` (`vehicle_not_covered`), and Đúng follows.
+  - For Sai, the plate's "3 bánh ... thô sơ" would have to cover rudimentary three-wheelers (cyclo and the like). This is the owner's gold reading to decide.
+
+### Tuning T1 + T3 (public_dev, tuned, T1; 2026-11-16)
+
+Changes: writer prompt `answer/v3@7d0f2b8ddf1f` (T1: `max_tokens` 1200, at most two sentences; the raw writer and fallback replies kept in the trace) and the conditional `which_vehicles` wording (T3), commit `1b0b0d7`. Replays of H1–H3 with `eval/e2e_replay.py` (stored scenes and parsed programs; the fallback was reused everywhere, since its inputs did not change): `9fb18833c8e5`, `fef1a7788379`, `70f1bb045848`. Score output (local): `eval/runs/e2e/score_tuned_T1.json`. **Spend $0.20.** D8 count: 1 of 5.
+
+| pooled over H1–H3 | step 2 | T1 |
+|---|---|---|
+| overall | 80.7% | **81.0%** |
+| strict | 77.1% | 77.8% |
+| Yes/No | 83.3% | 83.3% |
+| Natural QA | 78.4% | 79.0% |
+| non-duplicate (n=57; 95% CI) | 85.1% (74–92) | 85.1% (74–92) |
+| rule coverage | 54.9% | 54.9% |
+| rules-only (n=84) | 86.9% | 87.5% |
+| writer status | 83 first try, 7 template | 89 first try, 1 regenerated |
+| **template rate** | 7.8% | **0.0%** |
+| faithfulness | 100% | 100% |
+| fallback failures | 6 | 6 (unchanged until T2) |
+
+- **Gate (D5): PASS.** Faithfulness 100% (90 of 90), template rate 0% (≤ 5%).
+- Per run, overall: T1-H1 82.4% (from 81.4%), T1-H2 82.4% (82.4%), T1-H3 78.4% (78.4%).
+- **The one score change:** `0092` in H1, 0.5 → 1.0 (T3): "Xe ba bánh và bốn bánh thô sơ bị cấm trong khung giờ 05:00 - 13:00 và 16:00 - 22:00 ghi trên biển phụ." In H2 and H3, `0092` goes to the fallback.
+- The 7 former template cases (`0026` ×3, `0094` ×3, `0065`) now pass on the writer's reply. Their scores are unchanged; `0094` stays wrong (the gold plate reading, the owner's decision).
+- The one regeneration: `0026` in H2. The first reply opened a true/false answer without "Đúng"; the second passed.
+
+### Tuning T2 (public_dev, tuned, T2; 2026-11-16)
+
+Change: fallback prompt `answer_fallback/v2@8678a19681a9` (a structured-output schema for {verdict, answer} on the fallback call only, plus "claim nothing about a sign that is not in the scene graph"), commit `905f717`. Replays of the T1 runs (writer v3 kept; every fallback question asked again): `361287ed6b2f`, `34822ca744ea`, `1ce1a8d55ffd`. Score output (local): `eval/runs/e2e/score_tuned_T2.json`. **Spend $0.59.** D8 count: 2 of 5.
+
+| pooled over H1–H3 | T1 | T2 |
+|---|---|---|
+| overall | 81.0% | **81.7%** |
+| strict | 77.8% | 79.1% |
+| Yes/No | 83.3% | 83.3% |
+| Natural QA | 79.0% | 80.2% |
+| non-duplicate (n=57; 95% CI) | 85.1% (74–92) | 86.8% (76–93) |
+| rule coverage | 54.9% | 54.9% |
+| rules-only (n=84) | 87.5% | 87.5% |
+| fallback answers correct (69) | 50.5 (73.2%) | 51.5 (74.6%) |
+| fallback first-try JSON | 37 of 69 | **68 of 69** |
+| fallback failures (P3) | 6 | **1** |
+| template rate, faithfulness | 0%, 100% | 0%, 100% (85 writer answers) |
+
+- **Gate (D5): PASS** (template 0 of 85, faithfulness 100%).
+- Per run, overall: T2-H1 84.3% (from 82.4%), T2-H2 78.4% (82.4%), T2-H3 82.4% (78.4%).
+- **The format problem is gone, the answers barely move.** 17 question scores changed, all on fallback answers: +6.5 and −5.5, net +1 over 153. Most changes are Sonnet answering the same inputs differently, not the prompt; e.g. `0068` flips Sai/Đúng between runs, and `0087`'s near-identical height-limit answer is graded 0.5 or 1.
+- **The one failure is new:** `0038` in H2 stopped at `max_tokens=1500` while the kept reply is a short complete JSON object, so the budget almost certainly went to the model's reasoning. Raising it would be a new prompt version (not done; owner's call).
+- The new scene-graph line may make the fallback more cautious: `0038` in H1 answered "Chưa xác định được" (1 → 0), but `0038` in H3 went 0 → 1.
+
+### Tuning T4: perception replay (tuned, after the gate; 2026-11-16; no API calls)
+
+Change: in `vqa/perception/fallback.py`, after `combine`, when a crop agrees with pass 1's main code, pass 1's own alternative for that sign (from its reply's `alt` field, not the re-run's) is dropped (`FallbackConfig.drop_own_alt_on_agree`, on by default). The re-run's alternatives are told apart by the merge's "the re-run read ..." messages, now passed to the fallback. CHOSEN_POLICY, the triggers and the prompts are unchanged.
+
+Free replay with the stored tile and crop replies (`perception_eval.fallback_run --replay`): T4 off reproduces every stored scene exactly (36/36, 36/36, 45/45 ×5).
+
+| run (crop_always) | images changed | alternatives dropped | code F1 | sign recall |
+|---|---|---|---|---|
+| set T, Haiku `d1ff09db5bf4` | 9 of 36 | 10 | 73.5% → 73.5% | 89.2% → 89.2% |
+| set T, Sonnet `a366b7c37100` | 4 of 36 | 5 | 78.7% → 78.7% | 95.8% → 95.8% |
+| public_dev Haiku `9981d8112688` (checkpoint 2) | 6 of 45 | 6 | 74.2% → 74.2% | 89.5% → 89.5% |
+| public_dev Haiku `023c1a474288` (checkpoint 2) | 5 of 45 | 6 | 75.4% → 75.4% | 90.2% → 90.2% |
+| public_dev Haiku `b83d5dae690e` (checkpoint 2) | 3 of 45 | 6 | 77.1% → 77.1% | 90.2% → 90.2% |
+| public_dev Haiku `1c9ca7368074` (H2) | 6 of 45 | 7 | 73.8% → 73.8% | 92.3% → 92.3% |
+| public_dev Haiku `b490cd60479f` (H3) | 8 of 45 | 10 | 71.8% → 71.8% | 91.6% → 91.6% |
+
+- **Code F1 and recall do not change**, by construction: they score each sign's main code, and T4 only removes alternatives. Strict F1 and the non-duplicate F1 are unchanged too.
+- **What the dropped alternatives were** (50 in all, against gold): main code right and alternative wrong 33; both on the same catalog row 5; main wrong and alternative right **1** (set T, Haiku); both wrong 4; sign not matched or excluded 7.
+- **End-to-end preview, engine only** (the T2 runs' stored programs on the T4 scenes): 30 questions sit on changed images; **10 "uncertain" answers become rules answers** (`0036` ×3, `0038` ×3, `0037`, `0072`, `0086`, `0093`), 3 stay uncertain, the rest keep their verdict. The paid replay grades them.
+
+### Tuning T4: end to end (public_dev, tuned, T4; 2026-11-16)
+
+Replays of the T2 runs with the T4 scenes (`--allow-scene-changes`; scenes changed on 6, 6 and 8 images, as the free replay found): `2a108f86371b`, `3c127f06d946`, `c8880835ee4a`. Score output (local): `eval/runs/e2e/score_tuned_T4.json`. **Spend $0.25.** D8 count: 3 of 5.
+
+| pooled over H1–H3 | step 2 | T1 | T2 | **T4** |
+|---|---|---|---|---|
+| overall | 80.7% | 81.0% | 81.7% | **84.6%** |
+| strict | 77.1% | 77.8% | 79.1% | 82.4% |
+| Yes/No | 83.3% | 83.3% | 83.3% | 81.9% |
+| Natural QA | 78.4% | 79.0% | 80.2% | **87.0%** |
+| non-duplicate (n=57; 95% CI) | 85.1% (74–92) | 85.1% (74–92) | 86.8% (76–93) | **96.5% (88–99)** |
+| duplicate (n=96) | 78.1% | | | 77.6% |
+| rule coverage | 54.9% | 54.9% | 54.9% | **61.4%** |
+| rules-only | 86.9% (84) | 87.5% (84) | 87.5% (84) | 88.8% (94) |
+| fallback rate | 45.1% | 45.1% | 45.1% | 38.6% |
+| fallback failures | 6 | 6 | 1 | **0** |
+| template rate, faithfulness | 7.8%, 100% | 0%, 100% | 0%, 100% | **0%, 100%** (94 writer answers) |
+
+- **Gate (D5): PASS.** Faithfulness 100% (94 of 94), template rate 0%.
+- Per run, overall: T4-H1 87.3%, T4-H2 81.4%, T4-H3 85.3%.
+- **What T4 changed:** 10 "uncertain" triggers became rules answers (uncertain triggers 34 → 24), all graded right or as before:
+  - `0036` ×3 (P.131b, odd days);
+  - `0037` in H3;
+  - `0038` ×3;
+  - `0072` in H1;
+  - `0086` and `0093` in H2.
+- **Score changes caused by the fallback being called again** (on a changed image whose question still goes to it):
+  - `0092` in H2: 0.5 → 1;
+  - `0005` in H2: 1 → 0 (it now answers "Chưa xác định được");
+  - `0001` in H3: 1 → 0.5 (a slip in the parenthesis on even/odd days).
+- **Perception metrics are unchanged** (code F1 and recall, previous section): T4 shows only end to end.
+- The non-duplicate gain is large but from 57 questions (19 per run, shared images), so its CI is wide.
+- **Phase-4 spend so far: about $3.32** of the $10 ceiling (step 2 $2.20, T1 $0.20, T2 $0.59, T4 $0.25, plus earlier test calls).
+
+### Step 5: the freeze (owner, 2026-11-16)
+
+**Freeze approved; no fourth tuning run.** The last development figures are the T4 table above (public_dev, tuned): overall 84.6%, strict 82.4%, Yes/No 81.9%, Natural QA 87.0%, non-duplicate 96.5% (95% CI 88–99, n=57), rule coverage 61.4%, rules-only 88.8%, fallback rate 38.6%, faithfulness 100%, template rate 0%.
+
+**The frozen configuration** is recorded in `eval/frozen_phase4.json` (committed; `eval/freeze.py show | check`):
+
+| stage | prompt id | model, effort, max_tokens |
+|---|---|---|
+| perception | `scene/v4@153536ec5975` | Haiku 5.5, medium, 8000; re-run on |
+| scene fallback: tiles | `scene/v4-tile@a052a9fc72f7` | Haiku 5.5, medium, 8000 |
+| scene fallback: crops | `scene/v4-crop@30e2d18b84d9` | Haiku 5.5, medium, 3000 |
+| scene fallback: combining | CHOSEN_POLICY `crop_always`, `drop_own_alt_on_agree` true (T4) | |
+| parser | `parser/v6@2d0ec50e3611` (sha256 of the system prompt) | Sonnet 5.5, medium |
+| answer writer | `answer/v3@7d0f2b8ddf1f` | Haiku 5.5, low, 1200 |
+| answer fallback | `answer_fallback/v2@8678a19681a9` (schema.json) | Sonnet 5.5, medium, 1500 |
+| judge | `judge/v1@7c500c35df27` | Opus 5.5, medium, 1500 |
+
+- The record also holds the full sha256 of each prompt and the PipelineConfig defaults (context year 2025). The run-specific fields (`cache_dir`, `cache_only`, `max_spend`) are left out.
+- `tests/test_freeze.py` checks that the current defaults and prompt pins equal the record, and that the pipeline calls the models it names.
+- **Holdout guards** (`eval/e2e_holdout.py`, tested). The run refuses to start unless:
+  - `--confirm-frozen` is given;
+  - the git working tree is clean;
+  - the live configuration equals the record;
+  - the holdout has never run: no committed sentinel `eval/holdout_ran.json` and no aggregate file.
+- The sentinel is written before the first call, so a run that stops part way still counts as the one run.
+- The aggregate report records the git commit, the full frozen configuration and the prompt ids.
+
+### Step 6, first start stopped before any call (2026-11-16)
+
+The first holdout start (run `ec99ce25eb37`, 07:31 UTC, commit `db587c1`) stopped before any API call, with `KeyError: 'public_holdout'`:
+- **Cause:** the default image resolver called `gold_signs.image_path`, which knows only train and public_dev. The test had passed its own resolver.
+- **What happened:** the usage log has no call after the start; nothing was answered, scored or printed. Only the sentinel `eval/holdout_ran.json` (status `started`) was written, as designed.
+- **Fix:** `e2e_holdout.image_file` reads the public test image folder. Tested, including a run through the default resolver; all 49 holdout questions' images resolve (count only).
+- **The sentinel is left in place and uncommitted:** whether this start counts as the one run is the owner's decision.
+- **Voided by the owner (2026-11-16):**
+  - the start: sentinel run_id `ec99ce25eb37`, started 2026-11-16T07:31:29 UTC at commit `db587c1`;
+  - the error: `KeyError: 'public_holdout'`;
+  - the usage log has no API call after 07:31 UTC, and the start produced no result.
+  - The sentinel `eval/holdout_ran.json` was deleted (never committed). The one holdout run is still to come.
+
+### Step 6: public_holdout, once, frozen (2026-11-16)
+
+Run `0ec3209c0324`, 07:37–08:11 UTC, at commit `2528621` with the frozen configuration. Guards passed: clean tree, live configuration equal to `eval/frozen_phase4.json`, no earlier run. Fresh perception, no cache.
+- Prompt ids: `scene/v4@153536ec5975`, `scene/v4-tile@a052a9fc72f7`, `scene/v4-crop@30e2d18b84d9`, `parser/v6@2d0ec50e3611`, `answer/v3@7d0f2b8ddf1f`, `answer_fallback/v2@8678a19681a9`, `judge/v1@7c500c35df27`.
+- 49 questions on 45 images, aggregate figures only. The report is `eval/runs/e2e/holdout_aggregate_0ec3209c0324.json` (local; no question or image ids). The sentinel `eval/holdout_ran.json` is committed with this entry.
+- **Spend $0.62**; phase 4 total about $3.94 of the $10 ceiling. 39.7 s and $0.0127 per question.
+
+| | **public_holdout (once, frozen)** | public_dev (tuned, T4, pooled over 3 runs) |
+|---|---|---|
+| questions | 49 (Yes/No 13, Natural QA 36) | 153 (Yes/No 72, Natural QA 81) |
+| **overall** | **83.7%** (41 of 49) | 84.6% |
+| strict (partial = 0) | 81.6% | 82.4% |
+| Yes/No | 100% (13 of 13) | 81.9% |
+| Natural QA (judge) | 77.8% (27 correct, 2 partial, 7 wrong) | 87.0% |
+| **non-duplicate images** (95% CI) | **89.6%** (21.5 of 24; 72–97) | 96.5% (88–99; n=57) |
+| duplicate images (also in train) | 78.0% (19.5 of 25) | 77.6% |
+| rule coverage | 51.0% | 61.4% |
+| rules-only | 78.0% (19.5 of 25) | 88.8% (94) |
+| fallback answers | 89.6% (21.5 of 24) | |
+| fallback rate | 49.0% | 38.6% |
+| fallback triggers | out_of_scope 9, uncertain 9, unreadable_sign 2, unknown 2, program_cannot_run 1, parse_failed 1 | |
+| fallback failures | 0 | 0 |
+| faithfulness | 100% (25 writer answers) | 100% (94) |
+| template rate | 0% | 0% |
+
+- **This is phase 4's real measure**, reported as it came out. Nothing is changed after it.
+- **Overall is close to the tuned public_dev figure** (83.7% vs 84.6%); the parts differ:
+  - the holdout has fewer Yes/No questions (13 of 49), and all 13 are right;
+  - Natural QA is lower (77.8% vs 87.0%);
+  - the rules answer fewer questions (coverage 51.0% vs 61.4%), and less accurately (rules-only 78.0% vs 88.8%);
+  - the fallback carries more of the score (21.5 of 24).
+- **Non-duplicate images: 89.6%** on 24 questions. The CI (72–97) is wide and overlaps the tuned public_dev interval; the tuned 96.5% did not hold up at that level.
+- Gate (roadmap phase 4, D5) was measured on public_dev and passed. On the holdout, faithfulness is 100% and the template rate 0%.
+
+### Phase 4: closing (2026-11-16)
+
+**Phase 4 is closed:** no API calls, no push, no phase-5 code. The branch `phase-4` is not merged into `main`.
+
+**Commits (`main..phase-4`, oldest first):**
+- **Plan:** `a5133c9` plan approved.
+- **Items 1–5:**
+  - `61c3bbf` writer, guard, templates, answer/v1;
+  - `557c5ff` raw pass-1 replies, backfill-raw, warm;
+  - `c42f4cd` answer/v2;
+  - `a74a1e2` answer-level fallback and pipeline;
+  - `274db32` e2e eval, oracles, judge, holdout, leakage tests.
+- **Oracle A diagnosis and item 1b:**
+  - `35020d7` diagnosis;
+  - `83ee6b8` plan 1b;
+  - `674641d`, `5f486fb`, `4b07a60`, `c0d8b90` engine and KB fixes 1b.1–1b.4;
+  - `18081b0` oracle A rerun;
+  - `8b588c5` gold fix for 0094 (owner).
+- **Step 2:** `10347dc` results and diagnosis.
+- **Tuning:**
+  - `1b0b0d7` T1 + T3 and the replay tool, `696fefd` T1 results;
+  - `905f717` T2, `0861365` T2 results;
+  - `e1044b3` T4, `f309265` T4 results.
+- **Freeze and holdout:**
+  - `db587c1` freeze record and holdout guards;
+  - `8b71beb` holdout image fix;
+  - `2528621` voided start;
+  - `ab7261a` holdout result;
+  - `741a02a` aggregate-only wording.
+
+**Frozen configuration** (`eval/frozen_phase4.json`):
+
+| stage | setting |
+|---|---|
+| perception | Haiku 5.5 `scene/v4@153536ec5975` with the re-run |
+| scene fallback | tiles `scene/v4-tile@a052a9fc72f7`, crops `scene/v4-crop@30e2d18b84d9`, `crop_always`, `drop_own_alt_on_agree` (T4) |
+| parser | Sonnet 5.5, medium, `parser/v6@2d0ec50e3611` |
+| answer writer | Haiku 5.5, low, `answer/v3@7d0f2b8ddf1f` |
+| answer fallback | Sonnet 5.5, medium, `answer_fallback/v2@8678a19681a9` |
+| judge | Opus 5.5, medium, `judge/v1@7c500c35df27` |
+
+**Results:**
+- public_holdout, once, frozen: 83.7% overall; 89.6% on non-duplicate images (n=24, 95% CI 72–97).
+- The rules scored 78.0% on their 25 answers, below the fallback's 89.6% on 24; on public_dev (tuned) it was the reverse, 88.8% against 78.0%.
+- The gate (D5) passed on public_dev after T1.
+
+**Spend, from `logs/api_calls.jsonl`** (calls from the phase-4 start at 04:53 UTC; 1,854 calls):
+
+| purpose | calls | USD |
+|---|---|---|
+| judge (Opus) | 335 | 1.730 |
+| answer fallback (Sonnet) | 260 | 0.955 |
+| parser (Sonnet) | 278 | 0.757 |
+| answer writer (Haiku) | 485 | 0.129 |
+| scene, re-run, tiles, crops (Haiku) | 496 | 0.368 |
+| **total** | 1,854 | **$3.94** of the $10 ceiling |
+
+**Open items:**
+- **`0094`'s gold plate reading** (the owner's decision). It affects the oracle runs only, not the holdout figure.
+- **`0068`, disputed gold answer.** The gold answer is Sai; the engine's Đúng (the S.505a plate is a truck) is believed correct. It is scored as is.
+- **Deferred KB items:**
+  - the B.25 overtaking exception ("kể cả xe được ưu tiên", `0011`);
+  - the warning-sign rule;
+  - counting signs;
+  - guide-sign content.
+- **Catalog rows awaiting the owner's review:**
+  - `kb/sign_catalog.yaml`: 78 of 80 rows not `reviewed_by: human`, including the effect_unmodelled rows R.302(a,b,c), R.303, R.411, R.420 and R.403a, R.403b, R.404a, R.307. 45 rows have no visual review.
+  - `kb/sign_catalog_meaning.yaml`: 110 of 149 rows not `reviewed_by: human`; visual review: 124 none, 5 assistant (W.242(a,b), W.243(a,b,c), IE.451a, IE.471, IE.473).
+- **Carried over:**
+  - the parser version key should include the catalog hash (the freeze record now hashes the parser's full system prompt, catalog included);
+  - standalone local notices are not modelled;
+  - the private gold labels and the pictogram ablation (proposed).
+
 ## Next steps, in order
 
-**Next (2026-11-16): phase 3 is closed.** The owner reads DESIGN.md section 3 and `docs/plans/phase-4-draft.md`, then decides whether `phase-3` goes into `main` and approves (or changes) the phase-4 plan. No phase-4 code before that.
+**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Phase 4 closed (2026-11-16; closing entry above).** Next: the owner reviews `docs/plans/phase-5-draft.md` (the private-test benchmark, baselines and ablations). Open: `0094`'s gold reading.
+
+All public_dev figures are labelled **tuned**.
 
 ### Handoff (2026-11-15): where phase 3 stands, and what comes next (kept as a record)
 

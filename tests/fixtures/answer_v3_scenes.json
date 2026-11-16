@@ -1,0 +1,33 @@
+{
+  "README": "Hand-made scenes for the answer prompt v3 example and the T3 template tests (docs/plans/phase-4.md, tuning T3, owner 2026-11-16). Modelled on train_317 ('Theo các biển trong ảnh, loại xe nào bị cấm đi vào?'); the time plate is added by hand so the ban is conditional. Nothing is copied from dataset files.",
+  "examples": [
+    {
+      "question_id": "train_317",
+      "summary": "Which vehicles are banned from entering? P.110a with a time plate, no time asked: a conditional ban.",
+      "scene": {
+        "scene_id": "v3_train_317",
+        "signs": [
+          {"id": "s1", "code": "P.110a", "shape": "circle", "border": "red", "background": "white",
+           "position": {"rank_top_down": 1, "side": "right"},
+           "plates": [{"kind": "time", "text": "6:00 - 9:00", "time_windows": [{"start": "06:00", "end": "09:00"}]}]}
+        ]
+      },
+      "program": {"intent": "which_vehicles", "action": "enter", "status": "banned"}
+    },
+    {
+      "question_id": "train_317",
+      "summary": "The same with a second sign, P.106a without a plate: trucks banned outright, bicycles conditionally.",
+      "scene": {
+        "scene_id": "v3_train_317_mixed",
+        "signs": [
+          {"id": "s1", "code": "P.110a", "shape": "circle", "border": "red", "background": "white",
+           "position": {"rank_top_down": 1, "side": "right"},
+           "plates": [{"kind": "time", "text": "6:00 - 9:00", "time_windows": [{"start": "06:00", "end": "09:00"}]}]},
+          {"id": "s2", "code": "P.106a", "shape": "circle", "border": "red", "background": "white",
+           "position": {"rank_top_down": 2, "side": "right"}}
+        ]
+      },
+      "program": {"intent": "which_vehicles", "action": "enter", "status": "banned"}
+    }
+  ]
+}

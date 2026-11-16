@@ -616,3 +616,76 @@ def test_with_the_cache_only_regions_without_a_usable_reply_are_paid(tmp_path):
                             cache=SceneCache(tmp_path), use_cache=True)
     assert len(c.calls) == 1                                                       # only s1's crop is paid
     assert [s.code for s in again.scene.signs] == ["P.104", "P.104"]
+
+
+# ---------------------------------------------------------------- T4 (owner, 2026-11-16; tuned on public_dev)
+# Modelled on train_37's odd/even no-parking sign: pass 1 reads P.131c and gives P.131b as
+# its own `alt`; a low-confidence sign is cropped and the crop reads P.131c again.
+
+def parking(alts=("P.131b",)):
+    return SceneGraph(scene_id="x", signs=[sign("s1", code="P.131c", conf="low", rank=1,
+                                                box=(100, 110, 130, 140), alts=alts)])
+
+
+def crop_says(code):
+    return lambda kind, box: json.dumps({"code": code, "confidence": "high"}) if kind == "crop" else None
+
+
+def _t4(scene, crop, issues=(), **cfg):
+    data = image_bytes()
+    return fb.run_fallback(scene, data, prepare(data), model="claude-haiku-5-5", client=None,
+                           cfg=fb.FallbackConfig(**cfg), cache=SceneCache(), use_cache=False,
+                           replay=crop_says(crop), pass1_issues=list(issues))
+
+
+def test_a_crop_that_agrees_drops_pass_1s_own_alternative():
+    res = _t4(parking(), "P.131c")
+    s = res.scene.signs[0]
+    assert (s.code, s.confidence, s.alternatives) == ("P.131c", Confidence.medium, [])
+    assert any("crop agrees" in i and "own alternative P.131b dropped" in i for i in res.issues)
+
+
+def test_the_re_runs_alternative_stays():
+    issues = ["s1 P.131c: the re-run read P.131a; kept as an alternative"]
+    res = _t4(parking(alts=("P.131b", "P.131a")), "P.131c", issues)
+    assert [a.code for a in res.scene.signs[0].alternatives] == ["P.131a"]
+    assert fb.own_alternatives(parking(alts=("P.131b", "P.131a")).signs[0], issues) == [AltReading(code="P.131b")]
+
+
+def test_a_re_run_alternative_with_a_value_is_matched_with_its_value():
+    s = sign("s1", code="P.127", value=50, alts=[AltReading(code="P.127", value=60.0)])
+    assert fb.own_alternatives(s, ["s2 P.127: the re-run read P.127 60.0; kept as an alternative"]) == []
+    assert fb.own_alternatives(s, ["s2 P.127: the re-run read P.127 40.0; kept as an alternative"]) == s.alternatives
+
+
+def test_a_crop_that_disagrees_changes_nothing_else():
+    res = _t4(parking(), "P.131a")                 # crop_always: the crop's code first, pass 1's kept as alternatives
+    s = res.scene.signs[0]
+    assert s.code == "P.131a" and [a.code for a in s.alternatives] == ["P.131c", "P.131b"]
+    assert not any("own alternative" in i for i in res.issues)
+
+
+def test_t4_can_be_switched_off_and_is_in_the_config_description():
+    res = _t4(parking(), "P.131c", drop_own_alt_on_agree=False)
+    assert [a.code for a in res.scene.signs[0].alternatives] == ["P.131b"]
+    assert fb.FallbackConfig().drop_own_alt_on_agree is True
+    assert fb.FallbackConfig().describe()["drop_own_alt_on_agree"] is True
+    assert fb.CHOSEN_POLICY == "crop_always"       # T4 changes nothing else
+
+
+def test_perceive_passes_pass_1s_messages_to_the_fallback(monkeypatch):
+    from vqa.perception import scene as sc
+    seen = {}
+
+    def fake(scene, data, img, **kw):
+        seen["issues"] = kw.get("pass1_issues")
+        return fb.FallbackResult(scene=scene)
+
+    monkeypatch.setattr(sc, "run_fallback", fake)
+    data = image_bytes()
+    img = prepare(data)
+    res = sc.PerceptionResult(scene=parking(), image_sha256=img.sha256, model="claude-haiku-5-5", image=img,
+                              effort="medium", prompt_id="scene/v4@x",
+                              issues=["s1 P.131c: the re-run read P.131a; kept as an alternative"])
+    sc.apply_fallback(res, data, fb.FallbackConfig())
+    assert seen["issues"] == ["s1 P.131c: the re-run read P.131a; kept as an alternative"]

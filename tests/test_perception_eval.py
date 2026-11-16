@@ -456,3 +456,123 @@ def test_fallback_calibration_takes_shares_and_first_attempts_from_fresh_runs(fa
     assert cal["crop_retry_share"] == 0.5 and cal["crop_usd"] == pytest.approx(0.004)
     assert cal["crop_retry_usd"] == pytest.approx(0.002)
     assert cal["tile_retry_share"] == 0.0 and cal["tile_usd"] == pytest.approx(0.01)
+
+
+# ---------------------------------------------------------------- raw replies in run files, warm (phase 4, P1)
+
+def _dense(tag):
+    """A dense pass-1 reply (5 signs, one low) so the re-run, tiles and a crop all run.
+    `tag` moves the boxes, so two runs have different region keys."""
+    return json.dumps({"signs": [{"code": "P.104", "shape": "circle", "border": "red", "background": "white",
+                                  "rank": k, "side": "right", "confidence": "low" if k == 3 else "high",
+                                  "box": [10 + 50 * k + tag, 10, 40 + 50 * k + tag, 40]}
+                                 for k in range(1, 6)]})
+
+
+class ReplySDK(FakeSDK):
+    """Pass-1 calls (no "scene tile"/"crop" text) get `first`; tiles and crops get GOOD."""
+
+    def __init__(self, first):
+        super().__init__(0)
+        self.first = first
+
+    def create(self, **kw):
+        r = super().create(**kw)
+        r.content[0].text = self.first if len(self.created) <= 2 * 2 and _is_pass1(kw) else GOOD
+        return r
+
+
+def _is_pass1(kw):
+    return "tile" not in json.dumps(kw["messages"][-1]["content"], ensure_ascii=False)[-400:].lower() \
+        and "crop" not in json.dumps(kw["messages"][-1]["content"], ensure_ascii=False)[-400:].lower()
+
+
+def _fb_run(fake_set, tag, sdk_first=None):
+    from vqa.perception.fallback import FallbackConfig  # noqa: F401
+    p1 = pe.run("public_dev", "claude-haiku-5-5", 1.0, sdk=ReplySDK(sdk_first or _dense(tag)),
+                out_dir=fake_set / "runs", version="v4")
+    return p1, pe.fallback_run(p1, 1.0, sdk=FakeSDK(0), out_dir=fake_set / "runs")
+
+
+def test_a_run_keeps_its_raw_pass1_replies_and_the_fallback_carries_them(fake_set):
+    p1, fb = _fb_run(fake_set, 0)
+    for path in (p1, fb):
+        head, rows = pe.load_run(path)
+        for r in rows:
+            assert r["replies"] and {x["pass"] for x in r["replies"]} <= {"first", "retry", "rerun"}
+            assert set().union(*map(set, r["replies"])) <= {"pass", "raw_text", "stop_reason", "usage",
+                                                            "cost_usd", "request_id"}
+            assert "effort" in r
+    # the score is unchanged by the new fields
+    assert pe.score([fb])["summaries"][0]["fallback"] is True
+
+
+def test_warm_rebuilds_the_runs_scenes_from_its_file_alone(fake_set):
+    _, fb = _fb_run(fake_set, 0)
+    import shutil
+    shutil.rmtree(fake_set / "cache")                       # nothing left from the run itself
+    rep = pe.warm_run(fb, fake_set / "warm")
+    assert rep["ok"] and rep["mismatches"] == [] and rep["records"] > 2
+    from vqa.perception.cache import RECORD_FIELDS, REPLY_FIELDS
+    for f in (fake_set / "warm").glob("*/*.json"):            # warmed records: model outputs only
+        data = json.loads(f.read_text())
+        assert set(data) <= RECORD_FIELDS | {"box"}
+        assert all(set(r) <= REPLY_FIELDS for r in data["replies"])
+    assert json.loads((fake_set / "warm" / pe.WARM_MARKER).read_text())["run_id"] == rep["run_id"]
+
+
+def _run_keys(fb):
+    """Every cache key a run's file gives: pass-1 records and region records."""
+    from vqa.perception import prompt as sp
+    from vqa.perception.cache import region_key, scene_key
+    head, rows = pe.load_run(fb)
+    keys = set()
+    for r in rows:
+        sha = pe._sha256_file(pe.gs.image_path(r["image_id"], "public_dev"))
+        keys.add(scene_key(sha, head["model"], r["effort"], head["prompt_id"]))
+        for x in r["fallback_replies"]:
+            v = pe._version_of(x["prompt_id"])
+            keys.add(region_key(sha, head["model"], sp.effort_for(head["model"], v), x["prompt_id"], x["box"]))
+    return keys
+
+
+def test_warming_run_k_leaves_no_record_of_run_j(fake_set):
+    _, fb_j = _fb_run(fake_set, 0)
+    _, fb_k = _fb_run(fake_set, 7)                          # other boxes: other crop keys
+    warm = fake_set / "warm"
+    kj, kk = _run_keys(fb_j), _run_keys(fb_k)
+    assert kj - kk                                          # some records only run j has
+    pe.warm_run(fb_j, warm)
+    on_disk = lambda: {f.stem for f in warm.glob("*/*.json")}
+    assert on_disk() == kj
+    assert pe.warm_run(fb_k, warm)["ok"]
+    assert on_disk() == kk and not (on_disk() & (kj - kk))  # exactly run k's records
+
+
+def test_warm_refuses_a_run_without_raw_replies_and_the_main_cache(fake_set, monkeypatch):
+    p1 = _pass1_run(fake_set)                               # hand-made, pre-phase-4 shape
+    with pytest.raises(SystemExit, match="keeps no raw pass-1 replies"):
+        pe.warm_run(p1, fake_set / "warm")
+    _, fb = _fb_run(fake_set, 0)
+    import vqa.perception.cache as c
+    monkeypatch.setattr(c, "CACHE_DIR", fake_set / "main")
+    with pytest.raises(SystemExit, match="never writes into the main scene cache"):
+        pe.warm_run(fb, fake_set / "main")
+
+
+def test_backfill_copies_only_the_pass1_runs_own_replies(fake_set):
+    p1, fb = _fb_run(fake_set, 0)
+    head, rows = pe.load_run(fb)
+    old = fake_set / "old_fb.jsonl"                          # the pre-phase-4 shape: no raw replies
+    old.write_text("\n".join(json.dumps(x) for x in
+                             [head, *[{k: v for k, v in r.items() if k not in ("replies", "effort")}
+                                      for r in rows]]) + "\n")
+    p1_id = head["fallback"]["pass1_run"]
+    log = fake_set / "log.jsonl"
+    log.write_text(json.dumps({"run_id": p1_id, "request_id": "r"}) + "\n")
+    out = pe.backfill_raw(old, cache_dir=fake_set / "cache", log=log)
+    _, back = pe.load_run(out)
+    assert [r["replies"] for r in back] == [r["replies"] for r in rows]
+    log.write_text(json.dumps({"run_id": "someone_else", "request_id": "r"}) + "\n")
+    with pytest.raises(SystemExit, match="does not hold pass-1 run"):
+        pe.backfill_raw(old, cache_dir=fake_set / "cache", log=log)
