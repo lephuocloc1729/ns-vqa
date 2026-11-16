@@ -312,8 +312,9 @@ def _mean(xs: list[float]) -> float | None:
     return sum(xs) / len(xs) if xs else None
 
 
-def summarize(records: list[dict]) -> dict[str, Any]:
-    """The phase-4 report for one run (or pooled runs)."""
+def summarize(records: list[dict], split: str = SPLIT) -> dict[str, Any]:
+    """The phase-4 report for one run (or pooled runs). `split` picks what counts as a
+    duplicate image (eval/report.py): public against train; private against train and public."""
     graded = [r for r in records if r.get("correct") is not None]
     yn = [r for r in graded if r["question_type"] == "Yes/No"]
     nq = [r for r in graded if r["question_type"] != "Yes/No"]
@@ -330,7 +331,7 @@ def summarize(records: list[dict]) -> dict[str, Any]:
         "natural_qa_score": _mean([r["correct"] for r in nq]),
         "natural_qa_strict": _mean([r["strict"] for r in nq]), "natural_qa_n": len(nq),
         "judge_labels": dict(Counter(r.get("judge_label") for r in nq)),
-        "by_images": score_report([{"image_id": r["image_id"], "correct": r["correct"]} for r in graded], SPLIT),
+        "by_images": score_report([{"image_id": r["image_id"], "correct": r["correct"]} for r in graded], split),
         "rule_coverage": len([r for r in records if r.get("trigger") is None]) / len(records) if records else None,
         "rules_only_score": _mean([r["correct"] for r in rules]), "rules_only_n": len(rules),
         "fallback_by_trigger": dict(triggers),

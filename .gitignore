@@ -35,3 +35,7 @@ eval/runs/
 # scene prompt pictograms: resized law_db figures (dataset files), local only;
 # the committed manifest prompts/scene/<version>/pictograms.yaml pins their sha256
 prompts/scene/*/pictograms/
+
+# phase-5 private run replay records (P4): model outputs only, no gold, no grades;
+# read by replay code only, deleted at the end of phase 5
+cache/private_run/

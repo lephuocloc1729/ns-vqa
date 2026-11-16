@@ -1298,9 +1298,20 @@ Run `0ec3209c0324`, 07:37–08:11 UTC, at commit `2528621` with the frozen confi
   - standalone local notices are not modelled;
   - the private gold labels and the pictogram ablation (proposed).
 
+### Phase 5: benchmark and evaluation (in progress, branch `phase-5`)
+
+- **Plan approved (owner, 2026-11-16)**: `docs/plans/phase-5.md` (P1–P11; the draft is removed). `phase-4` merged into `main` at `5e1664c` (no push); `c054b83` plan and the CLAUDE.md P6 exception (only the owner reads private answers, for human scoring, after every automatic score is committed).
+- **Item 1 built, not run:** `eval/e2e_private.py` (no API calls made).
+  - Guards as the holdout's: `--confirm-frozen`, clean tree, live configuration equal to `eval/frozen_phase4.json` with its perception model (Haiku 5.5), never run (sentinel `eval/private_ran.json`, no `private_aggregate_*.json`), git ignores the replay folder; counts (146 questions, 104 images) and every image file checked before the sentinel.
+  - Aggregate-only report: commit, frozen configuration, prompt ids, catalog review state, overall / strict / Yes/No / Natural QA, all and non-duplicate images (against train and public, Wilson CI), rule coverage, rules-only and fallback scores, score per trigger, faithfulness, template rate, cost and seconds per question, and the by-feature breakdown.
+  - **The feature rules are new** (`e2e_private.FEATURES`): the rules behind DESIGN's section 8 table were never committed. On train (rewritten by the owner) they give claim 8%, vehicle class 30%, turns etc. 18%, speed 13%, lanes 9%, time 12%, meaning 20%, weight/seats 5%, violation 3%.
+  - Replay records (P4) under `cache/private_run/<run_id>/` (gitignored): the run's scene cache and `records.jsonl` (model outputs and trace; no gold, no question text, no grade).
+  - Tests: `tests/test_e2e_private.py` (31) and two leakage tests (only this module names the private question file; it prints counters only). Full suite 840 passed.
+- **Estimate for the private run:** $1.83 (holdout rate $1.85; range $0.9–2.7), about 97 minutes.
+
 ## Next steps, in order
 
-**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Phase 4 closed (2026-11-16; closing entry above).** Next: the owner reviews `docs/plans/phase-5-draft.md` (the private-test benchmark, baselines and ablations). Open: `0094`'s gold reading.
+**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Phase 4 closed (2026-11-16; closing entry above).** Phase 5 plan approved (2026-11-16). **Next: the one private-test run** (`eval/e2e_private.py run --confirm-frozen --max-spend 3`), on the owner's go-ahead on its $1.83 estimate.
 
 All public_dev figures are labelled **tuned**.
 

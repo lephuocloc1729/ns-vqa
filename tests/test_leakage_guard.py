@@ -266,3 +266,31 @@ def test_answer_and_fallback_prompts_hold_train_examples_only():
         for line in f.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 assert json.loads(line)["question_id"].startswith("train_"), f
+
+
+# ---------------------------------------------------------------- phase 5 (item 1): the private run
+
+PRIVATE_QA_NAMES = ("vlsp_2025_private_test",)
+
+
+def test_only_the_private_run_names_the_private_question_file():
+    """eval/e2e_private.py is the scoring code: the only code that may read the private
+    answers (CLAUDE.md, "Dataset rules"). Docstrings may explain the rule."""
+    found = []
+    for d in ("eval", "tools", "vqa", "app"):
+        for p in sorted((ROOT / d).rglob("*.py")) if (ROOT / d).exists() else []:
+            for line, s in _code_strings(p.read_text(encoding="utf-8")):
+                if any(n in s.lower() for n in PRIVATE_QA_NAMES):
+                    found.append(f"{p.relative_to(ROOT)}:{line}")
+    assert found and all(f.startswith("eval/e2e_private.py:") for f in found), found
+
+
+def test_the_private_run_prints_only_counters():
+    """Every print in e2e_private.py is a counter, a count or the report path: none
+    formats a question, an answer, a record or an image id."""
+    src = (ROOT / "eval" / "e2e_private.py").read_text(encoding="utf-8")
+    tree = ast.parse(src)
+    prints = [ast.unparse(n) for n in ast.walk(tree)
+              if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "print"]
+    assert prints and all(not any(w in p for w in ("q[", "rec", "image_id", "answer", "text", "records"))
+                          for p in prints), prints
