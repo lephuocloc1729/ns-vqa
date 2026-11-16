@@ -1,0 +1,4 @@
+# Answer writer, prompt v2 (v1 + Đúng/Sai, unknown and meaning examples; owner 2026-11-16) (docs/plans/phase-4.md, item 1; D1: Haiku 5.5).
+model: claude-haiku-5-5
+effort: low            # the writer only verbalises a fixed verdict
+max_tokens: 600

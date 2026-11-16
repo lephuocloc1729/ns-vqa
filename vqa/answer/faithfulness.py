@@ -36,7 +36,7 @@ CODE_RE = re.compile(r"(?<![A-Za-z0-9])([A-Za-z]{1,3})\.\s?(\d{1,3}[a-z]?)(?![0-
 NUM_RE = re.compile(r"\d+(?:[.,]\d+)*")
 
 TRUE_FALSE_RE = re.compile(
-    r"đúng\s+hay\s+sai|đúng\s+hoặc\s+sai|sai\s+hay\s+đúng|đúng\s+không|đúng\s+chứ|"
+    r"đúng\s+hay\s+sai|đúng\s+vậy\s+không|đúng\s+hoặc\s+sai|sai\s+hay\s+đúng|đúng\s+không|đúng\s+chứ|"
     r"phải\s+không|có\s+đúng\s+không|có\s+đúng\s+là|đúng\s+là\s+.+\s+không\s*\??\s*$",
     re.I)
 

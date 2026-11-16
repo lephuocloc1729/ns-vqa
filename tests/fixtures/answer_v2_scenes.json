@@ -1,0 +1,238 @@
+{
+  "README": "Hand-made scenes for the answer prompt v2 examples (docs/plans/phase-4.md, owner 2026-11-16). Each is modelled on a train question and its train image; nothing is copied from dataset files. Question text stays in the dataset; prompts/answer/v2/examples.jsonl holds it verbatim, as the parser few-shots do.",
+  "examples": [
+    {
+      "question_id": "train_275",
+      "summary": "Is a taxi entering at 22:00 within the rules? (taxi ban 6:00-21:00)",
+      "scene": {
+        "scene_id": "v2_train_275",
+        "signs": [
+          {
+            "id": "s1",
+            "code": "P.103a",
+            "shape": "circle",
+            "border": "red",
+            "background": "white",
+            "position": {
+              "rank_top_down": 1,
+              "side": "left"
+            },
+            "plates": [
+              {
+                "kind": "local",
+                "text": "TAXI",
+                "vehicles": [
+                  {
+                    "class": "taxi"
+                  }
+                ]
+              },
+              {
+                "kind": "time",
+                "text": "6:00 - 21:00",
+                "time_windows": [
+                  {
+                    "start": "06:00",
+                    "end": "21:00"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "s2",
+            "code": "P.103a",
+            "shape": "circle",
+            "border": "red",
+            "background": "white",
+            "position": {
+              "rank_top_down": 1,
+              "side": "right"
+            },
+            "plates": [
+              {
+                "kind": "local",
+                "text": "XE HỢP ĐỒNG DƯỚI 09 CHỖ NGỒI 6:00 - 21:00",
+                "vehicles": [
+                  {
+                    "class": "passenger_car",
+                    "conditions": [
+                      {
+                        "attr": "seats",
+                        "op": "lt",
+                        "value": 9
+                      }
+                    ]
+                  }
+                ],
+                "time_windows": [
+                  {
+                    "start": "06:00",
+                    "end": "21:00"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "program": {
+        "intent": "verify",
+        "claim": {
+          "intent": "permitted",
+          "action": "enter",
+          "vehicle": {
+            "class": "taxi"
+          },
+          "when": {
+            "time": "22:00"
+          }
+        }
+      },
+      "expect": "yes"
+    },
+    {
+      "question_id": "train_96",
+      "summary": "What does the blue, red-bordered sign with a slash on the right mean?",
+      "scene": {
+        "scene_id": "v2_train_96",
+        "signs": [
+          {
+            "id": "s1",
+            "code": "P.107",
+            "shape": "circle",
+            "border": "red",
+            "background": "white",
+            "position": {
+              "rank_top_down": 1,
+              "side": "left"
+            },
+            "plates": [
+              {
+                "kind": "local",
+                "text": "CÁC LOẠI XE CÓ KHỐI LƯỢNG CHUYÊN CHỞ TỪ 0.5T ĐẾN 1.5T (TRỪ XE BÁN TẢI) 6:00 - 20:00",
+                "time_windows": [
+                  {
+                    "start": "06:00",
+                    "end": "20:00"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "s2",
+            "code": "P.131a",
+            "shape": "circle",
+            "border": "red",
+            "background": "blue",
+            "position": {
+              "rank_top_down": 1,
+              "side": "right"
+            },
+            "plates": [
+              {
+                "kind": "text",
+                "text": "XE BUÝT"
+              }
+            ]
+          }
+        ]
+      },
+      "program": {
+        "intent": "meaning",
+        "sign": {
+          "background": "blue",
+          "border": "red",
+          "side": "right"
+        }
+      },
+      "expect": "value"
+    },
+    {
+      "question_id": "train_144",
+      "summary": "May a car enter the road ahead? Unknown: 'ô tô' may be a truck, which the P.106a plate bans (the height limit also depends on the car's height).",
+      "scene": {
+        "scene_id": "v2_train_144",
+        "signs": [
+          {
+            "id": "s1",
+            "code": "P.112",
+            "shape": "circle",
+            "border": "red",
+            "background": "white",
+            "position": {
+              "rank_top_down": 1,
+              "side": "right"
+            }
+          },
+          {
+            "id": "s2",
+            "code": "P.110a",
+            "shape": "circle",
+            "border": "red",
+            "background": "white",
+            "position": {
+              "rank_top_down": 1,
+              "side": "right"
+            }
+          },
+          {
+            "id": "s3",
+            "code": "W.245a",
+            "shape": "triangle",
+            "border": "red",
+            "background": "yellow",
+            "position": {
+              "rank_top_down": 1,
+              "side": "right"
+            }
+          },
+          {
+            "id": "s4",
+            "code": "P.117",
+            "value": 3.5,
+            "unit": "m",
+            "shape": "circle",
+            "border": "red",
+            "background": "white",
+            "position": {
+              "rank_top_down": 1,
+              "side": "right"
+            }
+          },
+          {
+            "id": "s5",
+            "code": "P.106a",
+            "shape": "circle",
+            "border": "red",
+            "background": "white",
+            "position": {
+              "rank_top_down": 2,
+              "side": "right"
+            },
+            "plates": [
+              {
+                "kind": "local",
+                "text": "CẤM CÁC LOẠI XE TẢI",
+                "vehicles": [
+                  {
+                    "class": "truck"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "program": {
+        "intent": "permitted",
+        "action": "enter",
+        "vehicle": {
+          "class": "car"
+        }
+      },
+      "expect": "unknown"
+    }
+  ]
+}

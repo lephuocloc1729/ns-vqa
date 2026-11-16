@@ -211,19 +211,21 @@ def test_template_for_other_verdicts_and_values(d, start):
 
 # ---------------------------------------------------------------- prompt
 
-def test_examples_are_train_only_and_pass_the_guard():
-    exs = answer_prompt.examples("v1")
+@pytest.mark.parametrize("version", ["v1", "v2"])
+def test_examples_are_train_only_and_pass_the_guard(version):
+    exs = answer_prompt.examples(version)
     assert exs and all(e["question_id"].startswith("train_") for e in exs)
     for e in exs:
         assert e["true_false"] == is_true_false(e["question"])
         assert check(e["reply"], e["engine"], e["question"]) == [], e["question_id"]
 
 
-def test_examples_use_the_datasets_exact_question_text():
+@pytest.mark.parametrize("version", ["v1", "v2"])
+def test_examples_use_the_datasets_exact_question_text(version):
     if not TRAIN_FILE.exists():
         pytest.skip("dataset not available")
     train = {x["id"]: x for x in json.loads(TRAIN_FILE.read_text(encoding="utf-8"))}
-    for e in answer_prompt.examples("v1"):
+    for e in answer_prompt.examples(version):
         assert e["question"] == train[e["question_id"]]["question"]
 
 
@@ -234,6 +236,30 @@ def test_v1_is_pinned():
 
 # Pinned (plan item 1): a prompt change is a new version under prompts/answer/.
 V1_SHA = "aed34f731e7f9340e6b6fc3c687fb2c21cb18d7c9fa39d98858ff3226cd675fa"
+V2_SHA = "4887560f8b50b88df76d187dec4b7548be267463dc2057a813fdb42c381b59fe"
+
+
+def test_v2_is_pinned_and_the_default():
+    assert answer_prompt.prompt_id("v2") == "answer/v2@" + V2_SHA[:12], "prompt v2 changed; make a new version"
+    assert answer_prompt.DEFAULT_VERSION == "v2"
+
+
+def test_v2_adds_dung_sai_unknown_and_meaning_examples_from_hand_made_scenes(engine):
+    v1 = answer_prompt.examples("v1")
+    v2 = answer_prompt.examples("v2")
+    assert all(e in v2 for e in v1) and len(v2) == len(v1) + 3
+    new = [e for e in v2 if e not in v1]
+    assert any(e["true_false"] and e["reply"]["answer"].startswith(("Đúng", "Sai")) for e in new)
+    assert any(e["engine"]["verdict"] == "unknown" for e in new)
+    assert any(isinstance(e["engine"]["value"], list) and e["engine"]["value"][0].get("name_vi") for e in new)
+    scenes = json.loads((ROOT / "tests" / "fixtures" / "answer_v2_scenes.json").read_text(encoding="utf-8"))
+    by_id = {x["question_id"]: x for x in scenes["examples"]}
+    for e in new:                     # each digest is the engine's answer on its hand-made scene
+        x = by_id[e["question_id"]]
+        scene = SceneGraph.model_validate(x["scene"])
+        ans = engine.answer(scene, _program.validate_python(x["program"]))
+        assert ans.verdict.value == x["expect"] == e["engine"]["verdict"]
+        assert json.loads(to_text(build(ans, scene))) == e["engine"]
 
 
 def test_the_prompt_is_text_only_and_the_same_for_every_question():
