@@ -1191,9 +1191,43 @@ The first holdout start (run `ec99ce25eb37`, 07:31 UTC, commit `db587c1`) stoppe
   - the usage log has no API call after 07:31 UTC, and the start produced no result.
   - The sentinel `eval/holdout_ran.json` was deleted (never committed). The one holdout run is still to come.
 
+### Step 6: public_holdout, once, frozen (2026-11-16)
+
+Run `0ec3209c0324`, 07:37–08:11 UTC, at commit `2528621` with the frozen configuration. Guards passed: clean tree, live configuration equal to `eval/frozen_phase4.json`, no earlier run. Fresh perception, no cache.
+- Prompt ids: `scene/v4@153536ec5975`, `scene/v4-tile@a052a9fc72f7`, `scene/v4-crop@30e2d18b84d9`, `parser/v6@2d0ec50e3611`, `answer/v3@7d0f2b8ddf1f`, `answer_fallback/v2@8678a19681a9`, `judge/v1@7c500c35df27`.
+- 49 questions on 45 images, aggregate figures only. The report is `eval/runs/e2e/holdout_aggregate_0ec3209c0324.json` (local; no question or image ids). The sentinel `eval/holdout_ran.json` is committed with this entry.
+- **Spend $0.62**; phase 4 total about $3.94 of the $10 ceiling. 39.7 s and $0.0127 per question.
+
+| | **public_holdout (once, frozen)** | public_dev (tuned, T4, pooled over 3 runs) |
+|---|---|---|
+| questions | 49 (Yes/No 13, Natural QA 36) | 153 (Yes/No 72, Natural QA 81) |
+| **overall** | **83.7%** (41 of 49) | 84.6% |
+| strict (partial = 0) | 81.6% | 82.4% |
+| Yes/No | 100% (13 of 13) | 81.9% |
+| Natural QA (judge) | 77.8% (27 correct, 2 partial, 7 wrong) | 87.0% |
+| **non-duplicate images** (95% CI) | **89.6%** (21.5 of 24; 72–97) | 96.5% (88–99; n=57) |
+| duplicate images (also in train) | 78.0% (19.5 of 25) | 77.6% |
+| rule coverage | 51.0% | 61.4% |
+| rules-only | 78.0% (19.5 of 25) | 88.8% (94) |
+| fallback answers | 89.6% (21.5 of 24) | |
+| fallback rate | 49.0% | 38.6% |
+| fallback triggers | out_of_scope 9, uncertain 9, unreadable_sign 2, unknown 2, program_cannot_run 1, parse_failed 1 | |
+| fallback failures | 0 | 0 |
+| faithfulness | 100% (25 writer answers) | 100% (94) |
+| template rate | 0% | 0% |
+
+- **This is phase 4's real measure**, reported as it came out. Nothing is changed after it.
+- **Overall is close to the tuned public_dev figure** (83.7% vs 84.6%); the parts differ:
+  - the holdout has fewer Yes/No questions (13 of 49), and all 13 are right;
+  - Natural QA is lower (77.8% vs 87.0%);
+  - the rules answer fewer questions (coverage 51.0% vs 61.4%), and less accurately (rules-only 78.0% vs 88.8%);
+  - the fallback carries more of the score (21.5 of 24).
+- **Non-duplicate images: 89.6%** on 24 questions. The CI (72–97) is wide and overlaps the tuned public_dev interval; the tuned 96.5% did not hold up at that level.
+- Gate (roadmap phase 4, D5) was measured on public_dev and passed. On the holdout, faithfulness is 100% and the template rate 0%.
+
 ## Next steps, in order
 
-**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Step 5 done: frozen** (above). Next: step 6, public_holdout once (the owner runs it); then record it as "public_holdout, once, frozen" and change nothing after it. Then step 5 (freeze) and step 6 (holdout once, Haiku + fallback, about $0.67).
+**Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Step 5 done: frozen. Step 6 done: public_holdout, once, frozen** (above): overall 83.7%, non-duplicate 89.6% (95% CI 72–97), rule coverage 51.0%, faithfulness 100%. Nothing is changed after it. Open: the owner's decision on `0094`'s gold plate reading (oracles only). Then step 5 (freeze) and step 6 (holdout once, Haiku + fallback, about $0.67).
 
 All public_dev figures are labelled **tuned**.
 

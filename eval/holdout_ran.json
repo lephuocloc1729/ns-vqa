@@ -1,0 +1,11 @@
+{
+  "what": "the one public_holdout run (procedure step 6); its existence blocks a second run",
+  "run_id": "0ec3209c0324",
+  "started": "2026-11-16T07:37:20+00:00",
+  "git_commit": "252862112e0ab76c553e73fa4671f9e1fede38e7",
+  "status": "finished",
+  "frozen_record_sha256": "4e6eb1ee759e36ed0f91ada4a1928f5e3a86f0df60d4ad811ea4a8b8e099f7b1",
+  "finished": "2026-11-16T08:11:30+00:00",
+  "report": "holdout_aggregate_0ec3209c0324.json",
+  "spent_usd": 0.6224
+}
