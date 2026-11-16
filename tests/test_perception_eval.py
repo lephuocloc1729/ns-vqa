@@ -437,3 +437,22 @@ def test_a_set_t_run_made_with_the_cache_still_scores(fake_set):
     t.write_text("\n".join(json.dumps(x) for x in [{**head, "set": "T"}, *rows]) + "\n", encoding="utf-8")
     rep = pe.score([t])
     assert rep["runs"][0]["set"] == "T" and "gate" not in rep
+
+
+def test_fallback_calibration_takes_shares_and_first_attempts_from_fresh_runs(fake_set, monkeypatch):
+    log = fake_set / "api_calls.jsonl"
+    fresh = {"run_id": "fresh", "fallback": {"use_cache": False}}
+    rerun = {"run_id": "rerun", "fallback": {"use_cache": True}}
+    for h in (fresh, rerun):
+        (fake_set / f"{h['run_id']}.jsonl").write_text(json.dumps(h) + "\n", encoding="utf-8")
+    lines = ([{"run_id": "fresh", "purpose": "scene tile", "status": "ok", "cost_usd": 0.01}] * 2
+             + [{"run_id": "fresh", "purpose": "scene crop", "status": s, "cost_usd": 0.004}
+                for s in ("ok", "bad_json", "ok", "bad_json")]
+             + [{"run_id": "rerun", "purpose": "scene crop", "status": "bad_json", "cost_usd": 0.009}] * 2
+             + [{"run_id": "rerun", "purpose": "scene crop retry", "status": "ok", "cost_usd": 0.002}] * 2)
+    log.write_text("\n".join(json.dumps(x) for x in lines) + "\n", encoding="utf-8")
+    monkeypatch.setattr(pe, "LOG", log)
+    cal = pe.fallback_calibration([fake_set / "fresh.jsonl", fake_set / "rerun.jsonl"])
+    assert cal["crop_retry_share"] == 0.5 and cal["crop_usd"] == pytest.approx(0.004)
+    assert cal["crop_retry_usd"] == pytest.approx(0.002)
+    assert cal["tile_retry_share"] == 0.0 and cal["tile_usd"] == pytest.approx(0.01)

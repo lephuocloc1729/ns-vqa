@@ -604,7 +604,34 @@ def _mean_call(model: str, run_id: str | None) -> dict[str, float] | None:
             "cache_read_tokens": m("cache_read_tokens") + m("cache_write_tokens")}
 
 
-def fallback_estimate(path: Path, runs: int = 1) -> dict[str, Any]:
+def fallback_calibration(files: list[Path]) -> dict[str, float]:
+    """Per-call costs measured on earlier fallback runs (their usage-log lines): tile and
+    crop calls, their retries, and the share of first attempts that needed a retry. The
+    share comes only from runs made without the cache (a cache re-run calls only the
+    regions that failed before, so it would overstate it)."""
+    if not LOG.exists():
+        raise SystemExit("no usage log to calibrate from")
+    calls = [json.loads(l) for l in LOG.read_text(encoding="utf-8").splitlines() if l.strip()]
+    heads = [load_run(f)[0] for f in files]
+    ids = {h["run_id"] for h in heads}
+    fresh = {h["run_id"] for h in heads if not (h.get("fallback") or {}).get("use_cache")}
+    mine = [c for c in calls if c.get("run_id") in ids]
+    out: dict[str, float] = {}
+    for kind in ("tile", "crop"):
+        first = [c for c in mine if c["purpose"] == f"scene {kind}"]
+        retry = [c for c in mine if c["purpose"] == f"scene {kind} retry"]
+        share_base = [c for c in first if c["run_id"] in fresh] or first
+        if not first:
+            raise SystemExit(f"no logged {kind} calls in {sorted(ids)}")
+        # first attempts priced on fresh runs too: a cache re-run's are all known failures
+        out[f"{kind}_usd"] = statistics.mean(c["cost_usd"] for c in share_base)
+        out[f"{kind}_retry_usd"] = statistics.mean(c["cost_usd"] for c in retry) if retry else out[f"{kind}_usd"]
+        out[f"{kind}_retry_share"] = (sum(c["status"] == "bad_json" for c in share_base) / len(share_base)
+                                      if share_base else 0.0)
+    return out
+
+
+def fallback_estimate(path: Path, runs: int = 1, calibrate: list[Path] | None = None) -> dict[str, Any]:
     """What the fallback would call on a pass-1 run, and its cost (no call). Tile calls are
     priced as the run's own mean scene call (usage log); crop calls as the same cached
     prompt, CROP_INPUT_TOKENS in and CROP_OUTPUT_TOKENS out. Crops of signs the tiles
@@ -634,13 +661,27 @@ def fallback_estimate(path: Path, runs: int = 1) -> dict[str, Any]:
                         cache_read_tokens=round(m["cache_read_tokens"]))
     # the tile and crop prompts are new prefixes: each is written to the cache once per run
     write_usd = 2 * cost_usd(model, cache_write_tokens=round(m["cache_read_tokens"]))
-    mid = tile_calls * tile_usd + crop_calls * crop_usd + write_usd
-    hi = tile_calls * tile_usd + (crop_calls + tile_calls) * crop_usd + write_usd
+    cal = None
+    if calibrate:
+        # measured per-call costs and retry shares; the range runs from the listed crops to
+        # one more crop per tile call; `if_every_call_retries` is the worst case apart
+        cal = fallback_calibration(calibrate)
+        t = cal["tile_usd"] + cal["tile_retry_share"] * cal["tile_retry_usd"]
+        c = cal["crop_usd"] + cal["crop_retry_share"] * cal["crop_retry_usd"]
+        mid = tile_calls * t + crop_calls * c
+        hi = tile_calls * t + (crop_calls + tile_calls) * c
+        every = (tile_calls * (cal["tile_usd"] + cal["tile_retry_usd"])
+                 + (crop_calls + tile_calls) * (cal["crop_usd"] + cal["crop_retry_usd"]))
+    else:
+        mid = tile_calls * tile_usd + crop_calls * crop_usd + write_usd
+        hi = tile_calls * tile_usd + (crop_calls + tile_calls) * crop_usd + write_usd
     return {"run": head["run_id"], "set": head["set"], "model": model, "images": len(rows),
             "images_tiled": tiled, "tile_calls": tile_calls, "crop_calls": crop_calls,
             "crop_calls_max": crop_calls + tile_calls,
             "photo_image_tokens": round(photo), "tile_input_tokens": round(tile_in),
             "usd_per_tile_call": round(tile_usd, 5), "usd_per_crop_call": round(crop_usd, 5),
+            "calibration": {k: round(v, 5) for k, v in cal.items()} if cal else None,
+            "usd_per_run_if_every_call_retries": round(every, 4) if cal else None,
             "usd_per_run": [round(mid, 4), round(hi, 4)], "runs": runs,
             "usd_total": [round(mid * runs, 4), round(hi * runs, 4)],
             "worst_case_per_call_usd": round(worst_case_usd(model, round(m["cache_read_tokens"]) + 1500, 8000), 4)}
@@ -744,6 +785,8 @@ def main() -> None:
     fe = sub.add_parser("fallback-estimate", help="what the fallback would cost on a pass-1 run (no call)")
     fe.add_argument("file", type=Path)
     fe.add_argument("--runs", type=int, default=1)
+    fe.add_argument("--calibrate", type=Path, nargs="+",
+                    help="fallback runs whose logged calls set the per-call costs and retry shares")
     a = ap.parse_args()
     if a.cmd == "fallback":
         if a.replay is None and a.max_spend is None:
@@ -754,7 +797,7 @@ def main() -> None:
         print(json.dumps(compare(a.pass1, a.fallbacks), indent=2))
         return
     if a.cmd == "fallback-estimate":
-        print(json.dumps(fallback_estimate(a.file, a.runs), indent=2))
+        print(json.dumps(fallback_estimate(a.file, a.runs, a.calibrate), indent=2))
         return
     if a.cmd == "estimate":
         print(json.dumps(estimate(a.set, a.model, a.runs, version=a.version,
