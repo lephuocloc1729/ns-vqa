@@ -395,8 +395,11 @@ class Engine:
             cites.append(e.source)
         if not out:
             return Answer(verdict=Verdict.unknown, note="no sign in the scene matches the selector")
-        verdict = Verdict.value if all(o["known"] for o in out) else Verdict.unknown
-        return Answer(verdict=verdict, value=out, citations=cites, uncertain_signs=unread_only)
+        # plan item 1b.2: answer for the readable signs; the unreadable ones stay in the
+        # value (known: false) and are listed in uncertain_signs
+        unread = unread_only + [o["sign_id"] for o in out if not o["known"]]
+        verdict = Verdict.value if any(o["known"] for o in out) else Verdict.unknown
+        return Answer(verdict=verdict, value=out, citations=cites, uncertain_signs=unread)
 
     def _violations(self, scene: SceneGraph, p: ExistsViolation) -> Answer:
         self.load_scene(scene)

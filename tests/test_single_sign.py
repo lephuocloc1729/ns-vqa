@@ -58,3 +58,20 @@ def test_is_sign_with_different_readable_codes_stays_unknown(engine):
 def test_a_lone_unreadable_sign_is_unchanged(engine):
     a = engine.answer(scene(unread("s1", shape="circle")), IsSign(sign=ONLY, code="P.125"))
     assert a.verdict == Verdict.unknown and a.uncertain_signs == ["s1"]
+
+
+# ---------------------------------------------------------------- 1b.2: meaning over several signs
+
+def test_meaning_over_several_signs_answers_for_the_readable_ones(engine):
+    # train_410-like "Các biển trong ảnh có ý nghĩa gì?": a no-overtaking-for-trucks sign,
+    # a speed limit, and one board too far to read
+    sc = scene(sign("s1", "P.125"), sign("s2", "P.127", value=60, unit="km/h"), unread("s3"))
+    a = engine.answer(sc, Meaning(sign=Selector()))
+    assert a.verdict == Verdict.value
+    assert [(x["sign_id"], x["known"]) for x in a.value] == [("s1", True), ("s2", True), ("s3", False)]
+    assert a.uncertain_signs == ["s3"] and {"B.25", "B.27"} <= articles(a)
+
+
+def test_meaning_over_only_unreadable_signs_stays_unknown(engine):
+    a = engine.answer(scene(unread("s1"), unread("s2")), Meaning(sign=Selector()))
+    assert a.verdict == Verdict.unknown and a.uncertain_signs == ["s1", "s2"]
