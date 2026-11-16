@@ -77,6 +77,27 @@ Not in phase 4:
   - the template rate counts toward D5's 5% limit.
 - **Prompt:** `prompts/answer/v1/`, with text-only examples from train answers in the dataset's style. It is versioned and pinned like the other prompts. **v2** (owner, 2026-11-16) adds a Đúng/Sai, an `unknown` and a sign-meaning example, and it is the version used from step 2 on.
 
+### 1b. Engine fixes from the oracle A diagnosis (owner, 2026-11-16; tuned on public_dev)
+
+These come from the public_dev oracle A diagnosis (`docs/status.md`), so every public_dev figure after them is labelled **tuned**. Each fix has tests with hand-made scenes modelled on train questions (not on public_dev questions), is committed on its own, and keeps the full suite green with Prolog loading.
+
+1. **Selector for single-sign questions** ("Đây là biển gì?" and similar, `only`):
+   - unreadable signs are dropped from the candidates;
+   - if every readable candidate has the same code, the answer is decided with it, and the unreadable signs are listed in `uncertain_signs`;
+   - if the readable codes differ, the answer stays unknown.
+
+   This is Python selector resolution; the legal conclusion stays in Prolog.
+2. **Meaning questions over several signs:** answer for the readable signs and list the unreadable ones.
+3. **Load → gross weight (kb/):** load > x implies gross weight > x.
+   - It is recorded under `vehicle_interpretations` in the catalog and shown in the proof, with no cut.
+   - It has its own `rule_source` entry marking it as an interpretation, not law text.
+4. **Relevance:** an unreadable rectangle with a red background or a red border counts as prohibitory (permissions, speed, violations). CLAUDE.md's relevance list, `Engine.visual_category` and `Engine.could_matter` are updated.
+5. **Deferred (not in phase 4):** the warning-sign behaviour rule, counting signs, and guide-sign content.
+
+After the fixes, oracle A runs again engine-only (free) and is reported as **tuned**.
+- **0068** is recorded as a **disputed gold answer**: the engine's Đúng is believed correct. It is scored as is.
+- The owner fixes **0094**'s gold plate vehicles; the assistant doesn't touch gold.
+
 ### 2. The answer-level fallback (D3; not yet in DESIGN)
 
 - **Triggers:**
