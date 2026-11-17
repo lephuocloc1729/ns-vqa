@@ -1643,8 +1643,11 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 - **Step 2, `eval/e2e_private.py`** (`c3c9f40`): it now has the rules-only figures with the duplicate split, and an estimate from counts only.
   - Private estimate: fallback off **$1.15** (0.92–1.50); fallback on **$2.10** (1.68–2.73), at validation's decided share. **D6 is open** on these figures.
 - **D3 runner** (`08630ce`): `eval/e2e_trainset.py`, biased set, parse only.
-- **Next (paid, the owner's go-ahead):** `.venv/bin/python eval/e2e_trainset.py run --max-spend 0.55`. Estimate $0.40 (range $0.32–0.52), 101 questions.
-- **Spend this round:** $2.95 of $5, so **$2.05 left**. No call was made in these steps.
+- **D3 ran** (`821164d62679`, **$0.4184**; the first start, `4f32405389d8`, stopped on a missing API key at $0, and its file is marked `aborted_nokey`).
+  - Of 101 parses: 82 ok, 17 out of scope, 2 invalid.
+  - The largest Yes/No gap is claims about guide boards (10 of 101), so I2 needs a claim form.
+  - It also found F1 (`is_sign only` over several signs), F2 (a negative presence claim with unreadable signs; an accuracy bug, 276) and two parser v10 items. Details: plan section 9. F1 and F2 need the owner's OK.
+- **Spend this round:** $3.37 of $5, so **$1.63 left**.
 - **Then:** I1–I4 and parser v10 (step 4, free), the gate (step 5), the dev re-parse (step 6), the freeze and final2 (step 7), and the doc update (step 8, D5 yes).
 
 ### Handoff (2026-11-17): coverage round 2

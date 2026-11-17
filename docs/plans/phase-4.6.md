@@ -191,3 +191,39 @@ The fallback-answer rate is still phase 4's ($0.008 per call); no later run meas
 - **What it refuses:** any dev or validation question or image id (ids only from the split files), a dirty tree, and a configuration that differs from `frozen_phase45.json`.
 - **What it does:** parses with v9, makes no perception call, and rebuilds cached scenes cache-only with every call refused. The engine runs with policy A. Records are marked biased.
 - **Command:** `.venv/bin/python eval/e2e_trainset.py estimate` gives 101 questions on 83 images, **$0.40 ($0.32–0.52)**. Run: `.venv/bin/python eval/e2e_trainset.py run --max-spend 0.55`, then `summary <file>`.
+
+## 9. D3 result: parse-only train Yes/No (run `821164d62679`, $0.4184; a biased set, diagnosis only)
+
+**101 Yes/No questions, parser v9:** 82 ok, **17 out of scope, 2 invalid.** Intents among the ok parses: permitted 25, forbidden 14, all_of 12, is_sign 12, speed_ok 7, required 3, verify 3, exists_violation 3, present 2, any_of 1.
+
+**The 17 out-of-scope questions, grouped by what they ask (read by hand):**
+
+| group | ids | count | covered by |
+|---|---|---|---|
+| **a yes/no claim about a guide board** (a place and its distance, a road type, an exit ahead, a route, which lane to take for a turn) | 104, 105, 124, 267, 301, 358, 390, 424 | 8 | **I2** (`guide` claims) |
+| what lies ahead: a Y junction, a tunnel | 378, 389 | 2 | I2 or `is_sign` / `meaning` (W-sign pictograms) |
+| road markings (solid line, double solid line) | 94, 113 | 2 | not planned (QCVN 41 G.*) |
+| a speed range claim (max 120 and min 60) | 359 | 1 | **I4** |
+| who a sign applies to, or "every vehicle except trucks" | 312, 256 | 2 | not planned |
+| a set of lanes ("one of the two left lanes") | 433 | 1 | not planned |
+| counting signs | 332 | 1 | not planned |
+
+- **Guide-board claims are the largest Yes/No gap: 10 of 101,** counting the two "what lies ahead" questions. I2 must therefore include a **claim form** that checks a stated place, distance, direction or road type against the board data, not only lookups. That is within D2's I2.
+- **Invalid parses (2), both parser v10 items:**
+  - 84 put `day_parity` inside `when`, which the schema doesn't allow ("cấm đỗ xe vào ngày chẵn");
+  - 235 used a vehicle class outside the enum ("xe nặng hơn 3 tấn").
+
+**Engine on the 21 questions with a cached scene** (cache-only; 8 refused region or board calls; indicative): 11 decided, 9 of 11 right. Not decided: out of scope 5, program can't run 3, unreadable sign 2.
+- **Can't run, 3:**
+  - 274 and 498 ask `is_sign` with `only` over a scene with several signs ("Đây có phải là biển cấm ... không?" with two or three signs);
+  - 183's colour selector matches no listed sign.
+- **Wrong, 2:**
+  - **276:** "Trong ảnh không có biển nào chỉ hướng rẽ, đúng không?" was answered yes although two signs are unreadable. **A negative presence claim should be unknown when an unreadable sign could be the one asked about** (the CLAUDE.md closed-world rule). This is an accuracy bug.
+  - 338: a violation question; the scene lists no vehicle, which is a perception gap.
+
+**Proposed for step 4 (free; beyond D2, so the owner's OK is needed):**
+- **F1:** `is_sign` with `only` over several signs: yes if every readable sign matches, no if none does, unknown otherwise (274 → no, 498 → yes).
+- **F2:** a negative `present` claim is unknown when an unreadable sign could match it (276).
+- **Parser v10 items from D3:** `day_parity` in claims, and weight phrases without a class ("xe nặng hơn 3 tấn" → `vehicle` with `gross_gt`).
+
+**Budget after D3:** $2.95 + $0.42 = **$3.37 of $5; $1.63 left.** Next come the gate ($0.21, cap $0.30) and the dev re-parse ($0.33, cap $0.45); that leaves about $1.09 at the estimates, so final2's cap would be $1.05.
