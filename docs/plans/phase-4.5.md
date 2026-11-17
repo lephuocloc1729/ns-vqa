@@ -349,3 +349,14 @@ Free engine, selector and KB fixes come first. Each is checked by an engine-only
 5. **B5 (new freeze, final validation once)** last, with the owner's go-ahead.
 
 **Budget:** the round's hard $5, always keeping about $0.70 in reserve for the final validation. Files are staged by name. Not touched: the validation set beyond its aggregate, holdout, private, gold, and the freeze record until B5.
+
+## 14. B6 approved and folded into B1/B2 (owner, 2026-11-17)
+
+- **B6 approved, variant A:** a separate guide-board reading call, made only on images where perception lists a guide board.
+- **Order changed:** B6 is folded into B1/B2, so there is one parser v7, one parser-gate rerun and one dev re-parse. B1 + B2 go in this order: sign group → conduct + STOP → presence → divided-road and several-vehicle speed → scope and placement → guide content.
+- **Guide content:** boards, entries, distances, directions, and speed discs on boards feeding the speed rules.
+  - Scene schema 1.3 for boards, with tests.
+  - Guide answers are read from the board data; any legal conclusion still comes from the engine.
+- **After each type,** a free engine-only dev replay where parses exist. A type is kept if overall doesn't drop and accuracy on decided stays ≥ 70%. Parser v7 few-shots come from train, outside dev and validation, with the exact question text.
+- **Then B4, with commands and estimates:** the parser-gate rerun on public_dev gold intents (no old type may regress), the dev re-perception with v5 plus the board reading, the dev re-parse, and a judged dev run (which also confirms 81, 287 and 308). Stop there.
+- **Budget:** the round's $5, with $0.70 reserved for the final validation.

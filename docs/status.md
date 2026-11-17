@@ -1457,6 +1457,42 @@ Run `dev_guide_trial_d454d4d13cfa` (Haiku 5.5, medium, `scene/v5-guide-trial@c92
 - **The speed discs on expressway boards were all read** (80/60, 90/60, 100/60, 120/60), the content behind dev 254, 352, 381 and 413.
 - **Recommendation:** B6 is worth building, with variant A's reading (the photo alone, a separate call only on images where perception lists an I/IE board). The decision is the owner's.
 
+### B6 question-level check (dev, variant A's stored output; 2026-11-17; no API calls)
+
+B6 approved (owner, 2026-11-17), variant A, and folded into B1/B2: one parser v7, one gate rerun, one dev re-parse.
+
+**25 dev questions** (the 21 guide-content questions and the 4 that turn on speed discs printed on boards):
+- **22 ask about something printed on a board; variant A read all 22 correctly** (against the board).
+- **3 are not answered by board text:** 159 (an I.409 pictogram; its meaning comes from the code), 515 (a lane-arrow board with no text: lane directions), 521 (the dataset answer is a generic "Đi theo biển chỉ dẫn").
+- **Of the 22, the dataset answer agrees with the board on 19.** It disagrees on 230 (the board says QL 1A right, 2 km; the answer says left, 5 km), 248 (the "40" disc is blue, a minimum; the answer says maximum) and 249 (the board says VSIP 4 km; the answer says it is "ở ngay vị trí đặt biển"). So at best 19 of 25 can match the dataset.
+
+One line each (✓ = the asked fact is right in A's output):
+- 80 ✓ directions on the green board (right: H. Thạch Thành, TX. Bỉm Sơn); the answer "Hướng ra" also needs the board's meaning.
+- 159 — pictogram only (I.409); A reads no text, correctly.
+- 230 ✓ QL 1A right, 2 KM (the dataset disagrees).
+- 231 ✓ no line gives a QL 1A–Đông Hà distance, so "Không" follows.
+- 248 ✓ min 40 (blue), Đường Tránh Vinh left, Đường Lê Ninh straight (the dataset calls 40 a maximum).
+- 249 ✓ VSIP 4 Km (the dataset disagrees).
+- 250 ✓ Đường Tránh Vinh left, VSIP 4 km.
+- 254 ✓ discs 80 / 60.
+- 258 ✓ Cam Lâm 2, Vĩnh Hảo 103, Phan Thiết 204 km.
+- 259 ✓ route CT.01, EXPRESSWAY.
+- 261 ✓ Phan Thiết 204 km.
+- 325 ✓ CT.01 Đà Nẵng – Quảng Ngãi, KẾT THÚC.
+- 327 ✓ Chùa Bắc Ngà left.
+- 329 ✓ T.T Lộc Bình 10 KM.
+- 348 ✓ Cầu Biêu right.
+- 352 ✓ discs 90 / 60 (85 km/h is the lawful option).
+- 361 ✓ "ĐIỂM DỪNG XE BUÝT".
+- 381 ✓ discs 120 / 60 (70 and 110 lawful).
+- 397 ✓ Pháp Vân straight.
+- 413 ✓ discs 80 / 60.
+- 414 ✓ QL.10 2 KM, TP.Hải Phòng 24 KM, Quốc lộ 5 slight right.
+- 415 ✓ next exit QL.10 2 KM.
+- 515 — lane arrows without text: not board text.
+- 521 — generic answer.
+- 525 ✓ Quốc lộ 1 straight.
+
 ## Next steps, in order
 
 **Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Phase 4 closed (2026-11-16; closing entry above).** Phase 5 plan approved (2026-11-16). **Next: the one private-test run** (`eval/e2e_private.py run --confirm-frozen --max-spend 3`), on the owner's go-ahead on its $1.83 estimate.
