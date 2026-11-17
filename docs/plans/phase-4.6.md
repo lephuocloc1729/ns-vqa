@@ -382,3 +382,34 @@ The private run's budget (D6) is outside the round either way: $1.15 with the fa
   .venv/bin/python eval/e2e_validation.py run --label final2 --confirm-frozen --max-spend 1.05
   ```
 - **Still required before the private run (D6):** `eval/e2e_private.py` checks `frozen_phase45.json` by default; it must be pointed at `frozen_phase46.json` if round 2 is the system the private test measures.
+
+## 16. final2 result (run `fe2c16d80a18`, once, aggregate only, fallback off, $0.9048)
+
+Frozen `eval/frozen_phase46.json`; sentinel `eval/validation_ran_final2.json`, committed. The aggregate `eval/runs/e2e/validation_aggregate_final2_fe2c16d80a18.json` is local.
+
+| validation (110 questions, 54 images) | decided coverage (95% CI) | accuracy on decided (95% CI) | overall, non-decided = wrong (95% CI) |
+|---|---|---|---|
+| baseline (phase 4) | 30.0% | 72.7% | 21.8% |
+| final (phase 4.5) | 47.3% (38–57) | 77.9% (65–87) | 36.8% (28–46) |
+| **final2 (phase 4.6)** | **69.1%** (60–77) | **76.3%** (66–84) | **52.7%** (43–62) |
+
+- **Coverage +21.8 points and overall +15.9 points, both outside final's 95% CI.** Accuracy on decided is about the same (−1.6 points, inside both CIs), and the 70% guardrail holds.
+- **By type:**
+  - Yes/No: decided 39.6% → **66.0%**; accuracy 90.5% → **82.9%**.
+  - Natural QA: decided 54.4% → **71.9%**; accuracy 69.4% → **70.7%**.
+- **Not decided (34):**
+  - out of scope 28 → **18**;
+  - uncertain 16 → **0** (policy A);
+  - unknown 7 → 7;
+  - program can't run 2 → **5**;
+  - unreadable sign 4 → 3;
+  - parse failed 1 → 1.
+- **Judge labels** (decided Natural QA): correct 22, partial 14, wrong 5. Strict accuracy on decided is 67.1%.
+- **Targets (fixed in phase 4.5, section 4): all missed.**
+  - Coverage 69.1% against a 70% floor: one question short of 77.
+  - Accuracy 76.3% against an 85% floor and an 88% target.
+  - Overall 52.7% against a 60% floor and a 70% target.
+- **Dev is still optimistic:** dev reads 85.1% / 81.1% / 69.0% against validation's 69.1% / 76.3% / 52.7%. The gap is smaller than in phase 4.5 (73.6% against 47.3% decided).
+- **Cost $0.0082 per question** (the final run's was $0.0076): more decided answers were judged.
+
+**Budget: $4.16 + $0.90 = $5.07 of the round's $5.25 spent; $0.18 left.** The private run needs its own budget (D6).

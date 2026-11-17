@@ -1634,7 +1634,19 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
-### Handoff (2026-11-17): final2 prepared; the owner runs it
+### Handoff (2026-11-17): phase 4.6 final2 done; D6 and the doc update are next
+
+- **final2** (`fe2c16d80a18`, once, aggregate only, $0.9048): **decided 69.1% (60–77), accuracy on decided 76.3% (66–84), overall 52.7% (43–62)**, against final's 47.3% / 77.9% / 36.8%.
+  - Coverage and overall are outside final's CI; accuracy is about the same.
+  - All targets and floors are missed; coverage falls short of the 70% floor by one question.
+  - Details: `docs/plans/phase-4.6.md` section 16.
+- **Spend:** $5.07 of the round's $5.25, so **$0.18 left**.
+- **Next (owner):**
+  - D6, the private run's budget: about $1.15 with the fallback off, $2.10 with it on (re-based in step 2), and `eval/e2e_private.py` pointed at `frozen_phase46.json`;
+  - step 8, the doc update (D5 approved, free).
+- **Not touched:** the validation set beyond its aggregate, public_holdout, private, gold, `frozen_phase4.json`, `frozen_phase45.json`.
+
+### Handoff (2026-11-17): final2 prepared; the owner runs it (kept as a record)
 
 - **The owner raised the round by $0.25 to $5.25:** $4.16 spent, **$1.09 left**.
 - **Freeze `eval/frozen_phase46.json`** (parser v11, policy A, scene v5 + guide; plus an engine-code hash). Label `final2`, sentinel `eval/validation_ran_final2.json`. Plan section 15.

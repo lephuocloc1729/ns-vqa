@@ -1,0 +1,13 @@
+{
+  "what": "the one final2 validation run (phase 4.6); its existence blocks a second run",
+  "run_id": "fe2c16d80a18",
+  "started": "2026-11-17T12:07:49+00:00",
+  "git_commit": "2b6e9c70332b5289776d0ebaeb94126b0ccd41d9",
+  "status": "finished",
+  "frozen_record": "frozen_phase46.json",
+  "frozen_record_sha256": "6bb7d8d70e54adc7b09a76ea204cc41cdcb7e68f10c1a0b7f3fd7d5e8343e952",
+  "split_sha256": "b23e283a748b5f26d1abb66faf379695155428b1c78652bed4ab2a036ca520f0",
+  "finished": "2026-11-17T12:52:14+00:00",
+  "report": "validation_aggregate_final2_fe2c16d80a18.json",
+  "spent_usd": 0.9048
+}
