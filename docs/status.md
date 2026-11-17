@@ -1634,6 +1634,23 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Handoff (2026-11-17, later): phase 4.7 step 1 done; step 2 in progress (no API calls)
+
+- **Built and committed:**
+  - 1d, scene v6 (`4afcdab`): R.411 lane arrows, lights and markings; `kb/rules/signals47.pl`; prompts `scene/v6`, `v6-tile`, `v6-crop`.
+  - 1e, parser v12 (`d882be8`): seven train few-shots; the gate gives back v12 forms only on gold out-of-scope rows.
+- **Replay:** 88/88 decided answers identical after every part.
+- **Matrix:** 1158 cells: 700 modelled, 18 to build, 432 n/a, 8 out.
+- **Step 2, in progress, not committed:** `tests/test_phase47_generated.py` has 784 generated cases; 2 fail: P.106b × tractor and P.106b × special_machine.
+  - The oracle treats P.106b's load condition as applying to every vehicle the row bans, but `value.applies_to` is truck only.
+  - The oracle is probably wrong here, not the row: limit the condition to `value.applies_to` classes, then re-run.
+- **Still to do:**
+  - contradiction tests (no interpretation row contradicts a law_db article);
+  - `docs/plans/phase-4.7-review.md`: the interpretation rows by risk, plus "existing rows that look wrong";
+  - step 3: hand-written v12 programs on dev and D3, run with `eval/phase47_replay.py check --programs dev=... d3=...`, gains reported as matrix cells;
+  - the paid commands, within $2.00: the v12 gate, the v6 set-T check, and a judged dev run.
+- **Not built:** lane-set claims ("một trong hai làn trái"), R.411's applies_to, vehicles in the photo against lights and markings, and art. 51 marking scope.
+
 ### Handoff (2026-11-17): phase 4.7 step 1, parts 1a–1c built; 1d next (no API calls)
 
 - **Owner's option 1** (`6b014df`): the two final2 record tests read the phase-46 engine-code hash at freeze commit `9d78dad` from git. This is the only edit to old tests.
