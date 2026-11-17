@@ -1495,6 +1495,119 @@ One line each (✓ = the asked fact is right in A's output):
 
 ## Next steps, in order
 
+### Handoff (2026-11-17): phase 4.5 stage B
+
+#### Where things stand
+
+- **Branch `phase-5`; nothing pushed.** `main` has phase 4 merged at `5e1664c`.
+- **Freeze record in force:** `eval/frozen_phase4.json`. `eval/freeze.py check` matches. Prompts frozen before phase 4.5 still rebuild exactly, because rows marked `listed_from: phase45` are left out of their listings.
+- **Spend this round:** **$0.74 of the round's $5**, with **$0.70 reserved for the final validation** (about $3.56 free).
+  - dev run $0.612;
+  - set-T check $0.114;
+  - guide test $0.021.
+  - Earlier phase-5 spend outside the round: two-pass trial $0.113, validation baseline $0.663.
+- **Commits since the phase-4 freeze record (`db587c1`), oldest first:**
+  - `8b71beb` holdout image resolver fix
+  - `2528621` stopped holdout start voided
+  - `ab7261a` public_holdout result (once, frozen): 83.7%, non-dup 89.6%
+  - `741a02a` holdout described in aggregate only
+  - `52a58b2` DESIGN: phase 4 as built
+  - `698d4f2` phase 4 closing entry
+  - `5fe47be` phase 5 draft
+  - `ea5b0a8` gold v1: 0094 plate covers cyclo (owner)
+  - `5e1664c` merge phase-4 into main
+  - `c054b83` phase 5 approved; CLAUDE.md P6 exception
+  - `f530df4` e2e_private.py (guards, sentinel, aggregate only)
+  - `9383678` two-pass perception trial built
+  - `0b3594e` two-pass trial results
+  - `c079da0` two-pass variants; phase-4.5 perception option (recommend frozen)
+  - `50175ee` rules-only requirement; private on hold; coverage analysis; phase-4.5 plan proposed
+  - `122db34` phase 4.5 approved; phase 5 updated (P11 replaced, A1 main)
+  - `2e1ff41` validation set (110 q), fallback-off switch, validation runner
+  - `c015055` baseline validation: decided 30.0%, accuracy on decided 72.7%, overall 21.8%
+  - `3ab48e2` scope round: dev set (87 q), dev runner
+  - `5f19c0e` dev run analysis and the ranked proposal
+  - `e0338b7` coverage first; source exception; stage A proposal
+  - `782a25e` stage A rank 1 (KB-7 choose, R.411, art. 11 group names); dev replay harness
+  - `82075d7` stage A families F3–F7, zones, Circular 38 speeds, selector colours, KB-6
+  - `4ef7064` scene v5 (+tile, crop); B6 guide test built
+  - `a8e1d5f` scene v5 set-T check
+  - `cf46e0d` B6 guide test results
+  - `13047b2` B6 approved and folded into B1/B2; question-level check
+
+#### What's built and decided
+
+- **Stage A** (`82075d7`): rank 1 accuracy fixes; families F3–F7, with meaning-row effects in `kb/sign_catalog_effects.yaml` and new rows R.421, R.122, S.501; zones (Law 36 art. 25 expressway; art. 18.4 i pick-up points); Circular 38/2024 default speeds as interpretations; selector colours; KB-6.
+  - **Engine-only dev replay:** decided 35 → **32** (40.2% → 36.8%), accuracy on decided 80.0% → **93.8%**, overall 32.2% → **34.5%**.
+  - "P.127 covers every vehicle" was dropped (B.27: motor vehicles only); the police-car mapping goes to parser v7.
+- **Scene v5** (`scene/v5@7a3291ea5dff`, `v5-tile@d5269387761f`, `v5-crop@cee1140f62d7`): v4 plus the new rows.
+  - **Set-T check:** recall 90.8% / code F1 72.9% against frozen v4's 89.2% / 73.5%, within noise. Not yet the pipeline default (B5 switches it).
+- **B6 guide-board test** (24 hand-labelled dev images, `scene/v5-guide-trial@c921108016d7`). Variant A (the photo alone): entry recall **93.9%**, distances **100%**, arrows 89.1% lenient, speed discs **10 of 10**, no made-up boards.
+  - The bars set before the run (entry recall ≥ 80%, distance ≥ 85%, lenient arrows ≥ 75%, speed recall ≥ 85%, no made-up boards) were all met.
+  - Question-level: 22 of 22 board facts right; at best 19 of 25 can match the dataset (230, 248 and 249 disagree with their boards).
+- **B6 approved (owner), variant A:** a separate guide-board call, only on images where perception lists a guide board. **Folded into B1/B2** (one parser v7, one gate rerun, one dev re-parse).
+- **Guardrail:** a change is kept if dev overall (non-decided = wrong) doesn't drop and dev accuracy on decided stays ≥ 70%. Accuracy on decided is reported every time.
+- **Source exception** (CLAUDE.md): rules cite `law_db` when it has the article. Otherwise they may come from knowledge of QCVN 41:2024, Law 36/2024 **and Circular 38/2024/TT-BGTVT** (speeds by road type), marked `law_id: interpretation` with a `rule_basis` note, never counted as a law citation, and never contradicting `law_db`.
+- **Success criterion (fixed):** the final validation's decided coverage above 39.1% and overall above 30.4% (outside the baseline's CI); accuracy on decided reported. **Targets** reported as met or missed: coverage 80% (floor 70%), accuracy on decided 88% (floor 85%), overall 70% (floor 60%).
+
+#### Data rules for this work
+
+- **Dev** (`data/splits/train_dev.json`, 87 Natural QA on 60 images) is readable question by question.
+- **Validation** (`data/splits/train_validation.json`, 110 q on 54 images) is **aggregate only**, run only by `eval/e2e_validation.py`. Sentinels: `eval/validation_ran_baseline.json` (used) and `eval/validation_ran_final.json` (still to come).
+- **public_holdout is never touched again.**
+- **Private is held** until the phase-4.5 freeze (`eval/frozen_phase45.json`, B5).
+- **Provisional grades** for dev 81, 287 and 308 (`eval/runs/e2e/dev_provisional_grades.json`, assistant-graded) are to be confirmed by the judge in B4's judged dev run.
+
+#### Exactly what comes next, in order
+
+1. ~~The free question-level check of the dev guide questions~~ **done** (`13047b2`; above).
+2. **B1 + B2, guide content folded in (one parser v7),** in this order: sign group → conduct + STOP → presence → divided-road and several-vehicle speed → scope and placement → guide content (scene schema 1.3 boards, entries, distances, directions; speed discs on boards feeding the speed rules).
+   - After each type, a free engine-only dev replay where parses exist; keep it per the guardrail.
+   - Parser v7 few-shots from train, outside dev and validation, with the exact question text, including the police-car mapping and the lane fix.
+   - **Uncommitted work in progress (tests pass, 995):**
+     - `vqa/schemas.py`: `Selector.category`, `Meaning.aspect` (name / group / conduct / scope / placement), `Present`, `Guide`, `SpeedOk` / `SpeedLimit` `road_divided`, `SpeedLimit.vehicles`, and scene schema 1.3 `guide_boards` (left out of dumps when empty);
+     - `vqa/parsing/wire.py`: the matching wire models;
+     - `vqa/reasoning/engine.py`: handlers for the aspects, `present`, `guide`, divided road, vehicle lists; `unreadable_signs` skips non-red boards once boards were read;
+     - `vqa/reasoning/facts.py`: no `unread_sign` for read boards;
+     - `vqa/reasoning/sign_info.py` and `kb/sign_info.yaml`: conduct wording; scope and placement lines from art. 16, 26, 30, 34, 39, C.39, D.17, D.18.
+   - **Still to build:**
+     - tests for those;
+     - `vqa/perception/guide.py` (the board call, promoted from the trial prompt as `scene/v5-guide`, cached as a region record, adding board speed discs as P.127 / R.306 signs);
+     - the pipeline switch (`guide_reading`, default off, in `freeze.POST_FREEZE_SWITCHES`);
+     - template answers for the new value types;
+     - the validator dry runs;
+     - `prompts/parser/v7/` (spec and few-shots);
+     - the replays after each type.
+3. **B4 (commands and estimates, then stop):** the parser-gate rerun on public_dev gold intents (no old type may regress), the dev re-perception with v5 plus the board reading, the dev re-parse, and a judged dev run.
+4. **B5 (owner's go-ahead):** the new freeze `eval/frozen_phase45.json` (scene v5, parser v7, guide reading on), then the final validation once.
+
+#### Working rules
+
+- **Stage files by name** and check the staged list before every commit (never `git add -A`).
+- **No API call without the owner's go-ahead on an estimate; the owner runs paid commands.** Give exact commands with real file names, never placeholders.
+- **To reuse:**
+  - `eval/dev_replay.py` (engine-only dev replay with provisional grades);
+  - `eval/e2e_dev.py` (dev runs, fallback off, per-question records);
+  - `eval/e2e_validation.py` (aggregate only);
+  - `eval/guide_trial.py` and `eval/guide_trial/labels_dev.yaml` (board test and labels);
+  - `eval/coverage_analysis.py` (decided figures, causes, validation pool);
+  - `eval/sign_popularity.py`;
+  - `kb/sign_catalog_effects.yaml` (effects for meaning rows; the generator would overwrite the meaning file);
+  - `listed_from: phase45` on new catalog rows (`vqa.kb.FROZEN_PROMPT_VERSIONS`);
+  - `kb/rules/zones.pl` (zones, defaults, `unread_sign/1`);
+  - `freeze.POST_FREEZE_SWITCHES`.
+
+#### Open items and things not verified
+
+- **Not verified by the judge:** provisional grades 81, 287, 308; all stage-A gains are engine-only.
+- **Labels** in `eval/guide_trial/labels_dev.yaml` are assistant-transcribed; the owner's spot-check is pending.
+- **Dataset answers that disagree with what the image shows:** 230, 248, 249 (guide boards).
+- **R.411** stays effect_unmodelled (lane directions need direction fields on lane rows).
+- **Catalog rows awaiting the owner's review before the freeze:** R.421, R.122, S.501, and the effects in `kb/sign_catalog_effects.yaml`; KB-1 to KB-7 interpretations; Circular 38 speeds.
+- **Defaults and boards:** expressway speed defaults must not answer where a board posts other limits. That is guarded only by "no posted sign and no unread sign"; B6's board discs are the real fix.
+- **The dev set is all Natural QA,** so Yes/No question types are untested on dev.
+
+
 **Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Phase 4 closed (2026-11-16; closing entry above).** Phase 5 plan approved (2026-11-16). **Next: the one private-test run** (`eval/e2e_private.py run --confirm-frozen --max-spend 3`), on the owner's go-ahead on its $1.83 estimate.
 
 All public_dev figures are labelled **tuned**.
