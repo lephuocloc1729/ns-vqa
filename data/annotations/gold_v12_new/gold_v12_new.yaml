@@ -3,10 +3,11 @@
 # Groups (`source`):
 # - train: train working-set questions (outside dev and validation, their images and the v12
 #   few-shots), picked by wording; this file keeps their ids and programs only (no text).
-# - owner_written: only lines the owner marks "owner | <type> | <question>" in owner_questions.txt,
-#   text verbatim. None are in the file yet.
-# - ai_drafted_owner_reviewed: the first 50 questions of owner_questions.txt (text verbatim, `line` = its
-#   line), AI-drafted and reviewed by the owner. The owner's correction (2026-11-17): the earlier
+# - owner_written: the 50 questions of owner_questions.txt at 2c31cd6 ("I just update 50 questions",
+#   owner, 2026-11-17, answering how owner-written rows would arrive), text verbatim, `line` = its line.
+#   The lines carry no "owner |" prefix; the owner's message is the basis for the label.
+# - ai_drafted_owner_reviewed: the first 50 questions of owner_questions.txt at 41291ef (text verbatim,
+#   `line` = its line in that version), AI-drafted and reviewed by the owner. The owner's correction (2026-11-17): the earlier
 #   "owner-written" label was wrong.
 # - assistant_written: 50 questions this assistant wrote in the dataset's style, because the train
 #   working set has too few of these types (count 2, applies_to 2, place rules 2, lights / markings /
@@ -538,6 +539,7 @@ rows:
       intent: count
       sign:
         meaning: no_left_turn
+  file_commit: 41291ef
 - id: aid_07
   source: ai_drafted_owner_reviewed
   intent: count
@@ -548,6 +550,7 @@ rows:
       intent: count
       sign:
         meaning: speed_limit
+  file_commit: 41291ef
 - id: aid_08
   source: ai_drafted_owner_reviewed
   intent: count
@@ -558,6 +561,7 @@ rows:
       intent: count
       sign:
         meaning: no_trucks
+  file_commit: 41291ef
 - id: aid_09
   source: ai_drafted_owner_reviewed
   intent: count
@@ -573,6 +577,7 @@ rows:
       intent: count
       sign:
         meaning: duong_nguoi_di_bo_cat_ngang
+  file_commit: 41291ef
 - id: aid_10
   source: ai_drafted_owner_reviewed
   intent: count
@@ -588,6 +593,7 @@ rows:
       intent: count
       sign:
         meaning: parking_ban
+  file_commit: 41291ef
 - id: aid_11
   source: ai_drafted_owner_reviewed
   intent: count
@@ -598,6 +604,7 @@ rows:
       intent: count
       sign:
         meaning: duong_mot_chieu
+  file_commit: 41291ef
 - id: aid_14
   source: ai_drafted_owner_reviewed
   intent: count_is
@@ -615,6 +622,7 @@ rows:
       sign:
         meaning: u_turn_ban
       n: 2
+  file_commit: 41291ef
 - id: aid_15
   source: ai_drafted_owner_reviewed
   intent: count_is
@@ -626,6 +634,7 @@ rows:
       sign:
         meaning: speed_limit
       n: 3
+  file_commit: 41291ef
 - id: aid_16
   source: ai_drafted_owner_reviewed
   intent: count_is
@@ -637,6 +646,7 @@ rows:
       sign:
         meaning: no_motorbikes
       n: 1
+  file_commit: 41291ef
 - id: aid_17
   source: ai_drafted_owner_reviewed
   intent: count_is
@@ -646,6 +656,7 @@ rows:
     out_of_scope: true
     out_of_scope_reason: a count compared with a number (more than two)
   gap: true
+  file_commit: 41291ef
 - id: aid_18
   source: ai_drafted_owner_reviewed
   intent: count_is
@@ -664,6 +675,7 @@ rows:
       sign:
         meaning: no_overtaking
       n: 0
+  file_commit: 41291ef
 - id: aid_21
   source: ai_drafted_owner_reviewed
   intent: applies_to
@@ -675,6 +687,7 @@ rows:
       sign:
         category: prohibitory
         side: center
+  file_commit: 41291ef
 - id: aid_22
   source: ai_drafted_owner_reviewed
   intent: applies_to
@@ -687,6 +700,7 @@ rows:
         shape: circle
         border: red
         side: right
+  file_commit: 41291ef
 - id: aid_23
   source: ai_drafted_owner_reviewed
   intent: applies_to
@@ -704,6 +718,7 @@ rows:
       intent: applies_to
       sign:
         meaning: no_trucks
+  file_commit: 41291ef
 - id: aid_24
   source: ai_drafted_owner_reviewed
   intent: applies_to
@@ -714,6 +729,7 @@ rows:
       intent: applies_to
       sign:
         side: left
+  file_commit: 41291ef
 - id: aid_25
   source: ai_drafted_owner_reviewed
   intent: applies_to
@@ -724,6 +740,7 @@ rows:
       intent: applies_to
       sign:
         meaning: speed_limit
+  file_commit: 41291ef
 - id: aid_28
   source: ai_drafted_owner_reviewed
   intent: sign_applies
@@ -736,6 +753,7 @@ rows:
         only: true
       vehicles:
       - vehicle_class: motorbike
+  file_commit: 41291ef
 - id: aid_29
   source: ai_drafted_owner_reviewed
   intent: sign_applies
@@ -748,6 +766,7 @@ rows:
         category: prohibitory
       vehicles:
       - vehicle_class: coach
+  file_commit: 41291ef
 - id: aid_30
   source: ai_drafted_owner_reviewed
   intent: sign_applies
@@ -768,6 +787,7 @@ rows:
         vehicle_class: truck
       sign:
         side: right
+  file_commit: 41291ef
 - id: aid_31
   source: ai_drafted_owner_reviewed
   intent: sign_applies
@@ -780,6 +800,7 @@ rows:
         only: true
       vehicles:
       - vehicle_class: bicycle
+  file_commit: 41291ef
 - id: aid_32
   source: ai_drafted_owner_reviewed
   intent: sign_applies
@@ -792,6 +813,7 @@ rows:
         side: center
       vehicles:
       - vehicle_class: passenger_car
+  file_commit: 41291ef
 - id: aid_33
   source: ai_drafted_owner_reviewed
   intent: sign_applies
@@ -805,6 +827,7 @@ rows:
         border: red
       vehicles:
       - vehicle_class: city_bus
+  file_commit: 41291ef
 - id: aid_36
   source: ai_drafted_owner_reviewed
   intent: rule_permitted
@@ -815,6 +838,7 @@ rows:
       intent: rule_permitted
       action: stop
       place: bridge
+  file_commit: 41291ef
 - id: aid_37
   source: ai_drafted_owner_reviewed
   intent: rule_permitted
@@ -827,6 +851,7 @@ rows:
       vehicle:
         vehicle_class: car
       place: tunnel
+  file_commit: 41291ef
 - id: aid_38
   source: ai_drafted_owner_reviewed
   intent: rule_permitted
@@ -839,6 +864,7 @@ rows:
       vehicle:
         vehicle_class: motorbike
       place: curve_limited_view
+  file_commit: 41291ef
 - id: aid_39
   source: ai_drafted_owner_reviewed
   intent: rule_permitted
@@ -851,6 +877,7 @@ rows:
       vehicle:
         vehicle_class: motorbike
       at_signal: true
+  file_commit: 41291ef
 - id: aid_40
   source: ai_drafted_owner_reviewed
   intent: rule_permitted
@@ -864,6 +891,7 @@ rows:
         vehicle_class: car
       at_signal: true
       past_stop_line: false
+  file_commit: 41291ef
 - id: aid_41
   source: ai_drafted_owner_reviewed
   intent: rule_permitted
@@ -883,6 +911,7 @@ rows:
       vehicle:
         vehicle_class: truck
       at_signal: true
+  file_commit: 41291ef
 - id: aid_42
   source: ai_drafted_owner_reviewed
   intent: rule_permitted
@@ -894,6 +923,7 @@ rows:
       vehicle:
         vehicle_class: car
       maneuver: cross_center
+  file_commit: 41291ef
 - id: aid_43
   source: ai_drafted_owner_reviewed
   intent: rule_permitted
@@ -905,6 +935,7 @@ rows:
       vehicle:
         vehicle_class: motorbike
       maneuver: change_lane
+  file_commit: 41291ef
 - id: aid_46
   source: ai_drafted_owner_reviewed
   intent: duties
@@ -914,6 +945,7 @@ rows:
     program:
       intent: duties
       topic: lane_change
+  file_commit: 41291ef
 - id: aid_47
   source: ai_drafted_owner_reviewed
   intent: duties
@@ -923,6 +955,7 @@ rows:
     program:
       intent: duties
       topic: turning
+  file_commit: 41291ef
 - id: aid_48
   source: ai_drafted_owner_reviewed
   intent: duties
@@ -932,6 +965,7 @@ rows:
     out_of_scope: true
     out_of_scope_reason: reversing (Law 36 art. 16) has no duties topic
   gap: true
+  file_commit: 41291ef
 - id: aid_49
   source: ai_drafted_owner_reviewed
   intent: duties
@@ -941,6 +975,7 @@ rows:
     out_of_scope: true
     out_of_scope_reason: yielding to pedestrians on a crossing (Law 36 art. 12.3) has no duties topic
   gap: true
+  file_commit: 41291ef
 - id: aid_50
   source: ai_drafted_owner_reviewed
   intent: duties
@@ -950,6 +985,7 @@ rows:
     out_of_scope: true
     out_of_scope_reason: yielding at an uncontrolled junction (Law 36 art. 22) has no duties topic
   gap: true
+  file_commit: 41291ef
 - id: aid_53
   source: ai_drafted_owner_reviewed
   intent: signal_meaning
@@ -958,6 +994,7 @@ rows:
   program:
     program:
       intent: signal_meaning
+  file_commit: 41291ef
 - id: aid_54
   source: ai_drafted_owner_reviewed
   intent: signal_meaning
@@ -966,6 +1003,7 @@ rows:
   program:
     program:
       intent: signal_meaning
+  file_commit: 41291ef
 - id: aid_55
   source: ai_drafted_owner_reviewed
   intent: signal_meaning
@@ -974,6 +1012,7 @@ rows:
   program:
     program:
       intent: signal_meaning
+  file_commit: 41291ef
 - id: aid_56
   source: ai_drafted_owner_reviewed
   intent: signal_meaning
@@ -982,6 +1021,7 @@ rows:
   program:
     program:
       intent: signal_meaning
+  file_commit: 41291ef
 - id: aid_57
   source: ai_drafted_owner_reviewed
   intent: signal_meaning
@@ -990,6 +1030,7 @@ rows:
   program:
     program:
       intent: signal_meaning
+  file_commit: 41291ef
 - id: aid_60
   source: ai_drafted_owner_reviewed
   intent: marking_meaning
@@ -1000,6 +1041,7 @@ rows:
       intent: marking_meaning
       kind: center
       pattern: solid
+  file_commit: 41291ef
 - id: aid_61
   source: ai_drafted_owner_reviewed
   intent: marking_meaning
@@ -1014,6 +1056,7 @@ rows:
       intent: marking_meaning
       kind: center
       pattern: double_solid
+  file_commit: 41291ef
 - id: aid_62
   source: ai_drafted_owner_reviewed
   intent: marking_meaning
@@ -1024,6 +1067,7 @@ rows:
       intent: marking_meaning
       kind: lane_line
       pattern: dashed
+  file_commit: 41291ef
 - id: aid_63
   source: ai_drafted_owner_reviewed
   intent: marking_meaning
@@ -1033,6 +1077,7 @@ rows:
     program:
       intent: marking_meaning
       kind: stop_line
+  file_commit: 41291ef
 - id: aid_64
   source: ai_drafted_owner_reviewed
   intent: marking_meaning
@@ -1042,6 +1087,7 @@ rows:
     out_of_scope: true
     out_of_scope_reason: pedestrian-crossing stripes are not a scene v6 marking kind
   gap: true
+  file_commit: 41291ef
 - id: aid_67
   source: ai_drafted_owner_reviewed
   intent: marking_is
@@ -1051,6 +1097,7 @@ rows:
     program:
       intent: marking_is
       separates: opposite_directions
+  file_commit: 41291ef
 - id: aid_68
   source: ai_drafted_owner_reviewed
   intent: marking_is
@@ -1061,6 +1108,7 @@ rows:
       intent: marking_is
       pattern: dashed
       separates: same_direction_lanes
+  file_commit: 41291ef
 - id: aid_69
   source: ai_drafted_owner_reviewed
   intent: marking_is
@@ -1070,6 +1118,7 @@ rows:
     out_of_scope: true
     out_of_scope_reason: a claim about a marking's kind (is it a stop line) has no claim form
   gap: true
+  file_commit: 41291ef
 - id: aid_70
   source: ai_drafted_owner_reviewed
   intent: marking_is
@@ -1082,6 +1131,7 @@ rows:
         intent: rule_permitted
         maneuver: cross_center
       expect: false
+  file_commit: 41291ef
 - id: aid_71
   source: ai_drafted_owner_reviewed
   intent: marking_is
@@ -1090,4 +1140,602 @@ rows:
   program:
     out_of_scope: true
     out_of_scope_reason: which side of a mixed line may cross needs the vehicle's side, not in the DSL
+  gap: true
+  file_commit: 41291ef
+- id: own_04
+  source: owner_written
+  intent: count
+  question: Ở đây có mấy biển cấm xe máy vậy?
+  line: 4
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: count
+      sign:
+        meaning: no_motorbikes
+- id: own_05
+  source: owner_written
+  intent: count
+  question: Trong hình có bao nhiêu biển báo sắp đến ngã tư?
+  line: 5
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: count
+      sign:
+        meaning: duong_giao_nhau
+- id: own_06
+  source: owner_written
+  intent: count
+  question: Đếm cả hai bên đường thì có mấy biển giới hạn tốc độ?
+  line: 6
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: count
+      sign:
+        meaning: speed_limit
+- id: own_07
+  source: owner_written
+  intent: count
+  question: Có bao nhiêu biển cấm rẽ phải trong tấm hình này?
+  line: 7
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: count
+      sign:
+        meaning: no_right_turn
+- id: own_08
+  source: owner_written
+  intent: count
+  question: Đoạn này có mấy biển báo chỗ quay đầu xe?
+  line: 8
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: count
+      sign:
+        meaning: cho_quay_xe
+- id: own_11
+  source: owner_written
+  intent: count_is
+  question: Chỗ này có hai biển cấm xe tải đúng không?
+  line: 11
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: count_is
+      sign:
+        meaning: no_trucks
+      n: 2
+- id: own_12
+  source: owner_written
+  intent: count_is
+  question: Tôi đếm được ba biển báo nguy hiểm, có đúng không nhỉ?
+  line: 12
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: count_is
+      sign:
+        category: warning
+      n: 3
+- id: own_13
+  source: owner_written
+  intent: count_is
+  question: Trong ảnh chỉ có một biển cấm dừng thôi phải không?
+  line: 13
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: count_is
+      sign:
+        meaning: no_stopping
+      n: 1
+  also_accept:
+  - program:
+      intent: count_is
+      sign:
+        meaning: no_stopping_or_parking
+      n: 1
+- id: own_14
+  source: owner_written
+  intent: count_is
+  question: Có ít nhất hai biển chỉ hướng đi trong hình này không?
+  line: 14
+  file_commit: 2c31cd6
+  program:
+    out_of_scope: true
+    out_of_scope_reason: a count compared with a number (at least two)
+  gap: true
+- id: own_15
+  source: owner_written
+  intent: count_is
+  question: Đoạn này không có biển cấm xe đạp nào đúng chứ?
+  line: 15
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: verify
+      claim:
+        intent: present
+        meaning: no_bicycles
+      expect: false
+  also_accept:
+  - program:
+      intent: count_is
+      sign:
+        meaning: no_bicycles
+      n: 0
+- id: own_18
+  source: owner_written
+  intent: applies_to
+  question: Biển ngay đầu đường này cấm những xe nào?
+  line: 18
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: which_vehicles
+      action: enter
+      status: banned
+      sign:
+        only: true
+  also_accept:
+  - program:
+      intent: applies_to
+      sign:
+        only: true
+- id: own_19
+  source: owner_written
+  intent: applies_to
+  question: Những loại xe nào phải đi theo biển xanh kia?
+  line: 19
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: applies_to
+      sign:
+        background: blue
+- id: own_20
+  source: owner_written
+  intent: applies_to
+  question: Biển bên cạnh đèn giao thông áp dụng cho xe gì vậy?
+  line: 20
+  file_commit: 2c31cd6
+  program:
+    out_of_scope: true
+    out_of_scope_reason: a sign placed next to a traffic light has no selector
+  gap: true
+- id: own_21
+  source: owner_written
+  intent: applies_to
+  question: Nhìn biển này thì những xe nào không được vào cầu?
+  line: 21
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: which_vehicles
+      action: enter
+      status: banned
+      sign:
+        only: true
+  also_accept:
+  - program:
+      intent: applies_to
+      sign:
+        only: true
+- id: own_22
+  source: owner_written
+  intent: applies_to
+  question: Biển cấm phía trên cùng dành cho những loại phương tiện nào?
+  line: 22
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: applies_to
+      sign:
+        category: prohibitory
+        position: top
+- id: own_25
+  source: owner_written
+  intent: sign_applies
+  question: Tôi đi xe con thì có bị biển này cấm không?
+  line: 25
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: sign_applies
+      sign:
+        only: true
+      vehicles:
+      - vehicle_class: passenger_car
+  also_accept:
+  - program:
+      intent: forbidden
+      action: enter
+      vehicle:
+        vehicle_class: passenger_car
+      sign:
+        only: true
+- id: own_26
+  source: owner_written
+  intent: sign_applies
+  question: Biển kia có tính cả xe máy điện không vậy?
+  line: 26
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: sign_applies
+      sign:
+        only: true
+      vehicles:
+      - vehicle_class: motorbike
+- id: own_27
+  source: owner_written
+  intent: sign_applies
+  question: Xe khách 16 chỗ có thuộc loại xe bị cấm ở đây không?
+  line: 27
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: sign_applies
+      sign:
+        only: true
+      vehicles:
+      - vehicle_class: coach
+        seats: 16
+  also_accept:
+  - program:
+      intent: forbidden
+      action: enter
+      vehicle:
+        vehicle_class: coach
+        seats: 16
+- id: own_28
+  source: owner_written
+  intent: sign_applies
+  question: Biển này áp dụng cho cả xe tải nhỏ đúng không?
+  line: 28
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: sign_applies
+      sign:
+        only: true
+      vehicles:
+      - vehicle_class: truck
+- id: own_29
+  source: owner_written
+  intent: sign_applies
+  question: Xe đạp cũng phải theo biển chỉ hướng này à?
+  line: 29
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: sign_applies
+      sign:
+        only: true
+      vehicles:
+      - vehicle_class: bicycle
+- id: own_32
+  source: owner_written
+  intent: rule_permitted
+  question: Tôi dừng xe trên cầu một lát để thả người xuống có được không?
+  line: 32
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: rule_permitted
+      action: stop
+      place: bridge
+- id: own_33
+  source: owner_written
+  intent: rule_permitted
+  question: Chỗ này là ngã ba thì có được lùi ô tô không?
+  line: 33
+  file_commit: 2c31cd6
+  program:
+    out_of_scope: true
+    out_of_scope_reason: reversing (Law 36 art. 16) is not an action in the DSL
+  gap: true
+- id: own_34
+  source: owner_written
+  intent: rule_permitted
+  question: Đang ở trong hầm thì tôi có được đỗ xe để xem bản đồ không?
+  line: 34
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: rule_permitted
+      action: park
+      place: tunnel
+- id: own_35
+  source: owner_written
+  intent: rule_permitted
+  question: Tới đoạn đường sắt cắt ngang này có được vượt xe phía trước không?
+  line: 35
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: rule_permitted
+      action: overtake
+      place: railway_crossing
+- id: own_36
+  source: owner_written
+  intent: rule_permitted
+  question: Đèn đỏ mà đường đang vắng, không có tín hiệu cho đi thì xe đạp vẫn phải chờ đúng không?
+  line: 36
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: verify
+      claim:
+        intent: rule_permitted
+        action: go_straight
+        vehicle:
+          vehicle_class: bicycle
+        at_signal: true
+      expect: false
+- id: own_37
+  source: owner_written
+  intent: rule_permitted
+  question: Tôi chưa tới vạch dừng, vẫn dừng an toàn được mà đèn chuyển vàng thì có được chạy tiếp không?
+  line: 37
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: rule_permitted
+      action: go_straight
+      at_signal: true
+      past_stop_line: false
+- id: own_38
+  source: owner_written
+  intent: rule_permitted
+  question: Đèn xanh rồi nhưng người đi bộ vẫn đang qua đường thì tôi có được chạy cắt ngang trước mặt họ không?
+  line: 38
+  file_commit: 2c31cd6
+  program:
+    out_of_scope: true
+    out_of_scope_reason: pedestrians crossing on a green light (art. 6.3.1) is not a slot
+  gap: true
+- id: own_39
+  source: owner_written
+  intent: rule_permitted
+  question: Đèn vàng nhấp nháy thế này thì tôi được đi qua sau khi quan sát và nhường đường đúng không?
+  line: 39
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: rule_permitted
+      action: enter
+      at_signal: true
+  also_accept:
+  - program:
+      intent: rule_permitted
+      action: go_straight
+      at_signal: true
+- id: own_40
+  source: owner_written
+  intent: rule_permitted
+  question: Vạch trắng đứt giữa hai làn như này thì tôi được chuyển làn khi an toàn phải không?
+  line: 40
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: rule_permitted
+      maneuver: change_lane
+- id: own_41
+  source: owner_written
+  intent: rule_permitted
+  question: Tôi có được đè qua hai vạch vàng liền này để vượt xe chậm phía trước không?
+  line: 41
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: rule_permitted
+      maneuver: cross_center
+- id: own_44
+  source: owner_written
+  intent: duties
+  question: Tôi muốn tấp xe vào lề đoạn này thì cần làm gì?
+  line: 44
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: duties
+      topic: stopping_parking
+- id: own_45
+  source: owner_written
+  intent: duties
+  question: Đang đi mà thấy xe chữa cháy hú còi phía sau thì tôi phải xử lý sao?
+  line: 45
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: duties
+      topic: priority_vehicle_signal
+- id: own_46
+  source: owner_written
+  intent: duties
+  question: Từ trong ngõ chạy ra đường lớn như ảnh thì tôi phải nhường xe thế nào?
+  line: 46
+  file_commit: 2c31cd6
+  program:
+    out_of_scope: true
+    out_of_scope_reason: yielding when joining a main road (Law 36 art. 22) has no duties topic
+  gap: true
+- id: own_47
+  source: owner_written
+  intent: duties
+  question: Muốn quay đầu ở chỗ được phép này thì tôi cần làm những gì trước?
+  line: 47
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: duties
+      topic: turning
+- id: own_48
+  source: owner_written
+  intent: duties
+  question: Tới chỗ giao nhau mà có người điều khiển giao thông thì tôi phải theo hiệu lệnh thế nào?
+  line: 48
+  file_commit: 2c31cd6
+  program:
+    out_of_scope: true
+    out_of_scope_reason: a traffic officer's signals (Law 36 art. 11) have no duties topic
+  gap: true
+- id: own_51
+  source: owner_written
+  intent: signal_meaning
+  question: Đèn mũi tên đỏ chỉ sang trái kia báo gì vậy?
+  line: 51
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: signal_meaning
+- id: own_52
+  source: owner_written
+  intent: signal_meaning
+  question: Đèn hình người màu đỏ đang sáng nghĩa là sao?
+  line: 52
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: signal_meaning
+- id: own_53
+  source: owner_written
+  intent: signal_meaning
+  question: Cái đèn mũi tên xanh chỉ sang phải cho biết điều gì?
+  line: 53
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: signal_meaning
+- id: own_54
+  source: owner_written
+  intent: signal_meaning
+  question: Đèn vàng ở giữa sáng liên tục thì mình phải hiểu thế nào?
+  line: 54
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: signal_meaning
+- id: own_55
+  source: owner_written
+  intent: signal_meaning
+  question: Đèn dấu X phía trên làn bên trái đang đỏ là báo gì?
+  line: 55
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: signal_meaning
+- id: own_58
+  source: owner_written
+  intent: marking_meaning
+  question: Mũi tên chỉ thẳng dưới mặt đường này có ý nghĩa gì?
+  line: 58
+  file_commit: 2c31cd6
+  program:
+    out_of_scope: true
+    out_of_scope_reason: painted road arrows (G.4 9.3) are not a scene v6 marking kind
+  gap: true
+- id: own_59
+  source: owner_written
+  intent: marking_meaning
+  question: Vạch liền màu trắng ngăn hai làn cùng chiều này quy định thế nào?
+  line: 59
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: marking_meaning
+      kind: lane_line
+      pattern: solid
+- id: own_60
+  source: owner_written
+  intent: marking_meaning
+  question: Vạch vàng đứt ở giữa đường dùng để làm gì?
+  line: 60
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: marking_meaning
+      kind: center
+      pattern: dashed
+- id: own_61
+  source: owner_written
+  intent: marking_meaning
+  question: Phần mặt đường kẻ các vạch chéo trong ảnh có ý nghĩa gì?
+  line: 61
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: marking_meaning
+      kind: hatched
+- id: own_62
+  source: owner_written
+  intent: marking_meaning
+  question: Mũi tên quay đầu được sơn trên làn này báo điều gì?
+  line: 62
+  file_commit: 2c31cd6
+  program:
+    out_of_scope: true
+    out_of_scope_reason: painted road arrows (G.4 9.3) are not a scene v6 marking kind
+  gap: true
+- id: own_65
+  source: owner_written
+  intent: marking_is
+  question: Vạch trước đầu xe kia là chỗ phải dừng khi đèn đỏ đúng không?
+  line: 65
+  file_commit: 2c31cd6
+  program:
+    out_of_scope: true
+    out_of_scope_reason: a claim about a marking's kind (is it the stop line) has no claim form
+  gap: true
+- id: own_66
+  source: owner_written
+  intent: marking_is
+  question: Mấy sọc trắng ngang đường này có phải vạch cho người đi bộ không?
+  line: 66
+  file_commit: 2c31cd6
+  program:
+    out_of_scope: true
+    out_of_scope_reason: pedestrian-crossing stripes are not a scene v6 marking kind
+  gap: true
+- id: own_67
+  source: owner_written
+  intent: marking_is
+  question: Vạch vàng đứt kia chia hai chiều xe chạy phải không?
+  line: 67
+  file_commit: 2c31cd6
+  program:
+    program:
+      intent: marking_is
+      pattern: dashed
+      separates: opposite_directions
+  also_accept:
+  - program:
+      intent: marking_is
+      kind: center
+      pattern: dashed
+      separates: opposite_directions
+- id: own_68
+  source: owner_written
+  intent: marking_is
+  question: Mũi tên dưới làn bên phải chỉ cho rẽ phải thôi đúng chứ?
+  line: 68
+  file_commit: 2c31cd6
+  program:
+    out_of_scope: true
+    out_of_scope_reason: painted road arrows (G.4 9.3) are not a scene v6 marking kind
+  gap: true
+- id: own_69
+  source: owner_written
+  intent: marking_is
+  question: Phần kẻ vạch chéo kia có phải khu vực không được đi xe vào không?
+  line: 69
+  file_commit: 2c31cd6
+  program:
+    out_of_scope: true
+    out_of_scope_reason: a claim about a hatched area's effect has no claim form
   gap: true

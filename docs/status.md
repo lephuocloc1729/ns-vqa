@@ -1644,6 +1644,15 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 - **Verification:** 2,070 tests pass with the CLI checks included. Each step was committed only after the full suite and the baseline replay passed.
 - **Next action belongs to the owner:** review the findings and approve the paid sequence. No phase-4.7 freeze, validation or private run was performed.
 
+### Phase 4.7: owner-written new-types questions added (owner, 2026-11-17; no API calls)
+
+- **The 50 questions of `owner_questions.txt` at `2c31cd6`** are now `owner_written`, with their text verbatim. The basis is the owner's message "I just update 50 questions"; the lines have no "owner |" prefix.
+  - The earlier 50 AI-drafted rows stay as a smoke test and point at their file version, `41291ef`.
+- **12 owner questions are DSL gaps:** count comparisons, a selector relative to a light, reversing, pedestrians on green, junction yielding, an officer's signals, road arrows (3), marking-kind claims, and the hatched area's effect.
+- **Expressible owner questions per type:** count 5, count_is 4, applies_to 4, sign_applies 5, rule_permitted 8, duties 3, signal_meaning 5, marking_meaning 3, marking_is 1 (reported, not decided).
+- **Rule gap found:** Law 36 art. 26.2 ("Không dừng xe, đỗ xe trong hầm đường bộ") is missing from `kb/rules/general47.pl`, so parking in a tunnel is wrongly allowed. It is not fixed yet; the owner decides.
+- **Run:** the deciding groups (56 questions), $0.23, cap $0.40. All 156 would be $0.55, cap $0.85, which is not recommended within $2.00.
+
 ### Phase 4.7: new-types question sources corrected (owner, 2026-11-17; no API calls)
 
 - **Owner's correction:** the 50 rows from `owner_questions.txt` are AI-drafted, not owner-written; the earlier confirmation was wrong.
