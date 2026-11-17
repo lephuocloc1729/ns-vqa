@@ -1550,6 +1550,29 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 - **The 90% gate on the v6 gold: FAIL by one question.** Three of the five misses are design changes the v6 gold can't write: 0065 (lanes -1 and -2 for "2 làn bên phải"), 0086 ("các biển ... thuộc loại biển báo nào" as `group`), 0087 (an open "nên làm gì" as `conduct`). The other two (0005, 0025) were also wrong under v6. **With the design rows given back: 95.7% (45/47).**
 - **Spend this round: $1.11 of $5** ($0.70 reserved; $3.19 free).
 
+### B4 step 2: judged candidate dev run (scene v5 + guide reading + parser v8, fallback off; 2026-11-17)
+
+- **Run `dev_candidate_7caed6170de6`: $0.81** (estimate $0.84). Fresh perception (the dev re-perception), parser v8 (the dev re-parse), the judge on every decided answer.
+
+| dev (87 Natural QA) | decided coverage (95% CI) | accuracy on decided (95% CI) | overall, non-decided = wrong |
+|---|---|---|---|
+| frozen phase 4 (`13ded0d75451`) | 40.2% (31–51) | 80.0% (64–90) | 32.2% |
+| stage A, engine replay (provisional grades) | 36.8% | 93.8% | 34.5% |
+| **candidate, judged** | **74.7% (65/87; 65–83)** | **83.8% (73–91)** | **62.6%** |
+
+- **Guardrail met:** overall 62.6% ≥ 34.5%; accuracy on decided 83.8% ≥ 70%. The hand-program replay had predicted 59 decided, 86.4%, 58.6%.
+- **Provisional grades checked by the judge:** 81 right (1.0), 308 right (1.0). **287 wrong (0.0), but for a new reason:** scene v5 reads its sign as P.101 where v4 read P.102 (the same happens on 90). The selector fix itself is untested here.
+- **Wrong or partial among the 65 decided (12):**
+  - perception: 287 and 90 (P.102 read as P.101 by v5; v4 had it right), 526 (an interchange sign read as I.414), 80 (green boards named, the "exit" meaning missed);
+  - the dataset disagrees with the board: 230, 249;
+  - parser: 231 ("có cho biết khoảng cách ... không?", a yes/no question about a board, parsed as `guide distance`; the v8 rule names only "đúng hay sai / đúng không");
+  - partial value: 254 (a speed range asked; min 60 given and the 80 maximum missed), 325 (the route code CT.01 given, not the route name), 14 (both limits given, not tied to the vehicles: lane-bound discs), 216 / 219 / 269 (0.5, wording or, for 269, art. 26.3 against the dataset).
+- **Not decided (22):** out of scope 11 (248, 259, 260, 341, 351, 361, 386, 413, 414, 515, 15), uncertain 6 (138, 159, 432, 450, 517, 521), unknown 3 (415, 421, 451), program can't run 1 (145), unreadable 1 (514).
+- **Lane questions:** 414, 421 and 451 are not decided; no lane answer was decided wrongly through a read board.
+- **Guide call:** made on 26 images; boards in 40 question scenes.
+- **Spend this round: $1.92 of $5** ($0.70 reserved; **$2.38 free**).
+- **B4 is done. Next, on the owner's go-ahead: B5** (the phase-4.5 freeze `eval/frozen_phase45.json` with scene v5, parser v8, guide reading on; then the final validation once). Free fixes worth weighing first, each needing its own check: a parser rule for yes/no questions about board content (231; a new parser version and one gate run, about $0.18), and whether v5's P.101 / P.102 confusion (287, 90) is worth a scene-prompt change (it would need the set-T check again).
+
 ## Next steps, in order
 
 ### Handoff (2026-11-17, later): B1 + B2 built; B4 ready for the owner's go-ahead
