@@ -59,7 +59,7 @@ def test_a_dirty_tree_is_refused(fake_set):
         ed.run_dev("t", 1.0, sdk=_e2e_sdk(), questions=QS, out_dir=fake_set / "dev", git=dirty)
 
 
-def test_a_candidate_dev_run_uses_scene_v5_guide_reading_and_parser_v7(fake_set):
+def test_a_candidate_dev_run_uses_scene_v5_guide_reading_and_parser_v8(fake_set):
     """Phase 4.5 B4: `--candidate` runs the stage-B candidate; the header records it."""
     sdk = _e2e_sdk()
     sdk.replies["perception"] = [SCENE_REPLY, SCENE_REPLY]
@@ -73,9 +73,9 @@ def test_a_candidate_dev_run_uses_scene_v5_guide_reading_and_parser_v7(fake_set)
     out = ed.run_dev("c", 1.0, sdk=sdk, questions=QS, out_dir=fake_set / "dev",
                      image_path=lambda i: fake_set / f"{i}.jpg", git=CLEAN, candidate=ed.CANDIDATE)
     head, rows = ed.ee.load(out)
-    assert head["candidate"] == {"scene_version": "v5", "parser_version": "v7", "guide_reading": True}
+    assert head["candidate"] == {"scene_version": "v5", "parser_version": "v8", "guide_reading": True}
     ids = head["candidate_prompt_ids"]
     assert ids["scene"].startswith("scene/v5@") and ids["scene_tile"].startswith("scene/v5-tile@")
-    assert ids["guide"].startswith("scene/v5-guide@") and ids["parser"].startswith("parser/v7@")
+    assert ids["guide"].startswith("scene/v5-guide@") and ids["parser"].startswith("parser/v8@")
     assert "R.122 |" in systems["perception"] and '"intent":"guide"' in systems["parser"]
     assert all(r["decided"] for r in rows)

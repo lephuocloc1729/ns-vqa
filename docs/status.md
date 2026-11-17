@@ -1532,22 +1532,32 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 - **Stays undecided, and why:** 99 and 107 (P.124a with a low P.123a alternative: readings disagree), 432 (four signs, three with alternatives), 337 and 375 (STOP read UNKNOWN by v4; v5 lists R.122), 520 (a warning sign among guide boards: two groups), 159 (an unread board alternative), 325 (a destination list doesn't answer "which expressway ends"), 260, 248, 250, 414 (compound questions), 231, 259, 80, 515, 521, 254 / 413 (speed ranges), 341, 351, 421, 450, 514, 518, 316.
 - **Wrong or partial among the new decided:** 230 and 249 (the boards disagree with the dataset; graded 0), 14 (the 90 disc isn't tied to lane 1 in the scene: car 80, gold 90; 0.5), 56 / 58 ("xe máy" may be a moped, so 60 / 50 is conditional; 0.5), 269 (art. 26.3: P.101–P.120 have no end sign; the dataset says "đến biển hết cấm"; 0.5), 413 (a range asked, the max given; 0.5), 216 / 219 / 222 (duties right, wording partial; 0.5).
 
+### B4 step 1: parser v7 gate run 1 (public_dev gold intents, Sonnet 5.5 medium; 2026-11-17)
+
+- **Run `pred_claude-sonnet-5-5_medium_v7_20261117-124116`: $0.194.** Program accuracy **78.7% (37/47)** against v6's 93.6% (three runs); 8 retries, no failed parse. Runs 2 and 3 were not made: the no-regression rule already fails.
+- **`compare` against v6's three runs:** `meaning` drops (27/30 → 6/10) even after giving back design-change rows; `forbidden` (0/1) and `out_of_scope` (4/8) drop only through rows that use a v7 feature.
+- **The eight rows v6 got right and v7 missed** (public_dev, readable):
+  - **real errors, fixed in v8:** 0055 and 0070 (a stated claim about a board's direction, "đúng hay sai", parsed as `guide`, which gives a value, not a verdict); 0073 (a stated claim about what the driver need not do, parsed as `conduct`); 0022 and 0086 ("loại biển báo gì / nào" parsed as `group`; it asks what the sign is, and a `name` answer names the group); 0002 (`only: true` added to a colour selector);
+  - **design changes, kept:** 0065 ("2 làn bên phải" as lanes -1 and -2, where the v6 gold had a missing lane slot); 0087 (an open "nên làm gì" as `conduct`).
+- **Parser v8** (`prompts/parser/v8`): v7 with those three spec fixes, the same 29 few-shots. v7 is pinned. The candidate (`eval/e2e_dev.py --candidate`) now uses v8.
+- **Spend this round: $0.93 of $5** ($0.70 reserved; $3.37 free).
+
 ## Next steps, in order
 
 ### Handoff (2026-11-17, later): B1 + B2 built; B4 ready for the owner's go-ahead
 
 - **Where things stand:** B1 + B2 are built and committed (see "Phase 4.5 B1 + B2 built"). Branch `phase-5`, nothing pushed. The freeze record `eval/frozen_phase4.json` still matches. **Spend this round: $0.74 of $5**, $0.70 reserved for the final validation, **$3.56 free**. No call was made in this step.
 - **Next: B4, on the owner's go-ahead (the owner runs the commands).** In this order; stop after each and look:
-  1. **Parser gate rerun on public_dev gold intents, parser v7, Sonnet 5.5 medium, 3 runs.** Measured v6 runs cost $0.12–0.16 each; v7's prompt is 18% longer. **Estimate $0.16 per run, $0.48 for three (range $0.40–0.60).** **Cap (owner, 2026-11-17):** `--max-spend 0.40` per run. The tool now refuses only when the expected cost or one call's worst case is over the cap; the spend guard checks each call's worst case (about $0.086) against what is left, so a run never passes $0.40 and stops near $0.31. A stopped run is renamed `*.partial.jsonl` and is not a gate run. (The old up-front check needed the whole-run worst case, $8.09 for v7.)
+  1. **Parser gate rerun on public_dev gold intents, parser v8 (v7 failed the rule on run 1; entry above), Sonnet 5.5 medium, 3 runs.** v7's measured run: $0.194. Measured v6 runs cost $0.12–0.16 each; v7's prompt is 18% longer. **Estimate $0.16 per run, $0.48 for three (range $0.40–0.60).** **Cap (owner, 2026-11-17):** `--max-spend 0.40` per run. The tool now refuses only when the expected cost or one call's worst case is over the cap; the spend guard checks each call's worst case (about $0.086) against what is left, so a run never passes $0.40 and stops near $0.31. A stopped run is renamed `*.partial.jsonl` and is not a gate run. (The old up-front check needed the whole-run worst case, $8.09 for v7.)
      ```
-     .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v7 --max-spend 0.40
-     .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v7 --max-spend 0.40
-     .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v7 --max-spend 0.40
-     .venv/bin/python eval/parser_eval.py score logs/parser_eval/pred_claude-sonnet-5-5_medium_v7_*.jsonl
-     .venv/bin/python eval/parser_eval.py compare --old logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-140559.jsonl logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141622.jsonl logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141902.jsonl --new logs/parser_eval/pred_claude-sonnet-5-5_medium_v7_*.jsonl
+     .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v8 --max-spend 0.40
+     .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v8 --max-spend 0.40
+     .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v8 --max-spend 0.40
+     .venv/bin/python eval/parser_eval.py score logs/parser_eval/pred_claude-sonnet-5-5_medium_v8_*.jsonl
+     .venv/bin/python eval/parser_eval.py compare --old logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-140559.jsonl logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141622.jsonl logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141902.jsonl --new logs/parser_eval/pred_claude-sonnet-5-5_medium_v8_*.jsonl
      ```
-     **Rule (set before the run):** no old gold intent type may have lower pooled accuracy than v6's three runs, after giving back rows whose v7 program uses a v7 feature the v6 gold can't write (`regressed_types_without_design` must be empty). The gate (mean ≥ 90%) is reported too. If a type regresses, v7 is fixed as v8 before any dev run.
-  2. **Judged candidate dev run** (scene v5 + v5-tile / v5-crop, guide reading on, parser v7; fallback off; fresh perception, so it is also the dev re-perception and the dev re-parse; the judge grades every decided answer, including 81, 287 and 308). **Estimate $0.84 (range $0.67–1.10)**, from the frozen dev run's measured stage costs at 59 decided:
+     **Rule (set before the run):** no old gold intent type may have lower pooled accuracy than v6's three runs, after giving back rows whose v7 program uses a v7 feature the v6 gold can't write (`regressed_types_without_design` must be empty). The gate (mean ≥ 90%) is reported too. If a type regresses, the parser is fixed as a new version before any dev run.
+  2. **Judged candidate dev run** (scene v5 + v5-tile / v5-crop, guide reading on, parser v8; fallback off; fresh perception, so it is also the dev re-perception and the dev re-parse; the judge grades every decided answer, including 81, 287 and 308). **Estimate $0.84 (range $0.67–1.10)**, from the frozen dev run's measured stage costs at 59 decided:
      ```
      .venv/bin/python eval/e2e_dev.py estimate --candidate
      .venv/bin/python eval/e2e_dev.py run --label candidate --candidate --max-spend 1.3

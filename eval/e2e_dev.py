@@ -19,7 +19,7 @@ answer, the scene, the trace and the grade). The run's scene cache is kept besid
   ungraded (it reports them), unchanged ones keep their grade.
 
 - `--candidate` (phase 4.5 B4): the stage-B candidate instead of the frozen system: scene v5
-  (with v5-tile / v5-crop), the guide-board call on, parser v7 (`CANDIDATE`). Everything else
+  (with v5-tile / v5-crop), the guide-board call on, parser v8 (`CANDIDATE`; v7 failed the gate rule, run 1). Everything else
   is the frozen configuration, and the freeze check still runs (it guards the frozen parts).
   The header records the candidate and its prompt ids; stored scenes include the boards.
 
@@ -51,7 +51,7 @@ from eval.make_validation_split import DEV_OUT, OUT as VALIDATION  # noqa: E402
 OUT = ROOT / "eval" / "runs" / "e2e"
 DECIDED = ev.DECIDED
 # The stage-B candidate (owner, 2026-11-17): PipelineConfig fields that differ from the frozen run.
-CANDIDATE = {"scene_version": "v5", "parser_version": "v7", "guide_reading": True}
+CANDIDATE = {"scene_version": "v5", "parser_version": "v8", "guide_reading": True}
 FROZEN_DEV_RUN = OUT / "dev_frozen_13ded0d75451.jsonl"
 
 
@@ -219,7 +219,7 @@ def main() -> None:
     r = sub.add_parser("run")
     r.add_argument("--label", required=True)
     r.add_argument("--max-spend", type=float, required=True)
-    r.add_argument("--candidate", action="store_true", help="scene v5 + guide reading + parser v7 (CANDIDATE)")
+    r.add_argument("--candidate", action="store_true", help="scene v5 + guide reading + parser v8 (CANDIDATE)")
     s = sub.add_parser("summary")
     s.add_argument("file", type=Path)
     a = ap.parse_args()

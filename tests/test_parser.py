@@ -194,6 +194,8 @@ FROZEN_PROMPTS = {
            "fewshot.jsonl": "f644a21c024865bf4bbe55c00a44542e6ded14d84a3dfc383421856f2a1c04a5"},
     "v6": {"spec.md": "c3c78d024016d9e943ec8cfa94f4edbb08a2d44ac865491f05eee308cdc61028",
            "fewshot.jsonl": "f644a21c024865bf4bbe55c00a44542e6ded14d84a3dfc383421856f2a1c04a5"},
+    "v7": {"spec.md": "05c471a0bedc379480ca61305fa78413ec05be5e6f9696c843b5103157f8a16c",
+           "fewshot.jsonl": "3e967613d95d4b269da63218cf43972c0ed85e6bfcd89774dc3b881bd50b9c9f"},
 }
 
 
@@ -229,7 +231,7 @@ def test_v6_is_v5_with_the_sign_rules_narrowed():
     assert "put that selector on every claim about the sign" in diff[1]
 
 
-@pytest.mark.parametrize("version", ["v5", "v6", "v7"])
+@pytest.mark.parametrize("version", ["v5", "v6", "v7", "v8"])
 def test_spec_does_not_quote_gate_questions(version):
     # rules learned from public_dev errors must not carry a gate question's wording,
     # or it would act as an unexcluded few-shot
@@ -259,14 +261,14 @@ def test_each_version_changes_one_spec_line(old, new, changed):
     assert len(a) == len(b) and len(diff) == 1 and changed in diff[0]
 
 
-@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6", "v7"])
+@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6", "v7", "v8"])
 def test_fewshots_are_valid_programs(engine, version):
     for ex in examples(version):
         q = to_query(WParse.model_validate(ex["output"]), 2026)
         assert validator.check(q, engine) == [], ex["id"]
 
 
-@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6", "v7"])
+@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6", "v7", "v8"])
 def test_fewshots_come_from_train_or_public_dev_only(version):
     split = json.loads((ROOT / "data" / "splits" / "public_split.json").read_text())
     holdout = set(split["public_holdout"]["questions"])
@@ -470,24 +472,26 @@ def test_v7_keeps_v6_fewshots_and_adds_train_ones_outside_dev_and_validation():
         assert not {img[e["id"]] for e in v7 if e["split"] == "train"} & banned_img
 
 
-def test_v7_covers_the_new_intents_and_slots():
-    progs = json.dumps([e["output"] for e in examples("v7")])
+@pytest.mark.parametrize("version", ["v7", "v8"])
+def test_v7_covers_the_new_intents_and_slots(version):
+    progs = json.dumps([e["output"] for e in examples(version)])
     for needle in ('"aspect": "group"', '"aspect": "conduct"', '"aspect": "scope"', '"intent": "present"',
                    '"intent": "guide"', '"lane": -1'):
         assert needle in progs, needle
-    spec = (ROOT / "prompts" / "parser" / "v7" / "spec.md").read_text()
+    spec = (ROOT / "prompts" / "parser" / version / "spec.md").read_text()
     for rule in ("`road_divided`", "`vehicles`", "xe cảnh sát", "`category`", "is negative", "`placement`"):
         assert rule in spec, rule
 
 
-def test_v7_spec_does_not_quote_dev_questions():
+@pytest.mark.parametrize("version", ["v7", "v8"])
+def test_v7_spec_does_not_quote_dev_questions(version):
     """Dev is the tuning set: its wording must not sit in the spec as an unlisted few-shot."""
     train = (Path(os.environ.get("VQA_DATASET_DIR", ROOT / "VLSP2025-MLQA-Natural"))
              / "dataset" / "train data" / "vlsp_2025_train.json")
     if not train.exists():
         pytest.skip("dataset not available")
     dev = set(json.loads((ROOT / "data" / "splits" / "train_dev.json").read_text())["questions"])
-    spec = (ROOT / "prompts" / "parser" / "v7" / "spec.md").read_text().lower()
+    spec = (ROOT / "prompts" / "parser" / version / "spec.md").read_text().lower()
     for q in json.loads(train.read_text(encoding="utf-8")):
         if q["id"] in dev:
             words = q["question"].lower().split()
@@ -508,3 +512,16 @@ def test_v7_retry_sends_only_the_error(engine):
     p6, sdk6 = parser([BAD, GOOD], engine)
     p6.parse("...")
     assert sdk6.created[1]["messages"][1]["content"] != PLACEHOLDER          # v6 keeps its echo
+
+
+def test_v8_is_v7_with_three_spec_fixes_and_the_same_fewshots():
+    """Phase 4.5 B4 (v7 gate run 1, public_dev): v8 keeps v7's few-shots and changes three
+    things: "loại biển gì" is `name`; value-only intents never answer a stated claim; `only`
+    is not added to a selector that describes the sign."""
+    d7, d8 = (ROOT / "prompts" / "parser" / v for v in ("v7", "v8"))
+    assert (d7 / "fewshot.jsonl").read_bytes() == (d8 / "fewshot.jsonl").read_bytes()
+    a, b = ((d / "spec.md").read_text().splitlines() for d in (d7, d8))
+    added = [y for y in b if y not in a]
+    assert len(b) == len(a) + 1 and len(added) == 4
+    spec = "\n".join(b)
+    assert "never a truth value" in spec and "loại biển gì" in spec and "without `only`" in spec
