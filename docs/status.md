@@ -1634,7 +1634,13 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
-### Handoff (2026-11-17): v11 passes the gate rule; step 6 (dev re-parse) ready for the owner's go-ahead
+### Handoff (2026-11-17): step 6 judged; final2 below the $0.90 floor, so it is the owner's decision
+
+- **Step 6** (`f52e160181ca`, $0.4092; 86 of 87 questions, train_526 carried over from v9): judged dev **85.1% decided, 81.1% on decided, overall 69.0%** (was 73.6% / 85.2% / 62.6%). Guardrail met. Details: plan section 14.
+- **Spend:** $4.16 of $5, so **$0.84 left**, below final2's $0.90 floor.
+- **Owner decisions now:** final2 (raise the round by at least $0.25, or no final2), then D6 (the private run's budget), then step 8 (the doc update, approved under D5, free).
+
+### Handoff (2026-11-17): v11 passes the gate rule; step 6 (dev re-parse) ready for the owner's go-ahead (kept as a record)
 
 - **v11 gate** ($0.1861): 85.1%, no type regressed without design. v11 is the parser.
 - **Next (paid, the owner runs it):**

@@ -331,3 +331,40 @@ Neither line quotes a gate question (checked by the spec tests).
 - **Estimate $0.37 (range $0.33–0.45):** 87 parses at v11's measured rate ($0.052 for the first, cache-writing call, then $0.0029 each: $0.30), plus the writer and the judge on about 10–16 changed decided answers ($0.0056 each).
 - **Cap $0.50,** because the spend guard keeps one call's worst case ($0.093) free, so a $0.45 cap could stop near the end.
 - **Budget:** $3.56 + $0.19 = **$3.75 spent, $1.25 left.** After step 6 at its estimate, **$0.88** would be left, below final2's $0.90 floor, so **final2 goes to the owner (the rule set before the gate).** At the bottom of the range ($0.33), $0.92 is left.
+
+## 14. Step 6 result: judged dev re-parse with v11 (`f52e160181ca`, $0.4092, stopped one question short)
+
+**The run** (`eval/runs/e2e/dev_reparse_v11_f52e160181ca.partial.jsonl`, local):
+- v11 on every dev question, from the v9 re-parse, with the engine's policy A, F1, F2 and I1–I4.
+- **It stopped on the spend guard after 86 of 87 questions** (the guard keeps one call's worst case, $0.0925, free under the $0.50 cap).
+- **The cost passed the $0.37 estimate:** 25 answers changed and **20 were judged**, against the 10–16 assumed (parser $0.260, judge $0.104, writer about $0.01).
+- **The missing question, train_526,** is carried over from its v9 record (decided, wrong); it was not re-parsed with v11.
+- `eval/e2e_dev.py reparse` now keeps a stopped run as `*.partial.jsonl`, as the gate runner does; this file was renamed by hand.
+
+| dev (87 questions) | decided | accuracy on decided | overall (non-decided = wrong) |
+|---|---|---|---|
+| start of phase 4.6 (v9 re-parse) | 64 (73.6%) | 85.2% | 62.6% |
+| **step 6, judged** | **74 (85.1%)** | **81.1%** | **69.0%** |
+
+**Guardrail met:** overall +6.4 points, accuracy on decided ≥ 70%. Not decided: unknown 7, out of scope 4, program can't run 2.
+
+**What the judge says about the changed answers:**
+- **Newly decided and right:** 138, 260, 413, 517 (1.0 each); 432 and 450 partial (0.5).
+- **Newly decided and wrong:** 231 (the board names Đông Hà but gives no distance), 351 (a priority vehicle on duty), 514 (was an unreadable sign), 521 (pedestrian-crossing conduct).
+- **Better:** 254, 0.5 → 1.0 (`speed_limit`).
+- **Re-decided, same grade:** 80, 81, 107, 216, 230, 250, 279, 325, 418.
+- **Now not decided:** 15, 248 and 414 (`multi` / `explain` parts unknown), 159 (v11 parsed it as `guide`), 361 (can't run).
+- **The provisional grades were mostly right:** 260 was 0.5 provisionally, 1.0 judged; the others match.
+
+**Budget:** $3.75 + $0.41 = **$4.16 of $5 spent; $0.84 left.**
+
+**final2 (D4): below the $0.90 floor, so it is the owner's decision.** At $0.84 left it can't run safely:
+- its estimate is $0.85 ($0.70–1.05);
+- a cap of $0.84 minus the guard's per-call reserve stops it near $0.75;
+- a stopped run still uses up the label.
+
+**Options for the owner:**
+1. Raise the round's budget by at least $0.25, for a final2 cap of $1.05 (recommended if the validation set is to measure round 2).
+2. No final2: round 2 is measured on dev only (readable, tuned on, optimistic) before the private run.
+
+The private run's budget (D6) is outside the round either way: $1.15 with the fallback off, $2.10 with it on (step 2's estimate).

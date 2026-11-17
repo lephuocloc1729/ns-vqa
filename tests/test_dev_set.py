@@ -142,3 +142,16 @@ def test_reparse_with_a_reading_policy_reruns_the_engine_on_unchanged_parses(fak
     assert h2["reading_policy"] == "higher_confidence"
     assert rows2[0]["changed"] is False and rows2[1]["changed"] is True and rows2[1]["correct"] == 1.0
     assert sdk2.created == ["parser", "parser", "writer", "judge"]
+
+
+def test_a_reparse_stopped_by_the_spend_guard_is_kept_as_partial(fake_set):
+    from tests.test_e2e_eval import RoutedSDK
+    sdk = _e2e_sdk()
+    sdk.replies["perception"] = [SCENE_REPLY, SCENE_REPLY]
+    src = ed.run_dev("c", 1.0, sdk=sdk, questions=QS, out_dir=fake_set / "dev",
+                     image_path=lambda i: fake_set / f"{i}.jpg", git=CLEAN, candidate=ed.CANDIDATE)
+    sdk2 = RoutedSDK(parser=[{"program": {"intent": "forbidden", "action": "enter",
+                                          "vehicle": {"vehicle_class": "motorbike"}}}])
+    out = ed.reparse(src, "v11", 0.0001, sdk=sdk2, out_dir=fake_set / "dev", git=CLEAN, questions=QS, select="all")
+    assert out.name.endswith(".partial.jsonl") and out.exists()
+    assert not out.with_name(out.name.replace(".partial", "")).exists()

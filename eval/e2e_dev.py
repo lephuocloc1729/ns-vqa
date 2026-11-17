@@ -167,7 +167,7 @@ def reparse(src: Path, version: str, max_spend: float, *, select: str = "yesno",
     from vqa.answer.fallback import trigger
     from vqa.answer.template import template_answer
     from vqa.llm.client import LLMClient
-    from vqa.llm.spend import SpendGuard
+    from vqa.llm.spend import SpendGuard, SpendLimitExceeded
     from vqa.pipeline import Pipeline, PipelineConfig
     from vqa.reasoning.engine import EngineError
     from vqa.schemas import Answer, QueryProgram, SceneGraph, Verdict
@@ -192,59 +192,69 @@ def reparse(src: Path, version: str, max_spend: float, *, select: str = "yesno",
                     "reading_policy": reading_policy or base.reading_policy,
                     "git_commit": g["commit"], "started": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}
         changed = []
+        stopped = None
         with open(out, "w", encoding="utf-8") as f:
             f.write(json.dumps(new_head, ensure_ascii=False) + "\n")
             for r in rows:
-                q = qs[r["id"]]
-                if select != "all" and not YESNO.search(q["question"]):
-                    f.write(json.dumps({**r, "reparsed": False}, ensure_ascii=False, default=str) + "\n")
-                    continue
-                pr = pipe.parser.parse(q["question"])
-                old = (r["trace"].get("parser") or {})
-                old_c = canonical(QueryProgram.model_validate(old["program"])) if old.get("program") else None
-                new_c = canonical(pr.query) if pr.query is not None else None
-                scene = SceneGraph.model_validate(r["scene"]) if r.get("scene") else None
-                if old.get("status") == pr.status and old_c == new_c:
-                    same = True
-                    if reading_policy and scene is not None and pr.status == "ok":
-                        try:
-                            a0 = pipe.engine.answer(scene, pr.query)
-                            ea = r.get("engine_answer") or {}
-                            same = _decision_key(a0.verdict.value, json.loads(json.dumps(a0.value, default=str))) \
-                                == _decision_key(ea.get("verdict"), ea.get("value"))
-                        except EngineError:
-                            same = r.get("engine_verdict") is None
-                    if same:
-                        f.write(json.dumps({**r, "reparsed": True, "changed": False}, ensure_ascii=False, default=str) + "\n")
-                        continue
-                ans, err = None, None
-                if scene is not None and pr.status == "ok":
-                    try:
-                        ans = pipe.engine.answer(scene, pr.query)
-                    except EngineError as e:
-                        err = str(e)
-                why = trigger(scene_ok=scene is not None, parse_status=pr.status, answer=ans, engine_error=err is not None)
-                decided = why is None and ans is not None and ans.verdict.value in DECIDED
-                rec = {**r, "reparsed": True, "changed": True, "decided": decided, "trigger": why,
-                       "engine_verdict": ans.verdict.value if ans else None, "parse_status": pr.status,
-                       "engine_answer": ans.model_dump(mode="json") if ans else None,
-                       "correct": None, "strict": None, "judge_label": None, "judge_reason": None,
-                       "was": {"decided": r["decided"], "correct": r["correct"], "trigger": r["trigger"]}}
-                rec["trace"] = {**r["trace"], "parser": {"status": pr.status, "attempts": pr.attempts, "errors": pr.errors,
-                                                        "cost_usd": pr.cost_usd,
-                                                        "program": pr.query.model_dump(mode="json", by_alias=True, exclude_none=True)
-                                                        if pr.query else None}}
-                if decided:
-                    w = pipe.writer.write(q["question"], ans, scene)
-                    rec["text"] = w.text
-                    rec.update(ee.grade(q, w.text, judge))
-                else:
-                    a = ans or Answer(verdict=Verdict.unknown)
-                    rec["text"] = template_answer(build_digest(a, scene, pipe.engine.catalog), q["question"])
-                changed.append(r["id"])
-                f.write(json.dumps(rec, ensure_ascii=False, default=str) + "\n")
-                f.flush()
-                print(f"{r['id']}: changed; {'decided' if decided else why}  spent ${guard.spent:.4f}")
+              try:
+                  q = qs[r["id"]]
+                  if select != "all" and not YESNO.search(q["question"]):
+                      f.write(json.dumps({**r, "reparsed": False}, ensure_ascii=False, default=str) + "\n")
+                      continue
+                  pr = pipe.parser.parse(q["question"])
+                  old = (r["trace"].get("parser") or {})
+                  old_c = canonical(QueryProgram.model_validate(old["program"])) if old.get("program") else None
+                  new_c = canonical(pr.query) if pr.query is not None else None
+                  scene = SceneGraph.model_validate(r["scene"]) if r.get("scene") else None
+                  if old.get("status") == pr.status and old_c == new_c:
+                      same = True
+                      if reading_policy and scene is not None and pr.status == "ok":
+                          try:
+                              a0 = pipe.engine.answer(scene, pr.query)
+                              ea = r.get("engine_answer") or {}
+                              same = _decision_key(a0.verdict.value, json.loads(json.dumps(a0.value, default=str))) \
+                                  == _decision_key(ea.get("verdict"), ea.get("value"))
+                          except EngineError:
+                              same = r.get("engine_verdict") is None
+                      if same:
+                          f.write(json.dumps({**r, "reparsed": True, "changed": False}, ensure_ascii=False, default=str) + "\n")
+                          continue
+                  ans, err = None, None
+                  if scene is not None and pr.status == "ok":
+                      try:
+                          ans = pipe.engine.answer(scene, pr.query)
+                      except EngineError as e:
+                          err = str(e)
+                  why = trigger(scene_ok=scene is not None, parse_status=pr.status, answer=ans, engine_error=err is not None)
+                  decided = why is None and ans is not None and ans.verdict.value in DECIDED
+                  rec = {**r, "reparsed": True, "changed": True, "decided": decided, "trigger": why,
+                         "engine_verdict": ans.verdict.value if ans else None, "parse_status": pr.status,
+                         "engine_answer": ans.model_dump(mode="json") if ans else None,
+                         "correct": None, "strict": None, "judge_label": None, "judge_reason": None,
+                         "was": {"decided": r["decided"], "correct": r["correct"], "trigger": r["trigger"]}}
+                  rec["trace"] = {**r["trace"], "parser": {"status": pr.status, "attempts": pr.attempts, "errors": pr.errors,
+                                                          "cost_usd": pr.cost_usd,
+                                                          "program": pr.query.model_dump(mode="json", by_alias=True, exclude_none=True)
+                                                          if pr.query else None}}
+                  if decided:
+                      w = pipe.writer.write(q["question"], ans, scene)
+                      rec["text"] = w.text
+                      rec.update(ee.grade(q, w.text, judge))
+                  else:
+                      a = ans or Answer(verdict=Verdict.unknown)
+                      rec["text"] = template_answer(build_digest(a, scene, pipe.engine.catalog), q["question"])
+                  changed.append(r["id"])
+                  f.write(json.dumps(rec, ensure_ascii=False, default=str) + "\n")
+                  f.flush()
+                  print(f"{r['id']}: changed; {'decided' if decided else why}  spent ${guard.spent:.4f}")
+              except SpendLimitExceeded as e:       # phase 4.6: a stopped re-parse is kept as partial
+                stopped = e
+                break
+    if stopped is not None:
+        partial = out.with_suffix(".partial.jsonl")
+        out.rename(partial)
+        print(f"stopped by the spend guard ({stopped}); partial file -> {partial}  (spent ${guard.spent:.4f})")
+        return partial
     print(f"reparse {run_id} -> {out}  changed: {changed}  (spent ${guard.spent:.4f})")
     return out
 
