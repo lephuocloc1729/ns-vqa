@@ -177,6 +177,10 @@ class Engine:
             return Answer(verdict=Verdict.unknown, note="out of scope for the rules: "
                           + (query.out_of_scope_reason or "no DSL intent fits"))
         program = normalize(query.program if isinstance(query, QueryProgram) else query)
+        program, from_right = resolve_lanes(program, scene_lane_count(scene))
+        if program is None:
+            return Answer(verdict=Verdict.unknown, note="the question counts lanes from the right "
+                          f"({', '.join(map(str, from_right))}), and the scene does not say how many lanes there are")
         variants = reading_variants(scene)
         answers = [(picked, self._run(sc, program)) for sc, picked in variants]
         first = answers[0][1]
@@ -971,6 +975,40 @@ _GROUPS_VI = [("DP.", "biển báo cấm"), ("IE.", "biển chỉ dẫn"), ("P."
 def sign_group_vi(code: str) -> str | None:
     """The art. 11 group name of a catalog code (phase 4.5 rank 1)."""
     return next((name for pre, name in _GROUPS_VI if code.startswith(pre)), None)
+
+
+def resolve_lanes(p, n: int | None):
+    """Phase 4.5 lane fix: a lane counted from the right (-1 = rightmost) becomes its number
+    from the left, n - k + 1, given the scene's lane count n. Returns (program, negative lanes
+    seen); the program is None when one can't be numbered (no count, or more than n)."""
+    from pydantic import BaseModel
+
+    seen: list[int] = []
+
+    def walk(x):
+        if isinstance(x, list):
+            out = [walk(y) for y in x]
+            return None if any(o is None for o, y in zip(out, x) if y is not None) else out
+        if not isinstance(x, BaseModel):
+            return x
+        upd = {}
+        for name in type(x).model_fields:
+            v = getattr(x, name)
+            if name == "lane" and isinstance(v, int) and v < 0:
+                seen.append(v)
+                if n is None or -v > n:
+                    return None
+                upd[name] = n + v + 1
+            elif isinstance(v, (BaseModel, list)):
+                w = walk(v)
+                if w is None:
+                    return None
+                if w is not v:
+                    upd[name] = w
+        return x.model_copy(update=upd) if upd else x
+
+    out = walk(p)
+    return out, seen
 
 
 def distance_text(m: float | None) -> str | None:

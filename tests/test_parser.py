@@ -192,6 +192,8 @@ FROZEN_PROMPTS = {
            "fewshot.jsonl": "f644a21c024865bf4bbe55c00a44542e6ded14d84a3dfc383421856f2a1c04a5"},
     "v5": {"spec.md": "447471827b3df0f2f9d598f0a643685c6410cee81224042ed7ab86cc6eb0f91d",
            "fewshot.jsonl": "f644a21c024865bf4bbe55c00a44542e6ded14d84a3dfc383421856f2a1c04a5"},
+    "v6": {"spec.md": "c3c78d024016d9e943ec8cfa94f4edbb08a2d44ac865491f05eee308cdc61028",
+           "fewshot.jsonl": "f644a21c024865bf4bbe55c00a44542e6ded14d84a3dfc383421856f2a1c04a5"},
 }
 
 
@@ -227,7 +229,7 @@ def test_v6_is_v5_with_the_sign_rules_narrowed():
     assert "put that selector on every claim about the sign" in diff[1]
 
 
-@pytest.mark.parametrize("version", ["v5", "v6"])
+@pytest.mark.parametrize("version", ["v5", "v6", "v7"])
 def test_spec_does_not_quote_gate_questions(version):
     # rules learned from public_dev errors must not carry a gate question's wording,
     # or it would act as an unexcluded few-shot
@@ -257,14 +259,14 @@ def test_each_version_changes_one_spec_line(old, new, changed):
     assert len(a) == len(b) and len(diff) == 1 and changed in diff[0]
 
 
-@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6"])
+@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6", "v7"])
 def test_fewshots_are_valid_programs(engine, version):
     for ex in examples(version):
         q = to_query(WParse.model_validate(ex["output"]), 2026)
         assert validator.check(q, engine) == [], ex["id"]
 
 
-@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6"])
+@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6", "v7"])
 def test_fewshots_come_from_train_or_public_dev_only(version):
     split = json.loads((ROOT / "data" / "splits" / "public_split.json").read_text())
     holdout = set(split["public_holdout"]["questions"])
@@ -441,3 +443,68 @@ def test_raw_replies_and_usage_kept_for_every_attempt(engine):
 def test_default_parser_is_sonnet_at_medium():
     from vqa.parsing import claude_parser as cp
     assert (cp.DEFAULT_MODEL, cp.DEFAULT_EFFORT) == ("claude-sonnet-5-5", "medium")
+
+
+# ---------------------------------------------------------------- v7 (phase 4.5 B2)
+
+def test_v7_keeps_v6_fewshots_and_adds_train_ones_outside_dev_and_validation():
+    """Owner, 2026-11-17: v7's new few-shots come from train, outside the phase-4.5 dev and
+    validation sets and their images, with the exact question text. Only ids and image ids
+    of those sets are read here."""
+    v6, v7 = examples("v6"), examples("v7")
+    ids6 = [e["id"] for e in v6]
+    assert [e["id"] for e in v7][:len(v6)] == ids6
+    changed = [e["id"] for a, e in zip(v6, v7) if a != e]
+    assert changed == ["train_215"]                     # guide content is in scope now
+    new = v7[len(v6):]
+    assert new and all(e["split"] == "train" for e in new)
+    dev = json.loads((ROOT / "data" / "splits" / "train_dev.json").read_text())
+    val = json.loads((ROOT / "data" / "splits" / "train_validation.json").read_text())
+    banned_q = set(dev["questions"]) | set(val["questions"])
+    banned_img = set(dev["images"]) | set(val["images"])
+    assert not {e["id"] for e in v7} & banned_q
+    train = (Path(os.environ.get("VQA_DATASET_DIR", ROOT / "VLSP2025-MLQA-Natural"))
+             / "dataset" / "train data" / "vlsp_2025_train.json")
+    if train.exists():
+        img = {t["id"]: t["image_id"] for t in json.loads(train.read_text(encoding="utf-8"))}
+        assert not {img[e["id"]] for e in v7 if e["split"] == "train"} & banned_img
+
+
+def test_v7_covers_the_new_intents_and_slots():
+    progs = json.dumps([e["output"] for e in examples("v7")])
+    for needle in ('"aspect": "group"', '"aspect": "conduct"', '"aspect": "scope"', '"intent": "present"',
+                   '"intent": "guide"', '"lane": -1'):
+        assert needle in progs, needle
+    spec = (ROOT / "prompts" / "parser" / "v7" / "spec.md").read_text()
+    for rule in ("`road_divided`", "`vehicles`", "xe cảnh sát", "`category`", "is negative", "`placement`"):
+        assert rule in spec, rule
+
+
+def test_v7_spec_does_not_quote_dev_questions():
+    """Dev is the tuning set: its wording must not sit in the spec as an unlisted few-shot."""
+    train = (Path(os.environ.get("VQA_DATASET_DIR", ROOT / "VLSP2025-MLQA-Natural"))
+             / "dataset" / "train data" / "vlsp_2025_train.json")
+    if not train.exists():
+        pytest.skip("dataset not available")
+    dev = set(json.loads((ROOT / "data" / "splits" / "train_dev.json").read_text())["questions"])
+    spec = (ROOT / "prompts" / "parser" / "v7" / "spec.md").read_text().lower()
+    for q in json.loads(train.read_text(encoding="utf-8")):
+        if q["id"] in dev:
+            words = q["question"].lower().split()
+            for i in range(len(words) - 5):
+                assert " ".join(words[i:i + 6]) not in spec, q["id"]
+
+
+def test_v7_prompt_lists_the_phase45_rows_and_v6_does_not():
+    assert "R.122 |" in system_prompt("v7") and "R.122 |" not in system_prompt("v6")
+
+
+def test_v7_retry_sends_only_the_error(engine):
+    from vqa.perception.wire import PLACEHOLDER
+    p, sdk = parser([BAD, GOOD], engine, prompt_version="v7")
+    assert p.parse("...").status == "ok"
+    msgs = sdk.created[1]["messages"]
+    assert msgs[1] == {"role": "assistant", "content": PLACEHOLDER} and "every_vehicle" in msgs[2]["content"]
+    p6, sdk6 = parser([BAD, GOOD], engine)
+    p6.parse("...")
+    assert sdk6.created[1]["messages"][1]["content"] != PLACEHOLDER          # v6 keeps its echo

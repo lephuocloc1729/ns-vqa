@@ -17,7 +17,7 @@ import datetime as dt
 from enum import Enum
 from typing import Annotated, Any, Literal, Union
 
-from pydantic import model_serializer, BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator, model_serializer, model_validator
 
 SCHEMA_VERSION = "1.2"
 
@@ -482,13 +482,25 @@ class Selector(_Model):
     only: bool = False  # "đây là biển gì?" - the single sign in the image
 
 
+def _question_lane(v: int | None) -> int | None:
+    if v is not None and (v == 0 or v < -8):
+        raise ValueError("lane: 1 = leftmost, -1 = rightmost (counted from the right); 0 is not a lane")
+    return v
+
+
+# A lane the question names (phase 4.5 B2, the lane fix): 1, 2, ... from the left; -1, -2, ...
+# from the right ("làn ngoài cùng bên phải" = -1). The engine turns a negative lane into its
+# number from the scene's lane count, and answers unknown when the count isn't known.
+QuestionLane = Annotated[int, AfterValidator(_question_lane)]
+
+
 class Permitted(_Model):
     intent: Literal["permitted"] = "permitted"
     action: Action
     vehicle: Vehicle
     when: When | None = None
     sign: Selector | None = None
-    lane: Annotated[int, Field(ge=1)] | None = None  # 1 = leftmost; lane rules then apply too
+    lane: QuestionLane | None = None  # 1 = leftmost, -1 = rightmost; lane rules then apply too
 
 
 class Forbidden(_Model):
@@ -500,14 +512,14 @@ class Forbidden(_Model):
     vehicle: Vehicle
     when: When | None = None
     sign: Selector | None = None
-    lane: Annotated[int, Field(ge=1)] | None = None
+    lane: QuestionLane | None = None
 
 
 class SpeedOk(_Model):
     intent: Literal["speed_ok"] = "speed_ok"
     vehicle: Vehicle
     speed_kmh: float
-    lane: int | None = None
+    lane: QuestionLane | None = None
     when: When | None = None
     road_divided: bool | None = None   # phase 4.5: "đường có / không có dải phân cách", stated in the question
 
@@ -536,7 +548,7 @@ class LaneVehicles(_Model):
     optionally at a speed."""
 
     intent: Literal["lane_vehicles"] = "lane_vehicles"
-    lane: Annotated[int, Field(ge=1)]
+    lane: QuestionLane
     status: Literal["allowed", "banned"] = "allowed"
     speed_kmh: float | None = None
     when: When | None = None
@@ -548,7 +560,7 @@ class SpeedLimit(_Model):
 
     intent: Literal["speed_limit"] = "speed_limit"
     vehicle: Vehicle = Field(default_factory=lambda: Vehicle(**{"class": "motor_vehicle"}))
-    lane: Annotated[int, Field(ge=1)] | None = None
+    lane: QuestionLane | None = None
     kind: Literal["max", "min"] = "max"
     when: When | None = None
     road_divided: bool | None = None   # phase 4.5: stated in the question

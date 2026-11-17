@@ -541,3 +541,43 @@ def test_new_programs_pass_the_validator(engine, program):
 def test_bad_new_programs_are_rejected(engine, program, err):
     errs = validate(_q(program), engine)
     assert errs and err in " ".join(errs)
+
+
+# ---------------------------------------------------------------- lanes counted from the right (B2 lane fix)
+
+from vqa.reasoning.engine import resolve_lanes  # noqa: E402
+from vqa.schemas import LaneSpec, LaneVehicles, Permitted, VehicleSpec  # noqa: E402
+
+CAR = Vehicle(cls=VehicleClass.car)
+
+
+def test_negative_lanes_count_from_the_right():
+    p = Choose(options=[ChoiceOption(label="làn phải", claim=Permitted(action="turn_right", vehicle=CAR, lane=-1), expect=True),
+                        ChoiceOption(label="làn trái", claim=Permitted(action="turn_left", vehicle=CAR, lane=1), expect=True)])
+    out, seen = resolve_lanes(p, 3)
+    assert [o.claim.lane for o in out.options] == [3, 1] and seen == [-1]
+    assert resolve_lanes(p, None) == (None, [-1])
+    assert resolve_lanes(Permitted(action="park", vehicle=CAR, lane=-4), 3)[0] is None
+    q = Permitted(action="park", vehicle=CAR, lane=2)
+    assert resolve_lanes(q, None) == (q, [])
+
+
+def test_lane_zero_is_rejected():
+    with pytest.raises(ValueError):
+        Permitted(action="park", vehicle=CAR, lane=0)
+
+
+def test_rightmost_lane_from_a_lane_board(engine):
+    """Modelled on "Xe tải được đi ở làn ngoài cùng bên phải không?" with an R.412 board whose
+    rows give the lane count (3): the rightmost lane is lane 3."""
+    rows = [LaneSpec(lane=1, vehicles=[VehicleSpec(cls=VehicleClass.passenger_car)]),
+            LaneSpec(lane=2, vehicles=[VehicleSpec(cls=VehicleClass.car)]),
+            LaneSpec(lane=3, vehicles=[VehicleSpec(cls=VehicleClass.truck)])]
+    board = Sign(id="s1", code="R.415a", shape="rectangle", border="none", background="blue",
+                 position=Position(rank_top_down=1), lanes=rows)
+    scene = SceneGraph(scene_id="x", signs=[board])
+    a = engine.answer(scene, LaneVehicles(lane=-1))
+    b = engine.answer(scene, LaneVehicles(lane=3))
+    assert a.verdict == b.verdict and a.value == b.value
+    none = engine.answer(SceneGraph(scene_id="x", signs=[S("s1", "P.130")]), Permitted(action="park", vehicle=CAR, lane=-1))
+    assert none.verdict is Verdict.unknown and "lanes from the right" in none.note

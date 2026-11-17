@@ -26,6 +26,7 @@ from vqa.llm.spend import SpendGuard, SpendLimitExceeded
 from vqa.parsing import validator
 from vqa.parsing.prompt import system_prompt
 from vqa.parsing.wire import explain, from_wire, to_query
+from vqa.perception.wire import PLACEHOLDER
 from vqa.reasoning.engine import Engine
 from vqa.schemas import QueryProgram
 
@@ -112,7 +113,16 @@ class ClaudeParser:
                 return res
             res.errors = errs
             res.status = "invalid"
-            extra = [{"role": "assistant", "content": raw or "(empty reply)"},
-                     {"role": "user", "content": "That answer is not valid: " + "; ".join(errs)
-                      + ". Reply with only the corrected JSON object."}]
+            extra = self._retry(raw, errs)
         return res
+
+    # Prompts frozen before phase 4.5 echo the rejected reply back as the assistant turn; from
+    # v7 on (B2) the retry sends only the error, with a placeholder assistant turn, so prose
+    # around the JSON is not repeated (the scene call's retry, vqa/perception/wire.py).
+    ECHO_VERSIONS = frozenset({"v1", "v2", "v3", "v4", "v5", "v6"})
+
+    def _retry(self, raw: str, errs: list[str]) -> list[dict]:
+        msg = "That answer is not valid: " + "; ".join(errs) + ". Reply with only the corrected JSON object."
+        if self.prompt_version in self.ECHO_VERSIONS:
+            return [{"role": "assistant", "content": raw or "(empty reply)"}, {"role": "user", "content": msg}]
+        return [{"role": "assistant", "content": PLACEHOLDER}, {"role": "user", "content": msg}]
