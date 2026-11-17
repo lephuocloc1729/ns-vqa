@@ -1634,7 +1634,112 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
-### Handoff (2026-11-17): phase 4.6 final2 done; D6 and the doc update are next
+### Handoff (2026-11-17): coverage round 3 (phase 4.7)
+
+#### Where things stand
+
+- **Round 2 (phase 4.6) is closed.** Its one final2 validation ran (`fe2c16d80a18`, frozen `eval/frozen_phase46.json`, fallback off, aggregate only; sentinel `eval/validation_ran_final2.json`, committed in `f313294`):
+  - **decided coverage 69.1% (76/110; 95% CI 60–77), accuracy on decided 76.3% (66–84), overall 52.7% (43–62)**;
+  - against final's (phase 4.5) 47.3%, 77.9%, 36.8%, and the baseline's 30.0%, 72.7%, 21.8%.
+  - Coverage and overall moved outside final's CI; accuracy on decided is about the same.
+  - **Every phase-4.5 target and floor is still missed:** coverage 69.1% against the 70% floor (one question short), accuracy 76.3% against the 85% floor, overall 52.7% against the 60% floor.
+  - By type: Yes/No 66.0% decided, 82.9% right when decided; Natural QA 71.9% decided, 70.7%.
+- **What round 2 built:** `docs/plans/phase-4.6.md` sections 7–16.
+  - Reading policy A (`reading_policy="higher_confidence"`);
+  - F1 (`is_sign` with `only` over several signs);
+  - F2 (unread red boards keep a negative presence claim unknown);
+  - `when.day_parity`;
+  - I1 `multi` and the `article` aspect;
+  - I2 `guide_claim` and `guide` `road_type`;
+  - I3 `explain`;
+  - I4 `speed_limit` `kind: range` and `speed_limit_is`;
+  - parser v11 (v10 failed the gate's no-regression rule; v11 is the one allowed fix);
+  - `e2e_private.py` rules-only figures and a re-based estimate;
+  - an engine-code hash in the freeze record.
+- **Branch `phase-5`, nothing pushed.**
+
+#### The owner's goal for round 3
+
+- **More coverage through knowledge-based rules for the out-of-scope groups,** under CLAUDE.md's source rule:
+  - cite `law_db` where it has the article;
+  - otherwise a rule may come from knowledge of QCVN 41:2024, Law 36/2024 or Circular 38/2024, marked `law_id: interpretation` with a basis note, never counted as a law citation, and never contradicting `law_db`.
+- **No final3.** The validation set has been used three times (baseline, final, final2). Round 3 is measured by the private run (and on dev, which is readable and tuned on, so optimistic).
+
+#### Why questions are not decided
+
+- **final2, validation (aggregate only; 34 of 110):** out of scope 18, unknown 7, program can't run 5, unreadable sign 3, parse failed 1, uncertain 0. No per-question cause may be read.
+- **Dev under v11** (`eval/runs/e2e/dev_reparse_v11_f52e160181ca.partial.jsonl`, judged; train_526 carried over from v9; 13 of 87):
+  - unknown 7: 15, 159, 248, 414, 415, 421, 451 (`multi` / `explain` parts undecided; 248's disc read as a minimum; 159 parsed as `guide`);
+  - out of scope 4: 259 (a board's symbols), 341 (traffic light), 386 (junction contents), 515 (board directions for motorbikes plus a claim);
+  - program can't run 2: 145, 361.
+- **D3, the train Yes/No working set** (`821164d62679`, parsed with v9, biased; plan section 9). Its 17 out-of-scope questions:
+  - guide-board claims 8 (104, 105, 124, 267, 301, 358, 390, 424; now covered by I2 except 358);
+  - what lies ahead 2 (378 Y junction, 389 tunnel);
+  - road markings 2 (94, 113);
+  - who a sign applies to / every vehicle except one 2 (312, 256);
+  - a speed-range claim 1 (359);
+  - a set of lanes 1 (433);
+  - counting signs 1 (332).
+  - Out of scope by the owner's decision (2026-11-17): road markings, who a sign applies to, lane sets. Round 3 may reopen them as knowledge-based rules only with the owner's OK.
+- **Other out-of-scope wordings in the train working set** (by wording only; plan section 2.3): counting signs about 4 (172, 243, 458, 469), road markings 2, traffic lights.
+
+#### Required before the private run
+
+- **`eval/e2e_private.py` still checks `frozen_phase45.json` by default** (`frozen_perception_model`, `guards`, `run_private`) and builds its pipeline from that record's profile. It must be pointed at the round-3 freeze record (a new profile and record written once, as `phase46` was), with a test.
+- **D6, the private run's budget,** is the owner's decision. Estimate (counts only, phase-4.5 measured rates calibrated to final): $1.15 (0.92–1.50) with the fallback off, $2.10 (1.68–2.73) with it on. Re-base it on final2's measured $0.0082 per question.
+- **Reviews still owed:**
+  - `kb/sign_info.yaml`, `kb/sign_catalog_effects.yaml`, R.421 / R.122 / S.501, KB-1 to KB-8, Circular 38 speeds;
+  - the v7–v11 spec lines without train examples;
+  - the guide-trial labels;
+  - F2's red-board rule and I2's `AHEAD_FEATURES` codes and words (`vqa/reasoning/engine.py`).
+
+#### Still open
+
+- **Step 8, the doc update (approved under D5):** schema 1.3 in CLAUDE.md and DESIGN.md, the phase-4.5 and 4.6 intents and slots, negative lanes, the guide call, and the uncertain-verdict wording changed by policy A. `SCHEMA_VERSION` stays "1.2" (owner). Doc-only; not done.
+
+#### Spend
+
+- **Round 2: $5.07 of $5.25** (the owner raised it by $0.25 for final2):
+  - earlier round-2 spend $2.95;
+  - D3 parse-only $0.4184;
+  - gate v10 $0.1895;
+  - gate v11 $0.1861;
+  - dev re-parse v11 $0.4092;
+  - final2 $0.9048.
+- $0.18 left. Round 3 needs its own budget.
+
+#### Key files and commands
+
+- **Plans and records:** `docs/plans/phase-4.6.md` (decisions section 7; results 8–16), `docs/plans/phase-4.5.md`, this file, `CLAUDE.md`.
+- **Freeze profiles** (`eval/freeze.py`, `PROFILES`; each record is written once):
+
+  | profile | record | system | used by |
+  |---|---|---|---|
+  | `phase4` | `eval/frozen_phase4.json` | scene v4, parser v6 | public_holdout run; validation `baseline` |
+  | `phase45` | `eval/frozen_phase45.json` | scene v5 + guide, parser v9 | validation `final`; `e2e_private.py` default (to change) |
+  | `phase46` | `eval/frozen_phase46.json` | scene v5 + guide, parser v11, reading policy A, engine-code hash | validation `final2` |
+
+  - Switches left out of older records: `POST_FREEZE_SWITCHES`, `EXCLUDED_SWITCHES`, `LATER_SWITCHES` (`reading_policy` defaults to "all", the phase-4.5 behaviour).
+  - `.venv/bin/python eval/freeze.py check --profile phase46` (or `phase45`, `phase4`); `write --profile <new>` for a new record.
+- **Dev** (`eval/e2e_dev.py`):
+  - `reparse --from <run> --version vN --select all --reading-policy higher_confidence --max-spend X`; a stopped run is kept as `*.partial.jsonl`;
+  - `summary <file>`.
+  - The latest dev record is `eval/runs/e2e/dev_reparse_v11_f52e160181ca.partial.jsonl`.
+- **Free analyses:** `eval/phase46_analysis.py` (`calibrate`, `uncertain`, `step1`, `step4`, `trainset`, `oos`); provisional grades in `eval/runs/e2e/phase46_provisional_grades.json` (local).
+- **Train Yes/No runner** (biased, parse only): `eval/e2e_trainset.py estimate | run --max-spend X | summary <file>`.
+- **Parser gate:** `eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version vN --max-spend 0.40`, then `score <file>` and `compare --old <the three v6 runs> --new <file>`.
+  - The cap must be at least $0.40, because the runner refuses below its own conservative expected cost.
+  - Design features given back: `DESIGN_FEATURES`.
+- **Validation:** `eval/e2e_validation.py`; labels `baseline`, `final`, `final2`, all used. No further label is planned.
+- **Private:** `eval/e2e_private.py estimate`, then `run --confirm-frozen --max-spend X`; on hold until it points at the round-3 record and D6 is decided.
+
+#### Working rules
+
+- Stage files by name and check the staged list. Run the suite and the commit as one `&&` chain.
+- No API call without the owner's go-ahead on an estimate; the owner runs paid commands.
+- Not touched: the validation set beyond its aggregates, public_holdout, private, gold, and the written freeze records.
+
+### Handoff (2026-11-17): phase 4.6 final2 done; D6 and the doc update are next (kept as a record)
 
 - **final2** (`fe2c16d80a18`, once, aggregate only, $0.9048): **decided 69.1% (60–77), accuracy on decided 76.3% (66–84), overall 52.7% (43–62)**, against final's 47.3% / 77.9% / 36.8%.
   - Coverage and overall are outside final's CI; accuracy is about the same.
