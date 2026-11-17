@@ -239,17 +239,47 @@ def _run_final2(fake_set, **kw):
     return ev.run_validation("final2", 1.0, **args), sdk
 
 
-def test_final2_has_its_own_record_and_sentinel():
+# Owner, 2026-11-17 (phase 4.7, option 1): final2 ran once (its sentinel blocks a rerun), and round 3
+# adds engine files. These two tests therefore check the phase46 record's engine-code hash against
+# the files at the freeze commit, read from git, instead of the working tree. The run-time guard in
+# e2e_validation.py / freeze.py is unchanged (test_an_engine_code_change_is_refused_... still holds).
+PHASE46_FREEZE_COMMIT = "9d78dad"
+
+
+def _code_hash_at(commit: str, tmp) -> dict:
+    import io
+    import subprocess
+    import tarfile
+    blob = subprocess.run(["git", "archive", commit, "vqa", "kb"], cwd=fz.ROOT, capture_output=True,
+                          check=True).stdout
+    with tarfile.open(fileobj=io.BytesIO(blob)) as t:
+        t.extractall(tmp, filter="data")
+    return fz.code_hash(tmp)
+
+
+def _phase46_record_for_this_tree(tmp) -> dict:
+    """The phase46 record, after checking its engine-code hash against the freeze commit; its
+    engine_code is then set to the working tree's, so the rest is checked against the tree."""
+    rec = fz.load(fz.FROZEN_PHASE46)
+    assert rec["engine_code"] == _code_hash_at(PHASE46_FREEZE_COMMIT, tmp)
+    return {**rec, "engine_code": fz.code_hash()}
+
+
+def test_final2_has_its_own_record_and_sentinel(tmp_path):
     assert ev.LABELS["final2"] == fz.FROZEN_PHASE46 and ev.sentinel("final2").name == "validation_ran_final2.json"
     assert ev.sentinel("final2") != ev.sentinel("final")
     rec = fz.load(fz.FROZEN_PHASE46)
     assert rec["profile"] == "phase46" and rec["pipeline_config"]["parser_version"] == "v11"
     assert rec["pipeline_config"]["reading_policy"] == "higher_confidence" and rec["engine_code"]["files"] > 0
-    assert fz.check(fz.FROZEN_PHASE46) == [] and fz.check(fz.FROZEN_PHASE45) == [] and fz.check(fz.FROZEN) == []
+    p = tmp_path / "frozen46_tree.json"
+    p.write_text(json.dumps(_phase46_record_for_this_tree(tmp_path / "at_freeze")), encoding="utf-8")
+    assert fz.check(p) == [] and fz.check(fz.FROZEN_PHASE45) == [] and fz.check(fz.FROZEN) == []
 
 
-def test_the_final2_run_uses_the_phase46_profile(fake_set):
-    out, sdk = _run_final2(fake_set)
+def test_the_final2_run_uses_the_phase46_profile(fake_set, tmp_path):
+    p = tmp_path / "frozen_phase46.json"
+    p.write_text(json.dumps(_phase46_record_for_this_tree(tmp_path / "at_freeze")), encoding="utf-8")
+    out, sdk = _run_final2(fake_set, frozen=p)
     rep = json.loads(out.read_text())
     assert rep["frozen_record"] == "frozen_phase46.json" and rep["profile"] == "phase46"
     assert rep["what"].startswith("phase 4.6 validation, final2")
