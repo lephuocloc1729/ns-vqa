@@ -131,6 +131,7 @@ class WSelector(_W):
     position: Optional[Literal["top", "bottom"]] = None
     rank_top_down: Optional[int] = None
     side: Optional[SideLit] = None
+    category: Optional[CategoryLit] = None     # phase 4.5: "biển cấm trong ảnh ..."
     only: bool = False
 
 
@@ -158,6 +159,7 @@ class WSpeedOk(_W):
     vehicle: Optional[WVehicle] = None
     lane: Optional[int] = None
     when: Optional[WWhen] = None
+    road_divided: Optional[bool] = None
 
 
 class WRequired(_W):
@@ -180,7 +182,14 @@ class WIsSign(_W):
     category: Optional[CategoryLit] = None
 
 
-_LEAF_MODELS = (WPermitted, WForbidden, WSpeedOk, WRequired, WExistsViolation, WIsSign)
+class WPresent(_W):
+    intent: Literal["present"]
+    code: Optional[CodeLit] = None
+    meaning: Optional[MeaningLit] = None
+    category: Optional[CategoryLit] = None
+
+
+_LEAF_MODELS = (WPermitted, WForbidden, WSpeedOk, WRequired, WExistsViolation, WIsSign, WPresent)
 LeafClaim = Annotated[Union[_LEAF_MODELS], Field(discriminator="intent")]
 
 
@@ -240,6 +249,13 @@ class WBanTimes(_W):
 class WMeaning(_W):
     intent: Literal["meaning"]
     sign: WSelector
+    aspect: Literal["name", "group", "conduct", "scope", "placement"] = "name"
+
+
+class WGuide(_W):
+    intent: Literal["guide"]
+    ask: Literal["direction", "distance", "destinations", "route"]
+    destination: Optional[str] = None
 
 
 class WWhichVehicles(_W):
@@ -264,10 +280,12 @@ class WSpeedLimit(_W):
     vehicle: Optional[WVehicle] = None
     lane: Optional[int] = None
     when: Optional[WWhen] = None
+    road_divided: Optional[bool] = None
+    vehicles: list[WVehicle] = []
 
 
 _PROGRAM_MODELS = _CLAIM_MODELS + (WVerify, WChoose, WLanesFor, WLanesWhere, WBanTimes,
-                                   WMeaning, WWhichVehicles, WLaneVehicles, WSpeedLimit)
+                                   WMeaning, WWhichVehicles, WLaneVehicles, WSpeedLimit, WGuide)
 WProgram = Annotated[Union[_PROGRAM_MODELS], Field(discriminator="intent")]
 
 
@@ -371,6 +389,10 @@ class _Converter:
                 v = [self.program(c) for c in v]
             elif name == "claim":
                 v = self.program(v)
+            elif name == "vehicles":
+                v = [self.vehicle(x, "speed_limit") for x in v] or None
+            elif name == "aspect" and v == "name":
+                v = None
             elif name == "options":
                 v = [{"label": o.label, "claim": self.program(o.claim), "expect": o.expect}
                      for o in v]

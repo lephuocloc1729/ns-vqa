@@ -17,7 +17,7 @@ import datetime as dt
 from enum import Enum
 from typing import Annotated, Any, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import model_serializer, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 SCHEMA_VERSION = "1.2"
 
@@ -365,6 +365,33 @@ class SceneContext(_Model):
     weather: str | None = None
 
 
+class GuideEntry(_Model):
+    """One destination / route line on a guide board (schema 1.3, phase 4.5 B6)."""
+
+    text: str                                   # as printed, diacritics kept
+    distance_m: float | None = None             # "61 KM" = 61000, "150 M" = 150
+    direction: Literal["straight", "left", "right", "slight_left", "slight_right", "u_turn", "none"] = "none"
+
+
+class BoardSpeed(_Model):
+    kind: Literal["max", "min"]
+    value: float
+
+
+class GuideBoard(_Model):
+    """A guide / information board read by the guide-board call (schema 1.3): its lines, the
+    speed discs printed on or mounted with it, its route plate and other text. Scene-level:
+    the board call returns no boxes, so boards are not tied to sign ids."""
+
+    entries: list[GuideEntry] = []
+    speeds: list[BoardSpeed] = []
+    route: str | None = None
+    other: list[str] = []
+
+
+GUIDE_SCHEMA_VERSION = "1.3"
+
+
 class SceneGraph(_Model):
     scene_id: str
     schema_version: str = SCHEMA_VERSION
@@ -372,6 +399,16 @@ class SceneGraph(_Model):
     signs: list[Sign] = []
     vehicles: list[SceneVehicle] = []
     context: SceneContext = SceneContext()
+    # schema 1.3 (phase 4.5 B6): boards read by the guide-board call. Left out of the dump when
+    # empty, so scenes without boards serialize exactly as schema 1.2 did.
+    guide_boards: list[GuideBoard] = []
+
+    @model_serializer(mode="wrap")
+    def _drop_empty_boards(self, handler):
+        d = handler(self)
+        if isinstance(d, dict) and not d.get("guide_boards"):
+            d.pop("guide_boards", None)
+        return d
 
     @model_validator(mode="after")
     def _unique_ids(self) -> "SceneGraph":
@@ -439,6 +476,9 @@ class Selector(_Model):
     position: Literal["top", "bottom"] | None = None
     side: Side | None = None
     meaning: str | None = None  # a catalog key or tag, e.g. "no_motorbikes", "speed_limit"
+    # phase 4.5: the sign group ("biển cấm" = prohibitory, ...), e.g. "biển trong ảnh cấm hành vi gì?"
+    category: Literal["prohibitory", "mandatory", "warning", "information", "auxiliary",
+                      "end_of_restriction"] | None = None
     only: bool = False  # "đây là biển gì?" - the single sign in the image
 
 
@@ -469,6 +509,7 @@ class SpeedOk(_Model):
     speed_kmh: float
     lane: int | None = None
     when: When | None = None
+    road_divided: bool | None = None   # phase 4.5: "đường có / không có dải phân cách", stated in the question
 
 
 class LanesFor(_Model):
@@ -510,6 +551,8 @@ class SpeedLimit(_Model):
     lane: Annotated[int, Field(ge=1)] | None = None
     kind: Literal["max", "min"] = "max"
     when: When | None = None
+    road_divided: bool | None = None   # phase 4.5: stated in the question
+    vehicles: list[Vehicle] = []       # phase 4.5: several vehicles at once ("ô tô con và xe tải ...")
 
 
 class BanTimes(_Model):
@@ -520,8 +563,22 @@ class BanTimes(_Model):
 
 
 class Meaning(_Model):
+    """What is the selected sign / what does it mean. Phase 4.5 aspects: its art. 11 group
+    ("thuộc nhóm nào"), what it requires of the driver ("người lái xe cần làm gì"), where it
+    takes effect ("có hiệu lực từ đâu đến đâu"), and where it is placed ("đặt ở đâu")."""
+
     intent: Literal["meaning"] = "meaning"
     sign: Selector
+    aspect: Literal["name", "group", "conduct", "scope", "placement"] = "name"
+
+
+class Guide(_Model):
+    """Phase 4.5 B6: what a guide board in the photo says. `ask`: the direction to a
+    destination, the distance to it, the destinations listed, or the route plate."""
+
+    intent: Literal["guide"] = "guide"
+    ask: Literal["direction", "distance", "destinations", "route"]
+    destination: str | None = None
 
 
 class Required(_Model):
@@ -558,6 +615,22 @@ class IsSign(_Model):
         return self
 
 
+class Present(_Model):
+    """Phase 4.5: is a sign of this code / meaning / category in the photo? Closed world over
+    the readable signs; an unread sign that could be it makes the answer unknown."""
+
+    intent: Literal["present"] = "present"
+    code: str | None = None
+    meaning: str | None = None
+    category: SignCategory | None = None
+
+    @model_validator(mode="after")
+    def _one_target(self) -> "Present":
+        if sum(x is not None for x in (self.code, self.meaning, self.category)) != 1:
+            raise ValueError("present needs exactly one of code, meaning, category")
+        return self
+
+
 class AllOf(_Model):
     """A and B (and ...): yes when every claim holds."""
 
@@ -573,7 +646,7 @@ class AnyOf(_Model):
 
 
 Claim = Annotated[
-    Union[Permitted, Forbidden, SpeedOk, Required, ExistsViolation, IsSign, AllOf, AnyOf],
+    Union[Permitted, Forbidden, SpeedOk, Required, ExistsViolation, IsSign, Present, AllOf, AnyOf],
     Field(discriminator="intent"),
 ]
 AllOf.model_rebuild()
@@ -616,7 +689,7 @@ class Choose(_Model):
 Program = Annotated[
     Union[Permitted, Forbidden, SpeedOk, LanesFor, LanesWhere, BanTimes, Meaning, Required,
           ExistsViolation, Verify, Choose, IsSign, AllOf, AnyOf, WhichVehicles, LaneVehicles,
-          SpeedLimit],
+          SpeedLimit, Present, Guide],
     Field(discriminator="intent"),
 ]
 

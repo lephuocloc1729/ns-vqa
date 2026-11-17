@@ -1,0 +1,106 @@
+# What a sign requires, where it takes effect and where it is placed (phase 4.5 B1; owner,
+# 2026-11-17). Read by the engine for `meaning(aspect=conduct|scope|placement)`. Every line
+# follows the cited article's wording; quotes are in the comments. reviewed_by: assistant.
+
+reviewed_by: assistant
+
+# Vietnamese wording for the conduct items in the catalog effects (F5).
+conduct_vi:
+  reduce_speed: "giảm tốc độ đến mức cần thiết"
+  drive_slowly: "đi chậm"
+  observe: "chú ý quan sát"
+  be_ready: "chuẩn bị sẵn sàng xử lý tình huống"
+  yield_to_pedestrians: "nhường đường cho người đi bộ"
+  mind_workers_and_machines: "không gây nguy hiểm cho người và máy móc trên đoạn đường thi công"
+  mind_overhead_clearance: "chú ý chiều cao an toàn dưới đường dây điện"
+  obey_traffic_lights: "chấp hành tín hiệu đèn"
+  keep_safe_distance: "giữ khoảng cách an toàn với xe phía trước"
+  follow_the_arrow_direction: "chỉ đi theo chiều mũi tên, không quay đầu ngược lại"
+  priority_over_side_roads: "xe trên đường này được đi trước; xe từ đường nhánh phải dừng lại nhường đường"
+  pass_obstacle_side_shown: "đi vòng chướng ngại vật theo hướng mũi tên"
+  go_round_the_island: "chạy vòng theo đảo an toàn theo hướng mũi tên"
+  yield_from_left: "nhường đường cho xe đi đến từ bên trái"
+  stop_before_the_sign_or_line: "dừng lại trước biển hoặc trước vạch dừng, kể cả xe ưu tiên; chỉ đi khi an toàn hoặc có tín hiệu cho phép"
+  pickup_point: "không dừng, đỗ xe tại điểm đón, trả khách (trừ xe buýt)"
+
+# The rule each conduct source rests on (cited next to the sign's own article).
+conduct_rule:
+  warning: {law_id: "QCVN 41:2024/BGTVT", article_id: "27"}     # "phải giảm tốc độ đến mức cần thiết, chú ý quan sát và chuẩn bị sẵn sàng xử lý"
+  mandatory: {law_id: "QCVN 41:2024/BGTVT", article_id: "32"}   # biển hiệu lệnh: "phải chấp hành"
+  prohibitory: {law_id: "QCVN 41:2024/BGTVT", article_id: "22"}
+
+# Verbs for "không được ..." from a prohibitory sign's banned actions.
+action_vi:
+  enter: "đi vào"
+  go_straight: "đi thẳng"
+  turn_left: "rẽ trái"
+  turn_right: "rẽ phải"
+  u_turn: "quay đầu xe"
+  overtake: "vượt xe khác"
+  stop: "dừng xe"
+  park: "đỗ xe"
+  honk: "sử dụng còi"
+
+# Where a sign takes effect. First matching row wins: `codes` (exact catalog rows, family
+# stems allowed), else `category`.
+scope:
+  - codes: [P.121, P.128]
+    text: "đến hết khoảng cách ghi trên biển phụ S.501, hoặc đến biển DP.135 \"Hết tất cả các lệnh cấm\""
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "26"}   # 26.5
+  - codes: [P.123a, P.123b, P.129]
+    text: "tại khu vực đặt biển"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "26"}   # 26.6
+  - codes: [P.124a, P.124b, P.124c, P.124d, P.124e, P.124f]
+    text: "ở nơi đường giao nhau hoặc chỗ mở dải phân cách (hoặc theo biển phụ S.503)"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "26"}   # 26.7
+  - codes: [P.125, P.126, P.127, P.127a, P.127b, P.127c, P.130, P.131a, P.131b, P.131c]
+    text: "từ vị trí đặt biển đến nơi đường giao nhau tiếp giáp, hoặc đến biển hết cấm (DP.133, DP.134, DP.135, DP.127d)"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "26"}   # 26.8
+  - range: [P.101, P.120]
+    text: "từ vị trí đặt biển trở đi; biển không quy định phạm vi hiệu lực và không có biển hết cấm"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "26"}   # 26.1, 26.3
+  - codes: [R.420]
+    text: "từ vị trí đặt biển đến biển R.421 \"Hết khu đông dân cư\""
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.17"}
+  - category: mandatory
+    text: "kể từ vị trí đặt biển"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "34"}   # 34.2
+  - category: warning
+    text: "báo trước nơi nguy hiểm phía trước; khi nguy hiểm kéo dài trên một đoạn đường thì chiều dài ghi trên biển phụ S.501"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "30"}   # 30.1, 30.4
+  - category: prohibitory
+    text: "từ vị trí đặt biển trở đi"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "26"}   # 26.1
+
+# Where a sign is placed. Same matching as scope.
+placement:
+  - codes: [W.239a]
+    text: "ở nơi có đường dây điện cắt ngang phía trên tuyến đường, kèm biển phụ S.509a \"Chiều cao an toàn\""
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "C.39"}
+  - codes: [R.420]
+    text: "ở nơi bắt đầu đoạn đường vào phạm vi khu đông dân cư"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.17"}
+  - codes: [R.421]
+    text: "ở nơi hết đoạn đường qua phạm vi khu đông dân cư"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.18"}
+  - codes: [I.401]
+    text: "ngay tại vị trí bắt đầu đường ưu tiên"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "39"}   # 39.1
+  - codes: [I.414, I.416, I.417, I.405]
+    text: "cách nơi đường giao nhau từ 20 m đến 50 m"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "39"}   # 39.3
+  - codes: [I.406, I.408, I.409, I.410, I.422, I.423, I.424, I.425, I.426, I.427, I.428, I.429, I.430, I.431, I.432, I.433, I.434, I.435, I.436]
+    text: "ngay tại vị trí trước và sát đoạn đường cần chỉ dẫn (nếu đặt xa hơn phải kèm biển phụ S.502)"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "39"}   # 39.4
+  - category: prohibitory
+    text: "ở nơi đường giao nhau hoặc trước vị trí trên đường cần cấm"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "26"}   # 26.1
+  - category: warning
+    text: "trước nơi định báo một khoảng cách phù hợp, dễ quan sát"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "30"}   # 30.1
+  - category: mandatory
+    text: "tại vị trí cần báo hiệu lệnh (nếu đặt xa hơn phải kèm biển phụ S.502)"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "34"}   # 34.1
+  - category: information
+    text: "về phía bên phải hoặc phía trên phần đường xe chạy, ở vị trí dễ nhìn thấy"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "16"}   # 16.1, 16.2

@@ -116,7 +116,9 @@ def scene_facts(scene: SceneGraph, catalog: Catalog,
         # road-type defaults (kb/rules/zones.pl) don't stand in for a limit it might post.
         # A warning triangle can't post a speed limit, so it is left out.
         if not catalog.has(sign.code) and getattr(sign.shape, "value", None) not in ("triangle",):
-            out.append(Term("unread_sign", atom(sign.id)))
+            from vqa.reasoning.engine import board_read
+            if not (scene.guide_boards and board_read(sign)):      # B6: a board the guide call read
+                out.append(Term("unread_sign", atom(sign.id)))
     if scene.road.divided is not None:
         out.append(Term("road_divided", atom("true" if scene.road.divided else "false")))
     if selection is not None:

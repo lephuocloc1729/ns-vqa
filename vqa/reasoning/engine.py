@@ -18,8 +18,8 @@ from vqa.reasoning.facts import reading_variants, scene_facts
 from vqa.reasoning.terms import Term, atom, to_prolog, vehicle_term
 from vqa.parsing.dsl import normalize
 from vqa.schemas import (
-    AllOf, Answer, AnyOf, BanTimes, Choose, ExistsViolation, IsSign, LanesFor, LanesWhere,
-    LaneVehicles, Meaning, Permitted, SpeedLimit,
+    AllOf, Answer, AnyOf, BanTimes, Choose, Citation, ExistsViolation, Guide, IsSign, LanesFor, LanesWhere,
+    LaneVehicles, Meaning, Permitted, Present, SpeedLimit,
     ONTOLOGY_CLASSES, Forbidden, Program, QueryProgram, Reason, Required, SceneGraph, Selector,
     SpeedOk, Vehicle, VehicleClass, Verdict, Verify, When, WhichVehicles,
 )
@@ -124,6 +124,8 @@ class Engine:
                 continue
             if sel.shape and s.shape != sel.shape:
                 continue
+            if sel.category and not (self.catalog.has(s.code) and self.catalog.get(s.code).category == sel.category):
+                continue
             if not self._colours_match(sel, s):
                 continue
             if sel.side and s.position.side != sel.side:
@@ -200,7 +202,11 @@ class Engine:
                      Required: Verdict.no, ExistsViolation: Verdict.no}
 
     def unreadable_signs(self, scene: SceneGraph) -> list[str]:
-        return [sg.id for sg in scene.signs if not self.catalog.has(sg.code)]
+        """Signs that could not be read. Phase 4.5 B6: when the guide-board call read the photo,
+        an unread blue / green / white / yellow board is one it transcribed, so it no longer
+        counts (red boards, local ban notices, still do)."""
+        return [sg.id for sg in scene.signs if not self.catalog.has(sg.code)
+                and not (scene.guide_boards and board_read(sg))]
 
     def unmodelled_signs(self, scene: SceneGraph) -> list[str]:
         """Catalogued signs whose legal effect the rules don't model (effect_unmodelled)."""
@@ -220,6 +226,11 @@ class Engine:
         shape = sign.shape.value if sign.shape else None
         border = sign.border.value if sign.border else None
         bg = sign.background.value if sign.background else None
+        return Engine.category_of(shape, border, bg)
+
+    @staticmethod
+    def category_of(shape: str | None, border: str | None, bg: str | None) -> str:
+        """visual_category from plain look strings (also used for catalog visuals)."""
         if shape == "circle" and border == "red":
             return "red_circle"
         if shape == "circle" and bg == "blue":
@@ -325,7 +336,11 @@ class Engine:
         if isinstance(p, BanTimes):
             return self._ban_times(scene, p)
         if isinstance(p, Meaning):
-            return self._meaning(scene, p)
+            return self._meaning(scene, p) if p.aspect == "name" else self._meaning_aspect(scene, p)
+        if isinstance(p, Present):
+            return self._present(scene, p)
+        if isinstance(p, Guide):
+            return self._guide(scene, p)
         if isinstance(p, ExistsViolation):
             return self._violations(scene, p)
         if isinstance(p, Required):
@@ -351,7 +366,15 @@ class Engine:
                              _ctx(p.when, scene, p.lane)))
         return _verdict_answer(out)
 
+    @staticmethod
+    def _with_divider(scene: SceneGraph, divided: bool | None) -> SceneGraph:
+        """The question's "có / không có dải phân cách" (phase 4.5) overrides the scene's."""
+        if divided is None:
+            return scene
+        return scene.model_copy(update={"road": scene.road.model_copy(update={"divided": divided})})
+
     def _speed_ok(self, scene: SceneGraph, p: SpeedOk) -> Answer:
+        scene = self._with_divider(scene, p.road_divided)
         self.load_scene(scene)
         out = self.call(Term("q_speed", vehicle_term(p.vehicle), float(p.speed_kmh),
                              p.lane, _ctx(p.when, scene, p.lane)))
@@ -447,6 +470,110 @@ class Engine:
         unread = unread_only + [o["sign_id"] for o in out if not o["known"]]
         verdict = Verdict.value if any(o["known"] for o in out) else Verdict.unknown
         return Answer(verdict=verdict, value=out, citations=cites, uncertain_signs=unread)
+
+    # ------------------------------------------------------------------ phase 4.5 B1 + B6
+    def _meaning_aspect(self, scene: SceneGraph, p: Meaning) -> Answer:
+        """group (art. 11), conduct (the catalog's effects and conduct items), scope and
+        placement (kb/sign_info.yaml) of the selected signs. With `only` and several signs, all
+        readable candidates are used; the unreadable ones are listed as uncertain."""
+        from vqa.reasoning import sign_info as si
+
+        ids = self.resolve(scene, p.sign)
+        readable = [i for i in ids if self.catalog.has(scene.sign(i).code)]
+        unread = [i for i in ids if i not in readable]
+        if not readable:
+            return Answer(verdict=Verdict.unknown, uncertain_signs=unread,
+                          note="no readable sign in the scene matches the selector")
+        entries = [(i, self.catalog.get(scene.sign(i).code)) for i in readable]
+        if p.aspect == "group":
+            groups = {sign_group_vi(e.code) for _, e in entries}
+            if len(groups) != 1 or unread:
+                return Answer(verdict=Verdict.unknown, value={"groups": sorted(g for g in groups if g)},
+                              uncertain_signs=unread,
+                              note="the selected signs are not all in one group" if len(groups) != 1
+                              else "a selected sign could not be read")
+            return Answer(verdict=Verdict.value, value={"group_vi": groups.pop()},
+                          citations=[si.ART11] + [e.source for _, e in entries])
+        out, cites = [], []
+        for i, e in entries:
+            if p.aspect == "conduct":
+                items, c = si.conduct_items(e, self.catalog)
+                if items:
+                    out.append({"sign_id": i, "code": e.code, "name_vi": e.name_vi, "conduct": items})
+                    cites += c
+            else:
+                hit = si.lookup(p.aspect, e.code, e.category)
+                if hit:
+                    text = hit[0]
+                    s = scene.sign(i)
+                    if p.aspect == "scope":
+                        d = next((pl.distance_m for pl in s.plates if pl.distance_m and (pl.code == "S.501" or pl.kind.value == "distance")), None)
+                        if d:
+                            text += f"; biển phụ S.501 ghi phạm vi {d:g} m"
+                            cites.append(si.F1)
+                    out.append({"sign_id": i, "code": e.code, "name_vi": e.name_vi, p.aspect: text})
+                    cites += [e.source, hit[1]]
+        if not out:
+            return Answer(verdict=Verdict.unknown, uncertain_signs=unread,
+                          note=f"no {p.aspect} rule for the selected signs")
+        return Answer(verdict=Verdict.value, value={p.aspect: out}, citations=cites, uncertain_signs=unread)
+
+    def _present(self, scene: SceneGraph, p: Present) -> Answer:
+        """Closed world over the readable signs; an unread sign whose look could be the target
+        makes a "no" unknown."""
+        try:
+            if p.code:
+                rows = {self.catalog.get(c).code for c in self.catalog.codes_matching(p.code)}
+            elif p.meaning:
+                rows = {self.catalog.get(c).code for c in self.catalog.codes_for_meaning(p.meaning)}
+            else:
+                rows = {s.code for s in self.catalog.signs if s.category == p.category}
+        except KeyError as e:
+            raise EngineError(str(e)) from None
+        hits = [s for s in scene.signs if self.catalog.has(s.code) and self.catalog.get(s.code).code in rows]
+        if hits:
+            return Answer(verdict=Verdict.yes, value={"signs": [s.id for s in hits]},
+                          citations=[self.catalog.get(hits[0].code).source])
+        looks = {self.category_of(self.catalog.get(c).visual.shape, self.catalog.get(c).visual.border,
+                                  self.catalog.get(c).visual.background) for c in rows}
+        maybe = [s.id for s in scene.signs if s.id in self.unreadable_signs(scene)
+                 and (self.visual_category(s) == "unknown" or self.visual_category(s) in looks)]
+        if maybe:
+            return Answer(verdict=Verdict.unknown, uncertain_signs=maybe,
+                          note="a sign that could not be read might be it")
+        return Answer(verdict=Verdict.no, value={"signs": []})
+
+    def _guide(self, scene: SceneGraph, p: Guide) -> Answer:
+        """What a guide board says (B6). Read from the board data; no legal conclusion."""
+        from vqa.reasoning import sign_info as si
+
+        boards = scene.guide_boards
+        if not boards:
+            return Answer(verdict=Verdict.unknown, note="no guide board was read in the photo")
+        cites = [self.catalog.get(s.code).source for s in scene.signs
+                 if self.catalog.has(s.code) and self.catalog.get(s.code).effect.informational][:2] or [si.ART11]
+        entries = [e for b in boards for e in b.entries]
+        if p.ask == "destinations":
+            if not entries:
+                return Answer(verdict=Verdict.unknown, note="the boards list no destinations")
+            return Answer(verdict=Verdict.value, citations=cites, value={"destinations": [
+                {"text": e.text, "direction": e.direction, "distance_m": e.distance_m} for e in entries]})
+        if p.ask == "route":
+            routes = [b.route for b in boards if b.route]
+            if not routes:
+                return Answer(verdict=Verdict.unknown, note="no route plate was read")
+            return Answer(verdict=Verdict.value, value={"routes": routes}, citations=cites)
+        hit = si.find_entry(entries, p.destination or "")
+        if hit is None:
+            return Answer(verdict=Verdict.unknown, note="no board line names that destination")
+        if p.ask == "distance" and hit.distance_m is None:
+            return Answer(verdict=Verdict.unknown, value={"destination": hit.text},
+                          note="the board gives no distance for that destination")
+        if p.ask == "direction" and hit.direction == "none":
+            return Answer(verdict=Verdict.unknown, value={"destination": hit.text},
+                          note="the board shows no arrow for that destination")
+        return Answer(verdict=Verdict.value, citations=cites, value={
+            "destination": hit.text, "direction": hit.direction, "distance_m": hit.distance_m})
 
     def _violations(self, scene: SceneGraph, p: ExistsViolation) -> Answer:
         self.load_scene(scene)
@@ -687,6 +814,18 @@ class Engine:
                       reasons=support, citations=_cites(support), basis=_basis(support))
 
     def _speed_limit(self, scene: SceneGraph, p: SpeedLimit) -> Answer:
+        if p.vehicles:
+            # phase 4.5: several vehicles at once; decided when every vehicle's limit is
+            per = [(v, self._speed_limit(scene, p.model_copy(update={"vehicle": v, "vehicles": []}))) for v in p.vehicles]
+            value = {"kind": p.kind, "per_vehicle": [{"vehicle": v.cls.value, "limit": a.value.get("limit") if isinstance(a.value, dict) else None,
+                                                      "conditional": (a.value or {}).get("conditional", []) if isinstance(a.value, dict) else [],
+                                                      "verdict": a.verdict.value} for v, a in per]}
+            decided = all(a.verdict is Verdict.value for _, a in per)
+            return Answer(verdict=Verdict.value if decided else Verdict.unknown, value=value,
+                          reasons=[r for _, a in per for r in a.reasons],
+                          citations=[c for _, a in per for c in a.citations],
+                          note=None if decided else "the limit is not known for every vehicle")
+        scene = self._with_divider(scene, p.road_divided)
         self.load_scene(scene)
         veh = vehicle_term(p.vehicle)
 
@@ -814,6 +953,13 @@ _GROUPS_VI = [("DP.", "biển báo cấm"), ("IE.", "biển chỉ dẫn"), ("P."
 def sign_group_vi(code: str) -> str | None:
     """The art. 11 group name of a catalog code (phase 4.5 rank 1)."""
     return next((name for pre, name in _GROUPS_VI if code.startswith(pre)), None)
+
+
+def board_read(sign) -> bool:
+    """A rectangular, non-red board: its content is what the guide-board call reads."""
+    shape = getattr(sign.shape, "value", sign.shape)
+    colours = {getattr(sign.border, "value", sign.border), getattr(sign.background, "value", sign.background)}
+    return shape in ("rectangle", "square") and "red" not in colours
 
 
 def scene_lane_count(scene: SceneGraph) -> int | None:
