@@ -1548,7 +1548,7 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 - **Where things stand:** B1 + B2 are built and committed (see "Phase 4.5 B1 + B2 built"). Branch `phase-5`, nothing pushed. The freeze record `eval/frozen_phase4.json` still matches. **Spend this round: $0.74 of $5**, $0.70 reserved for the final validation, **$3.56 free**. No call was made in this step.
 - **Next: B4, on the owner's go-ahead (the owner runs the commands).** In this order; stop after each and look:
-  1. **Parser gate rerun on public_dev gold intents, parser v8 (v7 failed the rule on run 1; entry above), Sonnet 5.5 medium, 3 runs.** v7's measured run: $0.194. Measured v6 runs cost $0.12–0.16 each; v7's prompt is 18% longer. **Estimate $0.16 per run, $0.48 for three (range $0.40–0.60).** **Cap (owner, 2026-11-17):** `--max-spend 0.40` per run. The tool now refuses only when the expected cost or one call's worst case is over the cap; the spend guard checks each call's worst case (about $0.086) against what is left, so a run never passes $0.40 and stops near $0.31. A stopped run is renamed `*.partial.jsonl` and is not a gate run. (The old up-front check needed the whole-run worst case, $8.09 for v7.)
+  1. **Parser gate rerun on public_dev gold intents, parser v8 (v7 failed the rule on run 1; entry above), Sonnet 5.5 medium, 3 runs.** v7's measured run cost $0.194 (v6: $0.12–0.16; v8's prompt is v7's plus four lines). **Estimate $0.19 per run, $0.58 for three (range $0.50–0.70).** **Cap (owner, 2026-11-17):** `--max-spend 0.40` per run. The tool now refuses only when the expected cost or one call's worst case is over the cap; the spend guard checks each call's worst case (about $0.086) against what is left, so a run never passes $0.40 and stops near $0.31. A stopped run is renamed `*.partial.jsonl` and is not a gate run. (The old up-front check needed the whole-run worst case, $8.09 for v7.)
      ```
      .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v8 --max-spend 0.40
      .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v8 --max-spend 0.40
@@ -1564,7 +1564,7 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
      .venv/bin/python eval/e2e_dev.py summary eval/runs/e2e/dev_candidate_*.jsonl
      ```
      Then the guardrail on the judged figures: overall ≥ 34.5% (stage A) and accuracy on decided ≥ 70%.
-  - **B4 total: about $1.32 (range $1.07–1.70)**; after it about $2.24 free plus the $0.70 reserve.
+  - **B4 still to spend: about $1.42 (range $1.17–1.80)** ($0.58 gate + $0.84 dev run); after it about $1.95 free plus the $0.70 reserve.
 - **Then B5 (owner's go-ahead):** the phase-4.5 freeze `eval/frozen_phase45.json` (scene v5, parser v7, guide reading on), then the final validation once.
 - **Open items:**
   - **For the owner's review before the freeze:** `kb/sign_info.yaml` (scope, placement, conduct wording; reviewed_by assistant), the W.203 C.3 d) conduct item, the v7 spec lines without a train example (police car, divider, placement), and the earlier list (R.421, R.122, S.501, `kb/sign_catalog_effects.yaml`, KB-1 to KB-8, Circular 38 speeds).
