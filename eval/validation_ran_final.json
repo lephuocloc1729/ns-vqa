@@ -1,0 +1,13 @@
+{
+  "what": "the one final validation run (phase 4.5); its existence blocks a second run",
+  "run_id": "7a3dbec997f7",
+  "started": "2026-11-17T06:53:28+00:00",
+  "git_commit": "3fe5b775632349e9ca92346a5807e58e0337c32c",
+  "status": "finished",
+  "frozen_record": "frozen_phase45.json",
+  "frozen_record_sha256": "0382375646261e6649882299b62bb87012ef49da6629d2f0a531d0d3dccfe419",
+  "split_sha256": "b23e283a748b5f26d1abb66faf379695155428b1c78652bed4ab2a036ca520f0",
+  "finished": "2026-11-17T07:27:02+00:00",
+  "report": "validation_aggregate_final_7a3dbec997f7.json",
+  "spent_usd": 0.8329
+}

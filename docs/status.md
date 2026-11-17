@@ -1616,6 +1616,22 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
   **Estimate $0.77 (range $0.62–1.00; $0.86 if every question is decided)**: 110 questions on 54 images (53 Yes/No, 57 Natural QA; split counts only), at the candidate dev run's measured rates (perception with fallback and guide $0.0019 per image, parser $0.0038 per question, writer and judge per decided answer) and dev's 74% decided. It is above the $0.70 reserve; the round has $2.88 left.
 - **Spend this round: $2.12 of $5.**
 
+### Phase 4.5 final validation, once, frozen phase-4.5 system, fallback off (2026-11-17; aggregate only)
+
+- **Run `7a3dbec997f7`**, `eval/frozen_phase45.json` (profile phase45: scene v5 + tile / crop, guide reading, parser v9, writer v3), commit `3fe5b77`, 110 questions on 54 images, **$0.83**, 17 s per question. Sentinel `eval/validation_ran_final.json` (finished). Report `eval/runs/e2e/validation_aggregate_final_7a3dbec997f7.json` (local). No per-question result was read.
+
+| validation (110 q: 53 Yes/No, 57 Natural QA) | decided coverage (95% CI) | accuracy on decided (95% CI) | overall, non-decided = wrong (95% CI) |
+|---|---|---|---|
+| baseline, frozen phase 4 (`c015055`) | 30.0% (22–39) | 72.7% | 21.8% (15–30) |
+| **final, frozen phase 4.5** | **47.3% (52/110; 38–57)** | **77.9% (65–87)** | **36.8% (28–46)** |
+
+- **Success criterion (fixed before the work): met.** Decided coverage 47.3% > 39.1% and overall 36.8% > 30.4% (both above the baseline's upper CI bound). The CIs overlap the baseline's at their edges.
+- **Targets and floors (fixed, reported as met or missed): all missed.** Coverage 47.3% (target 80%, floor 70%); accuracy on decided 77.9% (target 88%, floor 85%); overall 36.8% (target 70%, floor 60%).
+- **By type:** Yes/No 39.6% decided, 90.5% right when decided, 35.8% overall; Natural QA 54.4% decided, 69.4% right when decided, 37.7% overall. Judge labels on decided Natural QA: 17 correct, 9 partial, 5 wrong.
+- **Not decided (58), by cause:** out of scope 28, uncertain 16, unknown 7, unreadable sign 4, program can't run 2, parse failed 1.
+- **Dev against validation:** dev (tuning set) gave 73.6% decided and 85.2% accuracy; validation gives 47.3% and 77.9%. Most of the stage-B gain was fitted on dev's question mix (all Natural QA, guide-heavy); the validation set is half Yes/No.
+- **Spend this round: $2.95 of $5.**
+
 ## Next steps, in order
 
 ### Handoff (2026-11-17, later): B1 + B2 built; B4 ready for the owner's go-ahead
