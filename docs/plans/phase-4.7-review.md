@@ -86,6 +86,30 @@ read -r 'gate_run?Path of completed v12 predictions: '
   logs/parser_eval/pred_claude-sonnet-5-5_medium_v11_20261117-184930.jsonl --new "$gate_run"
 ```
 
+For a direct compatibility check, run the following offline after the gate. It compares normalized programs for previously supported gate forms on which v11 returned a program. It also detects missing predictions. Inspect any changed IDs on public_dev before accepting the parser.
+
+```zsh
+.venv/bin/python - "$gate_run" <<'PY'
+import sys
+from pathlib import Path
+from eval.parser_eval import canonical, gate_rows, gold_type, load_gold, load_predictions
+from vqa.schemas import QueryProgram
+
+old_file = Path("logs/parser_eval/pred_claude-sonnet-5-5_medium_v11_20261117-184930.jsonl")
+old = {r["id"]: r for r in load_predictions(old_file)}
+new = {r["id"]: r for r in load_predictions(Path(sys.argv[1]))}
+gate = gate_rows(load_gold(), "v12")
+assert {g["id"] for g in gate} <= new.keys(), "incomplete v12 gate run"
+supported = [g["id"] for g in gate if gold_type(g) != "out_of_scope"
+             and old.get(g["id"], {}).get("status") == "ok"]
+assert supported, "no comparable supported rows"
+def program(row):
+    return canonical(QueryProgram.model_validate(row["query"])) if row["status"] == "ok" else None
+changed = [qid for qid in supported if program(old[qid]) != program(new[qid])]
+print({"compared": len(supported), "identical": len(supported) - len(changed), "changed": changed})
+PY
+```
+
 ### 2. Scene v6 set-T check — estimate $0.13, combined cap $0.20
 
 V5 cost $0.055 for pass 1 and $0.059 for the tile/crop pass. Each command creates its own spend guard, hence two $0.10 caps. Score the new fallback result against the existing v5 fallback result. V5 achieved 90.8% recall and 72.9% code F1. The plan keeps v6 when recall holds and code F1 is within the 2.9-point run-to-run spread.

@@ -1634,6 +1634,16 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Handoff (2026-11-17): phase 4.7 free checks complete; owner approval next
+
+- The engine, catalog, v11/v12 prompts and pre-existing tests are unchanged in this continuation. All checks used local inputs. API spend was $0.
+- **Step 2** (`5f13eb9`): 784 generated cases passed. Two cases on one P.106b row had applied its truck load threshold to tractor and special machine. The test now checks the row's value classes and their subclasses. Zero remaining differences. Fifteen additional law-consistency checks passed, covering every live rule source, interpretation premises, numeric speed passages and posted-limit precedence. The corpus cannot authenticate the Circular 38 numbers.
+- **Step 3** (`570b392`): the local v12 wire programs are `eval/runs/phase47/dev_v12_hand.json` and `d3_v12_hand.json` in the same directory. The standard and hand-program replays both preserved all 88 baseline decisions at `464c1f8`, with `decided_changed: []`. The hand run returned 89/107 decided; its extra yes used signs alone on a question about a light, with no signal observation. **Zero new evidence-backed cells on these cached scenes.** All five D3 override programs lack cached scenes. The generated matrix remains 700 modelled / 18 to build / 432 n/a / 8 out (1,158 total).
+- **Review** (`99b7f5b`): `docs/plans/phase-4.7-review.md` inventories assistant-reviewed rows, interpretation bases and the four requested deferrals. Review `r_c38_outside` first; the official art. 7 table, vehicle group boundaries and mass basis remain unverified. Also decide whether to add a signal-specific claim that can abstain when no signal was read.
+- **Paid checks prepared only:** the dev runner (`66bf4c7`) accepts scene/parser versions and reading policy for a fresh candidate run. The exact commands, comparison files and budgets are in `docs/plans/phase-4.7-review.md`, “Owner-run paid checks”. In order: v12 parser gate ($0.21 estimate, $0.40 cap), v6 set T ($0.13, $0.20 total over both passes), judged dev ($0.85, $1.05). Total estimate $1.19; caps $1.65 of $2.00. V12 compatibility on live model output and v6 perception quality await the paid checks.
+- **Verification:** 2,070 tests pass with the CLI checks included. Each step was committed only after the full suite and the baseline replay passed.
+- **Next action belongs to the owner:** review the findings and approve the paid sequence. No phase-4.7 freeze, validation or private run was performed.
+
 ### Handoff (2026-11-17, later): phase 4.7 step 1 done; step 2 in progress (no API calls)
 
 - **Built and committed:**
