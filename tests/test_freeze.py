@@ -153,3 +153,31 @@ def test_post_freeze_switches_default_to_the_frozen_behaviour():
     import eval.e2e_private as ep
     src = open(ep.__file__, encoding="utf-8").read()
     assert "answer_fallback" not in src                     # the private run keeps the default (on)
+
+
+
+# ---------------------------------------------------------------- B5: the phase-4.5 record (owner, 2026-11-17)
+
+def test_the_phase45_record_matches_and_names_its_parts():
+    assert fz.check(fz.FROZEN_PHASE45) == []
+    rec = fz.load(fz.FROZEN_PHASE45)
+    pc = rec["pipeline_config"]
+    assert rec["profile"] == "phase45" and (pc["scene_version"], pc["parser_version"], pc["guide_reading"]) == ("v5", "v9", True)
+    assert (pc["writer_version"], pc["answer_fallback_version"]) == ("v3", "v2") and "answer_fallback" not in pc
+    sf = rec["scene_fallback"]
+    assert sf["chosen_policy"] == "crop_always" and sf["drop_own_alt_on_agree"] is True
+    assert set(rec["prompts"]) == {"scene", "scene_tile", "scene_crop", "guide", "parser", "answer", "answer_fallback", "judge"}
+    assert rec["prompts"]["scene_tile"]["id"].startswith("scene/v5-tile@") and rec["prompts"]["guide"]["on"] is True
+    assert all(len(p["sha256"]) == 64 for p in rec["prompts"].values())
+
+
+def test_the_phase4_record_is_unchanged_by_the_profiles():
+    assert fz.check(fz.FROZEN) == [] and "profile" not in fz.load(fz.FROZEN)
+    assert fz.pipeline_config("phase4") == pl.PipelineConfig()
+
+
+def test_a_freeze_record_is_written_once(tmp_path):
+    p = tmp_path / "x.json"
+    fz.write(p, "phase45")
+    with pytest.raises(SystemExit, match="written once"):
+        fz.write(p, "phase45")

@@ -22,6 +22,10 @@ and the targets and floors fixed in the plan (section 4) with whether each is me
 
     .venv/bin/python eval/e2e_validation.py estimate
     .venv/bin/python eval/e2e_validation.py run --label baseline --confirm-frozen --max-spend 2
+    .venv/bin/python eval/e2e_validation.py run --label final --confirm-frozen --max-spend 1.5
+
+The pipeline is built from the record's freeze profile (`eval/freeze.py`): `baseline` is the
+phase-4 profile, `final` the phase-4.5 one (scene v5, guide reading, parser v9).
 """
 
 from __future__ import annotations
@@ -118,7 +122,8 @@ def guards(label: str, *, frozen: Path, out_dir: Path = OUT, sentinel_path: Path
     g = git()
     if not g["clean"]:
         raise SystemExit("the git working tree is not clean: commit or remove these first:\n  " + "\n  ".join(g["dirty"]))
-    pm = freeze.load(frozen)["pipeline_config"]["perception_model"]
+    rec = freeze.load(frozen)
+    pm = rec["pipeline_config"]["perception_model"]
     if d := freeze.check(frozen, pm):
         raise SystemExit("the live configuration differs from the freeze record:\n  " + "\n  ".join(d))
     s = sentinel_path or sentinel(label)
@@ -126,7 +131,7 @@ def guards(label: str, *, frozen: Path, out_dir: Path = OUT, sentinel_path: Path
         raise SystemExit(f"the {label} validation run has already run ({s.name}); it runs once")
     if Path(out_dir).exists() and any(Path(out_dir).glob(f"validation_aggregate_{label}_*.json")):
         raise SystemExit(f"a {label} validation aggregate file already exists in {out_dir}; it runs once")
-    return {**g, "perception_model": pm}
+    return {**g, "perception_model": pm, "profile": freeze.profile_of(rec)}
 
 
 def run_validation(label: str, max_spend: float, *, confirm_frozen: bool = False, sdk=None,
@@ -150,7 +155,7 @@ def run_validation(label: str, max_spend: float, *, confirm_frozen: bool = False
             missing += 1
     if missing:
         raise SystemExit(f"{missing} validation images have no file")
-    config = freeze.live(g["perception_model"])
+    config = freeze.live(g["perception_model"], g["profile"])
     run_id = uuid.uuid4().hex[:12]
     started = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
     s = sentinel_path or sentinel(label)
@@ -163,13 +168,14 @@ def run_validation(label: str, max_spend: float, *, confirm_frozen: bool = False
     from eval.judge import Judge
     from vqa.llm.client import LLMClient
     from vqa.llm.spend import SpendGuard
-    from vqa.pipeline import Pipeline, PipelineConfig
+    from vqa.pipeline import Pipeline
 
     guard = SpendGuard(max_spend)
     records: list[dict] = []
     with tempfile.TemporaryDirectory(prefix="vqa_validation_cache_") as tmp:
-        pipe = Pipeline(PipelineConfig(perception_model=g["perception_model"], cache_dir=Path(tmp),
-                                       cache_only=False, answer_fallback=False), sdk=sdk, guard=guard)
+        # the record's profile (phase 4 for baseline, phase 4.5 for final), fallback off
+        pipe = Pipeline(freeze.pipeline_config(g["profile"], g["perception_model"], cache_dir=Path(tmp),
+                                               cache_only=False, answer_fallback=False), sdk=sdk, guard=guard)
         judge = Judge(llm=LLMClient(model="claude-opus-5-5", guard=guard, sdk=sdk))
         for n, q in enumerate(qs, 1):
             a = pipe.answer(image_path(q["image_id"]), q["question"])
@@ -186,7 +192,8 @@ def run_validation(label: str, max_spend: float, *, confirm_frozen: bool = False
     report = {"what": f"phase-4.5 validation, {label}, aggregate only, fallback off", "run_id": run_id,
               "label": label, "started": started,
               "finished": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
-              "git_commit": g["commit"], "frozen_record": Path(frozen).name, "frozen_config": config,
+              "git_commit": g["commit"], "frozen_record": Path(frozen).name, "profile": g["profile"],
+              "frozen_config": config,
               "prompt_ids": {k: v["id"] for k, v in config["prompts"].items()},
               "split_sha256": mark["split_sha256"], "spent_usd": round(guard.spent, 4), **aggregate(records)}
     records.clear()

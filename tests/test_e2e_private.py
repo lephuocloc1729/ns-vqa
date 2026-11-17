@@ -45,7 +45,7 @@ def test_a_dirty_tree_is_refused_before_the_sentinel(fake_set):
 
 
 def test_a_configuration_that_differs_from_the_record_is_refused(fake_set):
-    rec = fz.load()
+    rec = fz.load(fz.FROZEN_PHASE45)
     rec["prompts"]["answer"]["id"] = "answer/v2@0000000000"
     p = fake_set / "frozen.json"
     p.write_text(json.dumps(rec), encoding="utf-8")
@@ -153,8 +153,10 @@ def test_it_writes_only_an_aggregate_file_and_prints_no_question(fake_set, capsy
 def test_the_report_records_the_commit_config_prompts_and_catalog_review(fake_set):
     out, _ = _run(fake_set)
     rep = json.loads(out.read_text())
-    assert rep["git_commit"] == "c0ffee" and rep["frozen_config"] == json.loads(json.dumps(fz.live(), default=str))
-    assert rep["prompt_ids"]["answer"] == "answer/v3@7d0f2b8ddf1f" and set(rep["prompt_ids"]) == set(fz.live()["prompts"])
+    live45 = fz.live(profile="phase45")
+    assert rep["git_commit"] == "c0ffee" and rep["frozen_config"] == json.loads(json.dumps(live45, default=str))
+    assert rep["prompt_ids"]["answer"] == "answer/v3@7d0f2b8ddf1f" and set(rep["prompt_ids"]) == set(live45["prompts"])
+    assert rep["prompt_ids"]["parser"].startswith("parser/v9@") and "guide" in rep["prompt_ids"]
     cat = rep["catalog_review"]
     assert cat["sign_catalog.yaml"]["rows"] == sum(cat["sign_catalog.yaml"]["reviewed_by"].values())
     assert "assistant-reviewed" in cat["note"]
@@ -240,3 +242,29 @@ def test_features(question, expected):
 def test_speed_words_are_not_times():
     assert ep.features("Tốc độ tối đa là 60 km/giờ phải không?") == ["claim", "speed"]
     assert "time" in ep.features("Buổi tối có được đỗ xe không?")
+
+
+
+# ---------------------------------------------------------------- B5: the phase-4.5 record (owner, 2026-11-17)
+
+def test_the_private_run_checks_the_phase45_record_by_default():
+    import inspect
+    for fn in (ep.run_private, ep.guards, ep.frozen_perception_model):
+        assert inspect.signature(fn).parameters["frozen"].default == fz.FROZEN_PHASE45
+
+
+@pytest.mark.parametrize("field, value", [
+    (("pipeline_config", "parser_version"), "v8"), (("pipeline_config", "guide_reading"), False),
+    (("pipeline_config", "scene_version"), "v4"), (("prompts", "guide", "sha256"), "0" * 64),
+    (("scene_fallback", "chosen_policy"), "rules")])
+def test_a_phase45_mismatch_is_refused_before_the_sentinel(fake_set, field, value):
+    rec = fz.load(fz.FROZEN_PHASE45)
+    node = rec
+    for k in field[:-1]:
+        node = node[k]
+    node[field[-1]] = value
+    p = fake_set / "frozen45.json"
+    p.write_text(json.dumps(rec), encoding="utf-8")
+    with pytest.raises(SystemExit, match="differs from the freeze record"):
+        _run(fake_set, frozen=p)
+    assert not (fake_set / "private_ran.json").exists()

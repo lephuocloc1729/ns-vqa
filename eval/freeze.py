@@ -13,6 +13,7 @@ difference between the two; the holdout run refuses to start unless there is non
     .venv/bin/python eval/freeze.py show        # the live configuration
     .venv/bin/python eval/freeze.py check       # live vs the record
     .venv/bin/python eval/freeze.py write       # write the record (refuses to overwrite)
+    .venv/bin/python eval/freeze.py check --profile phase45   # the phase-4.5 record (B5)
 """
 
 from __future__ import annotations
@@ -41,23 +42,52 @@ RUN_SPECIFIC = ("cache_dir", "cache_only", "max_spend")
 # Kept apart from RUN_SPECIFIC because the phase-4 record lists RUN_SPECIFIC verbatim.
 POST_FREEZE_SWITCHES = {"answer_fallback": True, "guide_reading": False}
 
+# Phase 4.5 (owner, 2026-11-17, B5): freeze profiles. A profile is the PipelineConfig fields that
+# differ from today's defaults (which stay the phase-4 configuration, so its record and runs
+# are untouched). A record names its profile ("phase4" when it names none); the runners build
+# their pipeline from the profile of the record they check.
+FROZEN_PHASE45 = ROOT / "eval" / "frozen_phase45.json"
+PROFILES: dict[str, dict[str, Any]] = {
+    "phase4": {},
+    "phase45": {"scene_version": "v5", "parser_version": "v9", "guide_reading": True},
+}
+RECORDS = {"phase4": FROZEN, "phase45": FROZEN_PHASE45}
+# Left out of a profile's comparison: phase 4 leaves out both post-freeze switches (their
+# defaults are its behaviour); phase 4.5 freezes guide_reading (on) and still leaves out
+# answer_fallback, which each runner sets (validation: off; private: the default, on).
+EXCLUDED_SWITCHES = {"phase4": tuple(POST_FREEZE_SWITCHES), "phase45": ("answer_fallback",)}
+
+
+def profile_of(record: dict[str, Any]) -> str:
+    return record.get("profile", "phase4")
+
+
+def pipeline_config(profile: str = "phase4", perception_model: str | None = None, **run: Any):
+    """The PipelineConfig a profile runs with, plus run-specific fields (cache_dir, ...)."""
+    from vqa.pipeline import PipelineConfig
+    if profile not in PROFILES:
+        raise SystemExit(f"unknown freeze profile {profile!r}; one of {sorted(PROFILES)}")
+    kw = {**PROFILES[profile], **({"perception_model": perception_model} if perception_model else {}), **run}
+    return PipelineConfig(**kw)
+
 
 def _sha(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def live(perception_model: str | None = None) -> dict[str, Any]:
+def live(perception_model: str | None = None, profile: str = "phase4") -> dict[str, Any]:
     from eval import judge
     from vqa.answer import fallback as afb
     from vqa.answer import prompt as wp
     from vqa.parsing import prompt as pp
     from vqa.perception import fallback as sfb
+    from vqa.perception import guide
     from vqa.perception import prompt as sp
-    from vqa.pipeline import PipelineConfig
 
-    c = PipelineConfig(**({"perception_model": perception_model} if perception_model else {}))
-    pc = {k: v for k, v in dataclasses.asdict(c).items() if k not in RUN_SPECIFIC and k not in POST_FREEZE_SWITCHES}
-    fc = sfb.FallbackConfig()
+    c = pipeline_config(profile, perception_model)
+    skip = EXCLUDED_SWITCHES[profile]
+    pc = {k: v for k, v in dataclasses.asdict(c).items() if k not in RUN_SPECIFIC and k not in skip}
+    fc = sfb.config_for(c.scene_version)
     pm = c.perception_model
     parser_system = pp.system_prompt(c.parser_version)
 
@@ -67,6 +97,20 @@ def live(perception_model: str | None = None) -> dict[str, Any]:
                 "model": pm, "effort": sp.effort_for(pm, version), "max_tokens": cfg.get("max_tokens")}
 
     wcfg, fcfg, jcfg = wp.config(c.writer_version), afb.config(c.answer_fallback_version), judge.config()
+    out = _live_body(c, pc, fc, sfb, sp, pp, wp, afb, judge, scene, parser_system, wcfg, fcfg, jcfg)
+    if profile == "phase4":
+        return out
+    gcfg = guide.config()
+    out = {"what": "phase 4.5, B5: the frozen configuration for the final validation run and the private test",
+           "profile": profile, **{k: v for k, v in out.items() if k != "what"}}
+    out["excluded_switches"] = list(skip)
+    out["prompts"]["guide"] = {"id": guide.prompt_id(), "sha256": guide.prompt_hash(), "model": c.perception_model,
+                               "effort": guide.effort_for(c.perception_model), "max_tokens": gcfg.get("max_tokens"),
+                               "on": c.guide_reading}
+    return out
+
+
+def _live_body(c, pc, fc, sfb, sp, pp, wp, afb, judge, scene, parser_system, wcfg, fcfg, jcfg) -> dict[str, Any]:
     return {
         "what": "phase 4, procedure step 5: the frozen configuration for the one public_holdout run",
         "pipeline_config": pc,
@@ -114,8 +158,10 @@ def diff(a: Any, b: Any, where: str = "") -> list[str]:
 
 
 def check(path: Path = FROZEN, perception_model: str | None = None) -> list[str]:
+    """Every difference between a record and the live configuration of the record's profile."""
     rec = load(path)
-    return diff(json.loads(json.dumps(rec)), json.loads(json.dumps(live(perception_model), default=str)))
+    return diff(json.loads(json.dumps(rec)),
+                json.loads(json.dumps(live(perception_model, profile_of(rec)), default=str)))
 
 
 def git_state(root: Path = ROOT) -> dict[str, Any]:
@@ -130,18 +176,26 @@ def git_state(root: Path = ROOT) -> dict[str, Any]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["show", "check", "write"])
+    ap.add_argument("--profile", choices=sorted(PROFILES), default="phase4")
     a = ap.parse_args()
+    path = RECORDS[a.profile]
     if a.cmd == "show":
-        print(json.dumps(live(), indent=2, default=str))
+        print(json.dumps(live(profile=a.profile), indent=2, default=str))
     elif a.cmd == "check":
-        d = check()
+        d = check(path)
         print("matches the freeze record" if not d else "\n".join(d))
         raise SystemExit(1 if d else 0)
     else:
-        if FROZEN.exists():
-            raise SystemExit(f"{FROZEN.name} exists; the freeze is written once")
-        FROZEN.write_text(json.dumps(live(), indent=2, ensure_ascii=False, default=str) + "\n", encoding="utf-8")
-        print(f"freeze record -> {FROZEN}")
+        write(path, a.profile)
+
+
+def write(path: Path, profile: str) -> Path:
+    if Path(path).exists():
+        raise SystemExit(f"{Path(path).name} exists; the freeze is written once")
+    Path(path).write_text(json.dumps(live(profile=profile), indent=2, ensure_ascii=False, default=str) + "\n",
+                          encoding="utf-8")
+    print(f"freeze record -> {path}")
+    return Path(path)
 
 
 if __name__ == "__main__":

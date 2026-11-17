@@ -1603,6 +1603,19 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 - **Dev, scene v5 + guide reading + parser v9:** decided **73.6% (64/87; 95% CI 63–82)**, accuracy on decided **85.2% (74–92)**, overall **62.6%** (unchanged).
 - Spend this round: **$2.12 of $5** ($0.70 reserved).
 
+### B5 prepared, not run (2026-11-17; no API calls)
+
+- **`eval/frozen_phase45.json` written** (`eval/freeze.py write --profile phase45`; it refuses to overwrite). **Profile `phase45`:** scene v5 with v5-tile / v5-crop, the guide-board call on (`scene/v5-guide`), **parser v9** (the last passing version), writer `answer/v3`, answer fallback `v2`, scene fallback `crop_always` with T4 (`drop_own_alt_on_agree`), and every prompt's id and full sha256 (scene, tile, crop, guide, parser, answer, answer fallback, judge). `answer_fallback` is left out of the comparison: each runner sets it (validation: off; private: the default).
+- **Freeze profiles** (`eval/freeze.py`): `PipelineConfig()` defaults stay the phase-4 configuration, so `eval/frozen_phase4.json` still matches and the baseline, holdout and frozen dev runs are untouched. A record names its profile; `check` compares a record with its profile's live configuration; the runners build their pipeline from it.
+- **`eval/e2e_validation.py`:** `final` checks `frozen_phase45.json` and runs the phase-4.5 profile, fallback off; the report records the profile. **`eval/e2e_private.py`:** checks `frozen_phase45.json` by default and runs its profile. Tests: each refuses a mismatch (parser version, guide reading, scene version or hash, guide hash, policy, profile) before writing its sentinel.
+- **The final validation (owner runs it once, after reviewing `kb/sign_info.yaml`):**
+  ```
+  .venv/bin/python eval/freeze.py check --profile phase45
+  .venv/bin/python eval/e2e_validation.py run --label final --confirm-frozen --max-spend 1.3
+  ```
+  **Estimate $0.77 (range $0.62–1.00; $0.86 if every question is decided)**: 110 questions on 54 images (53 Yes/No, 57 Natural QA; split counts only), at the candidate dev run's measured rates (perception with fallback and guide $0.0019 per image, parser $0.0038 per question, writer and judge per decided answer) and dev's 74% decided. It is above the $0.70 reserve; the round has $2.88 left.
+- **Spend this round: $2.12 of $5.**
+
 ## Next steps, in order
 
 ### Handoff (2026-11-17, later): B1 + B2 built; B4 ready for the owner's go-ahead

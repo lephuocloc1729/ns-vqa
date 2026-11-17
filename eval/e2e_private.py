@@ -8,7 +8,7 @@ or written (CLAUDE.md, "Dataset rules").
   unless:
   - `--confirm-frozen` is given;
   - the git working tree is clean;
-  - the live configuration and prompt ids equal `eval/frozen_phase4.json`, with the
+  - the live configuration and prompt ids equal `eval/frozen_phase45.json` (from B5 on; it was `frozen_phase4.json`), with the
     perception model the record names (`eval/freeze.py`);
   - it has never run: no sentinel `eval/private_ran.json` (committed after the run)
     and no private aggregate file in the runs folder;
@@ -203,11 +203,11 @@ def git_ignores(path: Path) -> bool:
     return r.returncode == 0
 
 
-def frozen_perception_model(frozen: Path = freeze.FROZEN) -> str:
+def frozen_perception_model(frozen: Path = freeze.FROZEN_PHASE45) -> str:
     return freeze.load(frozen)["pipeline_config"]["perception_model"]
 
 
-def guards(*, out_dir: Path = OUT, sentinel: Path = SENTINEL, frozen: Path = freeze.FROZEN,
+def guards(*, out_dir: Path = OUT, sentinel: Path = SENTINEL, frozen: Path = freeze.FROZEN_PHASE45,
            replay_root: Path = REPLAY, git=freeze.git_state, ignored=git_ignores) -> dict:
     """Refuses (SystemExit) unless the tree is clean, the configuration is the frozen
     one, the private test has never run and git ignores the replay folder."""
@@ -229,14 +229,15 @@ def guards(*, out_dir: Path = OUT, sentinel: Path = SENTINEL, frozen: Path = fre
 # ---------------------------------------------------------------- the run
 
 def run_private(max_spend: float, *, confirm_frozen: bool = False, sdk=None, questions: list[dict] | None = None,
-                out_dir: Path = OUT, image_path=None, sentinel: Path = SENTINEL, frozen: Path = freeze.FROZEN,
+                out_dir: Path = OUT, image_path=None, sentinel: Path = SENTINEL, frozen: Path = freeze.FROZEN_PHASE45,
                 replay_root: Path = REPLAY, git=freeze.git_state, ignored=git_ignores,
                 expected: dict | None = EXPECTED) -> Path:
     if not confirm_frozen:
         raise SystemExit("the private test runs once, with the frozen system: pass --confirm-frozen")
     g = guards(out_dir=out_dir, sentinel=sentinel, frozen=frozen, replay_root=replay_root, git=git, ignored=ignored)
     perception_model = frozen_perception_model(frozen)
-    config = freeze.live(perception_model)
+    profile = freeze.profile_of(freeze.load(frozen))
+    config = freeze.live(perception_model, profile)
     image_path = image_path or image_file
     qs = questions if questions is not None else load_questions()
     counts = preflight(qs, image_path, expected=expected)
@@ -253,12 +254,13 @@ def run_private(max_spend: float, *, confirm_frozen: bool = False, sdk=None, que
     from eval.judge import Judge
     from vqa.llm.client import LLMClient
     from vqa.llm.spend import SpendGuard
-    from vqa.pipeline import Pipeline, PipelineConfig
+    from vqa.pipeline import Pipeline
 
     (replay / "scenes").mkdir(parents=True)
     guard = SpendGuard(max_spend)
     records: list[dict] = []
-    pipe = Pipeline(PipelineConfig(perception_model=perception_model, cache_dir=replay / "scenes", cache_only=False),
+    # the record's profile (phase 4.5 from B5 on); the answer fallback keeps its default
+    pipe = Pipeline(freeze.pipeline_config(profile, perception_model, cache_dir=replay / "scenes", cache_only=False),
                     sdk=sdk, guard=guard)
     judge = Judge(llm=LLMClient(model="claude-opus-5-5", guard=guard, sdk=sdk))
     with open(replay / "records.jsonl", "w", encoding="utf-8") as f:

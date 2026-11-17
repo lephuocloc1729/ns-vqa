@@ -185,3 +185,40 @@ def test_the_estimate_uses_counts_only():
     e = ev.estimate()
     assert e["questions"] == SPLIT["counts"]["questions"] and e["images"] == SPLIT["counts"]["images"]
     assert e["lines_usd"]["answer fallback"] == 0.0 and e["total_usd"] > 0
+
+
+
+# ---------------------------------------------------------------- B5: the final label (owner, 2026-11-17)
+
+def _run_final(fake_set, **kw):
+    sdk = kw.pop("sdk", None) or _e2e_sdk()
+    sdk.replies.setdefault("perception", [SCENE_REPLY, SCENE_REPLY])
+    args = dict(confirm_frozen=True, sdk=sdk, questions=[dict(q, id=f"train_secret_{i}") for i, q in enumerate(QS)],
+                out_dir=fake_set / "agg", image_path=lambda i: fake_set / f"{i}.jpg",
+                sentinel_path=fake_set / "validation_ran_final.json", git=CLEAN)
+    args.update(kw)
+    return ev.run_validation("final", 1.0, **args), sdk
+
+
+def test_the_final_run_uses_the_phase45_profile(fake_set):
+    out, sdk = _run_final(fake_set)
+    rep = json.loads(out.read_text())
+    assert rep["frozen_record"] == "frozen_phase45.json" and rep["profile"] == "phase45"
+    assert rep["prompt_ids"]["parser"].startswith("parser/v9@") and rep["prompt_ids"]["scene"].startswith("scene/v5@")
+    assert rep["prompt_ids"]["guide"].startswith("scene/v5-guide@") and "fallback" not in sdk.created
+
+
+@pytest.mark.parametrize("field, value", [
+    (("pipeline_config", "parser_version"), "v8"), (("pipeline_config", "guide_reading"), False),
+    (("prompts", "scene", "sha256"), "0" * 64), (("profile",), "phase4")])
+def test_a_final_mismatch_is_refused_before_the_sentinel(fake_set, field, value):
+    rec = fz.load(fz.FROZEN_PHASE45)
+    node = rec
+    for k in field[:-1]:
+        node = node[k]
+    node[field[-1]] = value
+    p = fake_set / "frozen45.json"
+    p.write_text(json.dumps(rec), encoding="utf-8")
+    with pytest.raises(SystemExit, match="differs from the freeze record"):
+        _run_final(fake_set, frozen=p)
+    assert not (fake_set / "validation_ran_final.json").exists()
