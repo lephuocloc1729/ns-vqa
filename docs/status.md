@@ -1392,6 +1392,14 @@ Run `5c9251f5f207`, 15:47–16:25 UTC, at commit `2e1ff41`, with `eval/frozen_ph
 - **Every target and floor is missed at the start**, as expected for a baseline. The main gap is out_of_scope: 39% of validation questions against 16% on public_dev. The fixes in `phase-4.5.md` were sized on public_dev's causes, so on this set they cover a smaller share of the gap.
 - Nothing is tuned on this run. The validation questions stay unread; the targets don't move.
 
+### Phase 4.5 scope round: dev run and analysis (2026-11-17)
+
+- **Dev run** `13ded0d75451` (frozen system, fallback off, 87 dev questions, all Natural QA): decided **40.2%** (31–51), accuracy on decided **80.0%** (64–90), overall 32.2%. **$0.612**; round spend $0.61 of $5.
+- **52 undecided:** parser wording or selector 5, new sign-group slot 4, perception 4, new types with a law basis 31 (guide-sign content 21, conduct 4, STOP 2, placement 2, presence 1, scope 1), out of scope with no law article or outside v1 8 (speed by road type 4, speed range 2, lights 1, why 1).
+- **Wrong or partial decided (7 points):** missing expressway rule (Law 36 art. 25), missing S.501 plate, P.127's vehicle coverage, a group name, two `choose` answers with unknown options counted as decided, R.411 without lane rows, one misread guide sign.
+- **`law_db` has no article for speed limits by road type,** so those questions stay out.
+- **Proposed** (`docs/plans/phase-4.5.md` section 10, awaiting approval): ranks 1–8 (accuracy, expressway, selector and lane fixes; parser v7; sign group; conduct + STOP; presence; scope and placement), about $2.55 and 8.5 days, projected dev coverage about 58%; rank 9 (guide-sign content) only past a stopping point.
+
 ## Next steps, in order
 
 **Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Phase 4 closed (2026-11-16; closing entry above).** Phase 5 plan approved (2026-11-16). **Next: the one private-test run** (`eval/e2e_private.py run --confirm-frozen --max-spend 3`), on the owner's go-ahead on its $1.83 estimate.

@@ -170,3 +170,95 @@ The baseline validation (`docs/status.md`) decided 30.0% (22–39), with accurac
 - The owner reviews new catalog rows before the freeze.
 - Files are staged by name, with the list checked before each commit.
 - Not touched: the validation set beyond its aggregate, public_holdout, private, and gold.
+
+## 10. Scope round: dev findings and the proposed additions (2026-11-17; proposed, awaiting the owner's approval)
+
+### Dev run (`13ded0d75451`, frozen system, fallback off, $0.612)
+
+| dev (87 Natural QA) | decided coverage (95% CI) | accuracy on decided (95% CI) | overall, non-decided = wrong |
+|---|---|---|---|
+| frozen phase 4 | 40.2% (31–51) | 80.0% (64–90) | 32.2% |
+
+**The 52 undecided questions, by what fixes them:**
+
+| class | questions | ids |
+|---|---|---|
+| parser wording or selector failure (an existing intent fits) | 5 | 14, 99, 260, 287, 421 |
+| new slot on an existing intent (sign group) | 4 | 78, 160, 520, 523 |
+| perception (a misread or unreadable sign) | 4 | 316, 450, 514, 518 |
+| new question type with a law basis | 31 | guide-sign content 21; driver conduct 4; STOP sign 2; placement 2; presence 1; scope of effect 1 |
+| stays out: no `law_db` article, or outside v1 | 8 | speed by road type 4 (54, 55, 56, 58); speed range 2 (254, 413); traffic light 1 (341); "why" 1 (351) |
+
+- **14** (parse failed): speed limits for two vehicles; the parser added a `sign` field `speed_limit` doesn't take.
+- **99**: "Biển trong ảnh cấm hành vi gì?" with four signs: needs `select(category=prohibitory)`, not `only`.
+- **260**: "Các ký hiệu trên biển cho biết đây là loại đường nào?": the meaning of IE.452, selected by code or look, not `only`.
+- **287**: the selector asks for red border and red background, but the scene records P.102's look differently: selectors should also match on visual category.
+- **421**: "Xe máy được đi ở những làn nào": the lane count is missing, though R.415a's board rows give it.
+- **78, 160, 520, 523**: "thuộc nhóm nào": the readings or signs differ, but they all fall in the same QCVN 41 art. 11 group.
+- **316, 450, 518, 514**: guide-board alternatives, a P.124c alternative, an R.420 alternative, an UNKNOWN junction sign.
+- **Guide-sign content** (80, 159, 230, 231, 248, 249, 250, 258, 259, 261, 325, 327, 329, 348, 361, 397, 414, 415, 515, 521, 525): destinations, distances, directions and route names printed on I/IE boards.
+- **Driver conduct** (216, 219, 222, 432): "người lái xe cần làm gì" after warning, prohibitory or mandatory signs. **STOP** (337, 375): R.122, not in the catalog, so perception reads it UNKNOWN.
+- **Placement** (402, 517), **presence** (107: "biển nào không có trong ảnh"), **scope** (269: "có hiệu lực từ đâu đến đâu").
+- **Out:** speeds by road type after R.420 (no `law_db` article gives them); speed ranges on expressways (no article for default expressway limits); a traffic light; an explanation question.
+
+**Wrong or partial decided answers (7 points lost of 35):**
+- **81** (wrong): the scene has IE.452 (start of expressway), but no rule bans mopeds, motorbikes and rudimentary vehicles there (Law 36 art. 25.3), so the closed world says yes.
+- **145** (wrong): "Biển phụ cho biết điều gì?": the plate is S.501 "Phạm vi tác dụng của biển" (QCVN 41 F.1), which is not in the catalog; the answer described the main sign.
+- **272** (partial): the police car without signals was "undetermined", but P.127 applies to every vehicle, so the vehicle's kind doesn't matter.
+- **308** (partial): the group was named "biển chỉ dẫn bắt buộc"; art. 11 calls it "biển hiệu lệnh".
+- **352** (wrong): an expressway choice with no speed sign in the scene. The speed options are unknown, and stopping on the expressway is not ruled out (Law 36 art. 25.2), but a `choose` with unknown options still counted as decided.
+- **381** (wrong): P.127 120 and R.306 60 over lanes, with no lane asked. Each option came out unknown, although every lane gives the same verdict.
+- **451** (wrong): R.411 with no lane rows in the scene: the engine called all four lane claims false instead of unknown.
+- **526** (wrong): perception read I.414 for an interchange sign.
+
+### Question types across train minus the validation set (420 questions; keyword counts, checked by eye)
+
+| type the system can't answer today | train (minus validation) | dev | needs | law articles | can perception supply it? | size |
+|---|---|---|---|---|---|---|
+| guide-sign content (destination, direction, distance, route) | about 36 | 21 | new intents (parser v7) + scene schema 1.3 (`guide` entries on I/IE boards) + scene prompt v5 | QCVN 41 art. 39, 45, 47; the board's own article (E.x, P.x) | partly: Haiku must read place names and distances; untested, no gold | 3–4 days |
+| sign group ("thuộc nhóm nào") | 30 (dev: 9 of 13 already decided) | 4 | a `meaning` aspect slot (parser v7) + an engine rule | QCVN 41 art. 11 | yes (category from the code, or shared by every reading) | 1 day |
+| driver conduct after signs | 9 | 4 | new intent `conduct` (parser v7) + rules per sign group | QCVN 41 art. 27 (warning), 32 (mandatory), 26 (prohibitory) | yes | 1 day |
+| STOP sign R.122 | 2 | 2 | a catalog row (owner review) + `conduct` / `required` rule; the catalog change makes a new scene prompt version | QCVN 41 D.1 | yes once the row exists | 0.5 day |
+| presence ("biển nào không có trong ảnh") | 10 | 1 | new claim `present(code or meaning)`, used inside `choose` (parser v7) | the signs' own articles (closed world over the scene) | yes, but it rests on recall and false positives | 1 day |
+| expressway rules (entry ban, no stopping) | about 6 of 26 expressway questions | 1 wrong answer (81) | a rule over existing intents: IE.452 in the scene means an expressway | Law 36 art. 25.2, 25.3 | yes (IE.452 is read reliably) | 0.5 day |
+| scope of effect | 3 | 1 | new intent `scope` (parser v7), and the S.501 plate row (owner review) | QCVN 41 art. 26, 30, 34; F.1 | yes | 0.5–1 day |
+| placement ("đặt ở đâu") | 2 | 2 | new intent `placement` (parser v7) | QCVN 41 art. 16, 26, 30, 34, 39 | yes | 1 day |
+| speed by road type, speed ranges, traffic lights, "why" | 5, 3, 2, 6 | 8 | — | none in `law_db` for the first two; outside v1 for the rest | — | not proposed |
+
+### The proposed set, ranked by train questions gained per day
+
+Free engine, selector and KB fixes come first. Each is checked by an engine-only replay on the stored dev parses (no call), and each is kept only if dev accuracy on decided stays ≥ 85% (3c).
+
+| rank | addition | kind | dev gain (decided / right) | train questions | days | per day | accuracy risk |
+|---|---|---|---|---|---|---|---|
+| 1 | **accuracy fixes:** a `choose` / `which` answer with an unknown option needed for the answer is unknown, not decided (352); R.411 without lane rows gives unknown (451); P.127 applies to every vehicle, whatever its kind (272); group names from art. 11 (308) | engine, writer digest | −2 decided, +2 right (accuracy, not coverage) | — | 1 | — | lowers wrong answers |
+| 2 | **expressway rules:** IE.452 in the scene means an expressway; entry banned for mopeds, motorbikes, rudimentary vehicles, four-wheel motor vehicles and pedestrians (art. 25.3); stopping and parking only where permitted (art. 25.2) | KB rule, `cite(r_expressway_*)` | +1 right (81) | about 6 | 0.5 | 12 | low (the article lists the classes) |
+| 3 | **selector and lane-count fixes:** selectors also match on visual category (287); lane count from lane-board rows (421); lane-split speed signs that agree decide (381) | engine | +2 decided, +1 right | about 4 | 1 | 4 | low |
+| 4 | **parser v7** (one prompt version for everything below): retry sends only the error; selectors by category and code (99, 260); `speed_limit` over a vehicle list (14); the new intents and slots of ranks 5–8; few-shots from train with exact text (not from the validation set) | parser | +3 decided (wording) | about 8 | 1 | 8 | low; gated on public_dev gold intents (no regression) |
+| 5 | **sign group:** `meaning(..., aspect=category)`; decided when every reading, or every selected sign, falls in one art. 11 group | DSL slot + engine | +4 decided | about 9 | 1 | 9 | low |
+| 6 | **driver conduct + STOP:** `conduct(select)` returns what the signs require: warning (art. 27: slow down, observe, be ready), mandatory (art. 32: obey), prohibitory (art. 26 + the sign's effect), R.122 (D.1: every vehicle stops, priority vehicles included) | new intent + rules + R.122 row | +6 decided | 11 | 1.5 | 7 | medium (the judge compares wording) |
+| 7 | **presence:** `present(code or meaning)` inside `choose`; closed world over the scene, unknown when an unreadable sign of the same group could be it | new claim | +1 decided | 10 | 1 | 10 | medium (false positives in the scene) |
+| 8 | **scope and placement:** `scope(select)` (art. 26, 30, 34; plates S.501 F.1); `placement(select)` (art. 16, 26, 30, 34, 39) | new intents + S.501 row | +3 decided, +1 right (145) | 5 | 1.5 | 3 | medium |
+| 9 | **guide-sign content:** scene schema 1.3 `guide` entries (destination, direction, distance, route) on I/IE boards; scene prompt v5; `direction_to`, `distance_to`, `guide_text` | perception + schema + DSL + engine | up to +21 decided | about 36 | 3.5 | 10 | **high**: untested reading of place names and distances, no gold, judged on exact names |
+
+**Stopping point:** build ranks 1–8 in order, replaying dev after each. Rank 9 is built only if three things hold: dev coverage after ranks 1–8 is below 70%, the round has at least $2.50 left, and the owner says go after seeing the replay. If any rank fails the 85% guardrail, it stays out of scope.
+
+**Projected dev coverage:** 40.2% now; about 58% after ranks 1–8 (about +16 decided, −2 for the accuracy fixes); 70–80% if rank 9 reads boards well. Accuracy on decided after rank 1–3 fixes: about 90% on dev (2 wrong left: 352 if still decided, 526).
+
+**Catalog changes** (owner review before the freeze): R.122 "Dừng lại" (D.1) and S.501 "Phạm vi tác dụng của biển" (F.1). A new row changes the scene prompt's catalog listing, so perception becomes `scene/v5`. A set-T perception check then confirms code F1 doesn't drop, and dev is re-perceived once.
+
+**Tests:** hand-made scenes modelled on train questions outside the validation set, one or more per rank. Examples: a P.127 scene with a police car without signals (rank 1); an IE.452 scene with a moped (rank 2); an R.415a board with three rows and no road lane count (rank 3); two P.131 readings asked for their group (rank 5); W.227 with a conduct question (rank 6); a `choose` over four signs with one absent (rank 7); a P.128 + S.501 plate (rank 8). Every new rule cites `law_id` + `article_id` through `rule_source/3`, and Prolog rules have no cuts.
+
+### Cost (round budget $5; $0.61 spent)
+
+| item | estimate |
+|---|---|
+| parser v7: dev re-parse, two iterations (87 × 2) | about $0.50 |
+| parser gate rerun on public_dev gold intents (3 runs × 47 programs) | about $0.45 |
+| scene v5 (new catalog rows): set-T perception check + dev re-perception | about $0.25 |
+| dev replays with judging of changed decided answers (about 3) | about $0.60 |
+| final validation run, once | about $0.75 |
+| **ranks 1–8 total** | **about $2.55** (with the $0.61 spent: $3.16 of $5) |
+| rank 9, if it goes ahead: scene v5 guide runs on set T and dev, 2 iterations | about $0.80 more ($3.96 of $5) |
+
+**Time:** ranks 1–8 about 8.5 days; rank 9 about 3.5 more.
