@@ -431,6 +431,13 @@ V7_FEATURES = ('"intent": "present"', '"intent": "guide"', '"aspect": "group"', 
                '"aspect": "scope"', '"aspect": "placement"', '"road_divided":', '"lane": -')
 
 
+# Phase 4.6 (step 4): what parser v10 adds on purpose. A miss that uses one of them on a row the
+# v6 gold had no way to write is given back as design, like v7's.
+V10_FEATURES = ('"intent": "multi"', '"intent": "guide_claim"', '"intent": "explain"', '"intent": "speed_limit_is"',
+                '"kind": "range"', '"aspect": "article"', '"ask": "road_type"', '"day_parity":')
+DESIGN_FEATURES = V7_FEATURES + V10_FEATURES
+
+
 def gold_type(g: dict) -> str:
     p = (g.get("program") or {}).get("program")
     return "out_of_scope" if not p else p.get("intent", "?")
@@ -471,7 +478,7 @@ def compare_versions(old: list[Path], new: list[Path], gold_path: Path | None = 
         if any(c for c, _ in orow.get(qid, [])) and not all(c for c, _ in runs):
             progs = [json.dumps(q, ensure_ascii=False) for c, q in runs if not c]
             lost.append({"id": qid, "new_wrong_runs": len(progs),
-                         "v7_design": any(f in p for p in progs for f in V7_FEATURES), "new_programs": progs[:1]})
+                         "v7_design": any(f in p for p in progs for f in DESIGN_FEATURES), "new_programs": progs[:1]})
     # The same drop with design-change rows given back: a new miss whose program uses a v7
     # feature counts as right again (the v6 gold has no way to write it).
     design = {x["id"] for x in lost if x["v7_design"]}

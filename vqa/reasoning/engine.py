@@ -18,8 +18,8 @@ from vqa.reasoning.facts import board_read, reading_variants, scene_facts, top_r
 from vqa.reasoning.terms import Term, atom, to_prolog, vehicle_term
 from vqa.parsing.dsl import normalize
 from vqa.schemas import (
-    AllOf, Answer, AnyOf, BanTimes, Choose, Citation, ExistsViolation, Guide, IsSign, LanesFor, LanesWhere,
-    LaneVehicles, Meaning, Permitted, Present, SpeedLimit,
+    AllOf, Answer, AnyOf, BanTimes, Choose, Citation, ExistsViolation, Explain, Guide, GuideClaim, IsSign,
+    LanesFor, LanesWhere, LaneVehicles, Meaning, Multi, Permitted, Present, SpeedLimit, SpeedLimitIs,
     ONTOLOGY_CLASSES, Forbidden, Program, QueryProgram, Reason, Required, SceneGraph, Selector,
     SpeedOk, Vehicle, VehicleClass, Verdict, Verify, When, WhichVehicles,
 )
@@ -58,8 +58,16 @@ def _assert(facts: list[Term]) -> None:
         raise EngineError("asserting facts failed")
 
 
+# Phase 4.6 (D3): a day of the stated parity, for "vào ngày chẵn / lẻ" with no date. The
+# P.131b / P.131c rules depend on the parity only (QCVN 41 B.31).
+_PARITY_DAY = {"even": 2, "odd": 1}
+
+
 def _days(when: When | None) -> tuple[int | None, int | None]:
     """Day of month for the interval's start and for after midnight."""
+    if when is not None and when.date is None and when.day_parity:
+        d = _PARITY_DAY[when.day_parity]
+        return d, d + 1
     if when is None or when.date is None:
         return None, None
     return when.date.day, (when.date + dt.timedelta(days=1)).day
@@ -77,6 +85,8 @@ def _ctx(when: When | None, scene: SceneGraph, lane: int | None = None) -> Term:
             minute = when.time.hour * 60 + when.time.minute
         if when.date is not None:
             day = when.date.day
+        elif when.day_parity:
+            day = _PARITY_DAY[when.day_parity]
     elif scene.context.datetime is not None:
         t: dt.datetime = scene.context.datetime
         minute, day = t.hour * 60 + t.minute, t.day
@@ -372,6 +382,14 @@ class Engine:
             return self._present(scene, p)
         if isinstance(p, Guide):
             return self._guide(scene, p)
+        if isinstance(p, GuideClaim):
+            return self._guide_claim(scene, p)
+        if isinstance(p, SpeedLimitIs):
+            return self._speed_limit_is(scene, p)
+        if isinstance(p, Multi):
+            return self._multi(scene, p)
+        if isinstance(p, Explain):
+            return self._explain(scene, p)
         if isinstance(p, ExistsViolation):
             return self._violations(scene, p)
         if isinstance(p, Required):
@@ -516,6 +534,23 @@ class Engine:
             return Answer(verdict=Verdict.unknown, uncertain_signs=unread,
                           note="no readable sign in the scene matches the selector")
         entries = [(i, self.catalog.get(scene.sign(i).code)) for i in readable]
+        if p.aspect == "article":
+            # Phase 4.6 I1: the QCVN 41 article listing the sign's group (art. 22.1 prohibitory,
+            # 28.1 warning, 32.1 mandatory, 36.1 information, 41 / 42 auxiliary and text signs;
+            # IE rows: their own art. 47), and the appendix article the catalog row cites.
+            rows = []
+            for i, e in entries:
+                art = group_article(e.code)
+                if art is None:
+                    continue
+                rows.append({"sign_id": i, "code": e.code, "name_vi": e.name_vi, "article": art[0],
+                             "appendix": e.source.article_id if e.source.article_id != art[1] else None})
+            if not rows:
+                return Answer(verdict=Verdict.unknown, uncertain_signs=unread, note="no article for these signs")
+            cites = [Citation(law_id="QCVN 41:2024/BGTVT", article_id=group_article(r["code"])[1]) for r in rows]
+            cites += [e.source for _, e in entries]
+            return Answer(verdict=Verdict.value, value={"article": rows}, uncertain_signs=unread,
+                          citations=list({(c.law_id, c.article_id): c for c in cites}.values()))
         if p.aspect == "group":
             # Decided when every readable selected sign falls in one art. 11 group; unreadable
             # candidates are dropped and listed, as for single-sign questions (Engine.single_sign).
@@ -582,8 +617,11 @@ class Engine:
                                           for s in hits}.values()))
         looks = {self.category_of(r.visual.shape, r.visual.border, r.visual.background) for r in rows}
         unread = set(self.unreadable_signs(scene))
+        # Phase 4.6 F2 (owner, 2026-11-17): a red board is a local notice written in free text
+        # (CLAUDE.md: counted as prohibitory), so its look rules nothing out: unread, it could
+        # state any order or direction, and a "no" stays unknown.
         maybe = [s.id for s in scene.signs if s.id in unread
-                 and (self.visual_category(s) == "unknown" or self.visual_category(s) in looks)]
+                 and self.visual_category(s) in (looks | {"unknown", "red_board"})]
         if maybe:
             return Answer(verdict=Verdict.unknown, uncertain_signs=maybe,
                           note="a sign that could not be read might be it")
@@ -594,6 +632,11 @@ class Engine:
         """What a guide board says (B6). Read from the board data; no legal conclusion."""
         from vqa.reasoning import sign_info as si
 
+        if p.ask == "road_type":
+            kind, cites = self.road_kind(scene)
+            if kind is None:
+                return Answer(verdict=Verdict.unknown, note="nothing in the photo says what kind of road this is")
+            return Answer(verdict=Verdict.value, value={"road_type": kind}, citations=cites)
         boards = scene.guide_boards
         if not boards:
             return Answer(verdict=Verdict.unknown, note="no guide board was read in the photo")
@@ -601,8 +644,11 @@ class Engine:
                  if self.catalog.has(s.code) and self.catalog.get(s.code).effect.informational][:2] or [si.ART11]
         entries = [e for b in boards for e in b.entries]
         if p.ask == "destinations":
+            if p.direction:
+                entries = [e for e in entries if _same_direction(e.direction, p.direction)]
             if not entries:
-                return Answer(verdict=Verdict.unknown, note="the boards list no destinations")
+                return Answer(verdict=Verdict.unknown, note="the boards list no destinations"
+                              + (f" with a {p.direction} arrow" if p.direction else ""))
             return Answer(verdict=Verdict.value, citations=cites, value={"destinations": [
                 {"text": e.text, "direction": e.direction, "distance_m": e.distance_m,
                  "distance": distance_text(e.distance_m)} for e in entries]})
@@ -623,6 +669,155 @@ class Engine:
         return Answer(verdict=Verdict.value, citations=cites, value={
             "destination": hit.text, "direction": hit.direction, "distance_m": hit.distance_m,
             "distance": distance_text(hit.distance_m)})
+
+    # ------------------------------------------------------------------ phase 4.6 I1-I4
+    def road_kind(self, scene: SceneGraph) -> tuple[str | None, list[Citation]]:
+        """What kind of road this is, from scene data only (phase 4.6 I2):
+        - an expressway guide sign (code IE, QCVN 41 art. 45-47: IE signs are the expressway
+          ones; art. 36.1: "I" is for roads that are not expressways), or the scene's road type;
+        - a national road: a route plate "QL ..." (art. 46, a board's route number).
+        Returns (kind, citations) or (None, [])."""
+        ie = [s for s in scene.signs if s.code.startswith("IE.") and self.catalog.has(s.code)]
+        if ie or scene.road.type.value == "expressway":
+            return "expressway", [_ART(45)] + [self.catalog.get(s.code).source for s in ie][:2]
+        routes = [b.route for b in scene.guide_boards if b.route]
+        if any(fold_text(r).startswith("ql") for r in routes):
+            return "national_road", [_ART(46)]
+        if scene.road.type.value in ("urban", "rural"):
+            return scene.road.type.value, []
+        return None, []
+
+    def _guide_claim(self, scene: SceneGraph, p: GuideClaim) -> Answer:
+        """A stated claim against the boards and signs (phase 4.6 I2). Scene data only; no legal
+        conclusion. A destination the boards don't name leaves distance and direction claims
+        unknown; `listed` is no only when boards were read and no board sign is left unread."""
+        from vqa.reasoning import sign_info as si
+
+        if p.about == "road_type":
+            kind, cites = self.road_kind(scene)
+            if kind is None:
+                return Answer(verdict=Verdict.unknown, note="nothing in the photo says what kind of road this is")
+            if kind == p.road_type:
+                return Answer(verdict=Verdict.yes, value={"road_type": kind}, citations=cites)
+            if p.road_type == "national_road" and kind == "expressway" or p.road_type == "expressway":
+                return Answer(verdict=Verdict.no, value={"road_type": kind}, citations=cites or [_ART(45)])
+            return Answer(verdict=Verdict.unknown, value={"road_type": kind},
+                          note="the photo does not show whether this is a national road")
+        if p.about == "ahead":
+            return self._ahead(scene, p)
+        boards = scene.guide_boards
+        if not boards:
+            return Answer(verdict=Verdict.unknown, note="no guide board was read in the photo")
+        cites = [self.catalog.get(s.code).source for s in scene.signs
+                 if self.catalog.has(s.code) and self.catalog.get(s.code).effect.informational][:2] or [si.ART11]
+        entries = [e for b in boards for e in b.entries]
+        lines = entries + [si_entry(t) for b in boards for t in ([b.route] if b.route else []) + list(b.other)]
+        hit = si.find_entry(lines, p.destination or "")
+        if p.about == "listed":
+            if hit is not None:
+                return Answer(verdict=Verdict.yes, value={"destination": hit.text}, citations=cites)
+            if self.unreadable_signs(scene):
+                return Answer(verdict=Verdict.unknown, uncertain_signs=self.unreadable_signs(scene),
+                              note="no board read names it, but a sign could not be read")
+            return Answer(verdict=Verdict.no, value={"destination": None}, citations=cites)
+        if hit is None:
+            return Answer(verdict=Verdict.unknown, note="no board line names that destination")
+        if p.about == "distance":
+            if hit.distance_m is None:
+                return Answer(verdict=Verdict.unknown, value={"destination": hit.text},
+                              note="the board gives no distance for that destination")
+            ok = abs(hit.distance_m - p.distance_m) <= max(10.0, 0.01 * p.distance_m)
+            return Answer(verdict=Verdict.yes if ok else Verdict.no, citations=cites, value={
+                "destination": hit.text, "distance_m": hit.distance_m, "distance": distance_text(hit.distance_m),
+                "stated": distance_text(p.distance_m)})
+        if hit.direction == "none":
+            return Answer(verdict=Verdict.unknown, value={"destination": hit.text},
+                          note="the board shows no arrow for that destination")
+        ok = _same_direction(hit.direction, p.direction)
+        return Answer(verdict=Verdict.yes if ok else Verdict.no, citations=cites,
+                      value={"destination": hit.text, "direction": hit.direction, "stated": p.direction})
+
+    def _ahead(self, scene: SceneGraph, p: GuideClaim) -> Answer:
+        """Does `feature` lie ahead? Yes from a sign for it (its catalog row cites its article) or
+        a board line naming it. No when no sign or board shows it and nothing unread could
+        (closed world over the readable signs, as elsewhere). Codes and words: AHEAD_FEATURES."""
+        codes, words = AHEAD_FEATURES[p.feature]
+        hits = [s for s in scene.signs if self.catalog.has(s.code)
+                and any(self.catalog.code_selects(c, s.code) for c in codes)]
+        if hits:
+            return Answer(verdict=Verdict.yes, value={"signs": [s.id for s in hits]},
+                          citations=list({self.catalog.get(s.code).source.article_id: self.catalog.get(s.code).source
+                                          for s in hits}.values()))
+        texts = [fold_text(e.text) for b in scene.guide_boards for e in b.entries] + \
+                [fold_text(t) for b in scene.guide_boards for t in b.other]
+        if any(f" {w} " in f" {t} " for t in texts for w in words):     # whole words only
+            return Answer(verdict=Verdict.yes, value={"board_line": True}, citations=[_ART(46)])
+        rows = [self.catalog.get(c) for c in codes if self.catalog.has(c)]
+        looks = {self.category_of(r.visual.shape, r.visual.border, r.visual.background) for r in rows} | {"board"}
+        maybe = [sid for sid in self.unreadable_signs(scene)
+                 if self.visual_category(scene.sign(sid)) in (looks | {"unknown", "red_board"})]
+        if maybe:
+            return Answer(verdict=Verdict.unknown, uncertain_signs=maybe,
+                          note="a sign that could not be read might show it")
+        return Answer(verdict=Verdict.no, value={"signs": []},
+                      citations=list({r.source.article_id: r.source for r in rows}.values())[:3])
+
+    def _speed_limit_is(self, scene: SceneGraph, p: SpeedLimitIs) -> Answer:
+        """Phase 4.6 I4: the binding limit equals the stated value (QCVN 41 B.27, D.6)."""
+        a = self._speed_limit(scene, SpeedLimit(vehicle=p.vehicle, lane=p.lane, kind=p.kind))
+        lim = a.value.get("limit") if isinstance(a.value, dict) else None
+        if a.verdict is not Verdict.value or lim is None:
+            return a.model_copy(update={"verdict": Verdict.unknown,
+                                        "note": a.note or "the limit depends on a condition not in the photo"})
+        verdict = Verdict.yes if abs(lim - p.value_kmh) < 0.5 else Verdict.no
+        return a.model_copy(update={"verdict": verdict, "value": {**a.value, "stated": p.value_kmh}})
+
+    def _speed_range(self, scene: SceneGraph, p: SpeedLimit) -> Answer:
+        """Phase 4.6 I4: the maximum and the minimum together ("trong khoảng tốc độ nào").
+        Decided when the maximum is known; the minimum is reported when a sign or rule sets one,
+        and as none when no minimum applies (no R.306, no expressway default, nothing unread)."""
+        hi = self._speed_limit(scene, p.model_copy(update={"kind": "max"}))
+        lo = self._speed_limit(scene, p.model_copy(update={"kind": "min"}))
+        max_v = hi.value.get("limit") if isinstance(hi.value, dict) else None
+        min_v = lo.value.get("limit") if isinstance(lo.value, dict) and lo.verdict is Verdict.value else None
+        value = {"kind": "range", "max": max_v, "min": min_v, "lane": p.lane}
+        if hi.verdict is not Verdict.value or max_v is None:
+            return Answer(verdict=Verdict.unknown, value=value, note="the maximum is not known")
+        if min_v is None and (lo.verdict is Verdict.value or self.unreadable_signs(scene)):
+            return Answer(verdict=Verdict.unknown, value=value, note="the minimum is not known")
+        return Answer(verdict=Verdict.value, value=value, reasons=hi.reasons + lo.reasons,
+                      citations=hi.citations + lo.citations, basis=sorted(set(hi.basis) | set(lo.basis)))
+
+    def _multi(self, scene: SceneGraph, p: Multi) -> Answer:
+        """Phase 4.6 I1: each part on its own; decided when every part is."""
+        parts = [self._run(scene, normalize(x)) for x in p.parts]
+        done = all(a.verdict in (Verdict.yes, Verdict.no, Verdict.value) for a in parts)
+        value = {"parts": [{"intent": x.intent, "verdict": a.verdict.value, "value": a.value}
+                           for x, a in zip(p.parts, parts)]}
+        return Answer(verdict=Verdict.value if done else Verdict.unknown, value=value,
+                      reasons=[r for a in parts for r in a.reasons],
+                      citations=[c for a in parts for c in a.citations],
+                      uncertain_signs=sorted({s for a in parts for s in a.uncertain_signs}),
+                      basis=sorted({b for a in parts for b in a.basis}),
+                      note=None if done else "; ".join(a.note for a in parts if a.note) or "a part is not decided")
+
+    def _explain(self, scene: SceneGraph, p: Explain) -> Answer:
+        """Phase 4.6 I3: the inner answer, with the reasons that decide it."""
+        inner = self._run(scene, normalize(p.program))
+        if inner.verdict not in (Verdict.yes, Verdict.no, Verdict.value):
+            return inner
+        because = []
+        for r in inner.reasons:
+            if r.sign_id is None:
+                continue
+            s = scene.sign(r.sign_id) if any(x.id == r.sign_id for x in scene.signs) else None
+            row = self.catalog.get(s.code) if s is not None and self.catalog.has(s.code) else None
+            item = {"sign_id": r.sign_id, "truth": r.truth, "detail": r.detail,
+                    "code": row.code if row else None, "name_vi": row.name_vi if row else None}
+            if item not in because:
+                because.append(item)
+        return inner.model_copy(update={"verdict": Verdict.value, "value": {
+            "answer": inner.verdict.value, "inner": inner.value, "because": because}})
 
     def _violations(self, scene: SceneGraph, p: ExistsViolation) -> Answer:
         self.load_scene(scene)
@@ -863,6 +1058,8 @@ class Engine:
                       reasons=support, citations=_cites(support), basis=_basis(support))
 
     def _speed_limit(self, scene: SceneGraph, p: SpeedLimit) -> Answer:
+        if p.kind == "range" and not p.vehicles:
+            return self._speed_range(scene, p)
         if p.vehicles:
             # phase 4.5: several vehicles at once; decided when every vehicle's limit is
             per = [(v, self._speed_limit(scene, p.model_copy(update={"vehicle": v, "vehicles": []}))) for v in p.vehicles]
@@ -910,12 +1107,19 @@ class Engine:
         if not ids:
             return Answer(verdict=Verdict.unknown, note="no sign in the scene matches the selector")
         unread_only: list[str] = []
+        several = False
         if p.sign.only:
             chosen, unread_only = self.single_sign(scene, ids)
             if chosen is None:
-                return Answer(verdict=Verdict.unknown, value={"candidates": ids},
-                              uncertain_signs=unread_only,
-                              note="expected exactly one sign in the scene")
+                # Phase 4.6 F1 (owner, 2026-11-17), following the single-sign rule: unreadable
+                # signs are dropped; yes if every readable sign is the named one, no if none is,
+                # unknown if mixed or if no readable sign is left.
+                chosen = [i for i in ids if self.catalog.has(scene.sign(i).code)]
+                if not chosen:
+                    return Answer(verdict=Verdict.unknown, value={"candidates": ids},
+                                  uncertain_signs=unread_only,
+                                  note="no readable sign is left to check")
+                several = len(chosen) > 1
             ids = chosen
         unread = [i for i in ids if not self.catalog.has(scene.sign(i).code)]
         if unread:
@@ -937,8 +1141,15 @@ class Engine:
         reasons = [_reason(r) for r in out["reasons"]]
         actual = [{"sign_id": i, "code": self.catalog.get(scene.sign(i).code).code,
                    "name_vi": self.catalog.get(scene.sign(i).code).name_vi} for i in ids]
-        return Answer(verdict=Verdict(out["verdict"]), value={"signs": actual},
-                      reasons=reasons, citations=_cites(reasons), uncertain_signs=unread_only)
+        verdict = Verdict(out["verdict"])
+        if several:
+            truths = {r.truth for r in reasons}
+            verdict = (Verdict.yes if truths == {"true"} else Verdict.no if truths == {"false"}
+                       else Verdict.unknown)
+        return Answer(verdict=verdict, value={"signs": actual}, reasons=reasons, citations=_cites(reasons),
+                      uncertain_signs=unread_only,
+                      note="the selected signs differ: some are the named sign and some are not"
+                      if verdict is Verdict.unknown and several else None)
 
     def _connective(self, scene: SceneGraph, p: AllOf | AnyOf) -> Answer:
         """Three-valued AND / OR over claims. Citations come from the parts that decide."""
@@ -1036,6 +1247,51 @@ def resolve_lanes(p, n: int | None):
 
     out = walk(p)
     return out, seen
+
+
+def _ART(n: int | str) -> Citation:
+    return Citation(law_id="QCVN 41:2024/BGTVT", article_id=str(n))
+
+
+def fold_text(t: str | None) -> str:
+    """Board text folded for matching: no diacritics, lower case, words split by single spaces."""
+    from vqa.reasoning.sign_info import fold
+    return fold(t or "").lower()
+
+
+def si_entry(text: str):
+    from vqa.schemas import GuideEntry
+    return GuideEntry(text=text)
+
+
+# Phase 4.6 I2: what "lies ahead" questions name, by sign codes (their catalog rows cite the
+# article) and board words (folded, no diacritics). QCVN 41 C.38 W.238 "Đường cao tốc phía
+# trước", C.40 W.240 "Đường hầm", C.5 W.205 "Đường giao nhau", C.6 W.206 / D.3 R.303 (vòng
+# xuyến), art. 47 IE.454 / IE.455 / IE.464b / IE.474 (lối ra).
+AHEAD_FEATURES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
+    "tunnel": (("W.240",), ("ham",)),
+    "expressway": (("W.238", "IE.450a", "IE.450b", "IE.451a", "IE.451b", "IE.452"), ("cao toc",)),
+    "junction": (("W.205", "W.207", "W.208", "W.234"), ("nga ba", "nga tu", "nut giao")),
+    "roundabout": (("W.206", "R.303"), ("vong xuyen",)),
+    "exit": (("IE.454", "IE.455", "IE.464b", "IE.474"), ("loi ra", "exit")),
+}
+
+_DIRECTION_GROUP = {"straight": {"straight"}, "left": {"left", "slight_left"},
+                    "right": {"right", "slight_right"}, "u_turn": {"u_turn"}}
+
+
+def _same_direction(board: str, stated: str | None) -> bool:
+    return stated is not None and board in _DIRECTION_GROUP.get(stated, {stated})
+
+
+# Phase 4.6 I1: the QCVN 41 article that lists each sign group (from the law text): art. 22.1 P / DP,
+# 28.1 W, 32.1 R, 36.1 I, 47 IE, 41 S (auxiliary plates). Returns (text, article id).
+_GROUP_ARTICLES = [("DP.", ("22.1", "22")), ("IE.", ("47", "47")), ("P.", ("22.1", "22")),
+                   ("W.", ("28.1", "28")), ("R.", ("32.1", "32")), ("I.", ("36.1", "36")), ("S.", ("41", "41"))]
+
+
+def group_article(code: str) -> tuple[str, str] | None:
+    return next((a for p, a in _GROUP_ARTICLES if code.startswith(p)), None)
 
 
 def distance_text(m: float | None) -> str | None:

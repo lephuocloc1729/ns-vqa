@@ -332,3 +332,13 @@ def test_one_run_decides_the_gate_from_v8():
     sc = {"model": "m", "effort": "medium", "prompt_version": "v8", "run_ids": ["r"],
           "splits": {"public_dev": {"accuracy": 0.95}}}
     assert "gate on the mean of 1 run: PASS" in pev3.run_groups([sc])
+
+
+def test_v10_features_count_as_design_changes():
+    """Phase 4.6: v10's new forms (multi, guide claims, explain, stated and ranged speed limits,
+    the article aspect, road type, day parity) are given back like v7's."""
+    import eval.parser_eval as pe
+    for f in ('"intent": "multi"', '"intent": "guide_claim"', '"intent": "explain"', '"intent": "speed_limit_is"',
+              '"kind": "range"', '"aspect": "article"', '"ask": "road_type"', '"day_parity":'):
+        assert f in pe.DESIGN_FEATURES
+    assert set(pe.V7_FEATURES) <= set(pe.DESIGN_FEATURES)

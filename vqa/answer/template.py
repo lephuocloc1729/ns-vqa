@@ -161,6 +161,32 @@ def _value_text(digest: dict[str, Any]) -> str:
         return "Biển chỉ dẫn ghi: " + "; ".join(rows) + "."
     if "routes" in v:                                          # guide: route plates
         return "Tuyến " + _join(v["routes"]) + "."
+    if "parts" in v and isinstance(v["parts"], list) and v["parts"] and isinstance(v["parts"][0], dict):
+        # multi (phase 4.6 I1): each part's own text, joined
+        texts = []
+        for part in v["parts"]:
+            sub = {**digest, "verdict": part["verdict"], "value": part["value"]}
+            if part["verdict"] in ("yes", "no"):
+                texts.append("Có" if part["verdict"] == "yes" else "Không")
+            else:
+                texts.append(_value_text(sub).rstrip("."))
+        return ". ".join(texts) + "."
+    if "because" in v and "answer" in v:                      # explain (phase 4.6 I3)
+        inner = {**digest, "verdict": v["answer"], "value": v.get("inner")}
+        head = ({"yes": "Có", "no": "Không"}.get(v["answer"]) or _value_text(inner).rstrip("."))
+        why = [f"{b['name_vi']} ({b['code']})" for b in v["because"] if b.get("code") and b.get("truth") == "true"]
+        return head + (", vì có biển " + _join(why) if why else "") + "."
+    if "article" in v and isinstance(v["article"], list):     # meaning, aspect article (phase 4.6)
+        rows = [f"biển {x['code']} ở Điều {x['article']}" for x in v["article"]]
+        text = _join(rows)
+        return text[:1].upper() + text[1:] + "."
+    if "road_type" in v:                                       # guide road type (phase 4.6 I2)
+        return {"expressway": "Đường cao tốc.", "national_road": "Quốc lộ.",
+                "urban": "Đường đô thị.", "rural": "Đường ngoài đô thị."}.get(v["road_type"], str(v["road_type"]) + ".")
+    if v.get("kind") == "range":                               # speed range (phase 4.6 I4)
+        text = f"Tốc độ tối đa {v['max']:g} km/h"
+        text += f", tối thiểu {v['min']:g} km/h" if v.get("min") is not None else ", không có biển quy định tốc độ tối thiểu"
+        return text + "."
     if "per_vehicle" in v:                                     # speed_limit over several vehicles
         word = "tối đa" if v.get("kind") == "max" else "tối thiểu"
         rows = []

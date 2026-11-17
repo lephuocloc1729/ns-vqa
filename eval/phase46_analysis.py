@@ -3,6 +3,7 @@
     .venv/bin/python eval/phase46_analysis.py calibrate       # set T: is the first reading right when perception lists alternatives?
     .venv/bin/python eval/phase46_analysis.py uncertain [-v]  # dev replay of uncertain-reading policies
     .venv/bin/python eval/phase46_analysis.py step1           # step 1 guardrail: the engine's policy A on all dev
+    .venv/bin/python eval/phase46_analysis.py step4           # step 4 replays: dev and D3 cached scenes (indicative)
     .venv/bin/python eval/phase46_analysis.py trainset        # the biased train working set and its cost estimate
     .venv/bin/python eval/phase46_analysis.py oos             # out-of-scope wording groups (dev records, train text)
 
@@ -33,6 +34,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from eval import e2e_eval as ee  # noqa: E402
 from eval import gold_signs as gs  # noqa: E402
 
 E2E = ROOT / "eval" / "runs" / "e2e"
@@ -254,6 +256,108 @@ def step1(run: Path = REPARSE_RUN) -> dict[str, Any]:
                           "kept": right / n >= 0.6264367816091954 and (right / dec if dec else 0) >= 0.70}}
 
 
+def _hand(path: Path) -> dict[str, Any]:
+    """Hand-written programs in wire format, converted and validated as the parser would."""
+    from vqa.parsing.wire import from_wire, to_query
+    d = json.loads(Path(path).read_text(encoding="utf-8"))
+    return {k: to_query(from_wire(v), 2025) for k, v in d.items() if not k.startswith("_")}
+
+
+def _run_one(eng, scene, q, trigger):
+    from vqa.reasoning.engine import EngineError
+    if q.out_of_scope:
+        return None, "out_of_scope"
+    try:
+        ans, err = eng.answer(scene, q), False
+    except EngineError:
+        ans, err = None, True
+    return ans, trigger(scene_ok=True, parse_status="ok", answer=ans, engine_error=err)
+
+
+def step4(dev_programs: Path = E2E / "dev_v10_handprograms.json",
+          d3_programs: Path = ROOT / "eval" / "runs" / "trainset" / "d3_v10_handprograms.json",
+          d3_run: Path = ROOT / "eval" / "runs" / "trainset" / "trainset_yesno_821164d62679.jsonl") -> dict[str, Any]:
+    """Step 4's free engine-only replays (indicative): policy A, F1, F2, I1-I4 with hand-written
+    v10-style programs for the out-of-scope questions; every other question keeps its stored parse.
+    Dev: grades are stored ones, or provisional ones for changed answers (PROVISIONAL, by id and
+    decision). D3 (biased): its cached-scene questions, graded by the yes/no mapping."""
+    from vqa.answer.fallback import trigger
+    from vqa.reasoning.engine import Engine
+    from vqa.schemas import QueryProgram, SceneGraph
+    eng = Engine(reading_policy="higher_confidence")
+    prov = json.loads(PROVISIONAL.read_text(encoding="utf-8")) if PROVISIONAL.exists() else {}
+    qa = {q["id"]: q for q in json.loads(gs.TRAIN_QA.read_text(encoding="utf-8"))}
+    # dev
+    hand = _hand(dev_programs)
+    _, rows = _jsonl(REPARSE_RUN)
+    dec, right, changed, ungraded, causes = 0, 0.0, [], [], Counter()
+    for r in rows:
+        p = r["trace"].get("parser") or {}
+        q = hand.get(r["id"]) or (QueryProgram.model_validate(p["program"]) if p.get("program") else None)
+        scene = SceneGraph.model_validate(r["scene"])
+        if q is None:
+            ans, why = None, r["trigger"]
+        else:
+            ans, why = _run_one(eng, scene, q, trigger)
+        decided = why is None and ans is not None and ans.verdict.value in DECIDED
+        d = _decision(ans) if ans is not None else None
+        old = r.get("engine_answer")
+        old_d = hashlib.sha256(json.dumps({"verdict": old["verdict"], "value": old.get("value")}, sort_keys=True,
+                                          default=str, ensure_ascii=False).encode()).hexdigest()[:12] if old else None
+        same = decided == r["decided"] and (not decided or d == old_d)
+        if not decided:
+            causes[why] += 1
+            if r["decided"]:
+                changed.append({"id": r["id"], "was": "decided", "now": why})
+            continue
+        dec += 1
+        g = r["correct"] if same else ((prov.get(r["id"]) or {}).get(d) or {}).get("grade")
+        if not same:
+            changed.append({"id": r["id"], "was": r["trigger"] or "decided", "now": "decided", "decision": d,
+                            "provisional_grade": g, "value": ans.value})
+        if g is None:
+            ungraded.append(r["id"])
+        else:
+            right += g
+    n = len(rows)
+    dev = {"questions": n, "decided": dec, "coverage": dec / n, "accuracy_on_decided": right / dec if dec else None,
+           "overall_non_decided_wrong": right / n, "not_decided_by_cause": dict(causes), "changed": changed,
+           "ungraded": ungraded, "guardrail": {"overall_floor": 0.6666666666666666, "accuracy_floor": 0.70}}
+    dev["guardrail"]["kept"] = (dev["overall_non_decided_wrong"] >= dev["guardrail"]["overall_floor"]
+                                and (dev["accuracy_on_decided"] or 0) >= 0.70)
+    # D3 cached-scene questions
+    from eval import e2e_trainset as et
+    from eval import freeze
+    from vqa.pipeline import Pipeline
+    hand3 = _hand(d3_programs)
+    pipe = Pipeline(freeze.pipeline_config("phase45", "claude-haiku-5-5", cache_only=True, answer_fallback=False,
+                                           reading_policy="higher_confidence"))
+    _, rows3 = _jsonl(d3_run)
+    out3 = []
+    for r in rows3:
+        if not (r.get("scene") or {}).get("cached"):
+            continue
+        scene, _ = et._scene(pipe, gs.image_path(r["image_id"], "train"))
+        q = hand3.get(r["id"]) or (QueryProgram.model_validate(r["program"]) if r.get("program") else None)
+        if scene is None or q is None:
+            out3.append({"id": r["id"], "decided": False, "trigger": r.get("trigger") or "parse_failed"})
+            continue
+        ans, why = _run_one(eng, scene, q, trigger)
+        decided = why is None and ans is not None and ans.verdict.value in ("yes", "no")
+        correct = (float((ans.verdict.value == "yes") == ee.yes_no(qa[r["id"]]["answer"])) if decided else None)
+        out3.append({"id": r["id"], "decided": decided, "trigger": why, "correct": correct,
+                     "was": {"decided": r.get("decided"), "trigger": r.get("trigger"), "correct": r.get("correct")},
+                     "hand_program": r["id"] in hand3, "v10_fewshot": r["id"] in ("train_424", "train_104", "train_124")})
+    d3dec = [x for x in out3 if x["decided"]]
+    d3 = {"biased": True, "questions": len(out3), "decided": len(d3dec),
+          "right": sum(x["correct"] for x in d3dec), "not_decided_by_cause": dict(Counter(x["trigger"] for x in out3
+                                                                                          if not x["decided"])),
+          "was": {"decided": sum(bool(x["was"]["decided"]) for x in out3),
+                  "right": sum(x["was"]["correct"] or 0 for x in out3)},
+          "changed": [x for x in out3 if x["decided"] != bool(x["was"]["decided"]) or x["correct"] != x["was"]["correct"]]}
+    return {"dev": dev, "d3_cached": d3}
+
+
 # ---------------------------------------------------------------- 2. the biased train working set
 
 def working_set() -> list[dict]:
@@ -379,12 +483,13 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("calibrate")
     sub.add_parser("step1")
+    sub.add_parser("step4")
     u = sub.add_parser("uncertain")
     u.add_argument("-v", "--verbose", action="store_true")
     sub.add_parser("trainset")
     sub.add_parser("oos")
     a = ap.parse_args()
-    res = {"calibrate": calibrate, "step1": step1, "trainset": trainset, "oos": oos}.get(a.cmd)
+    res = {"calibrate": calibrate, "step1": step1, "step4": step4, "trainset": trainset, "oos": oos}.get(a.cmd)
     out = uncertain(verbose=a.verbose) if a.cmd == "uncertain" else res()
     print(json.dumps(out, indent=1, ensure_ascii=False, default=str))
 

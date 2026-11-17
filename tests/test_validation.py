@@ -25,10 +25,13 @@ SPLIT = json.loads(mvs.OUT.read_text(encoding="utf-8"))
 def test_the_committed_split_is_what_the_builder_makes():
     """The builder draws the same set. `named_in_repo` (how many train images the repo names)
     is a report count that grows when new train ids are named outside the pool (phase-4.5
-    parser v7 few-shots); the pool itself and the draw must not move."""
+    parser v7 few-shots); the pool itself and the draw must not move. Phase 4.6: so is
+    `duplicate_of_an_excluded_train_image`, which drops when an image it counted becomes named
+    (v10 few-shots): the two report counts overlap, the pool is the same."""
     built = mvs.build()
+    report_counts = ("named_in_repo", "duplicate_of_an_excluded_train_image")
     strip = lambda d: {**d, "pool": {**d["pool"], "excluded_images": {  # noqa: E731
-        k: v for k, v in d["pool"]["excluded_images"].items() if k != "named_in_repo"}}}
+        k: v for k, v in d["pool"]["excluded_images"].items() if k not in report_counts}}}
     assert strip(built) == strip(SPLIT)
     assert built["pool"]["images"] == SPLIT["pool"]["images"] and built["pool"]["questions"] == SPLIT["pool"]["questions"]
     assert SPLIT["seed"] == 20261116 and 100 <= SPLIT["counts"]["questions"] <= 120

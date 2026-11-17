@@ -198,6 +198,9 @@ FROZEN_PROMPTS = {
            "fewshot.jsonl": "3e967613d95d4b269da63218cf43972c0ed85e6bfcd89774dc3b881bd50b9c9f"},
     "v8": {"spec.md": "1a9cebdc2ad2663af8811baa764a3dd107f6ecea08ad21fe0c1b86987793d05c",
            "fewshot.jsonl": "3e967613d95d4b269da63218cf43972c0ed85e6bfcd89774dc3b881bd50b9c9f"},
+    # phase 4.6: v9 is the frozen phase-4.5 parser (eval/frozen_phase45.json)
+    "v9": {"spec.md": "de1cdbbef615de101ab136902b28f567e82c072ec8e52c1b2a405a9de9799403",
+           "fewshot.jsonl": "d09c2fdc36edd54373381ae7497185a9f93243a45a9507dd2eeaf80ec8ccbb7f"},
 }
 
 
@@ -233,7 +236,7 @@ def test_v6_is_v5_with_the_sign_rules_narrowed():
     assert "put that selector on every claim about the sign" in diff[1]
 
 
-@pytest.mark.parametrize("version", ["v5", "v6", "v7", "v8", "v9"])
+@pytest.mark.parametrize("version", ["v5", "v6", "v7", "v8", "v9", "v10"])
 def test_spec_does_not_quote_gate_questions(version):
     # rules learned from public_dev errors must not carry a gate question's wording,
     # or it would act as an unexcluded few-shot
@@ -263,14 +266,14 @@ def test_each_version_changes_one_spec_line(old, new, changed):
     assert len(a) == len(b) and len(diff) == 1 and changed in diff[0]
 
 
-@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9"])
+@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10"])
 def test_fewshots_are_valid_programs(engine, version):
     for ex in examples(version):
         q = to_query(WParse.model_validate(ex["output"]), 2026)
         assert validator.check(q, engine) == [], ex["id"]
 
 
-@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9"])
+@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10"])
 def test_fewshots_come_from_train_or_public_dev_only(version):
     split = json.loads((ROOT / "data" / "splits" / "public_split.json").read_text())
     holdout = set(split["public_holdout"]["questions"])
@@ -474,7 +477,7 @@ def test_v7_keeps_v6_fewshots_and_adds_train_ones_outside_dev_and_validation():
         assert not {img[e["id"]] for e in v7 if e["split"] == "train"} & banned_img
 
 
-@pytest.mark.parametrize("version", ["v7", "v8", "v9"])
+@pytest.mark.parametrize("version", ["v7", "v8", "v9", "v10"])
 def test_v7_covers_the_new_intents_and_slots(version):
     progs = json.dumps([e["output"] for e in examples(version)])
     for needle in ('"aspect": "group"', '"aspect": "conduct"', '"aspect": "scope"', '"intent": "present"',
@@ -485,7 +488,7 @@ def test_v7_covers_the_new_intents_and_slots(version):
         assert rule in spec, rule
 
 
-@pytest.mark.parametrize("version", ["v7", "v8", "v9"])
+@pytest.mark.parametrize("version", ["v7", "v8", "v9", "v10"])
 def test_v7_spec_does_not_quote_dev_questions(version):
     """Dev is the tuning set: its wording must not sit in the spec as an unlisted few-shot."""
     train = (Path(os.environ.get("VQA_DATASET_DIR", ROOT / "VLSP2025-MLQA-Natural"))
@@ -546,3 +549,32 @@ def test_v9_is_v8_with_the_general_yes_no_rule():
     kinds = [json.dumps(e["output"]) for e in e9[len(e8):]]
     assert '"intent": "is_sign"' in kinds[0] and '"intent": "present"' in kinds[1]
     assert all('"out_of_scope": true' in k for k in kinds[2:4])
+
+
+def test_v10_adds_the_phase46_intents_with_train_fewshots_outside_dev_and_validation():
+    """Phase 4.6 step 4 (owner, 2026-11-17): v10 = v9 plus the I1-I4 lines and the D3 slot
+    fixes; v9's two board claims marked out of scope become guide claims (train_124, train_424);
+    six few-shots are appended, from the train working set (outside dev and validation and
+    their images), exact text (checked by the provenance tests)."""
+    e9, e10 = examples("v9"), examples("v10")
+    assert [e["id"] for e in e10][:len(e9)] == [e["id"] for e in e9]
+    changed = [e["id"] for a, e in zip(e9, e10) if a != e]
+    assert changed == ["train_124", "train_424"]
+    new = e10[len(e9):]
+    assert [e["id"] for e in new] == ["train_76", "train_422", "train_104", "train_340", "train_21", "train_490"]
+    dev = json.loads((ROOT / "data" / "splits" / "train_dev.json").read_text())
+    val = json.loads((ROOT / "data" / "splits" / "train_validation.json").read_text())
+    assert not {e["id"] for e in e10} & (set(dev["questions"]) | set(val["questions"]))
+    train = (Path(os.environ.get("VQA_DATASET_DIR", ROOT / "VLSP2025-MLQA-Natural"))
+             / "dataset" / "train data" / "vlsp_2025_train.json")
+    if train.exists():
+        img = {t["id"]: t["image_id"] for t in json.loads(train.read_text(encoding="utf-8"))}
+        assert not {img[e["id"]] for e in e10 if e["split"] == "train"} & (set(dev["images"]) | set(val["images"]))
+    progs = json.dumps([e["output"] for e in e10])
+    for needle in ('"intent": "multi"', '"intent": "guide_claim"', '"intent": "explain"', '"kind": "range"',
+                   '"aspect": "article"', '"ask": "road_type"'):
+        assert needle in progs, needle
+    spec = (ROOT / "prompts" / "parser" / "v10" / "spec.md").read_text()
+    for rule in ("`guide_claim`", "`speed_limit_is`", "`multi`", "`explain`", "`kind: range`", "`day_parity",
+                 "`gross_gt`", "`article`"):
+        assert rule in spec, rule

@@ -15,7 +15,10 @@ schemas; no schema is sent any more, but the cap is kept for now:
     claim       = leaf claim | all_of(leaf claims) | any_of(leaf claims)
     program     = claim | verify(claim) | choose(options of claims)
                 | lanes_for | lanes_where | ban_times | meaning | which_vehicles
-                | lane_vehicles | speed_limit
+                | lane_vehicles | speed_limit | guide
+                | explain(claim | verify | choose)             (phase 4.6 I3)
+                | multi(2-3 of the programs above but multi)   (phase 4.6 I1)
+    phase 4.6 leaf claims add guide_claim (I2) and speed_limit_is (I4).
 
 Vehicle classes and actions are enums from the ontology. Sign codes and meaning
 keys/tags are strings checked against the catalog (the system prompt's catalog
@@ -120,6 +123,7 @@ class WWhen(_W):
     start: Optional[str] = None      # "HH:MM", an interval with end and quantifier
     end: Optional[str] = None
     quantifier: Optional[Literal["all", "any"]] = None
+    day_parity: Optional[Literal["even", "odd"]] = None   # phase 4.6: "vào ngày chẵn / lẻ", no date
 
 
 class WSelector(_W):
@@ -189,7 +193,29 @@ class WPresent(_W):
     category: Optional[CategoryLit] = None
 
 
-_LEAF_MODELS = (WPermitted, WForbidden, WSpeedOk, WRequired, WExistsViolation, WIsSign, WPresent)
+GuideDirectionLit = Literal["straight", "left", "right", "u_turn"]
+
+
+class WGuideClaim(_W):                       # phase 4.6 I2
+    intent: Literal["guide_claim"]
+    about: Literal["distance", "direction", "listed", "road_type", "ahead"]
+    destination: Optional[str] = None
+    distance_m: Optional[float] = None
+    direction: Optional[GuideDirectionLit] = None
+    road_type: Optional[Literal["expressway", "national_road"]] = None
+    feature: Optional[Literal["tunnel", "expressway", "junction", "roundabout", "exit"]] = None
+
+
+class WSpeedLimitIs(_W):                     # phase 4.6 I4
+    intent: Literal["speed_limit_is"]
+    kind: Literal["max", "min"] = "max"
+    value_kmh: float
+    vehicle: Optional[WVehicle] = None
+    lane: Optional[int] = None
+
+
+_LEAF_MODELS = (WPermitted, WForbidden, WSpeedOk, WRequired, WExistsViolation, WIsSign, WPresent,
+                WGuideClaim, WSpeedLimitIs)
 LeafClaim = Annotated[Union[_LEAF_MODELS], Field(discriminator="intent")]
 
 
@@ -249,13 +275,14 @@ class WBanTimes(_W):
 class WMeaning(_W):
     intent: Literal["meaning"]
     sign: WSelector
-    aspect: Literal["name", "group", "conduct", "scope", "placement"] = "name"
+    aspect: Literal["name", "group", "conduct", "scope", "placement", "article"] = "name"
 
 
 class WGuide(_W):
     intent: Literal["guide"]
-    ask: Literal["direction", "distance", "destinations", "route"]
+    ask: Literal["direction", "distance", "destinations", "route", "road_type"]
     destination: Optional[str] = None
+    direction: Optional[GuideDirectionLit] = None        # phase 4.6: destinations by arrow
 
 
 class WWhichVehicles(_W):
@@ -276,7 +303,7 @@ class WLaneVehicles(_W):
 
 class WSpeedLimit(_W):
     intent: Literal["speed_limit"]
-    kind: Literal["max", "min"] = "max"
+    kind: Literal["max", "min", "range"] = "max"
     vehicle: Optional[WVehicle] = None
     lane: Optional[int] = None
     when: Optional[WWhen] = None
@@ -284,8 +311,22 @@ class WSpeedLimit(_W):
     vehicles: list[WVehicle] = []
 
 
-_PROGRAM_MODELS = _CLAIM_MODELS + (WVerify, WChoose, WLanesFor, WLanesWhere, WBanTimes,
-                                   WMeaning, WWhichVehicles, WLaneVehicles, WSpeedLimit, WGuide)
+class WExplain(_W):                          # phase 4.6 I3
+    intent: Literal["explain"]
+    program: Annotated[Union[_CLAIM_MODELS + (WVerify, WChoose)], Field(discriminator="intent")]
+
+
+_PART_MODELS = _CLAIM_MODELS + (WVerify, WChoose, WLanesFor, WLanesWhere, WBanTimes,
+                                WMeaning, WWhichVehicles, WLaneVehicles, WSpeedLimit, WGuide, WExplain)
+Part = Annotated[Union[_PART_MODELS], Field(discriminator="intent")]
+
+
+class WMulti(_W):                            # phase 4.6 I1
+    intent: Literal["multi"]
+    parts: list[Part]
+
+
+_PROGRAM_MODELS = _PART_MODELS + (WMulti,)
 WProgram = Annotated[Union[_PROGRAM_MODELS], Field(discriminator="intent")]
 
 
@@ -328,6 +369,7 @@ def from_wire(data: dict[str, Any]) -> WParse:
 # --------------------------------------------------------------------------- convert
 
 _NEEDS_VEHICLE = {"permitted", "forbidden", "speed_ok", "lanes_for", "lanes_where", "ban_times"}
+# speed_limit and speed_limit_is default to motor_vehicle in the schema itself (no default recorded)
 _ATTRS = ("load_t", "gross_t", "seats", "height_m", "width_m", "length_m", "seats_gt",
           "seats_lt", "load_gt", "load_lt", "gross_gt", "gross_lt")
 
@@ -359,7 +401,7 @@ class _Converter:
                 year = self.year
                 self.defaults.add("year")
             out["date"] = dt.date(year, w.month, w.day).isoformat()
-        for k in ("time", "start", "end", "quantifier"):
+        for k in ("time", "start", "end", "quantifier", "day_parity"):
             if getattr(w, k) is not None:
                 out[k] = getattr(w, k)
         return out or None
@@ -387,8 +429,10 @@ class _Converter:
                 v = self.selector(v)
             elif name == "claims":
                 v = [self.program(c) for c in v]
-            elif name == "claim":
+            elif name in ("claim", "program"):
                 v = self.program(v)
+            elif name == "parts":
+                v = [self.program(x) for x in v]
             elif name == "vehicles":
                 v = [self.vehicle(x, "speed_limit") for x in v] or None
             elif name == "aspect" and v == "name":

@@ -445,6 +445,9 @@ class When(_Model):
     start: dt.time | None = None
     end: dt.time | None = None
     quantifier: Quantifier | None = None
+    # phase 4.6 (D3, train_84 wording): "vào ngày chẵn / lẻ" with no date; the engine takes a
+    # day of that parity (P.131b / P.131c only depend on the parity, QCVN 41 B.31)
+    day_parity: Literal["even", "odd"] | None = None
 
     @model_validator(mode="after")
     def _shape(self) -> "When":
@@ -561,10 +564,21 @@ class SpeedLimit(_Model):
     intent: Literal["speed_limit"] = "speed_limit"
     vehicle: Vehicle = Field(default_factory=lambda: Vehicle(**{"class": "motor_vehicle"}))
     lane: QuestionLane | None = None
-    kind: Literal["max", "min"] = "max"
+    kind: Literal["max", "min", "range"] = "max"   # phase 4.6 I4: "range" = both, "trong khoảng tốc độ nào"
     when: When | None = None
     road_divided: bool | None = None   # phase 4.5: stated in the question
     vehicles: list[Vehicle] = []       # phase 4.5: several vehicles at once ("ô tô con và xe tải ...")
+
+
+class SpeedLimitIs(_Model):
+    """Phase 4.6 I4: "tốc độ tối đa (tối thiểu) là X km/h, đúng không?": the binding limit
+    for the vehicle (on the lane) equals the stated value."""
+
+    intent: Literal["speed_limit_is"] = "speed_limit_is"
+    kind: Literal["max", "min"] = "max"
+    value_kmh: float
+    vehicle: Vehicle = Field(default_factory=lambda: Vehicle(**{"class": "motor_vehicle"}))
+    lane: QuestionLane | None = None
 
 
 class BanTimes(_Model):
@@ -581,16 +595,51 @@ class Meaning(_Model):
 
     intent: Literal["meaning"] = "meaning"
     sign: Selector
-    aspect: Literal["name", "group", "conduct", "scope", "placement"] = "name"
+    # phase 4.6 I1: "article" = the QCVN 41 article the sign is set out in ("quy định ở điều nào")
+    aspect: Literal["name", "group", "conduct", "scope", "placement", "article"] = "name"
+
+
+GuideDirection = Literal["straight", "left", "right", "u_turn"]
+GuideFeature = Literal["tunnel", "expressway", "junction", "roundabout", "exit"]
+RoadKind = Literal["expressway", "national_road"]
 
 
 class Guide(_Model):
     """Phase 4.5 B6: what a guide board in the photo says. `ask`: the direction to a
-    destination, the distance to it, the destinations listed, or the route plate."""
+    destination, the distance to it, the destinations listed, or the route plate.
+    Phase 4.6 I2: `road_type` (expressway / national road, from the signs, the route plate and
+    the scene), and `destinations` filtered by the arrow `direction`."""
 
     intent: Literal["guide"] = "guide"
-    ask: Literal["direction", "distance", "destinations", "route"]
+    ask: Literal["direction", "distance", "destinations", "route", "road_type"]
     destination: str | None = None
+    direction: GuideDirection | None = None
+
+
+class GuideClaim(_Model):
+    """Phase 4.6 I2: a stated claim checked against the boards and signs, read from the scene
+    data only. `about`:
+    - `distance`: the board gives `distance_m` to `destination`;
+    - `direction`: the board's arrow to `destination` points `direction`;
+    - `listed`: the board names `destination` (a place, road or route);
+    - `road_type`: this road is a `road_type` road;
+    - `ahead`: a `feature` lies ahead (a sign for it, or a board line naming it)."""
+
+    intent: Literal["guide_claim"] = "guide_claim"
+    about: Literal["distance", "direction", "listed", "road_type", "ahead"]
+    destination: str | None = None
+    distance_m: float | None = None
+    direction: GuideDirection | None = None
+    road_type: RoadKind | None = None
+    feature: GuideFeature | None = None
+
+    @model_validator(mode="after")
+    def _slots(self) -> "GuideClaim":
+        need = {"distance": ("destination", "distance_m"), "direction": ("destination", "direction"),
+                "listed": ("destination",), "road_type": ("road_type",), "ahead": ("feature",)}[self.about]
+        if missing := [f for f in need if getattr(self, f) in (None, "")]:
+            raise ValueError(f"guide_claim about={self.about} needs {', '.join(missing)}")
+        return self
 
 
 class Required(_Model):
@@ -658,7 +707,8 @@ class AnyOf(_Model):
 
 
 Claim = Annotated[
-    Union[Permitted, Forbidden, SpeedOk, Required, ExistsViolation, IsSign, Present, AllOf, AnyOf],
+    Union[Permitted, Forbidden, SpeedOk, Required, ExistsViolation, IsSign, Present, GuideClaim,
+          SpeedLimitIs, AllOf, AnyOf],
     Field(discriminator="intent"),
 ]
 AllOf.model_rebuild()
@@ -698,10 +748,37 @@ class Choose(_Model):
     options: Annotated[list[ChoiceOption], Field(min_length=1)]
 
 
+class Explain(_Model):
+    """Phase 4.6 I3: "vì sao", "xe nào bị phạt và vì sao": the wrapped claim (or choice) is
+    answered with the reasons the proof gives. "Bị phạt" is read as "breaks the rule"; fine
+    amounts are not modelled."""
+
+    intent: Literal["explain"] = "explain"
+    program: Annotated[Union[Permitted, Forbidden, SpeedOk, Required, ExistsViolation, IsSign, Present,
+                             GuideClaim, SpeedLimitIs, AllOf, AnyOf, Verify, Choose],
+                       Field(discriminator="intent")]
+
+
+_PART = Annotated[
+    Union[Permitted, Forbidden, SpeedOk, LanesFor, LanesWhere, BanTimes, Meaning, Required,
+          ExistsViolation, Verify, Choose, IsSign, AllOf, AnyOf, WhichVehicles, LaneVehicles,
+          SpeedLimit, Present, Guide, GuideClaim, SpeedLimitIs, Explain],
+    Field(discriminator="intent"),
+]
+
+
+class Multi(_Model):
+    """Phase 4.6 I1: two or three asks in one question. Each part is answered on its own;
+    the question is decided only when every part is."""
+
+    intent: Literal["multi"] = "multi"
+    parts: Annotated[list[_PART], Field(min_length=2, max_length=3)]
+
+
 Program = Annotated[
     Union[Permitted, Forbidden, SpeedOk, LanesFor, LanesWhere, BanTimes, Meaning, Required,
           ExistsViolation, Verify, Choose, IsSign, AllOf, AnyOf, WhichVehicles, LaneVehicles,
-          SpeedLimit, Present, Guide],
+          SpeedLimit, Present, Guide, GuideClaim, SpeedLimitIs, Explain, Multi],
     Field(discriminator="intent"),
 ]
 
