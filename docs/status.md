@@ -1634,7 +1634,21 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
-### Handoff (2026-11-17): phase 4.6 steps 1–2 built; D3 ready for the owner's go-ahead
+### Handoff (2026-11-17): phase 4.6 step 4 built; step 5 (the v10 gate) ready for the owner's go-ahead
+
+- **Step 4** (`bd16777`): F1, F2 (with a corrected diagnosis), `day_parity`, I1–I4 and parser v10, and the free replays. Details: `docs/plans/phase-4.6.md` section 10.
+  - Dev, indicative: **86.2% decided, 80.0% on decided, overall 69.0%**, with hand-written programs and provisional grades.
+  - D3 cached scenes: 15 decided, 13 right (was 11 and 9).
+- **Next (paid, the owner runs it):**
+  ```
+  .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v10 --max-spend 0.40
+  .venv/bin/python eval/parser_eval.py score logs/parser_eval/pred_claude-sonnet-5-5_medium_v10_*.jsonl
+  .venv/bin/python eval/parser_eval.py compare --old logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-140559.jsonl logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141622.jsonl logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141902.jsonl --new logs/parser_eval/pred_claude-sonnet-5-5_medium_v10_*.jsonl
+  ```
+  Estimate $0.21 (range $0.19–0.25). The cap is $0.40, because the runner refuses below its own expected $0.37.
+- **Spend:** $3.37 of $5, so **$1.63 left.**
+
+### Handoff (2026-11-17): phase 4.6 steps 1–2 built; D3 ready for the owner's go-ahead (kept as a record)
 
 - **Plan:** `docs/plans/phase-4.6.md`, approved with D1–D6 (section 7). Built so far is listed in section 8.
 - **Step 1, policy A** (`43f5b10`, `8fc3d66`): this is `Engine(reading_policy="higher_confidence")`, set through `PipelineConfig.reading_policy`.

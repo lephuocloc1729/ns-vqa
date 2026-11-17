@@ -227,3 +227,70 @@ The fallback-answer rate is still phase 4's ($0.008 per call); no later run meas
 - **Parser v10 items from D3:** `day_parity` in claims, and weight phrases without a class ("xe nặng hơn 3 tấn" → `vehicle` with `gross_gt`).
 
 **Budget after D3:** $2.95 + $0.42 = **$3.37 of $5; $1.63 left.** Next come the gate ($0.21, cap $0.30) and the dev re-parse ($0.33, cap $0.45); that leaves about $1.09 at the estimates, so final2's cap would be $1.05.
+
+## 10. Step 4 built (2026-11-17, `bd16777`; no API call)
+
+**Owner decisions for step 4 (2026-11-17):**
+- F1 and F2 approved;
+- I2 must check stated board claims, with D3's 10 as the target;
+- v10 fixes the two invalid parses, using weight bounds, not a new class;
+- road markings, "who a sign applies to" and lane sets stay out of scope;
+- if v10 fails the no-regression rule, one fix as v11 is allowed;
+- final2 runs only if at least $0.90 of the round is left, otherwise the owner decides.
+
+**Engine (`vqa/reasoning/engine.py`):**
+- **F1:** `is_sign` with `only` over several signs follows the single-sign rule: unreadable signs are dropped; yes if every readable sign is the named one, no if none is, unknown if mixed or if none is left.
+- **F2, with a corrected diagnosis.** On 276 the parse asked for R.301 (blue discs), and the two unread signs are red boards, so the existing look rule already excluded them correctly; the rule was not mis-applied.
+  - What was missing: a red board is a local notice in free text, so its look rules nothing out.
+  - The fix: an unread red board now keeps a negative presence claim, and an "ahead" claim, unknown. 276 is now undecided instead of wrong.
+- **`when.day_parity`** ("vào ngày chẵn / lẻ", no date): the engine takes a day of that parity, which is all P.131b / P.131c depend on.
+- **I1, `multi`** (2–3 parts): decided when every part is. Plus the `meaning` aspect `article`: the group's listing article (22.1 P, 28.1 W, 32.1 R, 36.1 I, 47 IE, 41 S) and the appendix article the row cites.
+- **I2, `guide_claim`** (`distance`, `direction`, `listed`, `road_type`, `ahead`), plus `guide` asks `road_type` and `destinations` by arrow `direction`. Board data and sign codes only.
+  - Road type comes from IE codes (art. 45; art. 36.1: "I" is for roads that are not expressways), the scene's road type, and "QL" route plates (art. 46).
+  - "Ahead" features use sign codes whose catalog rows cite their article (W.240 C.40, W.238 C.38, W.205 C.5, W.206 / R.303, IE.454 / IE.455 / IE.464b / IE.474 art. 47), and whole words on the boards.
+- **I3, `explain`:** the inner claim or choice answered with the signs that decide it. Fine amounts stay out.
+- **I4, `speed_limit` `kind: range`, and the claim `speed_limit_is`.**
+- **No catalog change,** so the scene and parser prompts frozen in phase 4.5 are unchanged; `freeze.py check` matches both records.
+
+**Parser v10** (`prompts/parser/v10/`):
+- **Spec:** v9 plus the I1–I4 lines, `day_parity`, weight-only vehicles (`motor_vehicle` + `gross_gt`), and board claims moved from out of scope to `guide_claim`.
+- **Few-shots:** v9's two board-claim shots marked out of scope (train_124, train_424) now show `guide_claim`. Six new shots come from the train working set (exact text; no dev or validation question or image): 76, 422, 104, 340, 21, 490. The prompt is 11% longer.
+- **Gate compare:** `eval/parser_eval.py` gives back v10's new forms as design changes, like v7's (`DESIGN_FEATURES`).
+- **Validation split test:** `test_the_committed_split_is_what_the_builder_makes` now also ignores the report count `duplicate_of_an_excluded_train_image` (7 → 6, because one image moved to "named in repo" with v10's shots). The pool (114 images, 197 questions) and the draw are unchanged, and the split file is untouched.
+
+**D3's 10 board claims under v10:**
+- covered: 104, 105, 124, 267, 301, 389, 424, and 390 (approximated as a direction claim; the order of the turns is not modelled);
+- not covered: 358 (which lane to take, a lane set: out of scope) and 378 (a Y junction: the shape is not readable from W.205's family code);
+- **three of the covered ones are v10 few-shots (104, 124, 424),** so on those three the parse is not a test.
+
+**Free replays (`eval/phase46_analysis.py step4`; policy A, F1, F2; hand-written v10-style programs for the out-of-scope questions, the stored parse for every other question; indicative):**
+
+| | decided | accuracy on decided | overall |
+|---|---|---|---|
+| dev after step 1 | 70 / 87 (80.5%) | 82.9% | 66.7% |
+| **dev after step 4** | **75 / 87 (86.2%)** | **80.0%** | **69.0%** |
+| D3 cached scenes, before (biased, 21 questions) | 11 | 9 right | |
+| D3 cached scenes, after | 15 | 13 right | |
+
+- **Dev newly decided** (provisional grades, assistant): 231 (0: claims the board names Đông Hà; the dataset says it gives no distance), 260 (0.5), 351 (0: a priority vehicle on duty the scene can't show), 413 (1), 414 (0.5). **The guardrail holds.**
+- **Still not decided on dev:**
+  - 15: the truck's limit depends on a condition;
+  - 248: the disc was read as R.306, a minimum, and the board has no arrows;
+  - 515: R.411 is unmodelled;
+  - 259, 341, 361, 386: stay out of scope.
+- **D3 changes:**
+  - F1 decides 274 and 498, both right;
+  - F2 takes 276 out of the wrong answers;
+  - 424 is right (a few-shot);
+  - 359 is wrong (the stated 120 / 60 against the scene's limits);
+  - 136 is now decided and right, by policy A.
+
+## 11. Step 5: the parser gate, v10 (paid; the owner's go-ahead)
+
+- **Estimate $0.21 (range $0.19–0.25):** v9's measured $0.1915 on 47 questions, scaled to v10's longer cached prompt (about 20,850 against 18,705 tokens).
+- **Cap $0.40.** The runner refuses up front when its own conservative expected cost exceeds the cap, and that figure is $0.37 for v10 (it was $0.35 for v9), so $0.30 would be refused. The spend guard keeps one call's worst case ($0.093) free, so a run stops by $0.31 at the latest.
+- **The rule, set before the run:** no old gold intent type may lose pooled accuracy against v6's three runs, after giving back rows that use a v7 or v10 feature (`regressed_types_without_design` empty). The gate (≥ 90%) is reported. If v10 fails the rule, one fix as v11 is allowed.
+- **Budget:** $3.37 of $5 spent, **$1.63 left.**
+  - After the gate ($0.21) and the dev re-parse ($0.33, cap $0.45), about **$1.09** is expected to be left.
+  - final2 needs at least $0.90 left.
+  - If both runs hit their caps, $0.78 is left and final2 goes to the owner.
