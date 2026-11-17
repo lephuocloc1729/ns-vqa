@@ -535,7 +535,13 @@ def fallback_run(path: Path, max_spend: float, policy: str | None = None, sdk=No
     if head.get("fallback"):
         raise SystemExit(f"{Path(path).name} already has the fallback; give its pass-1 run")
     policy = policy or CHOSEN_POLICY               # the rule frozen for checkpoint 2
-    cfg = FallbackConfig(policy=policy, tiles=tiles, crops=crops, drop_own_alt_on_agree=drop_own_alt)
+    # the tile and crop prompts follow the pass-1 prompt's family (v5 -> v5-tile, v5-crop; phase
+    # 4.5 B3); v4 runs keep the frozen v4-tile / v4-crop
+    fam = _version_of(head["prompt_id"])
+    extra = {}
+    if fam not in ("v1", "v2", "v3", "v4") and (scene_prompt.PROMPTS_DIR / f"{fam}-tile").is_dir():
+        extra = {"tile_version": f"{fam}-tile", "crop_version": f"{fam}-crop"}
+    cfg = FallbackConfig(policy=policy, tiles=tiles, crops=crops, drop_own_alt_on_agree=drop_own_alt, **extra)
     stored: dict[str, dict] = {}
     if replay is not None:
         rhead, rrows = load_run(replay)

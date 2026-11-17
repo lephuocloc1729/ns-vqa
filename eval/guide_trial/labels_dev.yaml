@@ -1,0 +1,151 @@
+# Guide-board transcription labels for the B6 perception test (phase 4.5 step 1; owner, 2026-11-17).
+#
+# Dev images only (data/splits/train_dev.json; readable). The 24 dev images that carry an
+# information (I) or expressway (IE) board, or whose dev question asks about one. Transcribed
+# by the assistant from the images, against the board itself (not the dataset answer):
+# checked_by: assistant. The owner's spot-check is welcome before the scores are used.
+#
+# Per board:
+#   entries   one per destination / route line: text (as printed, diacritics kept), distance
+#             (as printed, with unit) and direction (the arrow it sits with: straight, left,
+#             right, slight_left, slight_right, none when there is no arrow)
+#   speeds    speed discs printed on or mounted with the board: {kind: max|min, value}
+#   route     route code plate (CT.01 ...)
+#   other     other printed lines worth reading (headings, EXPRESSWAY, phone numbers ...)
+#
+# Notes where the dataset answer disagrees with the board (kept as printed):
+#   train_4_6: QL 1A is 2 KM to the right; train_230's answer says "Rẽ trái, còn 5 km".
+#   train_4_17: the "40" disc is blue (minimum speed); train_248's answer says "Tối đa 40 km/h".
+
+checked_by: assistant
+images:
+  train_1_17:
+    boards:
+      - entries: [{text: "SÂN BAY NỘI BÀI", distance: "5.8 km", direction: none}]
+        other: ["NOI BAI AIRPORT"]
+  train_2_23:
+    boards:
+      - entries:
+          - {text: "H. THẠCH THÀNH", direction: right}
+          - {text: "TX. BỈM SƠN", direction: right}
+  train_2_27:
+    boards:
+      - route: "CT.03"
+        entries: [{text: "HÀ NỘI", direction: none}, {text: "BẮC GIANG", direction: none}]
+        speeds: [{kind: max, value: 100}, {kind: min, value: 60}]
+        other: ["EXPRESSWAY"]
+      - other: ["NHẬP LÀN", "MERGE LANE"]
+  train_3_21:
+    boards: []          # an I.409 U-turn pictogram, no text
+  train_4_6:
+    boards:
+      - entries:
+          - {text: "ĐÔNG HÀ", distance: "61 KM", direction: straight}
+          - {text: "BIỂN NGƯ THỦY BẮC", distance: "5 KM", direction: left}
+          - {text: "QL 1A", distance: "2 KM", direction: right}
+        other: ["AH1"]
+  train_4_17:
+    boards:
+      - entries:
+          - {text: "ĐƯỜNG TRÁNH VINH", direction: slight_left}
+          - {text: "VSIP", distance: "4 Km", direction: slight_left}
+          - {text: "ĐƯỜNG LÊ NINH", direction: straight}
+  train_4_16:
+    boards:
+      - route: "CT.01"
+        entries: [{text: "NHA TRANG", direction: none}, {text: "CAM LÂM", direction: none}]
+        speeds: [{kind: max, value: 80}, {kind: min, value: 60}]
+        other: ["EXPRESSWAY"]
+      - entries:
+          - {text: "CAM LÂM", distance: "2 km", direction: none}
+          - {text: "VĨNH HẢO", distance: "103 km", direction: none}
+          - {text: "PHAN THIẾT", distance: "204 km", direction: none}
+  train_5_13:
+    boards:
+      - other: ["CAO TỐC BẮC-NAM", "DỰ ÁN NHA TRANG-CAM LÂM", "ĐOẠN ĐƯỜNG", "TẬP ĐOÀN SƠN HẢI", "BẢO HÀNH 10 NĂM"]
+      - entries: [{text: "LỐI RA", direction: slight_right}]
+        other: ["EXIT"]
+  train_5_9:
+    boards:
+      - other: ["KHẨN CẤP", "EMERGENCY", "08 62529191"]
+  train_5_19:
+    boards:
+      - entries:
+          - {text: "HUẾ", direction: straight}
+          - {text: "ĐẠI LỘC", direction: left}
+          - {text: "ĐÀ NẴNG", direction: right}
+      - route: "CT.01"
+        entries: [{text: "ĐÀ NẴNG", direction: none}, {text: "QUẢNG NGÃI", direction: none}]
+        other: ["EXPRESSWAY", "KẾT THÚC", "END"]
+  train_5_4:
+    boards:
+      - entries:
+          - {text: "T.T LỘC BÌNH", distance: "10 KM", direction: straight}
+          - {text: "CHÙA BẮC NGÀ", distance: "150 M", direction: left}
+  train_6_11:
+    boards:
+      - entries:
+          - {text: "PHÁP VÂN", direction: straight}
+          - {text: "NGÃ TƯ SỞ", direction: left}
+          - {text: "CẦU BIÊU", direction: right}
+  train_6_18:
+    boards:
+      - other: ["ĐIỂM DỪNG XE BUÝT", "BUS STOP"]   # the route lines are too small to read
+  train_6_42:
+    boards:
+      - route: "CT.01"
+        entries: [{text: "NGHI SƠN", direction: none}, {text: "DIỄN CHÂU", direction: none}]
+        speeds: [{kind: max, value: 90}, {kind: min, value: 60}]
+        other: ["EXPRESSWAY", "HẾT ĐƯỜNG SƠN HẢI BẢO HÀNH 10 NĂM"]
+  train_6_49:
+    boards:
+      - entries: [{text: "TP.HCM - TRUNG LƯƠNG", direction: none}]
+        speeds: [{kind: max, value: 120}, {kind: min, value: 60}]
+        other: ["ĐƯỜNG CAO TỐC", "FREEWAY", "LỐI VÀO", "ENTRANCE"]
+  train_7_47:
+    boards:
+      - route: "CT.01"
+        entries: [{text: "CAO BỒ", direction: none}, {text: "MAI SƠN", direction: none}]
+        speeds: [{kind: max, value: 80}, {kind: min, value: 60}]
+        other: ["EXPRESSWAY"]
+      - other: ["GIỮ KHOẢNG CÁCH AN TOÀN", "SAFE STOPPING DISTANCE"]
+  train_7_45:
+    boards:
+      - entries:
+          - {text: "TP.HẢI PHÒNG", distance: "24 km", direction: none}
+          - {text: "CẢNG ĐÌNH VŨ", distance: "34 km", direction: none}
+      - entries:
+          - {text: "QL.10", distance: "2 km", direction: none}
+          - {text: "QUỐC LỘ 5", direction: slight_right}
+          - {text: "THÁI BÌNH", direction: slight_right}
+        other: ["LỐI RA", "EXIT"]
+  train_8_7:
+    boards: []          # a lane-direction board: arrows only, no text
+  train_8_36:
+    boards:
+      - entries: [{text: "NHẬT TÂN", direction: straight}, {text: "ĐÀO TẤN", direction: slight_right}]
+  train_8_15:
+    boards:
+      - entries:
+          - {text: "THANH HÓA", distance: "25 km", direction: slight_left}
+          - {text: "QL 1", direction: slight_left}
+          - {text: "CẨM THỦY", distance: "60 km", direction: slight_right}
+          - {text: "QL 217", direction: slight_right}
+  train_8_6:
+    boards:
+      - entries: [{text: "T. BẠC LIÊU", direction: none}]
+        other: ["ĐỊA PHẬN", "KM 2169+000"]
+  train_8_23:
+    boards:
+      - other: ["GIỮ KHOẢNG CÁCH AN TOÀN", "SAFE STOPPING DISTANCE"]
+      - entries: [{text: "TX. QUẢNG TRỊ", direction: none}]
+        other: ["ĐỊA PHẬN", "Km 19+976"]
+  train_8_20:
+    boards:
+      - entries: [{text: "TRẠM CẤP CỨU", direction: left}]
+  train_8_39:
+    boards:
+      - entries:
+          - {text: "QUỐC LỘ 1", direction: straight}
+          - {text: "HÀ NỘI", direction: left}
+          - {text: "HÒA LẠC", direction: right}

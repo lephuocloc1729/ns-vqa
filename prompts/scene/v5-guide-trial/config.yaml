@@ -1,0 +1,16 @@
+# B6 perception test: guide-board transcription (phase 4.5 step 1; owner, 2026-11-17;
+# eval/guide_trial.py). Trial only: never used by vqa/. Part of the prompt hash, pinned in
+# the trial module.
+max_tokens: 6000
+image:                    # the photo is prepared as for the scene call
+  prep_version: img1
+crop:                     # variant B: enlarged board crops after the photo
+  pad: 0.15
+  min_side: 64
+  short_side: 384
+  long_edge: 1024
+  jpeg_quality: 90
+effort:
+  claude-haiku-5-5: medium
+retry: 1
+user_text: "Transcribe the guide and information boards and reply with the JSON object."

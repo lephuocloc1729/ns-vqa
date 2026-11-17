@@ -1421,6 +1421,17 @@ Run `5c9251f5f207`, 15:47–16:25 UTC, at commit `2e1ff41`, with `eval/frozen_ph
 - Tests 982 passed. Round spend unchanged: $0.61 of $5.
 - **Stage-B proposal** (`phase-4.5.md` section 12): B1–B5 about 6 days and $2.57; B6 guide content gated, about 3.5 days and $0.80. Awaiting the owner's decision.
 
+### Phase 4.5 stage B, step 1: scene v5 and the B6 guide test (2026-11-17; no API calls)
+
+- **Stage B approved** (`phase-4.5.md` section 13): B3 and the B6 test first, then B1 + B2 by type, then B4, with B6 gated and B5 last. About $0.70 is always kept for the final validation.
+- **Scene v5 built:** `scene/v5@7a3291ea5dff`, `v5-tile@d5269387761f`, `v5-crop@cee1140f62d7`, which are v4's files plus the catalog listing with R.421, R.122 and S.501. v4's ids are unchanged; `freeze check` still matches. `perception_eval fallback` uses the tile and crop prompts of the pass-1 run's family.
+- **Set-T check (not run):** v5 pass 1 + fallback on set T, about $0.10 ($0.054 + $0.045 measured on v4).
+- **B6 guide test built (not run):** `eval/guide_trial.py`, prompt `scene/v5-guide-trial@c921108016d7` (pinned); 24 dev images hand-labelled in `eval/guide_trial/labels_dev.yaml` (assistant-checked). Variant A is the photo alone; variant B adds enlarged crops of the boards the dev scene listed. Estimate $0.04 ($0.06 with margin).
+- **Found while labelling:**
+  - expressway boards print their own speed discs (80/60, 90/60, 120/60), which v4 never read; that is the cause of dev 254, 352, 381 and 413;
+  - two dataset answers disagree with their boards (train_230 direction and distance; train_248 calls a blue minimum-speed disc a maximum).
+- Tests 995 passed. Round spend $0.61 of $5.
+
 ## Next steps, in order
 
 **Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Phase 4 closed (2026-11-16; closing entry above).** Phase 5 plan approved (2026-11-16). **Next: the one private-test run** (`eval/e2e_private.py run --confirm-frozen --max-spend 3`), on the owner's go-ahead on its $1.83 estimate.

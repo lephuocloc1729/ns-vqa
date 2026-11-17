@@ -339,3 +339,13 @@ Free engine, selector and KB fixes come first. Each is checked by an engine-only
 - **Risks:**
   - B1's new value types are answered by the writer (prompt v3), whose examples don't cover them; template answers back them up, but wording may cost judge points.
   - An expressway speed-range answer from defaults (dev 254) would be wrong where a guide board posts other limits, so speed ranges stay out of B1.
+
+## 13. Stage B approved (owner, 2026-11-17), coverage first
+
+1. **B3 + the B6 perception test first:** build scene v5 (the new rows); a set-T check command; a guide-board transcription test on dev images only (destinations, distances, arrows on I/IE boards), measured against hand checks on dev, about $0.20. Commands and estimates, then stop. **The test decides whether B6 is worth building.**
+2. **Then B1 (DSL and engine, free) and B2 (parser v7)**, in this order: sign group → conduct + STOP → presence → divided-road slot and several-vehicle speed → scope and placement. After each new type, a free engine-only dev replay where parses exist. A type is kept if overall doesn't drop and accuracy on decided stays ≥ 70%. Parser v7 few-shots come from train, outside dev and validation, with the exact question text, and include the police-car mapping and the lane fix.
+3. **B4:** the parser-gate rerun on public_dev gold intents (no old type may regress), a dev re-parse and a judged dev replay. The replay also confirms the provisional grades for 81, 287 and 308. Commands and estimates, then stop.
+4. **B6 (guide content)** only if the step-1 test is good and the owner says go.
+5. **B5 (new freeze, final validation once)** last, with the owner's go-ahead.
+
+**Budget:** the round's hard $5, always keeping about $0.70 in reserve for the final validation. Files are staged by name. Not touched: the validation set beyond its aggregate, holdout, private, gold, and the freeze record until B5.
