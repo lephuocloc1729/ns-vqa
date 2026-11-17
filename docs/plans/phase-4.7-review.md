@@ -19,3 +19,49 @@ One dev program and five D3 programs are saved locally. Old question forms keep 
 .venv/bin/python eval/phase47_replay.py check --programs \
   dev=eval/runs/phase47/dev_v12_hand.json d3=eval/runs/phase47/d3_v12_hand.json
 ```
+
+## Interpretations for approval, highest risk first
+
+Only the first row was added in phase 4.7. The remaining entries explain the scope of the contradiction checks. Source keys and basis strings are in `kb/rules/common.pl:35` and `:69`; the load basis is in `kb/sign_catalog.yaml:54`. No Decree 168 amount or interpretation was added.
+
+| Rule | Basis to review | Adjacent corpus text and limits of the check |
+|---|---|---|
+| **r_c38_outside — highest, new** | Circular 38 art. 7, **from memory**. Divided/undivided defaults by group in km/h: 90/80, 80/70, 70/60. Posted maxima take precedence. | Law 36 art. 12.4 delegates detailed speed rules; QCVN D.18 ends the residential zone and B.27 governs posted maxima. Check the official table, including seat counting, truck mass definition, bus/coach and motorcycle classes and the one-way-road criterion. In particular, `general47.pl:112` assigns every coach to group 2 and uses a gross-mass test for trucks. The corpus does not verify these classifications. |
+| r_c38_expressway | Circular 38 art. 9, believed 120 maximum and 60 minimum where no limit is posted. | Law 36 art. 25 governs expressway use; QCVN art. 47.3 describes IE.452 displaying limits, including per-lane limits. Check defaults, exemptions and road-specific minima. |
+| r_c38_residential | Circular 38 art. 6, believed 60/50 depending on road division or qualifying one-way lanes. | QCVN D.17–D.18 delimit the zone; Law 36 art. 12.4 delegates speed detail. Verify the vehicle groups and road variants. |
+| r_c38_moped | Circular 38 art. 8, believed 40 km/h. | Law 36 art. 34.1 defines a moped using a 50 km/h **design** speed. That classification figure and the operating limit serve different purposes. Check the Circular's scope. |
+| r_kb4_expressway_zone | Infer the expressway boundary from IE.451b / IE.452 and IE.453b/c. | QCVN art. 47.2–47.4 and appendices P.2–P.4 distinguish entrance, start, end and advance notice. Law 36 art. 25 supplies zone rules. |
+| r_kb2_roundabout | R.303 orders travel around the island and yielding to traffic from the left, while leaving the choice of exit open. | QCVN D.3 and Law 36 art. 22.3. |
+| r_kb1_pass_side | R.302 orders passage on the indicated side of the obstacle. | QCVN D.2 describes the obstacle itself. This effect does not determine the next intersection turn. |
+| r_load_implies_gross | A stated carried load is a lower bound on gross mass. | QCVN B.15 defines gross mass as vehicle mass plus people, luggage and cargo. The inference preserves strict lower bounds. |
+| KB-3, catalog policy | Pure information boards give guidance without adding a ban or compulsory direction. | QCVN arts. 11 and 35 and each row's appendix article. This is `effect.informational`; there is no `r_kb3` source fact. |
+
+`tests/test_phase47_law_consistency.py` enumerates the live Prolog source facts. It checks every ordinary law/article pair and covers all eight interpretation IDs, KB-3 separately, the cited premises, and posted-sign precedence for all four Circular cases. The speed-text audit distinguishes sign design, vehicle design speed, signing/marking thresholds and posted limits (including B.27a's night-sign ceiling) from unposted road defaults. It detects new numeric passages and changes to the 14 reviewed articles containing numeric km/h expressions. These are scoped corpus checks. The Circular's own text is absent, and automated checks cannot establish exhaustive legal equivalence.
+
+## Assistant-reviewed additions awaiting human review
+
+The three YAML files carry file-level `reviewed_by: assistant`. The Prolog files implement companion rules and have no equivalent row field. The source files give the deciding Vietnamese phrase beside each entry.
+
+| File and rows | Effects or duties to check against the article |
+|---|---|
+| `kb/sign_info_47.yaml:9` scope | DP.134 (B.34), R.404a (D.12), I.401 (39), I.407 (E.7), I.408 (E.8, 10 m before the next junction), general information category (15). |
+| `kb/sign_info_47.yaml:35` placement | DP.134 at the end of the speed restriction (B.34); R.404a at the end of the road for cars (D.12). |
+| `kb/sign_info_47.yaml:46` conduct | DP.134 (B.34), I.408 (E.8), I.409 (E.9), IE.452 and IE.451b (Law 36 art. 25), P.127b/c (B.27b/c), R.412b/f (D.14), R.415a (D.16), R.411 (D.13), R.420 (D.17), generic informational rows (35). Explicit conduct exclusions are IE.453b/c and R.404a. |
+| `kb/general_duties_47.yaml:7` | Speed and distance (12), lane change (13), overtaking (14), turning (15), stopping/parking (18), yielding to a priority vehicle (27), expressway entry/exit/lanes (25), all Law 36. Review the conditions attached to each individual duty. |
+| `kb/signals_markings_47.yaml:7` signals | QCVN art. 6: green, yellow, flashing yellow, red, green arrow, red arrow. Check stopping position, priority and arrow direction. |
+| Same file, markings and separation | G.1 centre lines 1.1–1.4 (both orientations of the mixed line); same-direction lane lines 2.1, 2.2, 2.4; solid edge line 3.1; hatched 4.1; G.2 stop line 7.1. Centre and lane lines separate opposing and same-direction traffic respectively. |
+| `kb/rules/general47.pl:16` | Law 36 art. 14.6 overtaking places, 15.4 U-turn places, 18.4 stop/park places and exceptions, 25.1c emergency-lane entry and 25.2 forced stops, 13.3 rightmost lane for rudimentary vehicles, 27.4 on-duty priority speed exemption. Also review all three Circular 38 speed groups above. |
+| `kb/rules/signals47.pl:17` | R.411 lane arrows and permitted/excluded directions (D.13); vehicle lights and directional arrows, priority exemption and yellow at the line (6, Law 36 art. 27.4); crossing centre lines, changing across lane lines and hatched markings (G.1). Review how multiple, missing and side-dependent observations are combined. |
+
+## Existing rows that look wrong
+
+**Generated suite:** two failing cases on one catalog row, P.106b × tractor and P.106b × special machine. The B.6 row restricts the truck load condition through `effect.value.applies_to`. The test had applied it to both other classes. Restricting the oracle to the listed classes and subclasses resolves both cases. All 784 cases pass, zero catalog or rule changes, zero entries in `KNOWN_DIFFERENCES`. This establishes agreement with the tested catalog effects, not a human legal audit.
+
+**Missing-signal issue in the already committed 4.7 path:** QCVN art. 6 makes passage depend on the signal. A question explicitly asking whether one may proceed at a light can return yes from signs alone when the signal is absent from the stored scene. The v12 wire form has no field marking a signal as required and `vqa/reasoning/engine.py:812` checks light rules only if signals are present. The free replay reproduced this. Owner decision needed before changing this committed behaviour; an additive signal-specific claim could preserve previous programs.
+
+## Not built
+
+- Lane-set claims with a set and an any/all or subset relation.
+- R.411 applicability by vehicle class. Lane arrows support directions on a specified lane.
+- Violations by pictured vehicles against lights or markings.
+- Art. 51 marking scope and its interaction with signs under the priority order of art. 4.
