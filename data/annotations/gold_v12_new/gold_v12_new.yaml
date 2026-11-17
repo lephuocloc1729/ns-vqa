@@ -1,0 +1,520 @@
+# Parser v12 new-types test (owner, 2026-11-17): expected programs for the phase-4.7 intents.
+# Separate from the no-regression gate (eval/parser_eval.py). Scored by eval/parser_newtypes.py.
+# - source: train rows are train working-set questions (outside dev and validation, their images and
+#   the v12 few-shots), picked by wording; this file keeps their ids and programs only (no text).
+# - source: assistant_written rows: the train working set has too few questions of these types
+#   (count 2, applies_to 2, place rules 2, lights / markings / duties / meanings 0), so the assistant
+#   wrote these in the dataset's style. They are not dataset text; the owner may drop them.
+# Pass rule (fixed 2026-11-17): each new intent >= 80% exact programs where it has >= 5 questions;
+# a weaker intent is listed, and its rules stay on only if the owner agrees.
+rows:
+- id: train_243
+  source: train
+  intent: count
+  program:
+    program:
+      intent: count
+      sign:
+        category: prohibitory
+        shape: circle
+        background: white
+        border: red
+- id: train_458
+  source: train
+  intent: count
+  program:
+    program:
+      intent: count
+      sign:
+        category: warning
+- id: train_13
+  source: train
+  intent: applies_to
+  program:
+    program:
+      intent: applies_to
+      sign:
+        category: prohibitory
+- id: train_158
+  source: train
+  intent: applies_to
+  program:
+    program:
+      intent: applies_to
+      sign:
+        meaning: no_horn
+- id: train_425
+  source: train
+  intent: rule_permitted
+  program:
+    program:
+      intent: rule_permitted
+      action: overtake
+      vehicle:
+        vehicle_class: passenger_car
+      place: bridge
+- id: train_453
+  source: train
+  intent: rule_permitted
+  program:
+    program:
+      intent: rule_permitted
+      action: overtake
+      vehicle:
+        vehicle_class: passenger_car
+      place: bridge
+- id: syn_01
+  source: assistant_written
+  question: Trong ảnh có bao nhiêu biển hiệu lệnh?
+  intent: count
+  program:
+    program:
+      intent: count
+      sign:
+        category: mandatory
+- id: syn_02
+  source: assistant_written
+  question: Có bao nhiêu biển báo trong ảnh?
+  intent: count
+  program:
+    program:
+      intent: count
+      sign: {}
+- id: syn_03
+  source: assistant_written
+  question: Trong ảnh có mấy biển chỉ dẫn?
+  intent: count
+  program:
+    program:
+      intent: count
+      sign:
+        category: information
+- id: syn_04
+  source: assistant_written
+  question: Trong ảnh có đúng hai biển cấm, phải không?
+  intent: count_is
+  program:
+    program:
+      intent: count_is
+      sign:
+        category: prohibitory
+      n: 2
+- id: syn_05
+  source: assistant_written
+  question: Ảnh có ba biển báo, đúng không?
+  intent: count_is
+  program:
+    program:
+      intent: count_is
+      sign: {}
+      n: 3
+- id: syn_06
+  source: assistant_written
+  question: Trong ảnh chỉ có một biển báo nguy hiểm và cảnh báo, đúng hay sai?
+  intent: count_is
+  program:
+    program:
+      intent: count_is
+      sign:
+        category: warning
+      n: 1
+- id: syn_07
+  source: assistant_written
+  question: Có phải trong ảnh có hai biển hình tròn viền đỏ không?
+  intent: count_is
+  program:
+    program:
+      intent: count_is
+      sign:
+        shape: circle
+        border: red
+      n: 2
+- id: syn_08
+  source: assistant_written
+  question: Tôi đếm được bốn biển chỉ dẫn trong ảnh, có đúng không?
+  intent: count_is
+  program:
+    program:
+      intent: count_is
+      sign:
+        category: information
+      n: 4
+- id: syn_09
+  source: assistant_written
+  question: Biển cấm đỗ xe trong ảnh áp dụng cho những loại xe nào?
+  intent: applies_to
+  program:
+    program:
+      intent: applies_to
+      sign:
+        meaning: no_parking
+- id: syn_10
+  source: assistant_written
+  question: Biển này áp dụng cho những phương tiện nào?
+  intent: applies_to
+  program:
+    program:
+      intent: applies_to
+      sign:
+        only: true
+- id: syn_11
+  source: assistant_written
+  question: Biển cấm rẽ trái trong ảnh áp dụng cho những xe nào?
+  intent: applies_to
+  program:
+    program:
+      intent: applies_to
+      sign:
+        meaning: no_left_turn
+- id: syn_12
+  source: assistant_written
+  question: Biển này áp dụng cho cả ô tô và xe máy, đúng không?
+  intent: sign_applies
+  program:
+    program:
+      intent: sign_applies
+      sign:
+        only: true
+      vehicles:
+      - vehicle_class: car
+      - vehicle_class: motorbike
+- id: syn_13
+  source: assistant_written
+  question: Biển cấm xe tải trong ảnh có áp dụng cho máy kéo không?
+  intent: sign_applies
+  program:
+    program:
+      intent: sign_applies
+      sign:
+        meaning: no_trucks
+      vehicles:
+      - vehicle_class: tractor
+- id: syn_14
+  source: assistant_written
+  question: Biển cấm đi ngược chiều có áp dụng cho xe đạp không?
+  intent: sign_applies
+  program:
+    program:
+      intent: sign_applies
+      sign:
+        meaning: no_entry_one_way
+      vehicles:
+      - vehicle_class: bicycle
+- id: syn_15
+  source: assistant_written
+  question: Biển báo trong ảnh có áp dụng cho xe thô sơ không?
+  intent: sign_applies
+  program:
+    program:
+      intent: sign_applies
+      sign:
+        only: true
+      vehicles:
+      - vehicle_class: rudimentary
+- id: syn_16
+  source: assistant_written
+  question: Biển cấm bấm còi trong ảnh có áp dụng cho xe máy không?
+  intent: sign_applies
+  program:
+    program:
+      intent: sign_applies
+      sign:
+        meaning: no_horn
+      vehicles:
+      - vehicle_class: motorbike
+- id: syn_17
+  source: assistant_written
+  question: Xe có được quay đầu trên cầu không?
+  intent: rule_permitted
+  program:
+    program:
+      intent: rule_permitted
+      action: u_turn
+      place: bridge
+- id: syn_18
+  source: assistant_written
+  question: Ô tô có được dừng xe ở phần đường dành cho người đi bộ qua đường không?
+  intent: rule_permitted
+  program:
+    program:
+      intent: rule_permitted
+      action: stop
+      vehicle:
+        vehicle_class: car
+      place: pedestrian_crossing
+- id: syn_19
+  source: assistant_written
+  question: Xe có được vượt xe khác trong hầm đường bộ không?
+  intent: rule_permitted
+  program:
+    program:
+      intent: rule_permitted
+      action: overtake
+      place: tunnel
+- id: syn_20
+  source: assistant_written
+  question: Xe máy có được đỗ trên cầu này không?
+  intent: rule_permitted
+  program:
+    program:
+      intent: rule_permitted
+      action: park
+      vehicle:
+        vehicle_class: motorbike
+      place: bridge
+- id: syn_21
+  source: assistant_written
+  question: Gặp đèn tín hiệu như trong ảnh, ô tô có được đi thẳng không?
+  intent: rule_permitted
+  program:
+    program:
+      intent: rule_permitted
+      action: go_straight
+      vehicle:
+        vehicle_class: car
+      at_signal: true
+- id: syn_22
+  source: assistant_written
+  question: Với đèn tín hiệu trong ảnh, xe máy có được rẽ trái không?
+  intent: rule_permitted
+  program:
+    program:
+      intent: rule_permitted
+      action: turn_left
+      vehicle:
+        vehicle_class: motorbike
+      at_signal: true
+- id: syn_23
+  source: assistant_written
+  question: Đèn tín hiệu đang như trong ảnh thì xe có được đi tiếp không?
+  intent: rule_permitted
+  program:
+    program:
+      intent: rule_permitted
+      action: go_straight
+      at_signal: true
+- id: syn_24
+  source: assistant_written
+  question: Xe đã đi qua vạch dừng thì đèn chuyển vàng, xe có được đi tiếp không?
+  intent: rule_permitted
+  program:
+    program:
+      intent: rule_permitted
+      action: go_straight
+      at_signal: true
+      past_stop_line: true
+- id: syn_25
+  source: assistant_written
+  question: Theo đèn tín hiệu trong ảnh, xe có được rẽ phải không?
+  intent: rule_permitted
+  program:
+    program:
+      intent: rule_permitted
+      action: turn_right
+      at_signal: true
+- id: syn_26
+  source: assistant_written
+  question: Xe có được đè lên vạch giữa đường trong ảnh để vượt không?
+  intent: rule_permitted
+  program:
+    program:
+      intent: rule_permitted
+      maneuver: cross_center
+- id: syn_27
+  source: assistant_written
+  question: Ô tô có được lấn sang làn ngược chiều qua vạch trong ảnh không?
+  intent: rule_permitted
+  program:
+    program:
+      intent: rule_permitted
+      vehicle:
+        vehicle_class: car
+      maneuver: cross_center
+- id: syn_28
+  source: assistant_written
+  question: Xe có được chuyển làn qua vạch kẻ trong ảnh không?
+  intent: rule_permitted
+  program:
+    program:
+      intent: rule_permitted
+      maneuver: change_lane
+- id: syn_29
+  source: assistant_written
+  question: Xe đang ở làn ngoài cùng bên trái có được chuyển sang làn bên cạnh không?
+  intent: rule_permitted
+  program:
+    program:
+      intent: rule_permitted
+      maneuver: change_lane
+      lane: 1
+- id: syn_30
+  source: assistant_written
+  question: Theo vạch kẻ đường trong ảnh, xe máy có được chuyển làn không?
+  intent: rule_permitted
+  program:
+    program:
+      intent: rule_permitted
+      vehicle:
+        vehicle_class: motorbike
+      maneuver: change_lane
+- id: syn_31
+  source: assistant_written
+  question: Khi muốn chuyển làn, người lái xe phải làm gì?
+  intent: duties
+  program:
+    program:
+      intent: duties
+      topic: lane_change
+- id: syn_32
+  source: assistant_written
+  question: Khi vượt xe, người điều khiển phương tiện phải tuân thủ những gì?
+  intent: duties
+  program:
+    program:
+      intent: duties
+      topic: overtaking
+- id: syn_33
+  source: assistant_written
+  question: Khi rẽ trái ở nơi giao nhau, người lái xe cần làm gì?
+  intent: duties
+  program:
+    program:
+      intent: duties
+      topic: turning
+- id: syn_34
+  source: assistant_written
+  question: Khi nghe còi của xe cứu thương đang làm nhiệm vụ phía sau, người lái xe phải làm gì?
+  intent: duties
+  program:
+    program:
+      intent: duties
+      topic: priority_vehicle_signal
+- id: syn_35
+  source: assistant_written
+  question: Khi đi vào đường cao tốc, người lái xe phải làm gì?
+  intent: duties
+  program:
+    program:
+      intent: duties
+      topic: expressway
+- id: syn_36
+  source: assistant_written
+  question: Đèn tín hiệu trong ảnh có ý nghĩa gì?
+  intent: signal_meaning
+  program:
+    program:
+      intent: signal_meaning
+- id: syn_37
+  source: assistant_written
+  question: Đèn giao thông trong ảnh đang báo hiệu điều gì?
+  intent: signal_meaning
+  program:
+    program:
+      intent: signal_meaning
+- id: syn_38
+  source: assistant_written
+  question: Đèn trong ảnh cho phép xe làm gì?
+  intent: signal_meaning
+  program:
+    program:
+      intent: signal_meaning
+- id: syn_39
+  source: assistant_written
+  question: Tín hiệu đèn trong ảnh báo cho người lái xe điều gì?
+  intent: signal_meaning
+  program:
+    program:
+      intent: signal_meaning
+- id: syn_40
+  source: assistant_written
+  question: Đèn mũi tên trong ảnh có ý nghĩa gì?
+  intent: signal_meaning
+  program:
+    program:
+      intent: signal_meaning
+- id: syn_41
+  source: assistant_written
+  question: Vạch kẻ đường trong ảnh có ý nghĩa gì?
+  intent: marking_meaning
+  program:
+    program:
+      intent: marking_meaning
+- id: syn_42
+  source: assistant_written
+  question: Vạch liền ở giữa đường trong ảnh có ý nghĩa gì?
+  intent: marking_meaning
+  program:
+    program:
+      intent: marking_meaning
+      kind: center
+      pattern: solid
+- id: syn_43
+  source: assistant_written
+  question: Vạch đứt trong ảnh dùng để làm gì?
+  intent: marking_meaning
+  program:
+    program:
+      intent: marking_meaning
+      pattern: dashed
+- id: syn_44
+  source: assistant_written
+  question: Vạch đôi liền ở giữa đường báo hiệu điều gì?
+  intent: marking_meaning
+  program:
+    program:
+      intent: marking_meaning
+      kind: center
+      pattern: double_solid
+- id: syn_45
+  source: assistant_written
+  question: Vạch kẻ ở mép đường trong ảnh có ý nghĩa gì?
+  intent: marking_meaning
+  program:
+    program:
+      intent: marking_meaning
+      kind: edge
+- id: syn_46
+  source: assistant_written
+  question: Vạch đứt trong ảnh có dùng để phân chia các làn xe cùng chiều không?
+  intent: marking_is
+  program:
+    program:
+      intent: marking_is
+      pattern: dashed
+      separates: same_direction_lanes
+- id: syn_47
+  source: assistant_written
+  question: Vạch liền ở giữa đường có phải để phân chia hai chiều xe chạy ngược nhau không?
+  intent: marking_is
+  program:
+    program:
+      intent: marking_is
+      kind: center
+      pattern: solid
+      separates: opposite_directions
+- id: syn_48
+  source: assistant_written
+  question: Vạch kẻ trong ảnh có phải là vạch phân chia hai chiều xe chạy không?
+  intent: marking_is
+  program:
+    program:
+      intent: marking_is
+      separates: opposite_directions
+- id: syn_49
+  source: assistant_written
+  question: Vạch liền trong ảnh phân chia hai chiều xe chạy, đúng không?
+  intent: marking_is
+  program:
+    program:
+      intent: marking_is
+      pattern: solid
+      separates: opposite_directions
+- id: syn_50
+  source: assistant_written
+  question: Có phải vạch đôi liền trong ảnh dùng để phân chia các làn xe cùng chiều không?
+  intent: marking_is
+  program:
+    program:
+      intent: marking_is
+      pattern: double_solid
+      separates: same_direction_lanes
