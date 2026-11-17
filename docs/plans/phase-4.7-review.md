@@ -66,13 +66,20 @@ The three YAML files carry file-level `reviewed_by: assistant`. The Prolog files
 - Violations by pictured vehicles against lights or markings.
 - Art. 51 marking scope and its interaction with signs under the priority order of art. 4.
 
-## Owner-run paid checks, in order
+## Owner-run paid checks, in order (revised 2026-11-17: four checks, caps set as each runs)
 
-No paid check was run during this handoff. Run from the repository root on the clean branch. The estimates sum to **$1.19** and the caps to **$1.65**, leaving **$0.35** of the $2.00 budget outside these caps. The comparisons and summaries below are offline. At each `read` prompt paste the exact output file path printed by the preceding run.
+Nothing has been spent. Run from the repository root on a clean tree. **Each cap is set when its step
+runs, and the four never sum past $2.00:** the judged dev run's cap is what is left, at most $1.05.
 
-### 1. Parser v12 gate — estimate $0.21, cap $0.40
+| # | check | estimate (range) | cap |
+|---|---|---|---|
+| 1 | parser v12 no-regression gate (public_dev gold) | $0.21 ($0.19–0.25) | $0.40 (the runner refuses lower) |
+| 2 | parser v12 new-types test (56 questions) | $0.23 ($0.20–0.30) | $0.35 |
+| 3 | scene v6 set-T check (sign reading + the v6 fields) | $0.13 ($0.11–0.16) | $0.20 (two $0.10 guards) |
+| 4 | judged dev run, scene v6 + parser v12 | $0.85 ($0.67–1.10) | what is left, at most $1.05 |
+| | **total** | **$1.42** | at the estimates, $0.58 is left for step 4's cap |
 
-V11 cost $0.186. Use the $0.40 cap for the runner's up-front budget check. Score the one run, compare it to the three v6 runs, and use the stored v11 run to inspect compatibility on previously supported forms. The existing no-regression gate evaluates intent types; a passing aggregate alone cannot establish identical individual parses.
+### 1. Parser v12 gate
 
 ```zsh
 .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v12 --max-spend 0.40
@@ -82,54 +89,43 @@ read -r 'gate_run?Path of completed v12 predictions: '
   logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-140559.jsonl \
   logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141622.jsonl \
   logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141902.jsonl --new "$gate_run"
-.venv/bin/python eval/parser_eval.py compare --old \
-  logs/parser_eval/pred_claude-sonnet-5-5_medium_v11_20261117-184930.jsonl --new "$gate_run"
 ```
 
-For a direct compatibility check, run the following offline after the gate. It compares normalized programs for previously supported gate forms on which v11 returned a program. It also detects missing predictions. Inspect any changed IDs on public_dev before accepting the parser.
+Rule: `regressed_types_without_design` must be empty; v12 forms are given back only on gold out-of-scope rows. If v12 fails, stop: one fix as v13 needs the owner's yes.
+
+### 2. Parser v12 new-types test (separate from the gate)
 
 ```zsh
-.venv/bin/python - "$gate_run" <<'PY'
-import sys
-from pathlib import Path
-from eval.parser_eval import canonical, gate_rows, gold_type, load_gold, load_predictions
-from vqa.schemas import QueryProgram
-
-old_file = Path("logs/parser_eval/pred_claude-sonnet-5-5_medium_v11_20261117-184930.jsonl")
-old = {r["id"]: r for r in load_predictions(old_file)}
-new = {r["id"]: r for r in load_predictions(Path(sys.argv[1]))}
-gate = gate_rows(load_gold(), "v12")
-assert {g["id"] for g in gate} <= new.keys(), "incomplete v12 gate run"
-supported = [g["id"] for g in gate if gold_type(g) != "out_of_scope"
-             and old.get(g["id"], {}).get("status") == "ok"]
-assert supported, "no comparable supported rows"
-def program(row):
-    return canonical(QueryProgram.model_validate(row["query"])) if row["status"] == "ok" else None
-changed = [qid for qid in supported if program(old[qid]) != program(new[qid])]
-print({"compared": len(supported), "identical": len(supported) - len(changed), "changed": changed})
-PY
+.venv/bin/python eval/parser_newtypes.py estimate
+.venv/bin/python eval/parser_newtypes.py run --max-spend 0.35
+read -r 'nt_run?Path of the new-types predictions: '
+.venv/bin/python eval/parser_newtypes.py score "$nt_run"
 ```
 
-### 2. Scene v6 set-T check — estimate $0.13, combined cap $0.20
+Rule (fixed): each new intent >= 80% exact programs where it has >= 5 questions; `weaker_intents` lists the rest, and their rules stay on only with the owner's yes. 6 of the 56 rows are train questions; 50 are assistant-written (the train working set has too few of these types), reported apart in `by_source`.
 
-V5 cost $0.055 for pass 1 and $0.059 for the tile/crop pass. Each command creates its own spend guard, hence two $0.10 caps. Score the new fallback result against the existing v5 fallback result. V5 achieved 90.8% recall and 72.9% code F1. The plan keeps v6 when recall holds and code F1 is within the 2.9-point run-to-run spread.
+### 3. Scene v6 set-T check
+
+Before it: fill `data/annotations/gold_v6_fields/labels_v6_fields.yaml` by hand (36 set-T images; set `checked: true`). Only train_1_6 has an R.411 board in the gold sign labels, so the arrows field is measured on at most one image.
 
 ```zsh
 .venv/bin/python eval/perception_eval.py run --set T --model claude-haiku-5-5 --version v6 --max-spend 0.10
-read -r 'scene_run?Path of completed v6 pass-1 run: '
+read -r 'scene_run?Path of the v6 pass-1 run: '
 .venv/bin/python eval/perception_eval.py fallback "$scene_run" --policy crop_always --max-spend 0.10
-read -r 'scene_fb?Path of completed v6 fallback run: '
-.venv/bin/python eval/perception_eval.py score \
-  eval/runs/perception/T_claude-haiku-5-5_v5+fb_3861a1816d1a.jsonl "$scene_fb"
+read -r 'scene_fb?Path of the v6 fallback run: '
+.venv/bin/python eval/perception_eval.py score eval/runs/perception/T_claude-haiku-5-5_v5+fb_3861a1816d1a.jsonl "$scene_fb"
+.venv/bin/python eval/v6_fields.py score "$scene_fb"
 ```
 
-### 3. Judged dev — estimate $0.85, cap $1.05
+Rules (fixed): v6 is kept when recall holds and code F1 is within 2.9 points of v5 + fallback (90.8% recall, 72.9% code F1). Each v6 field below 70% precision goes into `kb/v6_fields_47.yaml` `off:`, so its rules give unknown. If v6 fails the sign check, step 4 runs with scene v5.
 
-The phase-4.5 candidate measured $0.81. If the gates support proceeding, the command below runs fresh perception with guide reading, parser v12, higher-confidence readings, the writer and dev scoring. Answer-level fallback is off. Verify the candidate settings and prompt IDs in the dev run header. Compare judged overall with 69.0% and accuracy on decided with the 70% guardrail.
+### 4. Judged dev run
 
 ```zsh
 .venv/bin/python eval/e2e_dev.py run --label phase47 --candidate \
-  --scene-version v6 --parser-version v12 --reading-policy higher_confidence --max-spend 1.05
-read -r 'dev_run?Path of completed judged dev run: '
+  --scene-version v6 --parser-version v12 --reading-policy higher_confidence --max-spend <left, at most 1.05>
+read -r 'dev_run?Path of the judged dev run: '
 .venv/bin/python eval/e2e_dev.py summary "$dev_run"
 ```
+
+With scene v5 if step 3 failed: `--scene-version v5`. Guardrail: overall >= 69.0% (judged), accuracy on decided >= 70%.

@@ -1644,6 +1644,20 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 - **Verification:** 2,070 tests pass with the CLI checks included. Each step was committed only after the full suite and the baseline replay passed.
 - **Next action belongs to the owner:** review the findings and approve the paid sequence. No phase-4.7 freeze, validation or private run was performed.
 
+### Phase 4.7: measurements added before the paid checks (owner, 2026-11-17; no API calls)
+
+- **Circular 38 check** (`5c46b5e`):
+  - trucks are grouped by payload; a gross mass up to 3.5 t still gives group 1;
+  - coaches go by seat count;
+  - `bus` and group 4 (tankers, mixers, trailer towing; no vehicle class) stay unknown.
+- **Matrix finished** (`6ab4bb1`): 713 modelled, 0 to build, 435 n/a, 10 out.
+- **New-types parser test** (`58b95e1`): 56 rows, 6 train and 50 assistant-written, with every new intent at 5 or more; estimate $0.23.
+- **v6 field measurement** (`1b14ba9`):
+  - a set-T label sheet for the owner to fill;
+  - `eval/v6_fields.py score`;
+  - the switch `kb/v6_fields_47.yaml`, all fields on until measured.
+- **Paid checks, in order:** `docs/plans/phase-4.7-review.md`, last section. Estimate $1.42; each cap is set as its step runs, staying within $2.00.
+
 ### Phase 4.7: light questions without a light read (2026-11-17; no API calls)
 
 - **Fix** (owner's yes, before the v12 gate): `rule_permitted.at_signal`.
