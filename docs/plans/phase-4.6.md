@@ -315,3 +315,19 @@ Neither line quotes a gate question (checked by the spec tests).
 **Next: the v11 gate run, then the same compare.** Estimate **$0.19** (v10 measured $0.1895; same prompt length), cap **$0.40**.
 - **If v11 fails the rule, stop:** no further fix is allowed, and the owner decides.
 - **Budget:** $3.37 + $0.19 = **$3.56 spent, $1.44 left.** After the v11 gate ($0.19) and the dev re-parse ($0.33), about **$0.92** would be left: just above final2's $0.90 floor, with no margin. A dev re-parse above $0.35 puts final2 below the floor.
+
+## 13. v11 passes the no-regression rule; step 6 prepared
+
+**v11 gate run** (`pred_claude-sonnet-5-5_medium_v11_20261117-184930.jsonl`, **$0.1861**):
+- **Program accuracy 85.1% (40/47),** slot F1 91.9%. The ≥ 90% gate figure fails on the point estimate and is reported only; the rule decides.
+- **`regressed_types_without_design` is empty: v11 passes.** `permitted` 10/10 and `which_vehicles` 2/2.
+- **The 4 lost rows are all given back as design:** 0055 and 0063 (now `guide_claim`), 0086 and 0087.
+  - **0086 is a real miss:** `aspect: group` where the spec says `name` for "loại biển nào". It counts as design only because `group` is a v7 feature.
+  - 0084 (an `is_sign` claim parsed as `forbidden`) is still wrong, as with v6's accuracy for that type.
+- **v11 is the parser for the rest of phase 4.6.**
+
+**Step 6: dev re-parse with v11.**
+- **What it runs:** every dev question, from the v9 re-parse (the current dev record), with the engine's policy A. `eval/e2e_dev.py reparse` gained `--reading-policy`: with it, the engine also re-runs on unchanged parses, and an answer whose decision changes is written and judged again.
+- **Estimate $0.37 (range $0.33–0.45):** 87 parses at v11's measured rate ($0.052 for the first, cache-writing call, then $0.0029 each: $0.30), plus the writer and the judge on about 10–16 changed decided answers ($0.0056 each).
+- **Cap $0.50,** because the spend guard keeps one call's worst case ($0.093) free, so a $0.45 cap could stop near the end.
+- **Budget:** $3.56 + $0.19 = **$3.75 spent, $1.25 left.** After step 6 at its estimate, **$0.88** would be left, below final2's $0.90 floor, so **final2 goes to the owner (the rule set before the gate).** At the bottom of the range ($0.33), $0.92 is left.

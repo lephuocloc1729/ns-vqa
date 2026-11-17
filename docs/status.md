@@ -1634,7 +1634,18 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
-### Handoff (2026-11-17): v10 failed the gate's no-regression rule; v11 built, its gate is next
+### Handoff (2026-11-17): v11 passes the gate rule; step 6 (dev re-parse) ready for the owner's go-ahead
+
+- **v11 gate** ($0.1861): 85.1%, no type regressed without design. v11 is the parser.
+- **Next (paid, the owner runs it):**
+  ```
+  .venv/bin/python eval/e2e_dev.py reparse --from eval/runs/e2e/dev_reparse_v9_8bbb5eb01cff.jsonl --version v11 --select all --reading-policy higher_confidence --max-spend 0.50
+  .venv/bin/python eval/e2e_dev.py summary eval/runs/e2e/dev_reparse_v11_<run_id>.jsonl
+  ```
+  Estimate $0.37 (range $0.33–0.45); it needs a clean git tree.
+- **Spend:** $3.75 of $5, so **$1.25 left**. About $0.88 would be left after step 6, below final2's $0.90 floor, so final2 is the owner's call then.
+
+### Handoff (2026-11-17): v10 failed the gate's no-regression rule; v11 built, its gate is next (kept as a record)
 
 - **v10 gate** ($0.1895): 76.6%; `permitted` and `which_vehicles` regressed without design. The cause and the v11 fix are in `docs/plans/phase-4.6.md` section 12.
 - **Next (paid, the owner runs it):**

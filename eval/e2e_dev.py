@@ -27,6 +27,7 @@ answer, the scene, the trace and the grade). The run's scene cache is kept besid
     .venv/bin/python eval/e2e_dev.py run --label frozen --max-spend 1.0
     .venv/bin/python eval/e2e_dev.py run --label candidate --candidate --max-spend 1.3
     .venv/bin/python eval/e2e_dev.py reparse --from eval/runs/e2e/dev_candidate_7caed6170de6.jsonl --version v9 --max-spend 0.20
+    .venv/bin/python eval/e2e_dev.py reparse --from eval/runs/e2e/dev_reparse_v9_8bbb5eb01cff.jsonl --version v11 --select all --reading-policy higher_confidence --max-spend 0.45
 
 `reparse` (phase 4.5, owner 2026-11-17): a new parser version on a stored dev run, with no
 perception call. It re-parses the dev questions whose wording the new rule is about
@@ -149,8 +150,15 @@ def run_dev(label: str, max_spend: float, *, sdk=None, questions: list[dict] | N
 YESNO = re.compile(r"(đúng hay sai|đúng không|phải không|được không|có phải .*không|\bcó\b.*\bkhông\s*\??\s*$)", re.I)
 
 
+def _decision_key(verdict: str | None, value) -> str:
+    return json.dumps({"verdict": verdict, "value": value}, sort_keys=True, default=str, ensure_ascii=False)
+
+
 def reparse(src: Path, version: str, max_spend: float, *, select: str = "yesno", sdk=None, out_dir: Path = OUT,
-            git=freeze.git_state, questions: list[dict] | None = None) -> Path:
+            git=freeze.git_state, questions: list[dict] | None = None, reading_policy: str | None = None) -> Path:
+    """`reading_policy` (phase 4.6 step 6): run the engine with this reading policy, and re-run it
+    on unchanged parses too; an answer whose decision changes is written and judged as a changed
+    one (policy A, F1, F2 change answers without a new parse)."""
     import dataclasses
     import tempfile
     from eval.judge import Judge
@@ -171,6 +179,8 @@ def reparse(src: Path, version: str, max_spend: float, *, select: str = "yesno",
     qs = {q["id"]: q for q in (questions if questions is not None else load_questions())}
     guard = SpendGuard(max_spend)
     base = PipelineConfig(**{k: v for k, v in (head.get("candidate") or {}).items()})
+    if reading_policy:
+        base = dataclasses.replace(base, reading_policy=reading_policy)
     with tempfile.TemporaryDirectory() as tmp:
         pipe = Pipeline(dataclasses.replace(base, parser_version=version, cache_only=True, cache_dir=Path(tmp),
                                             answer_fallback=False), sdk=sdk, guard=guard)
@@ -179,6 +189,7 @@ def reparse(src: Path, version: str, max_spend: float, *, select: str = "yesno",
         out = out_dir / f"dev_reparse_{version}_{run_id}.jsonl"
         new_head = {**head, "kind": "dev_reparse", "label": f"reparse_{version}", "run_id": run_id,
                     "from_run": head["run_id"], "parser_version": version, "select": select,
+                    "reading_policy": reading_policy or base.reading_policy,
                     "git_commit": g["commit"], "started": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}
         changed = []
         with open(out, "w", encoding="utf-8") as f:
@@ -192,10 +203,20 @@ def reparse(src: Path, version: str, max_spend: float, *, select: str = "yesno",
                 old = (r["trace"].get("parser") or {})
                 old_c = canonical(QueryProgram.model_validate(old["program"])) if old.get("program") else None
                 new_c = canonical(pr.query) if pr.query is not None else None
-                if old.get("status") == pr.status and old_c == new_c:
-                    f.write(json.dumps({**r, "reparsed": True, "changed": False}, ensure_ascii=False, default=str) + "\n")
-                    continue
                 scene = SceneGraph.model_validate(r["scene"]) if r.get("scene") else None
+                if old.get("status") == pr.status and old_c == new_c:
+                    same = True
+                    if reading_policy and scene is not None and pr.status == "ok":
+                        try:
+                            a0 = pipe.engine.answer(scene, pr.query)
+                            ea = r.get("engine_answer") or {}
+                            same = _decision_key(a0.verdict.value, json.loads(json.dumps(a0.value, default=str))) \
+                                == _decision_key(ea.get("verdict"), ea.get("value"))
+                        except EngineError:
+                            same = r.get("engine_verdict") is None
+                    if same:
+                        f.write(json.dumps({**r, "reparsed": True, "changed": False}, ensure_ascii=False, default=str) + "\n")
+                        continue
                 ans, err = None, None
                 if scene is not None and pr.status == "ok":
                     try:
@@ -316,13 +337,15 @@ def main() -> None:
     rp.add_argument("--version", required=True)
     rp.add_argument("--max-spend", type=float, required=True)
     rp.add_argument("--select", choices=["yesno", "all"], default="yesno")
+    rp.add_argument("--reading-policy", choices=["all", "higher_confidence"], default=None,
+                    help="phase 4.6: the engine's reading policy; also re-runs the engine on unchanged parses")
     s = sub.add_parser("summary")
     s.add_argument("file", type=Path)
     a = ap.parse_args()
     if a.cmd == "estimate":
         print(json.dumps(estimate(candidate=a.candidate), indent=2, ensure_ascii=False))
     elif a.cmd == "reparse":
-        reparse(a.src, a.version, a.max_spend, select=a.select)
+        reparse(a.src, a.version, a.max_spend, select=a.select, reading_policy=a.reading_policy)
     elif a.cmd == "summary":
         print(json.dumps(summary(a.file), indent=2))
     else:

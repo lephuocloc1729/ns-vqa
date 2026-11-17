@@ -117,3 +117,28 @@ def test_reparse_keeps_an_unchanged_parse(fake_set):
     _, rows = ed.ee.load(out)
     assert sdk2.created == ["parser"] and rows[0]["changed"] is False and rows[0]["correct"] == 1.0
     assert ed.YESNO.search("Xe máy có bị cấm đi vào đường này không?") and not ed.YESNO.search("Biển trong ảnh có ý nghĩa gì?")
+
+
+def test_reparse_with_a_reading_policy_reruns_the_engine_on_unchanged_parses(fake_set):
+    """Phase 4.6 step 6: with `reading_policy`, an unchanged parse whose answer the engine now
+    decides differently is written and judged again; one whose answer is the same is kept."""
+    from tests.test_e2e_eval import RoutedSDK
+    sdk = _e2e_sdk()
+    sdk.replies["perception"] = [SCENE_REPLY, SCENE_REPLY]
+    src = ed.run_dev("c", 1.0, sdk=sdk, questions=QS, out_dir=fake_set / "dev",
+                     image_path=lambda i: fake_set / f"{i}.jpg", git=CLEAN, candidate=ed.CANDIDATE)
+    head, rows = ed.ee.load(src)
+    rows[1]["engine_answer"] = {"verdict": "uncertain", "value": None}     # as if readings had disagreed
+    lines = [json.dumps(head)] + [json.dumps(r, ensure_ascii=False) for r in rows]
+    src.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    sdk2 = RoutedSDK(parser=[{"program": {"intent": "forbidden", "action": "enter",
+                                          "vehicle": {"vehicle_class": "motorbike"}}},
+                             {"program": {"intent": "meaning", "sign": {"only": True}}}],
+                     writer=[{"verdict": "value", "answer": "Cấm xe máy.", "cited_signs": ["s1"], "cited_rules": []}],
+                     judge=[{"label": "correct", "reason": "same"}])
+    out = ed.reparse(src, "v11", 0.5, sdk=sdk2, out_dir=fake_set / "dev", git=CLEAN, questions=QS,
+                     select="all", reading_policy="higher_confidence")
+    h2, rows2 = ed.ee.load(out)
+    assert h2["reading_policy"] == "higher_confidence"
+    assert rows2[0]["changed"] is False and rows2[1]["changed"] is True and rows2[1]["correct"] == 1.0
+    assert sdk2.created == ["parser", "parser", "writer", "judge"]
