@@ -22,15 +22,15 @@ dev failures; dev, D3 and train are checks only (owner, 2026-11-17).
 | speed | 11 | 4 | 74 | 0 |
 | time | 33 | 2 | 54 | 0 |
 | lane | 35 | 8 | 46 | 0 |
-| where it takes effect / ends | 53 | 30 | 6 | 0 |
-| where it is placed | 77 | 3 | 7 | 2 |
-| driver conduct | 50 | 39 | 0 | 0 |
+| where it takes effect / ends | 80 | 3 | 6 | 0 |
+| where it is placed | 79 | 1 | 7 | 2 |
+| driver conduct | 76 | 10 | 0 | 3 |
 | guide-board content | 20 | 1 | 68 | 0 |
 | weight and height limits | 4 | 1 | 84 | 0 |
 | vehicles in the photo | 37 | 10 | 42 | 0 |
 | compound and explain | 88 | 1 | 0 | 0 |
 | counting and presence (one intent for every row) | 0 | 1 | 0 | 0 |
-| **all cells (1158)** | **536** | **174** | **446** | **2** |
+| **all cells (1158)** | **591** | **116** | **446** | **5** |
 
 ## Signs (80 rows)
 
@@ -38,86 +38,86 @@ M = modelled, **B** = to build, – = not applicable, out = out (reason in the n
 
 | # | row | identity, meaning, group | who it applies to, exceptions | permitted / forbidden / required | speed | time | lane | where it takes effect / ends | where it is placed | driver conduct | guide-board content | weight and height limits | vehicles in the photo | compound and explain |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | I.414(a,b,c,d) | M | – | – | – | – | – | **B** | M | **B** | M | – | – | M |
+| 1 | I.414(a,b,c,d) | M | – | – | – | – | – | M | M | M | M | – | – | M |
 | 2 | P.127 | M | **B** | M | M | M | M | M | M | M | – | – | M | M |
 | 3 | P.130 | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 4 | P.131a | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 5 | P.103a | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 6 | P.124a | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
-| 7 | P.127c | M | **B** | M | M | – | M | M | M | **B** | – | – | M | M |
-| 8 | I.444(a,b,c,d,e,f,g,h,i,j,k,l,m) | M | – | – | – | – | – | **B** | M | **B** | M | – | – | M |
+| 7 | P.127c | M | **B** | M | M | – | M | M | M | M | – | – | M | M |
+| 8 | I.444(a,b,c,d,e,f,g,h,i,j,k,l,m) | M | – | – | – | – | – | M | M | M | M | – | – | M |
 | 9 | W.245a | M | – | – | – | – | – | M | M | M | – | – | – | M |
-| 10 | IE.452 | M | **B** | M | M | – | – | **B** | M | **B** | M | – | **B** | M |
+| 10 | IE.452 | M | **B** | M | M | – | – | M | M | M | M | – | **B** | M |
 | 11 | P.125 | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 12 | P.102 | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 13 | P.111b | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 14 | P.123b | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
-| 15 | I.415 | M | – | – | – | – | – | **B** | M | **B** | M | – | – | M |
+| 15 | I.415 | M | – | – | – | – | – | M | M | M | M | – | – | M |
 | 16 | P.105 | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
-| 17 | R.420 | M | **B** | M | M | – | – | M | M | **B** | M | – | **B** | M |
+| 17 | R.420 | M | **B** | M | M | – | – | M | M | M | M | – | **B** | M |
 | 18 | P.104 | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
-| 19 | P.127b | M | **B** | M | M | – | M | M | M | **B** | – | – | M | M |
+| 19 | P.127b | M | **B** | M | M | – | M | M | M | M | – | – | M | M |
 | 20 | P.123a | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 21 | R.306 | M | **B** | M | M | – | – | M | M | M | – | – | M | M |
-| 22 | IE.465 | M | – | – | – | – | – | **B** | M | **B** | M | – | – | M |
+| 22 | IE.465 | M | – | – | – | – | – | M | M | M | M | – | – | M |
 | 23 | P.124b | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 24 | W.227 | M | – | – | – | – | – | M | M | M | – | – | – | M |
 | 25 | P.115 | M | **B** | M | – | M | M | M | M | M | – | M | M | M |
-| 26 | R.404a | M | **B** | M | – | – | – | **B** | **B** | **B** | – | – | – | M |
+| 26 | R.404a | M | **B** | M | – | – | – | M | M | out | – | – | – | M |
 | 27 | W.203(a,b,c) | M | – | – | – | – | – | M | M | M | – | – | – | M |
-| 28 | IE.466 | M | – | – | – | – | – | **B** | M | **B** | M | – | – | M |
+| 28 | IE.466 | M | – | – | – | – | – | M | M | M | M | – | – | M |
 | 29 | P.106a | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 30 | P.131c | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
-| 31 | I.423(a,b) | M | **B** | – | – | – | – | **B** | M | M | – | – | – | M |
-| 32 | IE.454 | M | – | – | – | – | – | **B** | M | **B** | M | – | – | M |
-| 33 | I.409 | M | **B** | M | – | – | – | **B** | M | **B** | – | – | – | M |
-| 34 | IE.464 | M | – | – | – | – | – | **B** | M | **B** | M | – | – | M |
+| 31 | I.423(a,b) | M | **B** | – | – | – | – | M | M | M | – | – | – | M |
+| 32 | IE.454 | M | – | – | – | – | – | M | M | M | M | – | – | M |
+| 33 | I.409 | M | **B** | M | – | – | – | M | M | M | – | – | – | M |
+| 34 | IE.464 | M | – | – | – | – | – | M | M | M | M | – | – | M |
 | 35 | R.302(a,b,c) | M | **B** | M | – | – | – | M | M | M | – | – | – | M |
 | 36 | P.107 | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
-| 37 | R.415a | M | **B** | M | M | – | M | M | M | **B** | – | – | M | M |
-| 38 | I.407(a,b,c) | M | **B** | M | – | M | M | **B** | M | M | – | – | M | M |
+| 37 | R.415a | M | **B** | M | M | – | M | M | M | M | – | – | M | M |
+| 38 | I.407(a,b,c) | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 39 | P.106b | M | **B** | M | – | M | M | M | M | M | – | M | M | M |
 | 40 | R.403a | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 41 | P.110a | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
-| 42 | R.411 | M | **B** | **B** | – | **B** | **B** | M | M | **B** | – | – | **B** | M |
+| 42 | R.411 | M | **B** | **B** | – | **B** | **B** | M | M | M | – | – | **B** | M |
 | 43 | W.224 | M | – | – | – | – | – | M | M | M | – | – | – | M |
 | 44 | P.101 | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 45 | P.103b | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 46 | W.233 | M | – | – | – | – | – | M | M | M | – | – | – | M |
-| 47 | IE.451b | M | **B** | M | M | – | – | **B** | M | **B** | M | – | **B** | M |
+| 47 | IE.451b | M | **B** | M | M | – | – | M | M | M | M | – | **B** | M |
 | 48 | P.112 | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
-| 49 | IE.474 | M | – | – | – | – | – | **B** | M | **B** | M | – | – | M |
+| 49 | IE.474 | M | – | – | – | – | – | M | M | M | M | – | – | M |
 | 50 | P.124c | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 51 | P.131b | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 52 | R.303 | M | **B** | M | – | – | – | M | M | M | – | – | – | M |
 | 53 | W.207(a,b,c,d,e,f,g,h,i,k,l) | M | – | – | – | – | – | M | M | M | – | – | – | M |
-| 54 | I.449 | M | – | – | – | – | – | **B** | M | **B** | M | – | – | M |
-| 55 | R.412b | M | **B** | M | – | M | M | M | M | **B** | – | – | M | M |
+| 54 | I.449 | M | – | – | – | – | – | M | M | M | M | – | – | M |
+| 55 | R.412b | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 56 | W.239a | M | – | – | – | – | – | M | M | M | – | – | – | M |
-| 57 | I.408 | M | **B** | M | – | – | – | **B** | M | **B** | – | – | – | M |
+| 57 | I.408 | M | **B** | M | – | – | – | M | M | M | – | – | – | M |
 | 58 | W.205(a,b,c,d,e) | M | – | – | – | – | – | M | M | M | – | – | – | M |
-| 59 | I.419a | M | – | – | – | – | – | **B** | M | **B** | M | – | – | M |
-| 60 | IE.460 | M | – | – | – | – | – | **B** | M | **B** | M | – | – | M |
-| 61 | IE.464b | M | – | – | – | – | – | **B** | M | **B** | M | – | – | M |
-| 62 | IE.467 | M | – | – | – | – | – | **B** | M | **B** | M | – | – | M |
-| 63 | IE.471 | M | **B** | – | – | – | – | **B** | M | M | M | – | – | M |
+| 59 | I.419a | M | – | – | – | – | – | M | M | M | M | – | – | M |
+| 60 | IE.460 | M | – | – | – | – | – | M | M | M | M | – | – | M |
+| 61 | IE.464b | M | – | – | – | – | – | M | M | M | M | – | – | M |
+| 62 | IE.467 | M | – | – | – | – | – | M | M | M | M | – | – | M |
+| 63 | IE.471 | M | **B** | – | – | – | – | M | M | M | M | – | – | M |
 | 64 | P.117 | M | **B** | M | – | M | M | M | M | M | – | M | M | M |
 | 65 | R.415 | **B** | **B** | **B** | **B** | **B** | **B** | **B** | **B** | **B** | **B** | **B** | **B** | **B** |
-| 66 | I.401 | M | **B** | – | – | – | – | **B** | M | M | – | – | – | M |
-| 67 | I.417(a,b,c) | M | – | – | – | – | – | **B** | M | **B** | M | – | – | M |
-| 68 | IE.453b | M | **B** | M | M | – | – | **B** | M | **B** | M | – | **B** | M |
-| 69 | IE.453c | M | **B** | M | M | – | – | **B** | M | **B** | M | – | **B** | M |
+| 66 | I.401 | M | **B** | – | – | – | – | M | M | M | – | – | – | M |
+| 67 | I.417(a,b,c) | M | – | – | – | – | – | M | M | M | M | – | – | M |
+| 68 | IE.453b | M | **B** | M | M | – | – | M | M | out | M | – | **B** | M |
+| 69 | IE.453c | M | **B** | M | M | – | – | M | M | out | M | – | **B** | M |
 | 70 | P.118 | M | **B** | M | – | M | M | M | M | M | – | M | M | M |
 | 71 | R.301b | M | **B** | M | – | M | – | M | M | M | – | – | M | M |
-| 72 | R.412f | M | **B** | M | – | M | M | M | M | **B** | – | – | M | M |
+| 72 | R.412f | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 73 | W.209 | M | – | – | – | – | – | M | M | M | – | – | – | M |
 | 74 | W.246(a,b,c) | M | – | – | – | – | – | M | M | M | – | – | – | M |
-| 75 | DP.134 | M | **B** | M | – | – | – | **B** | **B** | **B** | – | – | – | M |
+| 75 | DP.134 | M | **B** | M | – | – | – | M | M | M | – | – | – | M |
 | 76 | P.103c | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 77 | P.111a | M | **B** | M | – | M | M | M | M | M | – | – | M | M |
 | 78 | W.201b | M | – | – | – | – | – | M | M | M | – | – | – | M |
 | 79 | W.210 | M | – | – | – | – | – | M | M | M | – | – | – | M |
-| 80 | I.434a | M | **B** | – | – | – | – | **B** | M | M | – | – | – | M |
+| 80 | I.434a | M | **B** | – | – | – | – | M | M | M | – | – | – | M |
 
 ## General rule topics
 
@@ -135,63 +135,37 @@ M = modelled, **B** = to build, – = not applicable, out = out (reason in the n
 
 ## Cell notes (to build / out)
 
-- I.414(a,b,c,d), scope: no sign_info line
-- I.414(a,b,c,d), conduct: guide sign: follow the indicated direction (art. 35 to check)
 - P.127, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - P.130, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - P.131a, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - P.103a, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - P.124a, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - P.127c, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
-- P.127c, conduct: no conduct items
-- I.444(a,b,c,d,e,f,g,h,i,j,k,l,m), scope: no sign_info line
-- I.444(a,b,c,d,e,f,g,h,i,j,k,l,m), conduct: guide sign: follow the indicated direction (art. 35 to check)
 - IE.452, applies: applies_to over the row's vehicles (art. 31 / its article)
-- IE.452, scope: no sign_info line
-- IE.452, conduct: no conduct items
 - IE.452, photo: zone entry by a pictured vehicle
 - P.125, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - P.102, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - P.111b, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - P.123b, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
-- I.415, scope: no sign_info line
-- I.415, conduct: guide sign: follow the indicated direction (art. 35 to check)
 - P.105, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - R.420, applies: applies_to over the row's vehicles (art. 31 / its article)
-- R.420, conduct: no conduct items
 - R.420, photo: zone entry by a pictured vehicle
 - P.104, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - P.127b, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
-- P.127b, conduct: no conduct items
 - P.123a, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - R.306, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
-- IE.465, scope: no sign_info line
-- IE.465, conduct: guide sign: follow the indicated direction (art. 35 to check)
 - P.124b, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - P.115, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - R.404a, applies: applies_to over the row's vehicles (art. 31 / its article)
-- R.404a, scope: no sign_info line
-- R.404a, placement: no sign_info line
-- R.404a, conduct: no conduct items
-- IE.466, scope: no sign_info line
-- IE.466, conduct: guide sign: follow the indicated direction (art. 35 to check)
+- R.404a, conduct: D.12 only marks the end of the car road; no duty of its own
 - P.106a, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - P.131c, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - I.423(a,b), applies: applies_to over the row's vehicles (art. 31 / its article)
-- I.423(a,b), scope: no sign_info line
-- IE.454, scope: no sign_info line
-- IE.454, conduct: guide sign: follow the indicated direction (art. 35 to check)
 - I.409, applies: applies_to over the row's vehicles (art. 31 / its article)
-- I.409, scope: no sign_info line
-- I.409, conduct: no conduct items
-- IE.464, scope: no sign_info line
-- IE.464, conduct: guide sign: follow the indicated direction (art. 35 to check)
 - R.302(a,b,c), applies: applies_to over the row's vehicles (art. 31 / its article)
 - P.107, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - R.415a, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
-- R.415a, conduct: no conduct items
 - I.407(a,b,c), applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
-- I.407(a,b,c), scope: no sign_info line
 - P.106b, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - R.403a, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - P.110a, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
@@ -199,37 +173,18 @@ M = modelled, **B** = to build, – = not applicable, out = out (reason in the n
 - R.411, pfr: effect_unmodelled (lane directions: scene v6)
 - R.411, time: follows pfr
 - R.411, lane: lane directions (scene v6)
-- R.411, conduct: no conduct items
 - R.411, photo: effect not modelled
 - P.101, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - P.103b, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - IE.451b, applies: applies_to over the row's vehicles (art. 31 / its article)
-- IE.451b, scope: no sign_info line
-- IE.451b, conduct: no conduct items
 - IE.451b, photo: zone entry by a pictured vehicle
 - P.112, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
-- IE.474, scope: no sign_info line
-- IE.474, conduct: guide sign: follow the indicated direction (art. 35 to check)
 - P.124c, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - P.131b, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - R.303, applies: applies_to over the row's vehicles (art. 31 / its article)
-- I.449, scope: no sign_info line
-- I.449, conduct: guide sign: follow the indicated direction (art. 35 to check)
 - R.412b, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
-- R.412b, conduct: no conduct items
 - I.408, applies: applies_to over the row's vehicles (art. 31 / its article)
-- I.408, scope: no sign_info line
-- I.408, conduct: no conduct items
-- I.419a, scope: no sign_info line
-- I.419a, conduct: guide sign: follow the indicated direction (art. 35 to check)
-- IE.460, scope: no sign_info line
-- IE.460, conduct: guide sign: follow the indicated direction (art. 35 to check)
-- IE.464b, scope: no sign_info line
-- IE.464b, conduct: guide sign: follow the indicated direction (art. 35 to check)
-- IE.467, scope: no sign_info line
-- IE.467, conduct: guide sign: follow the indicated direction (art. 35 to check)
 - IE.471, applies: applies_to over the row's vehicles (art. 31 / its article)
-- IE.471, scope: no sign_info line
 - P.117, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - R.415, identity: no catalog row
 - R.415, applies: no catalog row
@@ -245,29 +200,19 @@ M = modelled, **B** = to build, – = not applicable, out = out (reason in the n
 - R.415, photo: no catalog row
 - R.415, compound: no catalog row
 - I.401, applies: applies_to over the row's vehicles (art. 31 / its article)
-- I.401, scope: no sign_info line
-- I.417(a,b,c), scope: no sign_info line
-- I.417(a,b,c), conduct: guide sign: follow the indicated direction (art. 35 to check)
 - IE.453b, applies: applies_to over the row's vehicles (art. 31 / its article)
-- IE.453b, scope: no sign_info line
-- IE.453b, conduct: no conduct items
+- IE.453b, conduct: the end-of-expressway sign states no duty of its own (art. 47 lists it; Law 36 art. 25 covers driving on the expressway)
 - IE.453b, photo: zone entry by a pictured vehicle
 - IE.453c, applies: applies_to over the row's vehicles (art. 31 / its article)
-- IE.453c, scope: no sign_info line
-- IE.453c, conduct: no conduct items
+- IE.453c, conduct: as IE.453b
 - IE.453c, photo: zone entry by a pictured vehicle
 - P.118, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - R.301b, applies: applies_to over the row's vehicles (art. 31 / its article)
 - R.412f, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
-- R.412f, conduct: no conduct items
 - DP.134, applies: applies_to over the row's vehicles (art. 31 / its article)
-- DP.134, scope: no sign_info line
-- DP.134, placement: no sign_info line
-- DP.134, conduct: no conduct items
 - P.103c, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - P.111a, applies: which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes to build
 - I.434a, applies: applies_to over the row's vehicles (art. 31 / its article)
-- I.434a, scope: no sign_info line
 - topic speed by road type, applies: per class at the road type
 - topic speed by road type, speed: expressway / residential defaults modelled; outside residential, divided roads to build
 - topic speed by road type, conduct: art. 12.1 keep speed and distance

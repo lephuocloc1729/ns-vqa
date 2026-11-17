@@ -1,0 +1,101 @@
+# Phase 4.7 step 1a (owner, 2026-11-17: additive only). Scope, placement and conduct lines for the
+# stage-A rows that kb/sign_info.yaml and the catalog leave without one. vqa.reasoning.sign_info
+# reads this file only when its first lookup finds nothing, so no answer that sign_info.yaml or the
+# catalog already gives can change. Every line restates the cited law_db article; the deciding
+# phrase is quoted in the comment. reviewed_by: assistant.
+
+reviewed_by: assistant
+
+scope:
+  - codes: [DP.134]
+    # B.34 b): "Biển có giá trị báo cho người tham gia giao thông biết hiệu lực của biển số P.127 hết tác dụng."
+    text: "từ vị trí đặt biển, hiệu lực của biển P.127 hết tác dụng"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.34"}
+  - codes: [R.404a]
+    # D.12 a): "Đến hết đoạn đường dành cho ô tô đi lại, đặt biển số R404a"
+    text: "từ vị trí đặt biển, hết đoạn đường dành cho xe ô tô"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.12"}
+  - codes: [I.401]
+    # 39.1: "Biển số I.401 và biển số I.402 đặt tương ứng ngay tại vị trí bắt đầu và vị trí cuối của đường ưu tiên"
+    text: "từ vị trí đặt biển đến biển I.402 \"Hết đoạn đường ưu tiên\""
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "39"}
+  - codes: [I.407]
+    # E.7 c): "Khi hết đoạn đường một chiều đặt biển số W.204 \"Đường hai chiều\"."
+    text: "trên đoạn đường chạy một chiều, đến biển W.204 \"Đường hai chiều\""
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.7"}
+  - codes: [I.408]
+    # E.8: "Phạm vi quy định đỗ xe sẽ hết hiệu lực 10 m trước khi đến nơi đường giao nhau tiếp theo"
+    text: "nơi được phép đỗ xe; phạm vi cho phép đỗ hết hiệu lực 10 m trước nơi đường giao nhau tiếp theo"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.8"}
+  - category: information
+    # 15.1: "Hiệu lực của các loại biển báo nguy hiểm và cảnh báo và biển chỉ dẫn có giá trị trên các làn đường của chiều xe chạy."
+    text: "có giá trị trên các làn đường của chiều xe chạy"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "15"}
+
+placement:
+  - codes: [DP.134]
+    # B.34 a): "Đến hết đoạn đường tốc độ tối đa, đặt biển số DP.134"
+    text: "ở nơi hết đoạn đường tốc độ tối đa"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.34"}
+  - codes: [R.404a]
+    # D.12 a)
+    text: "ở nơi hết đoạn đường dành cho ô tô đi lại"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.12"}
+
+# Conduct for rows whose catalog effect gives no item. `items` are Vietnamese lines.
+conduct:
+  - codes: [DP.134]
+    # B.34 b): "Kể từ biển này, các xe được phép chạy với tốc độ tối đa đã quy định trong Luật Đường bộ và Luật Trật tự, An toàn giao thông đường bộ."
+    items: ["kể từ biển này, được chạy với tốc độ tối đa đã quy định trong Luật"]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.34"}
+  - codes: [I.408]
+    # E.8 a): "Để chỉ dẫn những nơi được phép đỗ xe"
+    items: ["được phép đỗ xe tại nơi này"]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.8"}
+  - codes: [I.409]
+    # E.9 a): "Để chỉ dẫn vị trí được phép quay đầu xe"
+    items: ["được phép quay đầu xe tại vị trí này"]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.9"}
+  - codes: [IE.452, IE.451b]
+    # Law 36 art. 25.1 c): "Không được cho xe chạy ở làn dừng xe khẩn cấp và phần lề đường";
+    # 25.2: "Chỉ được dừng xe, đỗ xe ở nơi quy định"
+    items: ["chấp hành quy tắc giao thông trên đường cao tốc: không chạy ở làn dừng xe khẩn cấp và phần lề đường",
+            "chỉ được dừng xe, đỗ xe ở nơi quy định"]
+    source: {law_id: "36/2024/QH15", article_id: "25"}
+  - codes: [P.127b]
+    # B.27b: "Xe chạy trên làn nào phải tuân thủ tốc độ tối đa cho phép trên làn đường đó."
+    items: ["xe chạy trên làn nào phải tuân thủ tốc độ tối đa cho phép trên làn đường đó"]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.27b"}
+  - codes: [P.127c]
+    # B.27c: "Các loại phương tiện phải đi đúng làn đường và tuân thủ tốc độ tối đa cho phép trên làn đường đó."
+    items: ["phải đi đúng làn đường và tuân thủ tốc độ tối đa cho phép trên làn đường đó"]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.27c"}
+  - codes: [R.412b, R.412f]
+    # D.14: "Các loại xe khác không được đi vào làn đường có đặt biển này (trừ các xe được quyền ưu tiên theo quy định)."
+    items: ["các loại xe khác không được đi vào làn đường có đặt biển này (trừ xe được quyền ưu tiên)"]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.14"}
+  - codes: [R.415a]
+    # D.16: "Căn cứ vào vạch sơn thực tế trên đường để thực hiện việc chuyển làn"; b) "Khi đến gần nơi
+    # đường bộ giao nhau, xe được phép chuyển làn để đi theo hành trình mong muốn."
+    items: ["đi đúng làn theo loại xe ghi trên biển; căn cứ vạch sơn trên đường để chuyển làn",
+            "khi đến gần nơi đường giao nhau, được chuyển làn để đi theo hành trình mong muốn"]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.16"}
+  - codes: [R.411]
+    # D.13: "Biển có tác dụng bắt buộc người tham gia giao thông phải đi đúng làn đường đã được chỉ dẫn hướng phù hợp với hành trình của xe."
+    items: ["phải đi đúng làn đường đã được chỉ dẫn hướng phù hợp với hành trình của xe"]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.13"}
+  - codes: [R.420]
+    # D.17 b): "Biển có tác dụng báo cho người tham gia giao thông biết phạm vi phải tuân theo những quy định đi đường được áp dụng ở khu đông dân cư."
+    items: ["tuân theo những quy định đi đường được áp dụng ở khu đông dân cư"]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.17"}
+  - informational: true
+    # art. 35: "Các biển chỉ dẫn để chỉ dẫn hướng đi hoặc các điều cần thiết nhằm giúp người tham gia
+    # giao thông trong việc điều khiển phương tiện"
+    items: ["dùng biển để chọn hướng đi; biển chỉ dẫn không đặt ra lệnh cấm hay điều bắt buộc"]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "35"}
+
+# Rows with no conduct line in law_db: reported as "out" in the coverage matrix.
+conduct_out:
+  IE.453b: "the end-of-expressway sign states no duty of its own (art. 47 lists it; Law 36 art. 25 covers driving on the expressway)"
+  IE.453c: "as IE.453b"
+  R.404a: "D.12 only marks the end of the car road; no duty of its own"

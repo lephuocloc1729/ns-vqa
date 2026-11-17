@@ -563,15 +563,27 @@ class Engine:
             return Answer(verdict=Verdict.value, value={"group": groups.pop()},
                           citations=[si.ART11] + list({e.source.article_id: e.source for _, e in entries}.values()),
                           uncertain_signs=unread)
+        out, cites = self._aspect_lines(scene, p, entries, extended=False)
+        if not out:
+            # phase 4.7 step 1a: kb/sign_info_47.yaml, only when no selected sign has a line
+            out, cites = self._aspect_lines(scene, p, entries, extended=True)
+        if not out:
+            return Answer(verdict=Verdict.unknown, uncertain_signs=unread,
+                          note=f"no {p.aspect} rule for the selected signs")
+        cites = list({(c.law_id, c.article_id): c for c in cites}.values())
+        return Answer(verdict=Verdict.value, value={p.aspect: out}, citations=cites, uncertain_signs=unread)
+
+    def _aspect_lines(self, scene: SceneGraph, p: Meaning, entries, extended: bool):
+        from vqa.reasoning import sign_info as si
         out, cites = [], []
         for i, e in entries:
             if p.aspect == "conduct":
-                items, c = si.conduct_items(e, self.catalog)
+                items, c = si.conduct_items(e, self.catalog, extended=extended)
                 if items:
                     out.append({"sign_id": i, "code": e.code, "name_vi": e.name_vi, "conduct": items})
                     cites += c
             else:
-                hit = si.lookup(p.aspect, e.code, e.category)
+                hit = si.lookup(p.aspect, e.code, e.category, extended=extended)
                 if hit:
                     text = hit[0]
                     s = scene.sign(i)
@@ -584,11 +596,7 @@ class Engine:
                             cites.append(si.F1)
                     out.append({"sign_id": i, "code": e.code, "name_vi": e.name_vi, p.aspect: text})
                     cites += [e.source, hit[1]]
-        if not out:
-            return Answer(verdict=Verdict.unknown, uncertain_signs=unread,
-                          note=f"no {p.aspect} rule for the selected signs")
-        cites = list({(c.law_id, c.article_id): c for c in cites}.values())
-        return Answer(verdict=Verdict.value, value={p.aspect: out}, citations=cites, uncertain_signs=unread)
+        return out, cites
 
     def _present(self, scene: SceneGraph, p: Present) -> Answer:
         """Is a sign of this code / meaning / category in the photo? Closed world over the

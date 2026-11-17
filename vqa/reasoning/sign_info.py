@@ -18,6 +18,7 @@ from vqa.kb import KB_DIR, Catalog
 from vqa.schemas import Citation, GuideEntry
 
 INFO_PATH = KB_DIR / "sign_info.yaml"
+INFO47_PATH = KB_DIR / "sign_info_47.yaml"   # phase 4.7 step 1a: read only when INFO_PATH has nothing
 ART11 = Citation(law_id="QCVN 41:2024/BGTVT", article_id="11")
 F1 = Citation(law_id="QCVN 41:2024/BGTVT", article_id="F.1")
 
@@ -25,6 +26,11 @@ F1 = Citation(law_id="QCVN 41:2024/BGTVT", article_id="F.1")
 @lru_cache(maxsize=1)
 def info() -> dict[str, Any]:
     return yaml.safe_load(Path(INFO_PATH).read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=1)
+def info47() -> dict[str, Any]:
+    return yaml.safe_load(Path(INFO47_PATH).read_text(encoding="utf-8"))
 
 
 def _cite(d: dict) -> Citation:
@@ -46,15 +52,34 @@ def _row_matches(row: dict, code: str, category: str) -> bool:
     return row.get("category") == category
 
 
-def lookup(kind: str, code: str, category: str) -> tuple[str, Citation] | None:
-    """The scope or placement line for a catalog row code."""
+def lookup(kind: str, code: str, category: str, extended: bool = False) -> tuple[str, Citation] | None:
+    """The scope or placement line for a catalog row code. `extended` (phase 4.7) also reads
+    kb/sign_info_47.yaml; the engine asks for it only when no selected sign has a line without it,
+    so an answer decided before phase 4.7 is unchanged."""
     for row in info()[kind]:
+        if _row_matches(row, code, category):
+            return row["text"], _cite(row["source"])
+    for row in (info47().get(kind, []) if extended else []):   # phase 4.7
         if _row_matches(row, code, category):
             return row["text"], _cite(row["source"])
     return None
 
 
-def conduct_items(entry, catalog: Catalog) -> tuple[list[str], list[Citation]]:
+def conduct_out(code: str) -> str | None:
+    """Phase 4.7: why a row has no conduct line in law_db (kb/sign_info_47.yaml), else None."""
+    return info47().get("conduct_out", {}).get(code)
+
+
+def _conduct47(entry) -> tuple[list[str], list[Citation]]:
+    for row in info47().get("conduct", []):
+        hit = (row.get("informational") and entry.effect.informational) or (
+            "codes" in row and _row_matches(row, entry.code, entry.category))
+        if hit:
+            return list(row["items"]), [entry.source, _cite(row["source"])]
+    return [], []
+
+
+def conduct_items(entry, catalog: Catalog, extended: bool = False) -> tuple[list[str], list[Citation]]:
     """What a catalog row requires of the driver, in Vietnamese, with the rules it rests on:
     the row's own conduct items (F5), its banned actions (with the vehicles they cover), its
     allowed directions and speed limits, then the group's general rule (art. 21, 27, 31).
@@ -82,6 +107,8 @@ def conduct_items(entry, catalog: Catalog) -> tuple[list[str], list[Citation]]:
     rule = data["conduct_rule"].get(entry.category)
     if items and rule:
         cites.append(_cite(rule))
+    if not items and extended:               # phase 4.7 step 1a: rows the catalog gives nothing
+        return _conduct47(entry)
     return items, cites
 
 

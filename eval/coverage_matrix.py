@@ -138,11 +138,13 @@ def sign_cells(code: str, cat, intents: set[str]) -> dict[str, tuple[str, str]]:
 
     # scope / end, placement
     for kind in ("scope", "placement"):
-        hit = si.lookup(kind, e.code, e.category)
+        hit = si.lookup(kind, e.code, e.category, extended=True)
         cells[kind] = (M, f"{hit[1].article_id}") if hit else (B, "no sign_info line")
 
-    items, _ = si.conduct_items(e, cat)
-    if items:
+    items, _ = si.conduct_items(e, cat, extended=True)
+    if getattr(si, "conduct_out", None) and si.conduct_out(e.code):
+        cells["conduct"] = (OUTC, si.conduct_out(e.code))
+    elif items:
         cells["conduct"] = (M, f"{len(items)} items")
     elif eff.informational:
         cells["conduct"] = (B, "guide sign: follow the indicated direction (art. 35 to check)")
