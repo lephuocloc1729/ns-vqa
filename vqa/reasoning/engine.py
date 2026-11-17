@@ -573,7 +573,8 @@ class Engine:
             if not entries:
                 return Answer(verdict=Verdict.unknown, note="the boards list no destinations")
             return Answer(verdict=Verdict.value, citations=cites, value={"destinations": [
-                {"text": e.text, "direction": e.direction, "distance_m": e.distance_m} for e in entries]})
+                {"text": e.text, "direction": e.direction, "distance_m": e.distance_m,
+                 "distance": distance_text(e.distance_m)} for e in entries]})
         if p.ask == "route":
             routes = [b.route for b in boards if b.route]
             if not routes:
@@ -589,7 +590,8 @@ class Engine:
             return Answer(verdict=Verdict.unknown, value={"destination": hit.text},
                           note="the board shows no arrow for that destination")
         return Answer(verdict=Verdict.value, citations=cites, value={
-            "destination": hit.text, "direction": hit.direction, "distance_m": hit.distance_m})
+            "destination": hit.text, "direction": hit.direction, "distance_m": hit.distance_m,
+            "distance": distance_text(hit.distance_m)})
 
     def _violations(self, scene: SceneGraph, p: ExistsViolation) -> Answer:
         self.load_scene(scene)
@@ -969,6 +971,15 @@ _GROUPS_VI = [("DP.", "biển báo cấm"), ("IE.", "biển chỉ dẫn"), ("P."
 def sign_group_vi(code: str) -> str | None:
     """The art. 11 group name of a catalog code (phase 4.5 rank 1)."""
     return next((name for pre, name in _GROUPS_VI if code.startswith(pre)), None)
+
+
+def distance_text(m: float | None) -> str | None:
+    """A board distance as it would be printed: 5000 -> "5 km", 5800 -> "5.8 km", 150 -> "150 m"."""
+    if m is None:
+        return None
+    if m >= 1000:
+        return f"{m / 1000:g} km"
+    return f"{m:g} m"
 
 
 def scene_lane_count(scene: SceneGraph) -> int | None:

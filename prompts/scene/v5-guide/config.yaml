@@ -1,0 +1,11 @@
+# The guide-board call (phase 4.5 B6, approved variant A: the photo alone; owner, 2026-11-17).
+# Promoted from v5-guide-trial: the same spec, examples, image prep, effort and max_tokens;
+# variant B's crops are dropped. Made only on images whose scene lists a guide board
+# (vqa/perception/guide.py), cached as a region record over the whole image.
+max_tokens: 6000
+image:                    # the photo is prepared as for the scene call
+  prep_version: img1
+effort:
+  claude-haiku-5-5: medium
+retry: 1
+user_text: "Transcribe the guide and information boards and reply with the JSON object."

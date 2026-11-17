@@ -46,6 +46,12 @@ VEHICLE_VI: dict[str, str] = {
 assert set(VEHICLE_VI) == {c.value for c in VehicleClass}, "VEHICLE_VI must name every class"
 
 
+DIRECTION_VI: dict[str, str | None] = {
+    "straight": "Đi thẳng", "left": "Rẽ trái", "right": "Rẽ phải", "slight_left": "Đi chếch sang trái",
+    "slight_right": "Đi chếch sang phải", "u_turn": "Quay đầu", "none": None,
+}
+
+
 def _join(items: list[str]) -> str:
     items = [i for i in items if i]
     if len(items) <= 1:
@@ -132,6 +138,42 @@ def _value_text(digest: dict[str, Any]) -> str:
         if v.get("conditional"):
             text += " Còn tùy điều kiện: làn " + _join([str(x) for x in v["conditional"]]) + "."
         return text
+    if "group" in v:                                           # meaning, aspect group (art. 11)
+        return f"Thuộc nhóm {v['group']}."
+    for aspect in ("conduct", "scope", "placement"):           # meaning, other aspects
+        if isinstance(v.get(aspect), list):
+            rows = []
+            for x in v[aspect]:
+                body = "; ".join(x[aspect]) if isinstance(x[aspect], list) else str(x[aspect])
+                rows.append(f"{x.get('name_vi')} ({x.get('code')}): {body}")
+            text = ". ".join(rows)
+            return (text[:1].upper() + text[1:] + ".") if text else "Không có biển phù hợp."
+    if "destination" in v:                                     # guide: direction / distance
+        d = DIRECTION_VI.get(v.get("direction") or "none")
+        parts = [f"{d} để đến {v['destination']}" if d else f"Đến {v['destination']}"]
+        if v.get("distance"):
+            parts.append(f"còn {v['distance']}")
+        return ", ".join(parts) + "."
+    if "destinations" in v:                                    # guide: the board's lines
+        rows = [x["text"] + (f" {x['distance']}" if x.get("distance") else "")
+                + (f" ({DIRECTION_VI[x['direction']].lower()})" if DIRECTION_VI.get(x.get("direction") or "none") else "")
+                for x in v["destinations"]]
+        return "Biển chỉ dẫn ghi: " + "; ".join(rows) + "."
+    if "routes" in v:                                          # guide: route plates
+        return "Tuyến " + _join(v["routes"]) + "."
+    if "per_vehicle" in v:                                     # speed_limit over several vehicles
+        word = "tối đa" if v.get("kind") == "max" else "tối thiểu"
+        rows = []
+        for x in v["per_vehicle"]:
+            name = VEHICLE_VI.get(x["vehicle"], x["vehicle"])
+            if x.get("limit") is not None:
+                rows.append(f"{name} {x['limit']} km/h")
+            elif x.get("conditional"):
+                rows.append(f"{name} {_join([str(c['value']) for c in x['conditional']])} km/h tùy điều kiện")
+            else:
+                rows.append(f"{name} chưa xác định")
+        text = f"Tốc độ {word}: " + "; ".join(rows) + "."
+        return text
     if "limit" in v and "kind" in v:                           # speed_limit
         word = "tối đa" if v.get("kind") == "max" else "tối thiểu"
         if v.get("per_lane"):
@@ -140,6 +182,10 @@ def _value_text(digest: dict[str, Any]) -> str:
                 return f"Tốc độ {word} " + "; ".join(rows) + "."
         if v.get("limit") is not None:
             return f"Tốc độ {word} {v['limit']} km/h."
+        if v.get("conditional"):
+            vals = _join([f"{c['value']:g}" if isinstance(c.get("value"), (int, float)) else str(c.get("value"))
+                          for c in v["conditional"]])
+            return f"Tốc độ {word} {vals} km/h, còn tùy điều kiện."
         return f"Tốc độ {word} còn tùy điều kiện trên biển."
     if "holding" in v and "options" in v:                      # choose
         hold = v.get("holding") or []

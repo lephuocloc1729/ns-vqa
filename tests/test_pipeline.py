@@ -223,3 +223,54 @@ def test_fallback_off_leaves_decided_answers_unchanged(tmp_path, photo):
     off = pipeline_off(tmp_path, sdk, warm(tmp_path, photo)).answer(photo, Q_YES)
     assert sdk.roles() == ["parser", "writer"]
     assert (off.answered_by, off.verdict, off.text, off.citations) == (on.answered_by, on.verdict, on.text, on.citations)
+
+
+# ---------------------------------------------------------------- phase 4.5 B6: guide reading
+
+BOARD_REPLY = json.dumps({"signs": [{"code": "I.414a", "shape": "rectangle", "border": "none",
+                                     "background": "blue", "rank": 1, "side": "right", "confidence": "high"}],
+                          "road": {"type": "urban"}, "vehicles": []})
+GUIDE_REPLY = {"boards": [{"entries": [{"text": "QUỐC LỘ 1A", "distance": "5 KM", "direction": "left"}],
+                           "speeds": [{"kind": "max", "value": 60}]}]}
+
+
+def pipeline_guide(cache_dir, sdk=None, cache_only=True):
+    return pl.Pipeline(pl.PipelineConfig(cache_dir=cache_dir, cache_only=cache_only, max_spend=1.0,
+                                         guide_reading=True), sdk=sdk or RoutedSDK())
+
+
+def warm_guide(d, photo):
+    from vqa.perception import guide as gd
+    from vqa.perception.cache import RegionRecord
+    sha = hashlib.sha256(photo.read_bytes()).hexdigest()
+    SceneCache(d).put_region(RegionRecord(sha, "claude-haiku-5-5", "medium", gd.prompt_id(), (0, 0, 640, 480),
+                                          replies=[{"pass": "guide", "raw_text": json.dumps(GUIDE_REPLY),
+                                                    "stop_reason": "end_turn", "usage": {}, "cost_usd": 0.0,
+                                                    "request_id": "g"}]))
+
+
+def test_guide_reading_is_off_by_default(tmp_path, photo):
+    assert pl.PipelineConfig().guide_reading is False
+    res, info = pipeline(tmp_path, RoutedSDK(), warm(tmp_path, photo, BOARD_REPLY))._perceive(photo)
+    assert "guide" not in info and res.scene.guide_boards == []
+
+
+def test_guide_reading_adds_the_cached_boards(tmp_path, photo):
+    d = warm(tmp_path, photo, BOARD_REPLY)
+    warm_guide(d, photo)
+    res, info = pipeline_guide(d)._perceive(photo)
+    assert info["guide"]["ok"] and info["guide"]["cache_hit"] and info["guide"]["boards"] == 1
+    assert res.scene.schema_version == "1.3" and res.scene.guide_boards[0].entries[0].distance_m == 5000
+    assert [(s.code, s.value) for s in res.scene.signs if s.id.startswith("g")] == [("P.127", 60.0)]
+
+
+def test_guide_reading_cache_only_without_a_record_leaves_the_scene(tmp_path, photo):
+    res, info = pipeline_guide(warm(tmp_path, photo, BOARD_REPLY))._perceive(photo)
+    assert info["guide"]["ok"] is False and info["refused_calls"] == 1
+    assert res.scene.guide_boards == [] and res.scene.schema_version == "1.2"
+
+
+def test_guide_reading_skips_images_without_a_guide_board(tmp_path, photo):
+    sdk = RoutedSDK()
+    res, info = pipeline_guide(warm(tmp_path, photo), sdk)._perceive(photo)
+    assert "guide" not in info and sdk.roles() == []

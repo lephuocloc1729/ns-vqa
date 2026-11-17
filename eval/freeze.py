@@ -37,8 +37,9 @@ RUN_SPECIFIC = ("cache_dir", "cache_only", "max_spend")
 # Switches added after the phase-4 freeze, left out of the comparison the same way. Their
 # defaults are the frozen behaviour. `answer_fallback` (phase 4.5): off, a question the
 # rules don't decide gets no fallback call; decided answers are the same either way.
+# `guide_reading` (phase 4.5 B6): off, no guide-board call, the frozen behaviour.
 # Kept apart from RUN_SPECIFIC because the phase-4 record lists RUN_SPECIFIC verbatim.
-POST_FREEZE_SWITCHES = {"answer_fallback": True}
+POST_FREEZE_SWITCHES = {"answer_fallback": True, "guide_reading": False}
 
 
 def _sha(text: str) -> str:

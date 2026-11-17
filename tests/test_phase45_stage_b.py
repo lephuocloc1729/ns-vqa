@@ -289,3 +289,255 @@ def test_sign_info_lines_cite_articles_that_exist():
             assert row["source"]["law_id"] == "QCVN 41:2024/BGTVT" and row["source"]["article_id"]
             assert row["text"]
     assert set(data["conduct_rule"]) == {"warning", "mandatory", "prohibitory"}
+
+
+# ---------------------------------------------------------------- 6. guide content (B6, schema 1.3)
+
+import io  # noqa: E402
+import json  # noqa: E402
+from types import SimpleNamespace  # noqa: E402
+
+from vqa.llm.client import LLMBadJSON  # noqa: E402
+from vqa.perception import guide as gd  # noqa: E402
+from vqa.perception.cache import SceneCache  # noqa: E402
+from vqa.perception.image import prepare  # noqa: E402
+from vqa.schemas import Guide, GuideBoard, GuideEntry, SpeedOk as _SpeedOk  # noqa: E402
+
+REPLY = {"boards": [
+    {"entries": [{"text": "QUỐC LỘ 1A", "distance": "5 KM", "direction": "left"},
+                 {"text": "ĐÔNG HÀ", "distance": "61 KM", "direction": "straight"},
+                 {"text": "CẦU BIÊU", "direction": "sideways"}]},
+    {"route": "CT.01", "entries": [{"text": "PHAN THIẾT", "distance": "204 km", "direction": "none"}],
+     "speeds": [{"kind": "max", "value": 80}, {"kind": "min", "value": 60}, {"kind": "max", "value": 999}],
+     "other": ["EXPRESSWAY"]}]}
+
+
+def _jpeg(w=320, h=200) -> bytes:
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new("RGB", (w, h), (40, 90, 160)).save(buf, format="JPEG")
+    return buf.getvalue()
+
+
+class GuideClient:
+    model = "claude-haiku-5-5"
+
+    def __init__(self, replies):
+        self.replies, self.calls = list(replies), []
+
+    def json_reply(self, **kw):
+        self.calls.append(kw)
+        r = self.replies.pop(0)
+        if isinstance(r, Exception):
+            raise r
+        return SimpleNamespace(data=r, raw_text=json.dumps(r, ensure_ascii=False), cost_usd=0.002,
+                               usage={"output_tokens": 50}, request_id="r")
+
+
+def test_the_guide_prompt_is_the_tested_one():
+    """Variant A as tested: the trial's spec and examples byte for byte; only the config's
+    comments differ, and its settings are the trial's minus the crop block."""
+    import yaml
+    trial = gd.PROMPT_DIR.parent / "v5-guide-trial"
+    for f in ("spec.md", "examples.jsonl"):
+        assert (gd.PROMPT_DIR / f).read_bytes() == (trial / f).read_bytes()
+    t = yaml.safe_load((trial / "config.yaml").read_text(encoding="utf-8"))
+    t.pop("crop")
+    assert gd.config() == t
+    assert gd.prompt_id().startswith("scene/v5-guide@") and "catalog" not in gd.system_prompt().lower()
+
+
+def test_reply_to_boards_converts_distances_and_drops_bad_items():
+    boards, issues = gd.to_boards(REPLY)
+    e = boards[0].entries
+    assert [(x.text, x.distance_m, x.direction) for x in e] == [
+        ("QUỐC LỘ 1A", 5000.0, "left"), ("ĐÔNG HÀ", 61000.0, "straight"), ("CẦU BIÊU", None, "none")]
+    assert [(s.kind, s.value) for s in boards[1].speeds] == [("max", 80.0), ("min", 60.0)]
+    assert boards[1].route == "CT.01" and boards[1].other == ["EXPRESSWAY"]
+    assert any("sideways" in i for i in issues) and any("999" in i for i in issues)
+    assert gd.to_boards({"nope": 1}) == ([], ["the reply has no `boards` list"])
+
+
+def test_apply_adds_board_speed_discs_once_and_marks_schema_1_3():
+    scene = SceneGraph(scene_id="x", signs=[S("s1", "IE.452", shape="rectangle", border="none", background="green"),
+                                            S("s2", "P.127", rank=2, value=80)])
+    boards, _ = gd.to_boards(REPLY)
+    out = gd.apply(scene, boards)
+    assert out.schema_version == "1.3" and len(out.guide_boards) == 2
+    added = [s for s in out.signs if s.id.startswith("g")]
+    assert [(s.code, s.value) for s in added] == [("R.306", 60.0)]       # the 80 was already posted
+    assert gd.apply(scene, []) is scene
+
+
+def test_schema_1_2_scenes_dump_without_boards():
+    scene = SceneGraph(scene_id="x", signs=[S("s1", "P.127", value=50)])
+    d = scene.model_dump(mode="json")
+    assert "guide_boards" not in d and d["schema_version"] == "1.2"
+    out = gd.apply(scene, [GuideBoard(entries=[GuideEntry(text="A")])])
+    d2 = out.model_dump(mode="json")
+    assert d2["guide_boards"][0]["entries"][0]["text"] == "A"
+    assert SceneGraph.model_validate(d2) == out
+
+
+def test_the_guide_call_is_cached_as_a_region_record(tmp_path):
+    img, cache = prepare(_jpeg()), SceneCache(tmp_path)
+    client = GuideClient([REPLY])
+    r1 = gd.read_boards(img, model=client.model, client=client, cache=cache)
+    assert r1.ok and r1.called and len(r1.boards) == 2 and len(client.calls) == 1
+    assert client.calls[0]["purpose"] == "guide boards" and client.calls[0]["effort"] == "medium"
+    r2 = gd.read_boards(img, model=client.model, client=None, cache=cache)
+    assert r2.ok and r2.cache_hit and not r2.called and r2.boards == r1.boards
+    rec = cache.get_region(img.sha256, client.model, "medium", gd.prompt_id(), (0, 0, 320, 200))
+    assert rec is not None and set(rec.replies[0]) <= {"pass", "raw_text", "stop_reason", "usage", "cost_usd", "request_id"}
+
+
+def test_the_guide_call_retries_once_then_gives_up(tmp_path):
+    img = prepare(_jpeg())
+    bad = LLMBadJSON("not json")
+    ok = gd.read_boards(img, model="claude-haiku-5-5", client=GuideClient([bad, REPLY]), cache=SceneCache(tmp_path))
+    assert ok.ok and len(ok.boards) == 2
+    c = GuideClient([{"x": 1}, {"y": 2}])
+    r = gd.read_boards(img, model="claude-haiku-5-5", client=c, cache=SceneCache(tmp_path / "b"))
+    assert not r.ok and r.boards == [] and len(c.calls) == 2
+    assert c.calls[1]["extra_messages"][1]["content"].startswith("That reply was not valid")
+    assert gd.read_boards(img, model="claude-haiku-5-5", client=None, cache=SceneCache(tmp_path / "c")).ok is False
+
+
+def test_the_call_is_made_only_when_the_scene_lists_a_guide_board(engine):
+    cat = engine.catalog
+    board = S("s1", "I.414(a,b,c,d)", shape="rectangle", border="none", background="blue")
+    unread_blue = S("s2", "UNKNOWN", shape="rectangle", border="none", background="blue")
+    unread_red = S("s3", "UNKNOWN", shape="rectangle", border="none", background="red")
+    assert gd.needs_boards(SceneGraph(scene_id="x", signs=[board]), cat)
+    assert gd.needs_boards(SceneGraph(scene_id="x", signs=[unread_blue]), cat)
+    assert not gd.needs_boards(SceneGraph(scene_id="x", signs=[unread_red, S("s4", "P.127", value=50)]), cat)
+
+
+def _board_scene():
+    scene = SceneGraph(scene_id="x", signs=[S("s1", "I.414(a,b,c,d)", shape="rectangle", border="none", background="blue")])
+    return gd.apply(scene, gd.to_boards(REPLY)[0])
+
+
+def test_guide_direction_and_distance_come_from_the_board(engine):
+    """Modelled on "Theo biển chỉ dẫn, đi hướng nào để đến Quốc lộ 1A và còn bao xa?"."""
+    scene = _board_scene()
+    a = engine.answer(scene, Guide(ask="direction", destination="Quốc lộ 1A"))
+    assert a.verdict is Verdict.value and a.value["direction"] == "left" and a.value["distance_m"] == 5000
+    assert a.citations
+    d = engine.answer(scene, Guide(ask="distance", destination="Phan Thiết"))
+    assert d.value["distance_m"] == 204000
+
+
+def test_guide_unknowns(engine):
+    scene = _board_scene()
+    assert engine.answer(scene, Guide(ask="distance", destination="Cầu Biêu")).verdict is Verdict.unknown
+    assert engine.answer(scene, Guide(ask="direction", destination="Hà Nội")).verdict is Verdict.unknown
+    bare = SceneGraph(scene_id="x", signs=[S("s1", "I.414(a,b,c,d)", shape="rectangle", border="none", background="blue")])
+    assert engine.answer(bare, Guide(ask="destinations")).verdict is Verdict.unknown
+
+
+def test_guide_lists_destinations_and_routes(engine):
+    scene = _board_scene()
+    a = engine.answer(scene, Guide(ask="destinations"))
+    assert [x["text"] for x in a.value["destinations"]] == ["QUỐC LỘ 1A", "ĐÔNG HÀ", "CẦU BIÊU", "PHAN THIẾT"]
+    assert engine.answer(scene, Guide(ask="route")).value == {"routes": ["CT.01"]}
+
+
+def test_board_speed_discs_feed_the_speed_rules(engine):
+    """An expressway board posting 80 / 60: the added P.127 and R.306 decide speed claims."""
+    scene = _board_scene()
+    car = Vehicle(cls=VehicleClass.car)
+    assert engine.answer(scene, _SpeedOk(vehicle=car, speed_kmh=90)).verdict is Verdict.no
+    assert engine.answer(scene, _SpeedOk(vehicle=car, speed_kmh=50)).verdict is Verdict.no
+    assert engine.answer(scene, _SpeedOk(vehicle=car, speed_kmh=70)).verdict is Verdict.yes
+    assert engine.answer(scene, SpeedLimit(vehicle=car)).value["limit"] == 80
+
+
+def test_a_read_board_no_longer_counts_as_unreadable(engine):
+    """Once the guide call read the photo, an unread blue board is one it transcribed; a red
+    one (a local ban notice) still counts."""
+    blue = S("s2", "UNKNOWN", rank=2, shape="rectangle", border="none", background="blue")
+    red = S("s3", "UNKNOWN", rank=3, shape="rectangle", border="none", background="red")
+    scene = SceneGraph(scene_id="x", signs=[blue, red])
+    assert engine.unreadable_signs(scene) == ["s2", "s3"]
+    read = gd.apply(scene, gd.to_boards(REPLY)[0])
+    assert engine.unreadable_signs(read) == ["s3"]
+
+
+# ---------------------------------------------------------------- template answers for the new values
+
+from vqa.answer.digest import build as build_digest  # noqa: E402
+from vqa.answer.faithfulness import check as guard  # noqa: E402
+from vqa.answer.template import template_answer, template_reply  # noqa: E402
+
+_P131 = SceneGraph(scene_id="x", signs=[S("s1", "P.131a", background="blue"),
+                                        S("s2", "W.224", rank=2, shape="triangle", background="yellow")])
+
+
+def _cases():
+    car, truck = Vehicle(cls=VehicleClass.passenger_car), Vehicle(cls=VehicleClass.truck)
+    from vqa.schemas import VehicleSpec
+    tp = Plate(kind="vehicle", vehicles=[VehicleSpec(cls=VehicleClass.truck)])
+    speeds = SceneGraph(scene_id="x", signs=[S("s1", "P.127", value=90), S("s2", "P.127", rank=2, value=70, plates=[tp])])
+    return [
+        (SceneGraph(scene_id="x", signs=[S("s1", "P.131a", background="blue")]), ONLY("group"), "Câu hỏi?",
+         "Thuộc nhóm biển báo cấm."),
+        (_P131, ONLY("conduct"), "Người lái xe cần làm gì?", "Cấm đỗ xe (P.131a): xe cơ giới không được đỗ xe"),
+        (SceneGraph(scene_id="x", signs=[S("s1", "P.104")]), ONLY("scope"), "?", "Cấm xe máy (P.104): từ vị trí"),
+        (SceneGraph(scene_id="x", signs=R420), ONLY("placement"), "?", "Bắt đầu khu đông dân cư (R.420): ở nơi"),
+        (_board_scene(), Guide(ask="direction", destination="Quốc lộ 1A"), "Đi hướng nào?", "Rẽ trái để đến QUỐC LỘ 1A, còn 5 km."),
+        (_board_scene(), Guide(ask="distance", destination="Phan Thiết"), "Còn bao xa?", "Đến PHAN THIẾT, còn 204 km."),
+        (_board_scene(), Guide(ask="destinations"), "?", "Biển chỉ dẫn ghi: QUỐC LỘ 1A 5 km (rẽ trái); ĐÔNG HÀ 61 km"),
+        (_board_scene(), Guide(ask="route"), "?", "Tuyến CT.01."),
+        (speeds, SpeedLimit(vehicles=[car, truck]), "?", "Tốc độ tối đa: xe ô tô con 90 km/h; xe ô tô tải 70 km/h."),
+        (SceneGraph(scene_id="x", signs=R420), SpeedLimit(vehicle=Vehicle(cls=VehicleClass.motorbike), road_divided=True),
+         "?", "Tốc độ tối đa 60 km/h, còn tùy điều kiện."),
+    ]
+
+
+@pytest.mark.parametrize("i", range(10))
+def test_new_value_templates_pass_the_guard(engine, i):
+    scene, prog, q, start = _cases()[i]
+    a = engine.answer(scene, prog)
+    assert a.verdict is Verdict.value, a
+    d = build_digest(a, scene, engine.catalog)
+    assert guard(template_reply(d, q), d, q) == []
+    if start:
+        assert template_answer(d, q).startswith(start), template_answer(d, q)
+
+
+# ---------------------------------------------------------------- validator dry runs for the new intents
+
+from vqa.parsing.validator import check as validate  # noqa: E402
+from vqa.schemas import QueryProgram  # noqa: E402
+
+
+def _q(program):
+    return QueryProgram.model_validate({"program": program})
+
+
+@pytest.mark.parametrize("program", [
+    {"intent": "meaning", "sign": {"only": True}, "aspect": "group"},
+    {"intent": "meaning", "sign": {"category": "prohibitory"}, "aspect": "conduct"},
+    {"intent": "meaning", "sign": {"code": "P.104"}, "aspect": "scope"},
+    {"intent": "meaning", "sign": {"only": True}, "aspect": "placement"},
+    {"intent": "choose", "options": [{"label": "a", "claim": {"intent": "present", "code": "P.124b"}, "expect": False}]},
+    {"intent": "present", "category": "warning"},
+    {"intent": "speed_limit", "vehicle": {"class": "car"}, "road_divided": True},
+    {"intent": "speed_limit", "vehicles": [{"class": "passenger_car"}, {"class": "truck"}]},
+    {"intent": "speed_ok", "vehicle": {"class": "car"}, "speed_kmh": 55, "road_divided": False},
+    {"intent": "guide", "ask": "direction", "destination": "Pháp Vân"},
+    {"intent": "guide", "ask": "destinations"},
+])
+def test_new_programs_pass_the_validator(engine, program):
+    assert validate(_q(program), engine) == []
+
+
+@pytest.mark.parametrize("program, err", [
+    ({"intent": "present", "code": "P.999"}, "present"),
+    ({"intent": "speed_limit", "vehicles": [{"class": "every_vehicle"}]}, "every_vehicle"),
+    ({"intent": "guide", "ask": "distance"}, "destination"),
+])
+def test_bad_new_programs_are_rejected(engine, program, err):
+    errs = validate(_q(program), engine)
+    assert errs and err in " ".join(errs)

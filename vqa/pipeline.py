@@ -23,6 +23,12 @@ When the fallback itself fails, the engine's own answer ships through the writer
 (P3); with no engine answer (the parse failed, or there was no scene), the writer
 gets an `unknown` answer that says so.
 
+**Guide reading** (`guide_reading=True`, phase 4.5 B6; default off, the frozen behaviour):
+after perception, an image whose scene lists a guide board gets the guide-board call
+(`vqa/perception/guide.py`, cached like a fallback region); its boards go into the scene
+(schema 1.3) and its speed discs become P.127 / R.306 signs. In cache-only mode a missing
+record is a refused call: the scene stays as it was.
+
 **Fallback off** (`answer_fallback=False`, phase 4.5): a question that would go to the
 fallback is not decided. No fallback or writer call is made; the answer is the
 deterministic template of the engine's answer (or of an `unknown` that says why), and
@@ -48,6 +54,8 @@ from vqa.parsing.claude_parser import ClaudeParser
 from vqa.perception import prompt as scene_prompt
 from vqa.perception.cache import SceneCache
 from vqa.perception.fallback import FallbackConfig
+from vqa.perception.guide import apply as apply_boards, needs_boards, prompt_id as guide_prompt_id, read_boards
+from vqa.perception.image import prepare_file
 from vqa.perception.scene import perceive
 from vqa.reasoning.engine import Engine, EngineError
 from vqa.schemas import Answer, Verdict
@@ -77,6 +85,7 @@ class PipelineConfig:
     writer_version: str = "v3"
     answer_fallback_version: str = "v2"
     answer_fallback: bool = True                # False: non-decided questions get no fallback (phase 4.5)
+    guide_reading: bool = False                 # phase 4.5 B6: the guide-board call (vqa/perception/guide.py)
     max_spend: float | None = None              # None: the spend guard's default
 
 
@@ -149,6 +158,15 @@ class Pipeline:
         if res.fallback is not None:
             info["scene_fallback"] = {"tiled": res.fallback.tiled, "tiles_added": res.fallback.tiles_added,
                                       "crops": res.fallback.crops, "codes_changed": res.fallback.codes_changed}
+        if c.guide_reading and res.ok and res.scene is not None and needs_boards(res.scene, self.engine.catalog):
+            g = read_boards(res.image if res.image is not None else prepare_file(image_path),
+                            model=c.perception_model, client=client, cache=self.cache, use_cache=True)
+            res.cost_usd += g.cost_usd
+            if g.ok:
+                res.scene = apply_boards(res.scene, g.boards)
+            info["guide"] = {"prompt_id": guide_prompt_id(), "called": g.called, "cache_hit": g.cache_hit,
+                             "ok": g.ok, "boards": len(g.boards), "cost_usd": g.cost_usd, "issues": g.issues}
+            info["cost_usd"] = res.cost_usd
         if isinstance(client, _RefuseCalls):
             info["refused_calls"] = client.refused
         return res, info
