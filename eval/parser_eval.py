@@ -277,6 +277,16 @@ def comparison_table(scores: list[dict]) -> str:
 
 
 GATE_RUNS = 3
+# Owner, 2026-11-17 (phase 4.5 B4): from parser v8 on, one run decides the gate. Versions up to
+# v7 keep the three-run rule their results were recorded under.
+ONE_RUN_FROM = 8
+
+
+def gate_runs(version: str | None) -> int:
+    try:
+        return 1 if version and int(version.lstrip("v")) >= ONE_RUN_FROM else GATE_RUNS
+    except ValueError:
+        return GATE_RUNS
 
 
 def run_groups(scores: list[dict]) -> str:
@@ -301,13 +311,14 @@ def run_groups(scores: list[dict]) -> str:
         accs = [r["accuracy"] for r in runs]
         mean = sum(accs) / len(accs)
         k = len(runs)
-        if k >= GATE_RUNS:
+        need = gate_runs(version)
+        if k >= need:
             verdict = "PASS" if mean >= GATE else "FAIL"
         else:
-            verdict = f"not decided ({k} of {GATE_RUNS} runs)"
+            verdict = f"not decided ({k} of {need} runs)"
         lines.append(f"{model} {effort} {version}: mean of {k} runs {_pct(mean)} "
                      f"(range {_pct(min(accs))}-{_pct(max(accs))}); "
-                     f"gate on the mean of {GATE_RUNS} runs: {verdict}")
+                     f"gate on the mean of {need} run{'s' if need > 1 else ''}: {verdict}")
     return "\n".join(lines)
 
 

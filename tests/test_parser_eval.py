@@ -322,3 +322,13 @@ def test_the_cap_is_the_guards_and_a_stopped_run_is_partial(fake_data, engine, m
                   split_file=fake_data / "split.json", out_dir=fake_data / "out")
     assert path.name.endswith(".partial.jsonl") and len(path.read_text().splitlines()) == 1
     assert not list((fake_data / "out").glob("*_v6_*[0-9].jsonl"))
+
+
+def test_one_run_decides_the_gate_from_v8():
+    """Owner, 2026-11-17: from v8 on one run decides the gate; v6 and v7 keep three."""
+    import eval.parser_eval as pev3
+    assert pev3.gate_runs("v8") == 1 and pev3.gate_runs("v9") == 1
+    assert pev3.gate_runs("v6") == 3 and pev3.gate_runs("v7") == 3
+    sc = {"model": "m", "effort": "medium", "prompt_version": "v8", "run_ids": ["r"],
+          "splits": {"public_dev": {"accuracy": 0.95}}}
+    assert "gate on the mean of 1 run: PASS" in pev3.run_groups([sc])

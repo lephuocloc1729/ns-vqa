@@ -1542,6 +1542,14 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 - **Parser v8** (`prompts/parser/v8`): v7 with those three spec fixes, the same 29 few-shots. v7 is pinned. The candidate (`eval/e2e_dev.py --candidate`) now uses v8.
 - **Spend this round: $0.93 of $5** ($0.70 reserved; $3.37 free).
 
+### B4 step 1: parser v8 gate run (public_dev gold intents, Sonnet 5.5 medium; 2026-11-17)
+
+- **Owner, 2026-11-17: one run is enough; from v8 on, one run decides the gate** (`parser_eval.gate_runs`; v6 and v7 keep their three-run rule). v8 runs 2 and 3 are not made.
+- **Run `pred_claude-sonnet-5-5_medium_v8_20261117-124724`: $0.180.** Program accuracy **89.4% (42/47)** against the v6 gold, 95% CI 77.4–95.4%; non-duplicate 88.2% (n=17); no failed parse; out-of-scope precision 100%, recall 87.5%.
+- **No-regression rule (set before the run): met.** `regressed_types_without_design` is empty; all six real v7 errors are fixed (0002, 0022, 0055, 0070, 0073 back to the gold).
+- **The 90% gate on the v6 gold: FAIL by one question.** Three of the five misses are design changes the v6 gold can't write: 0065 (lanes -1 and -2 for "2 làn bên phải"), 0086 ("các biển ... thuộc loại biển báo nào" as `group`), 0087 (an open "nên làm gì" as `conduct`). The other two (0005, 0025) were also wrong under v6. **With the design rows given back: 95.7% (45/47).**
+- **Spend this round: $1.11 of $5** ($0.70 reserved; $3.19 free).
+
 ## Next steps, in order
 
 ### Handoff (2026-11-17, later): B1 + B2 built; B4 ready for the owner's go-ahead
