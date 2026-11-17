@@ -147,8 +147,12 @@ def test_the_holdout_runs_with_the_default_resolver(fake_set, monkeypatch):
 def test_post_freeze_switches_default_to_the_frozen_behaviour():
     """Phase 4.5: `answer_fallback` is left out of the freeze comparison; its default
     (on) is the frozen phase-4 behaviour, and the private and holdout runs never set it."""
-    assert fz.POST_FREEZE_SWITCHES == {"answer_fallback": True, "guide_reading": False}
+    assert fz.POST_FREEZE_SWITCHES == {"answer_fallback": True, "guide_reading": False, "reading_policy": "all"}
     assert pl.PipelineConfig().answer_fallback is True and pl.PipelineConfig().guide_reading is False
+    # phase 4.6 D1: the reading policy defaults to the behaviour both records froze ("all": uncertain)
+    assert pl.PipelineConfig().reading_policy == "all"
+    assert "reading_policy" not in fz.live(profile="phase45")["pipeline_config"]
+    assert fz.live(profile="phase45")["excluded_switches"] == ["answer_fallback"]
     assert "answer_fallback" not in fz.live()["pipeline_config"] and "answer_fallback" not in fz.RUN_SPECIFIC
     import eval.e2e_private as ep
     src = open(ep.__file__, encoding="utf-8").read()
