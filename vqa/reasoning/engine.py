@@ -253,6 +253,14 @@ class Engine:
             return True
         return False
 
+    def _lane_directions_matter(self, sign, p: Program) -> bool:
+        """Phase 4.5 rank 1: a lane-directions board (R.411, D.13: "bắt buộc người tham gia
+        giao thông phải đi đúng làn đường đã được chỉ dẫn hướng") orders the direction on
+        every lane, so its unmodelled effect bears on any direction claim, a lane asked or
+        not. Without its lane rows the claim stays unknown instead of a closed-world yes."""
+        return (isinstance(p, Permitted) and p.action.value in ("go_straight", "turn_left", "turn_right", "u_turn")
+                and self.catalog.has(sign.code) and self.catalog.get(sign.code).key == "lane_directions")
+
     def _run(self, scene: SceneGraph, p: Program) -> Answer:
         """Dispatch, then: a closed-world verdict becomes unknown when the scene has an
         unreadable sign whose visible category could bear on the claim, since that
@@ -263,7 +271,8 @@ class Engine:
         unread = [sid for sid in self.unreadable_signs(scene)
                   if self.could_matter(self.visual_category(scene.sign(sid)), p)]
         unmodelled = [sid for sid in self.unmodelled_signs(scene)
-                      if self.could_matter(self.visual_category(scene.sign(sid)), p)]
+                      if self.could_matter(self.visual_category(scene.sign(sid)), p)
+                      or self._lane_directions_matter(scene.sign(sid), p)]
         if cw is not None and (unread or unmodelled) and ans.verdict == cw:
             note = ("a sign in the scene could not be read; it may change this answer" if unread
                     else "a sign in the scene has an effect the rules don't model; "
@@ -398,8 +407,8 @@ class Engine:
                 continue
             e = self.catalog.get(s.code)
             out.append({"sign_id": sid, "code": e.code, "name_vi": e.name_vi,
-                        "name_en": e.name_en, "category": e.category, "value": s.value,
-                        "known": True})
+                        "name_en": e.name_en, "category": e.category, "group_vi": sign_group_vi(e.code),
+                        "value": s.value, "known": True})
             cites.append(e.source)
         if not out:
             return Answer(verdict=Verdict.unknown, note="no sign in the scene matches the selector")
@@ -744,6 +753,11 @@ class Engine:
             "unknown": [o["label"] for o in options if o["verdict"] not in ("yes", "no")],
             "options": options,
         }
+        if value["unknown"]:
+            # KB-7 (phase 4.5, owner 2026-11-17): an answer that picks among options is
+            # only decided when every option is; three-valued logic, not a law text.
+            return Answer(verdict=Verdict.unknown, value=value, reasons=reasons, citations=cites,
+                          basis=_basis(reasons), note="some options could not be decided")
         return Answer(verdict=Verdict.value, value=value, reasons=reasons, citations=cites,
                       basis=_basis(reasons))
 
@@ -760,6 +774,17 @@ class Engine:
 
 
 # ---------------------------------------------------------------------- helpers
+
+# QCVN 41:2024 art. 11: the five sign groups, by code prefix (DP "hết cấm" rows are in the
+# prohibitory appendix B; R end rows such as R.307, R.404 are mandatory, appendix D).
+_GROUPS_VI = [("DP.", "biển báo cấm"), ("IE.", "biển chỉ dẫn"), ("P.", "biển báo cấm"), ("R.", "biển hiệu lệnh"),
+              ("W.", "biển báo nguy hiểm và cảnh báo"), ("I.", "biển chỉ dẫn"), ("S.", "biển phụ, biển viết bằng chữ")]
+
+
+def sign_group_vi(code: str) -> str | None:
+    """The art. 11 group name of a catalog code (phase 4.5 rank 1)."""
+    return next((name for pre, name in _GROUPS_VI if code.startswith(pre)), None)
+
 
 def scene_lane_count(scene: SceneGraph) -> int | None:
     if scene.road.lanes:

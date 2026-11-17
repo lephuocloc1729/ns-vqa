@@ -279,7 +279,13 @@ def pool() -> tuple[list[str], list[dict], dict[str, set[str]]]:
     excluded["gold_signs"] = {r["image_id"] for r in pe.gold_rows().values() if r.get("split") == "train"}
     excluded["gold_intents"] = {img_of[g["id"]] for g in pev.load_gold() if g["split"] == "train" and g["id"] in img_of}
     m_imgs, m_qids = mentioned()
-    excluded["named_in_repo"] = (m_imgs & all_imgs) | {img_of[q] for q in m_qids if q in img_of}
+    named = (m_imgs & all_imgs) | {img_of[q] for q in m_qids if q in img_of}
+    # The dev set is readable question by question (owner, 2026-11-17), so tests and docs may
+    # name its ids. Those names don't move the pool the frozen splits were drawn from.
+    dev_file = ROOT / "data" / "splits" / "train_dev.json"
+    if dev_file.exists():
+        named -= set(json.loads(dev_file.read_text(encoding="utf-8"))["images"])
+    excluded["named_in_repo"] = named
     dup = json.loads(DUPLICATES.read_text(encoding="utf-8"))
     out_imgs = set().union(*excluded.values())
     with_test = set()

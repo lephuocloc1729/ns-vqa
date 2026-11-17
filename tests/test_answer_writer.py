@@ -287,7 +287,17 @@ def test_v2_adds_dung_sai_unknown_and_meaning_examples_from_hand_made_scenes(eng
         scene = SceneGraph.model_validate(x["scene"])
         ans = engine.answer(scene, _program.validate_python(x["program"]))
         assert ans.verdict.value == x["expect"] == e["engine"]["verdict"]
-        assert json.loads(to_text(build(ans, scene))) == e["engine"]
+        assert _without_post_freeze_fields(json.loads(to_text(build(ans, scene)))) == e["engine"]
+
+
+def _without_post_freeze_fields(v):
+    """Fields the engine added after the writer prompts were frozen (phase 4.5: `group_vi`,
+    the art. 11 group name). The frozen examples predate them; everything else must match."""
+    if isinstance(v, dict):
+        return {k: _without_post_freeze_fields(x) for k, x in v.items() if k != "group_vi"}
+    if isinstance(v, list):
+        return [_without_post_freeze_fields(x) for x in v]
+    return v
 
 
 def test_the_prompt_is_text_only_and_the_same_for_every_question():

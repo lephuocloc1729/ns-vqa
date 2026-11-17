@@ -189,9 +189,11 @@ def test_sign_with_unmodelled_effect_acts_like_an_unreadable_sign(engine):
     keep = scene(sign("s1", "R.302a", shape="circle", background="blue"))
     assert engine.answer(keep, IsSign(sign=Selector(only=True), code="R.302a")).verdict == Verdict.yes
     assert permitted(engine, keep, "go_straight", V("car")).verdict == Verdict.unknown
-    # a board (R.411) matters only for a lane or a speed
+    # a board (R.411) orders the direction on every lane (D.13), so it bears on direction
+    # claims with or without a lane (phase 4.5 rank 1, owner 2026-11-17); not on parking
     lanes = scene(sign("s1", "R.411", shape="rectangle", background="blue"), lanes=2)
-    assert permitted(engine, lanes, "turn_left", V("car")).verdict == Verdict.yes
+    assert permitted(engine, lanes, "turn_left", V("car")).verdict == Verdict.unknown
+    assert permitted(engine, lanes, "park", V("car")).verdict == Verdict.yes
     assert engine.answer(lanes, Permitted(action="turn_left", vehicle=V("car"),
                                           lane=1)).verdict == Verdict.unknown
     # R.420 (built-up area speed rules are not modelled): a speed claim becomes unknown
