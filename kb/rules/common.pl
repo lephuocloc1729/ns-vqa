@@ -58,6 +58,13 @@ rule_source(r_l36_stopping,        '36/2024/QH15', '18').
 rule_source(r_l36_expressway,      '36/2024/QH15', '25').
 rule_source(r_l36_priority,        '36/2024/QH15', '27').
 rule_source(r_c38_outside,         interpretation, circular_38_2024_outside_residential_speeds).
+% phase 4.7 step 1d (kb/rules/signals47.pl): scene v6
+rule_source(r_r411_lane_arrows,    'QCVN 41:2024/BGTVT', 'D.13').
+rule_source(r_light,               'QCVN 41:2024/BGTVT', '6').
+rule_source(r_light_arrow,         'QCVN 41:2024/BGTVT', '6').
+rule_source(r_marking_center,      'QCVN 41:2024/BGTVT', 'G.1').
+rule_source(r_marking_lane_line,   'QCVN 41:2024/BGTVT', 'G.1').
+rule_source(r_marking_hatched,     'QCVN 41:2024/BGTVT', 'G.1').
 % The basis of each interpretation (shown with it; never counted as a law citation).
 rule_basis(r_kb4_expressway_zone, "QCVN 41:2024 P.3 and the IE rows: IE.452 / IE.451b start the expressway, IE.453b/c end it; Law 36/2024 art. 25 sets its rules").
 rule_basis(r_kb1_pass_side, "QCVN 41:2024 D.2: R.302 orders how to pass the obstacle, not the turns at the next intersection").

@@ -1,0 +1,17 @@
+# Scene prompt v6-tile (phase 4.7 step 1d; owner, 2026-11-17): v5-tile plus R.411 lane arrows
+# (lanes[].directions).
+# The catalog listing is v5's (no new rows). Part of the prompt hash.
+max_tokens: 8000
+image:                    # the tile is cut from the original and enlarged up to these limits
+  prep_version: tile1
+  long_edge: 1568
+  max_pixels: 1150000
+  jpeg_quality: 90
+  grid: 2
+  overlap: 0.2
+effort:
+  claude-haiku-5-5: medium
+  claude-sonnet-5-5: medium
+  claude-opus-5-5: medium
+user_text: "This is one tile of a larger photo. Read the road signs in it and reply with the JSON object."
+pictograms: pictograms.yaml

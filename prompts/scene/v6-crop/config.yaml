@@ -1,0 +1,17 @@
+# Scene prompt v6-crop (phase 4.7 step 1d; owner, 2026-11-17): v5-crop unchanged, versioned with v6
+#
+# The catalog listing is v5's (no new rows). Part of the prompt hash.
+max_tokens: 3000
+image:                    # the crop is cut from the original around the pass-1 box
+  prep_version: crop1
+  margin: {left: 0.5, top: 0.5, right: 0.5, bottom: 1.0}   # shares of the box's width / height
+  min_short_side: 128     # on the original, before the upscale
+  upscale_short_side: 384
+  long_edge: 1568
+  jpeg_quality: 90
+effort:
+  claude-haiku-5-5: medium
+  claude-sonnet-5-5: medium
+  claude-opus-5-5: medium
+user_text: "Read the sign at the centre of this crop and reply with the JSON object."
+pictograms: pictograms.yaml

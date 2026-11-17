@@ -240,12 +240,35 @@ class WRulePermitted(_W):                    # phase 4.7 step 1c
     area: Optional[Literal["outside_residential"]] = None
     road_divided: Optional[bool] = None
     stop_reason: Optional[Literal["breakdown", "other"]] = None
+    maneuver: Optional[Literal["cross_center", "change_lane"]] = None
+    past_stop_line: Optional[bool] = None
 
 
 class WDuties(_W):                           # phase 4.7 step 1c
     intent: Literal["duties"]
     topic: Literal["speed_and_distance", "lane_change", "overtaking", "turning", "stopping_parking",
                    "priority_vehicle_signal", "expressway"]
+
+
+_MKIND = Literal["center", "lane_line", "edge", "hatched", "stop_line"]
+_MPAT = Literal["solid", "dashed", "double_solid", "solid_dashed", "dashed_solid"]
+
+
+class WMarkingIs(_W):                        # phase 4.7 step 1d (scene v6)
+    intent: Literal["marking_is"]
+    pattern: Optional[_MPAT] = None
+    kind: Optional[_MKIND] = None
+    separates: Literal["same_direction_lanes", "opposite_directions"]
+
+
+class WSignalMeaning(_W):                    # phase 4.7 step 1d
+    intent: Literal["signal_meaning"]
+
+
+class WMarkingMeaning(_W):                   # phase 4.7 step 1d
+    intent: Literal["marking_meaning"]
+    kind: Optional[_MKIND] = None
+    pattern: Optional[_MPAT] = None
 
 
 class WCount(_W):                            # phase 4.7
@@ -260,7 +283,7 @@ class WAppliesTo(_W):                        # phase 4.7
 
 
 _LEAF_MODELS = (WPermitted, WForbidden, WSpeedOk, WRequired, WExistsViolation, WIsSign, WPresent,
-                WGuideClaim, WSpeedLimitIs, WCountIs, WSignApplies, WRulePermitted)
+                WGuideClaim, WSpeedLimitIs, WCountIs, WSignApplies, WRulePermitted, WMarkingIs)
 LeafClaim = Annotated[Union[_LEAF_MODELS], Field(discriminator="intent")]
 
 
@@ -363,7 +386,7 @@ class WExplain(_W):                          # phase 4.6 I3
 
 _PART_MODELS = _CLAIM_MODELS + (WVerify, WChoose, WLanesFor, WLanesWhere, WBanTimes,
                                 WMeaning, WWhichVehicles, WLaneVehicles, WSpeedLimit, WGuide, WExplain,
-                                WCount, WAppliesTo, WDuties)
+                                WCount, WAppliesTo, WDuties, WSignalMeaning, WMarkingMeaning)
 Part = Annotated[Union[_PART_MODELS], Field(discriminator="intent")]
 
 

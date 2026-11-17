@@ -44,6 +44,12 @@ def _group_facts(s, rules, prefix: str) -> list[Term]:
     return out
 
 
+# scene v6 (phase 4.7): an R.411 lane arrow as the engine's direction action (a slanted arrow
+# turns the same way)
+_DIRECTION_ACTION = {"straight": "go_straight", "left": "turn_left", "slight_left": "turn_left",
+                     "right": "turn_right", "slight_right": "turn_right", "u_turn": "u_turn"}
+
+
 def sign_facts(sign: Sign, catalog: Catalog) -> list[Term]:
     if sign.code == UNKNOWN_CODE:
         return []
@@ -95,6 +101,8 @@ def sign_facts(sign: Sign, catalog: Catalog) -> list[Term]:
                 out.append(Term("lane_min", s, row.lane, sp, float(row.min_speed)))
             if row.vehicles:
                 out.append(Term("lane_vehicle", s, row.lane, sp))
+        for d in row.directions:            # scene v6 (phase 4.7): R.411 arrows (D.13)
+            out.append(Term("lane_direction", s, row.lane, atom(_DIRECTION_ACTION[d])))
 
     if reserves_lane:
         value_conds = []
@@ -126,6 +134,12 @@ def scene_facts(scene: SceneGraph, catalog: Catalog,
         if not catalog.has(sign.code) and getattr(sign.shape, "value", None) not in ("triangle",):
             if not (scene.guide_boards and board_read(sign)):      # B6: a board the guide call read
                 out.append(Term("unread_sign", atom(sign.id)))
+    for m in scene.road.markings:           # scene v6 (phase 4.7): G.1 lines
+        lo, hi = (m.between + [0, 0])[:2] if m.between else (0, 0)
+        out.append(Term("marking", atom(m.kind), atom(m.pattern or "unknown"), lo, hi))
+    for g in scene.signals:                 # scene v6 (phase 4.7): art. 6 lights
+        out.append(Term("signal", atom(g.kind), atom(g.colour), atom(g.arrow),
+                        atom("true" if g.flashing else "false")))
     if scene.road.divided is not None:
         out.append(Term("road_divided", atom("true" if scene.road.divided else "false")))
     if selection is not None:

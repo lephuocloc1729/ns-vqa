@@ -18,7 +18,8 @@ from vqa.reasoning.facts import board_read, reading_variants, scene_facts, top_r
 from vqa.reasoning.terms import Term, atom, to_prolog, vehicle_term
 from vqa.parsing.dsl import normalize
 from vqa.schemas import (
-    AllOf, Answer, AnyOf, AppliesTo, BanTimes, Choose, Count, CountIs, Duties, RulePermitted, SignApplies, Citation, ExistsViolation, Explain, Guide, GuideClaim, IsSign,
+    AllOf, Answer, AnyOf, AppliesTo, BanTimes, Choose, Count, CountIs, Duties, MarkingIs, MarkingMeaning,
+    RulePermitted, SignalMeaning, SignApplies, Citation, ExistsViolation, Explain, Guide, GuideClaim, IsSign,
     LanesFor, LanesWhere, LaneVehicles, Meaning, Multi, Permitted, Present, SpeedLimit, SpeedLimitIs,
     ONTOLOGY_CLASSES, Forbidden, Program, QueryProgram, Reason, Required, SceneGraph, Selector,
     SpeedOk, Vehicle, VehicleClass, Verdict, Verify, When, WhichVehicles,
@@ -324,6 +325,15 @@ class Engine:
         return (isinstance(p, Permitted) and p.action.value in ("go_straight", "turn_left", "turn_right", "u_turn")
                 and self.catalog.has(sign.code) and self.catalog.get(sign.code).key == "lane_directions")
 
+    @staticmethod
+    def _r411_arrows_decide(sign, p: Program) -> bool:
+        """Phase 4.7 (scene v6): an R.411 board whose arrows were read for the lane a claim asks
+        about is modelled for that claim (kb/rules/signals47.pl, D.13). Without arrows, or with no
+        lane asked, it stays unmodelled as before."""
+        lane = getattr(p, "lane", None)
+        return (lane is not None and sign.code.startswith("R.411")
+                and any(row.lane == lane and row.directions for row in sign.lanes))
+
     def _run(self, scene: SceneGraph, p: Program) -> Answer:
         """Dispatch, then: a closed-world verdict becomes unknown when the scene has an
         unreadable sign whose visible category could bear on the claim, since that
@@ -334,8 +344,9 @@ class Engine:
         unread = [sid for sid in self.unreadable_signs(scene)
                   if self.could_matter(self.visual_category(scene.sign(sid)), p)]
         unmodelled = [sid for sid in self.unmodelled_signs(scene)
-                      if self.could_matter(self.visual_category(scene.sign(sid)), p)
-                      or self._lane_directions_matter(scene.sign(sid), p)]
+                      if (self.could_matter(self.visual_category(scene.sign(sid)), p)
+                          or self._lane_directions_matter(scene.sign(sid), p))
+                      and not self._r411_arrows_decide(scene.sign(sid), p)]
         if cw is not None and (unread or unmodelled) and ans.verdict == cw:
             note = ("a sign in the scene could not be read; it may change this answer" if unread
                     else "a sign in the scene has an effect the rules don't model; "
@@ -386,6 +397,8 @@ class Engine:
             return self._applies_to(scene, p)
         if isinstance(p, RulePermitted):               # phase 4.7 step 1c
             return self._rule_permitted(scene, p)
+        if isinstance(p, (SignalMeaning, MarkingMeaning, MarkingIs)):   # phase 4.7 step 1d
+            return self._v6_meaning(scene, p)
         if isinstance(p, Duties):                      # phase 4.7 step 1c
             from vqa.reasoning import sign_info as si
             row = si.duties(p.topic)
@@ -794,9 +807,20 @@ class Engine:
                 if a is not None:
                     parts.append((a.verdict.value if a.verdict.value in ("yes", "no") else "unknown",
                                   a.reasons, "signs"))
-        else:
+        elif p.maneuver is None:
             a = self._run(scene, Permitted(action=p.action, vehicle=p.vehicle, lane=lane))
             parts.append((a.verdict.value if a.verdict.value in ("yes", "no") else "unknown", a.reasons, "signs"))
+        if scene.signals and p.maneuver is None and p.speed_kmh is None:      # scene v6: art. 6
+            self.load_scene(scene)
+            past = atom("unknown" if p.past_stop_line is None else str(p.past_stop_line).lower())
+            out = self.call(Term("q_v6", Term("light", atom(p.action.value), veh, past)))
+            if out["verdict"] != "none":
+                parts.append((out["verdict"], [_reason(r) for r in out["reasons"]], "art. 6 lights"))
+        if p.maneuver is not None:                                           # scene v6: G.1
+            self.load_scene(scene)
+            out = self.call(Term("q_v6", Term("marking", atom(p.maneuver), lane if lane is not None else atom("none"))))
+            parts.append(("unknown" if out["verdict"] == "none" else out["verdict"],
+                          [_reason(r) for r in out["reasons"]], "G.1 markings"))
         verdicts = [v for v, _, _ in parts]
         verdict = (Verdict.no if "no" in verdicts else Verdict.unknown if ("unknown" in verdicts or not parts)
                    else Verdict.yes)
@@ -809,6 +833,45 @@ class Engine:
                 cites = [Citation(law_id="36/2024/QH15", article_id=art)]
         return Answer(verdict=verdict, value={"parts": [{"what": w, "verdict": v} for v, _, w in parts]},
                       reasons=support, citations=cites, basis=_basis(support))
+
+    def _v6_meaning(self, scene: SceneGraph, p) -> Answer:
+        """Scene v6: lights (art. 6) and markings (G.1, G.2) in the photo, from
+        kb/signals_markings_47.yaml. Unknown when perception read none."""
+        from vqa.reasoning import sign_info as si
+        data = si.signals_markings()
+        if isinstance(p, SignalMeaning):
+            rows = []
+            for g in scene.signals:
+                if g.kind != "vehicle":
+                    continue
+                key = (g.colour + "_arrow") if g.arrow != "none" else (
+                    "yellow_flashing" if g.colour == "yellow" and g.flashing else g.colour)
+                if key in data["signals"]:
+                    rows.append({"colour": g.colour, "arrow": g.arrow, "meaning": data["signals"][key]["text"]})
+            if not rows:
+                return Answer(verdict=Verdict.unknown, note="no traffic light was read in the photo")
+            return Answer(verdict=Verdict.value, value={"signals": rows},
+                          citations=[Citation(law_id="QCVN 41:2024/BGTVT", article_id="6")])
+        marks = [m for m in scene.road.markings if (p.kind is None or m.kind == p.kind)
+                 and (p.pattern is None or m.pattern == p.pattern)]
+        if isinstance(p, MarkingIs):
+            if not marks:
+                return Answer(verdict=Verdict.unknown, note="no such marking was read in the photo")
+            seps = {data["separates"].get(m.kind) for m in marks}
+            verdict = (Verdict.yes if seps == {p.separates} else
+                       Verdict.no if p.separates not in seps and None not in seps else Verdict.unknown)
+            return Answer(verdict=verdict, value={"markings": [m.kind for m in marks]},
+                          citations=[Citation(law_id="QCVN 41:2024/BGTVT", article_id="G.1")])
+        rows, arts = [], set()
+        for m in marks:
+            key = f"{m.kind}/{m.pattern}" if f"{m.kind}/{m.pattern}" in data["markings"] else m.kind
+            if key in data["markings"]:
+                rows.append({"kind": m.kind, "pattern": m.pattern, "meaning": data["markings"][key]["text"]})
+                arts.add(data["markings"][key]["article"])
+        if not rows:
+            return Answer(verdict=Verdict.unknown, note="no such marking was read in the photo")
+        return Answer(verdict=Verdict.value, value={"markings": rows},
+                      citations=[Citation(law_id="QCVN 41:2024/BGTVT", article_id=a) for a in sorted(arts)])
 
     def _present(self, scene: SceneGraph, p: Present) -> Answer:
         """Is a sign of this code / meaning / category in the photo? Closed world over the

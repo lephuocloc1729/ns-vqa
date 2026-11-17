@@ -83,10 +83,22 @@ def _probe(code: str, program):
     return _ENGINE.answer(SceneGraph(scene_id="probe", signs=[sign]), program)
 
 
+def _stem(cat, code: str) -> bool:
+    try:
+        return bool(cat.codes_matching(code))
+    except KeyError:
+        return False
+
+
 def sign_cells(code: str, cat, intents: set[str]) -> dict[str, tuple[str, str]]:
     """(status, note) per column for one stage-A row."""
     if not cat.has(code):
-        return {c: (B, "no catalog row") for c, _ in COLUMNS}
+        # a stem the stage-A list names on its own ("R.415"): its variant rows; the one not already a
+        # stage-A row stands for it (R.415b "Kết thúc làn đường theo phương tiện", D.16)
+        rows = [c for c in cat.codes_matching(code) if c not in stage_a_codes()] if _stem(cat, code) else []
+        if not rows:
+            return {c: (B, "no catalog row") for c, _ in COLUMNS}
+        code = rows[0]
     e = cat.get(code)
     eff = e.effect
     has_rule = bool(eff.prohibits or eff.max_speed or eff.min_speed or eff.lane_board or eff.lane_reserved
@@ -104,8 +116,10 @@ def sign_cells(code: str, cat, intents: set[str]) -> dict[str, tuple[str, str]]:
             else (B, "applies_to not decided" if a is not None else "applies_to to build")
 
     # permitted / forbidden / required
-    if e.effect_unmodelled:
-        cells["pfr"] = (B, "effect_unmodelled" + (" (lane directions: scene v6)" if code.startswith("R.411") else ""))
+    if code.startswith("R.411"):
+        cells["pfr"] = (M, "lane arrows read by scene v6 (kb/rules/signals47.pl, D.13)")
+    elif e.effect_unmodelled:
+        cells["pfr"] = (B, "effect_unmodelled")
     elif eff.prohibits or eff.only_directions or eff.placement or eff.lane_reserved or eff.zone \
             or eff.permits or eff.pass_side or eff.yield_from or eff.ends or eff.min_speed or eff.max_speed \
             or eff.lane_board:
@@ -132,7 +146,7 @@ def sign_cells(code: str, cat, intents: set[str]) -> dict[str, tuple[str, str]]:
     # time
     if eff.prohibits or eff.days or eff.only_directions or eff.max_speed or eff.lane_reserved:
         cells["time"] = (M, "S.508 plates, when, day_parity")
-    elif e.effect_unmodelled:
+    elif e.effect_unmodelled and not code.startswith("R.411"):
         cells["time"] = (B, "follows pfr")
     else:
         cells["time"] = (NA, "no timed effect")
@@ -141,7 +155,7 @@ def sign_cells(code: str, cat, intents: set[str]) -> dict[str, tuple[str, str]]:
     if eff.lane_board or eff.lane_reserved:
         cells["lane"] = (M, "per-lane rows / reserved lane")
     elif code.startswith("R.411"):
-        cells["lane"] = (B, "lane directions (scene v6)")
+        cells["lane"] = (M, "per-lane arrows (scene v6)")
     elif eff.prohibits or eff.max_speed:
         cells["lane"] = (M, "sign over lanes (S.504, position.lane)")
     else:
@@ -170,7 +184,9 @@ def sign_cells(code: str, cat, intents: set[str]) -> dict[str, tuple[str, str]]:
     # weight and height limits (value conditions on the number read on the sign)
     cells["values"] = (M, f"value: {eff.value.attr}") if eff.value else (NA, "no dimension or weight limit")
     # vehicles in the photo (exists_violation)
-    if e.effect_unmodelled:
+    if code.startswith("R.411"):
+        cells["photo"] = (B, "a pictured vehicle's lane and turn against the arrows")
+    elif e.effect_unmodelled:
         cells["photo"] = (B, "effect not modelled")
     elif eff.prohibits or eff.max_speed or eff.min_speed or eff.lane_reserved or eff.only_directions \
             or eff.placement or eff.lane_board:
@@ -213,15 +229,18 @@ TOPICS = [
      "pfr": (M, "25.1 c emergency lane, 25.2 stopping (rule_permitted)"), "speed": (M, "Circular 38 defaults"),
      "lane": (M, "emergency lane"), "scope": (M, "IE.452 to IE.453"),
      "conduct": (M, "duties expressway (25.1 a-c)"), "compound": (M, "")}),
-    ("traffic lights", "QCVN 41 art. 4, 6, 8", {"identity": (B, "colour / arrow meaning (art. 6.3, 6.4)"),
-     "applies": (B, "27.4 priority vehicles"), "pfr": (B, "6.3 green go, yellow stop, red no go"),
-     "lane": (B, "arrow lights per direction"), "scope": (B, "art. 8"),
-     "placement": (OUTC, "art. 9 heights: no question form"), "conduct": (B, "6.3.1 yield to pedestrians"),
-     "photo": (B, "a pictured vehicle against the light"), "compound": (M, "")}),
-    ("road markings", "QCVN 41 art. 48-51, G.1-G.4", {"identity": (B, "line kind meaning (G.1)"),
-     "applies": (B, "2.3 reserved-lane line"), "pfr": (B, "cross / change lane by line pattern"),
-     "lane": (B, "between which lanes"), "scope": (B, "art. 51"),
-     "placement": (OUTC, "dimensions: no question form"), "conduct": (B, "G.1 3.1 yield to rudimentary"),
+    ("traffic lights", "QCVN 41 art. 4, 6, 8", {"identity": (M, "signal_meaning (art. 6.3, 6.4; scene v6)"),
+     "applies": (M, "27.4 priority vehicles on duty (rule_permitted)"),
+     "pfr": (M, "6.3 green go, yellow stop (past the line: 6.3.2), red no go; 6.4 arrows (rule_permitted)"),
+     "lane": (M, "arrow lights per direction (6.4)"),
+     "scope": (OUTC, "art. 8 says where a light takes effect; no question form beyond pfr"),
+     "placement": (OUTC, "art. 9 heights: no question form"),
+     "conduct": (M, "signal_meaning: 6.3.1 yield to pedestrians, 6.3.2 flashing yellow"),
+     "photo": (B, "a pictured vehicle against the light (exists_violation over signals)"), "compound": (M, "")}),
+    ("road markings", "QCVN 41 art. 48-51, G.1-G.4", {"identity": (M, "marking_meaning, marking_is (G.1; scene v6)"),
+     "applies": (B, "2.3 reserved-lane line"), "pfr": (M, "cross_center / change_lane by pattern (rule_permitted)"),
+     "lane": (M, "lane lines by `between`"), "scope": (B, "art. 51 combined with signs (art. 4)"),
+     "placement": (OUTC, "dimensions: no question form"), "conduct": (M, "marking_meaning: 3.1 yield to rudimentary"),
      "photo": (B, "a pictured vehicle crossing a line"), "compound": (M, "")}),
 ]
 
@@ -253,7 +272,8 @@ def matrix() -> str:
     totals = {c: Counter() for c, _ in COLUMNS}
     notes = []
     for i, (code, cells) in enumerate(rows, 1):
-        lines.append(f"| {i} | {code} | " + " | ".join(abbrev[cells[c][0]] for c, _ in COLUMNS) + " |")
+        shown = f"{code} (as R.415b)" if code == "R.415" else code
+        lines.append(f"| {i} | {shown} | " + " | ".join(abbrev[cells[c][0]] for c, _ in COLUMNS) + " |")
         for c, _ in COLUMNS:
             totals[c][cells[c][0]] += 1
             if cells[c][0] in (B, OUTC):

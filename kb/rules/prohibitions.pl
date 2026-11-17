@@ -41,6 +41,13 @@ forbids(enter, Veh, Ctx, S, T) :-
 forbids(Action, Veh, Ctx, S, T) :-
     zone_forbids(Action, Veh, Ctx, S, T).
 
+% Phase 4.7 (scene v6, kb/rules/signals47.pl): an R.411 board whose lane arrows were read forbids,
+% on the lane asked about, the directions its arrows don't show there (D.13).
+forbids(Action, _Veh, Ctx, S, T) :-
+    Ctx = ctx(_, _, Lane),
+    integer(Lane),
+    r411_forbids(Action, Lane, S, T).
+
 % ---- why a sign that concerns the action does not forbid it
 
 clears(Action, Veh, Ctx, S, Why) :-
@@ -67,6 +74,11 @@ clears(enter, Veh, Ctx, S, Why) :-
     Ctx = ctx(_, _, Lane),
     integer(Lane),
     lane_clears(Veh, Lane, Ctx, S, Why).
+
+clears(Action, _Veh, Ctx, S, Why) :-           % phase 4.7: R.411 arrows (D.13)
+    Ctx = ctx(_, _, Lane),
+    integer(Lane),
+    r411_clears(Action, Lane, S, Why).
 
 %!  direction_check(+Code, +Action, -T) is det.  true = the sign forbids this direction.
 direction_check(Code, Action, false) :-

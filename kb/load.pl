@@ -16,4 +16,5 @@
 :- ensure_loaded('rules/zones').
 :- ensure_loaded('rules/coverage47').
 :- ensure_loaded('rules/general47').
+:- ensure_loaded('rules/signals47').
 :- ensure_loaded(query).

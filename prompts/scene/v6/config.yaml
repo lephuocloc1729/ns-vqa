@@ -1,0 +1,15 @@
+# Scene prompt v6 (phase 4.7 step 1d; owner, 2026-11-17): v5 plus R.411 lane arrows
+# (lanes[].directions), traffic lights (signals) and road markings (road.markings).
+# The catalog listing is v5's (no new rows). Part of the prompt hash.
+max_tokens: 8000          # dense scenes ran to ~4,100 output tokens in the Haiku pre-fill
+image:                    # vqa/perception/image.py
+  prep_version: img1
+  long_edge: 1568
+  max_pixels: 1150000
+  jpeg_quality: 90
+effort:                   # per model (plan D3: Haiku at its default, medium)
+  claude-haiku-5-5: medium
+  claude-sonnet-5-5: medium
+  claude-opus-5-5: medium
+retry: 1                  # one retry that sends only the error
+pictograms: pictograms.yaml   # reference figures before the photo (CLAUDE.md exception)

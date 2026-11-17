@@ -35,7 +35,7 @@ from pydantic import ValidationError
 
 from vqa.kb import Catalog, load_catalog
 from vqa.schemas import (
-    AltReading, ConditionGroup, LaneSpec, Plate, Position, Road, SceneGraph, SceneVehicle, Sign,
+    AltReading, ConditionGroup, LaneSpec, Plate, Position, Road, SceneGraph, SceneVehicle, Sign, TrafficSignal,
     VehicleClass,
 )
 
@@ -199,7 +199,7 @@ def to_scene(data: Any, scene_id: str, *, final: bool = False,
     col, raw_codes = _Collector(final), {}
     if not isinstance(data, dict):
         return WireResult(None, ["the reply must be a JSON object"])
-    if extra := sorted(set(data) - {"signs", "road", "vehicles"}):
+    if extra := sorted(set(data) - {"signs", "road", "vehicles", "signals"}):   # signals: scene v6
         col.bad([f"unknown top-level fields {extra}"], "fields")
     signs = []
     raw_signs = data.get("signs") or []
@@ -222,7 +222,13 @@ def to_scene(data: Any, scene_id: str, *, final: bool = False,
         except (ValidationError, TypeError) as e:
             col.bad(_msg(f"vehicle v{k}", e) if isinstance(e, ValidationError)
                     else [f"vehicle v{k}: not an object"], "vehicle")
+    signals = []                     # scene v6 (phase 4.7): traffic lights
+    for k, g in enumerate(data.get("signals") or [], 1):
+        try:
+            signals.append(TrafficSignal.model_validate(g))
+        except ValidationError as e:
+            col.bad(_msg(f"signal {k}", e), "signal")
     if col.errors:
         return WireResult(None, col.errors, raw_codes, col.dropped)
-    scene = SceneGraph(scene_id=scene_id, road=road, signs=signs, vehicles=vehicles)
+    scene = SceneGraph(scene_id=scene_id, road=road, signs=signs, vehicles=vehicles, signals=signals)
     return WireResult(scene, [], raw_codes, col.dropped)

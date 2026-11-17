@@ -16,21 +16,21 @@ dev failures; dev, D3 and train are checks only (owner, 2026-11-17).
 
 | column | modelled | to build | n/a | out |
 |---|---|---|---|---|
-| identity, meaning, group | 79 | 3 | 7 | 0 |
-| who it applies to, exceptions | 79 | 4 | 5 | 1 |
-| permitted / forbidden / required | 53 | 5 | 31 | 0 |
-| speed | 13 | 1 | 74 | 1 |
-| time | 33 | 2 | 54 | 0 |
-| lane | 37 | 5 | 47 | 0 |
-| where it takes effect / ends | 80 | 3 | 6 | 0 |
+| identity, meaning, group | 82 | 0 | 7 | 0 |
+| who it applies to, exceptions | 80 | 2 | 6 | 1 |
+| permitted / forbidden / required | 57 | 1 | 31 | 0 |
+| speed | 13 | 0 | 75 | 1 |
+| time | 33 | 0 | 56 | 0 |
+| lane | 40 | 1 | 48 | 0 |
+| where it takes effect / ends | 80 | 2 | 6 | 1 |
 | where it is placed | 79 | 1 | 7 | 2 |
-| driver conduct | 83 | 3 | 0 | 3 |
-| guide-board content | 20 | 1 | 68 | 0 |
-| weight and height limits | 4 | 1 | 84 | 0 |
-| vehicles in the photo | 37 | 11 | 41 | 0 |
-| compound and explain | 88 | 1 | 0 | 0 |
+| driver conduct | 85 | 1 | 0 | 3 |
+| guide-board content | 20 | 0 | 69 | 0 |
+| weight and height limits | 4 | 0 | 85 | 0 |
+| vehicles in the photo | 37 | 10 | 42 | 0 |
+| compound and explain | 89 | 0 | 0 | 0 |
 | counting and presence (one intent for every row) | 1 | 0 | 0 | 0 |
-| **all cells (1158)** | **686** | **41** | **424** | **7** |
+| **all cells (1158)** | **700** | **18** | **432** | **8** |
 
 ## Signs (80 rows)
 
@@ -79,7 +79,7 @@ M = modelled, **B** = to build, – = not applicable, out = out (reason in the n
 | 39 | P.106b | M | M | M | – | M | M | M | M | M | – | M | M | M |
 | 40 | R.403a | M | M | M | – | M | M | M | M | M | – | – | M | M |
 | 41 | P.110a | M | M | M | – | M | M | M | M | M | – | – | M | M |
-| 42 | R.411 | M | **B** | **B** | – | **B** | **B** | M | M | M | – | – | **B** | M |
+| 42 | R.411 | M | **B** | M | – | – | M | M | M | M | – | – | **B** | M |
 | 43 | W.224 | M | M | – | – | – | – | M | M | M | – | – | – | M |
 | 44 | P.101 | M | M | M | – | M | M | M | M | M | – | – | M | M |
 | 45 | P.103b | M | M | M | – | M | M | M | M | M | – | – | M | M |
@@ -102,7 +102,7 @@ M = modelled, **B** = to build, – = not applicable, out = out (reason in the n
 | 62 | IE.467 | M | M | – | – | – | – | M | M | M | M | – | – | M |
 | 63 | IE.471 | M | M | – | – | – | – | M | M | M | M | – | – | M |
 | 64 | P.117 | M | M | M | – | M | M | M | M | M | – | M | M | M |
-| 65 | R.415 | **B** | **B** | **B** | **B** | **B** | **B** | **B** | **B** | **B** | **B** | **B** | **B** | **B** |
+| 65 | R.415 (as R.415b) | M | – | M | – | – | – | **B** | **B** | **B** | – | – | – | M |
 | 66 | I.401 | M | M | – | – | – | – | M | M | M | – | – | – | M |
 | 67 | I.417(a,b,c) | M | M | – | – | – | – | M | M | M | M | – | – | M |
 | 68 | IE.453b | M | M | M | M | – | – | M | M | out | M | – | **B** | M |
@@ -130,8 +130,8 @@ M = modelled, **B** = to build, – = not applicable, out = out (reason in the n
 | T5 | stopping and parking | Law 36 art. 18 | – | – | M | – | – | – | – | – | M | – | – | **B** | M |
 | T6 | priority vehicles | Law 36 art. 27; QCVN 41 art. 7 | – | out | **B** | M | – | – | – | – | M | – | – | – | M |
 | T7 | expressways | Law 36 art. 25 | – | M | M | M | – | M | M | – | M | – | – | – | M |
-| T8 | traffic lights | QCVN 41 art. 4, 6, 8 | **B** | **B** | **B** | – | – | **B** | **B** | out | **B** | – | – | **B** | M |
-| T9 | road markings | QCVN 41 art. 48-51, G.1-G.4 | **B** | **B** | **B** | – | – | **B** | **B** | out | **B** | – | – | **B** | M |
+| T8 | traffic lights | QCVN 41 art. 4, 6, 8 | M | M | M | – | – | M | out | out | M | – | – | **B** | M |
+| T9 | road markings | QCVN 41 art. 48-51, G.1-G.4 | M | **B** | M | – | – | M | **B** | out | M | – | – | **B** | M |
 
 ## Cell notes (to build / out)
 
@@ -139,24 +139,11 @@ M = modelled, **B** = to build, – = not applicable, out = out (reason in the n
 - R.420, photo: zone entry by a pictured vehicle
 - R.404a, conduct: D.12 only marks the end of the car road; no duty of its own
 - R.411, applies: applies_to not decided
-- R.411, pfr: effect_unmodelled (lane directions: scene v6)
-- R.411, time: follows pfr
-- R.411, lane: lane directions (scene v6)
-- R.411, photo: effect not modelled
+- R.411, photo: a pictured vehicle's lane and turn against the arrows
 - IE.451b, photo: zone entry by a pictured vehicle
-- R.415, identity: no catalog row
-- R.415, applies: no catalog row
-- R.415, pfr: no catalog row
-- R.415, speed: no catalog row
-- R.415, time: no catalog row
-- R.415, lane: no catalog row
-- R.415, scope: no catalog row
-- R.415, placement: no catalog row
-- R.415, conduct: no catalog row
-- R.415, guide: no catalog row
-- R.415, values: no catalog row
-- R.415, photo: no catalog row
-- R.415, compound: no catalog row
+- R.415, scope: no sign_info line
+- R.415, placement: no sign_info line
+- R.415, conduct: no conduct items
 - IE.453b, conduct: the end-of-expressway sign states no duty of its own (art. 47 lists it; Law 36 art. 25 covers driving on the expressway)
 - IE.453b, photo: zone entry by a pictured vehicle
 - IE.453c, conduct: as IE.453b
@@ -167,21 +154,12 @@ M = modelled, **B** = to build, – = not applicable, out = out (reason in the n
 - topic stopping and parking, photo: a pictured vehicle stopped at a listed place: perception gives no place
 - topic priority vehicles, applies: 27.2's order matters only between priority vehicles; no question form
 - topic priority vehicles, pfr: 27.4 'không phụ thuộc vào tín hiệu đèn' (lights: scene v6)
-- topic traffic lights, identity: colour / arrow meaning (art. 6.3, 6.4)
-- topic traffic lights, applies: 27.4 priority vehicles
-- topic traffic lights, pfr: 6.3 green go, yellow stop, red no go
-- topic traffic lights, lane: arrow lights per direction
-- topic traffic lights, scope: art. 8
+- topic traffic lights, scope: art. 8 says where a light takes effect; no question form beyond pfr
 - topic traffic lights, placement: art. 9 heights: no question form
-- topic traffic lights, conduct: 6.3.1 yield to pedestrians
-- topic traffic lights, photo: a pictured vehicle against the light
-- topic road markings, identity: line kind meaning (G.1)
+- topic traffic lights, photo: a pictured vehicle against the light (exists_violation over signals)
 - topic road markings, applies: 2.3 reserved-lane line
-- topic road markings, pfr: cross / change lane by line pattern
-- topic road markings, lane: between which lanes
-- topic road markings, scope: art. 51
+- topic road markings, scope: art. 51 combined with signs (art. 4)
 - topic road markings, placement: dimensions: no question form
-- topic road markings, conduct: G.1 3.1 yield to rudimentary
 - topic road markings, photo: a pictured vehicle crossing a line
 
 ## Taxonomy check on train wording

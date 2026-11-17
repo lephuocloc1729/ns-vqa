@@ -285,6 +285,16 @@ class LaneSpec(_Model):
     vehicles: list[VehicleSpec] = []
     max_speed: float | None = None
     min_speed: float | None = None
+    # scene v6 (phase 4.7): the arrows an R.411 board shows on this lane (D.13). Left out of the
+    # dump when empty, so stored scenes serialize as before.
+    directions: list[Literal["straight", "left", "right", "u_turn", "slight_left", "slight_right"]] = []
+
+    @model_serializer(mode="wrap")
+    def _drop_empty_directions(self, handler):
+        d = handler(self)
+        if isinstance(d, dict) and not d.get("directions"):
+            d.pop("directions", None)
+        return d
 
 
 class AltReading(_Model):
@@ -330,11 +340,45 @@ class RoadType(str, Enum):
     unknown = "unknown"
 
 
+class RoadMarking(_Model):
+    """Scene v6 (phase 4.7): a line on the road (QCVN 41 G.1). `kind`: center = the line between the
+    two directions (G.1 1.x), lane_line = between lanes of one direction (2.x), edge (3.1),
+    hatched = a channelising area (4.1-4.2), stop_line (G.2 7.1). `between`: the two lanes it
+    separates (1 = leftmost), when it is a lane line."""
+
+    kind: Literal["center", "lane_line", "edge", "hatched", "stop_line"]
+    pattern: Literal["solid", "dashed", "double_solid", "solid_dashed", "dashed_solid"] | None = None
+    colour: Literal["white", "yellow"] | None = None
+    between: list[Annotated[int, Field(ge=1)]] = []
+    confidence: Confidence = Confidence.medium
+
+
+class TrafficSignal(_Model):
+    """Scene v6 (phase 4.7): a traffic light facing the camera (QCVN 41 art. 6). `arrow`: the
+    direction of an arrow light (none for a round one); `vehicle`: a light showing one vehicle
+    type (6.4.2)."""
+
+    kind: Literal["vehicle", "pedestrian"] = "vehicle"
+    colour: Literal["red", "yellow", "green", "off"]
+    arrow: Literal["none", "left", "straight", "right"] = "none"
+    flashing: bool = False
+    countdown: int | None = None
+    confidence: Confidence = Confidence.medium
+
+
 class Road(_Model):
     type: RoadType = RoadType.unknown
     lanes: int | None = None
     intersection_ahead: bool | None = None
     divided: bool | None = None
+    markings: list[RoadMarking] = []       # scene v6 (phase 4.7); dropped from the dump when empty
+
+    @model_serializer(mode="wrap")
+    def _drop_empty_markings(self, handler):
+        d = handler(self)
+        if isinstance(d, dict) and not d.get("markings"):
+            d.pop("markings", None)
+        return d
 
 
 class VehicleAction(str, Enum):
@@ -402,12 +446,16 @@ class SceneGraph(_Model):
     # schema 1.3 (phase 4.5 B6): boards read by the guide-board call. Left out of the dump when
     # empty, so scenes without boards serialize exactly as schema 1.2 did.
     guide_boards: list[GuideBoard] = []
+    # scene v6 (phase 4.7): traffic lights; dropped from the dump when empty
+    signals: list[TrafficSignal] = []
 
     @model_serializer(mode="wrap")
     def _drop_empty_boards(self, handler):
         d = handler(self)
         if isinstance(d, dict) and not d.get("guide_boards"):
             d.pop("guide_boards", None)
+        if isinstance(d, dict) and not d.get("signals"):
+            d.pop("signals", None)
         return d
 
     @model_validator(mode="after")
@@ -736,6 +784,11 @@ class RulePermitted(_Model):
     area: Literal["outside_residential"] | None = None
     road_divided: bool | None = None
     stop_reason: Literal["breakdown", "other"] | None = None
+    # scene v6 (phase 4.7 step 1d): crossing the centre line ("lấn sang làn ngược chiều, đè vạch")
+    # or changing lanes across a lane line (G.1); and, for a yellow light, whether the vehicle is
+    # already on or past the stop line (art. 6.3.2)
+    maneuver: Literal["cross_center", "change_lane"] | None = None
+    past_stop_line: bool | None = None
 
 
 DutyTopic = Literal["speed_and_distance", "lane_change", "overtaking", "turning", "stopping_parking",
@@ -748,6 +801,35 @@ class Duties(_Model):
 
     intent: Literal["duties"] = "duties"
     topic: DutyTopic
+
+
+class SignalMeaning(_Model):
+    """Scene v6 (phase 4.7 step 1d): what the traffic light in the photo shows and means (art. 6)."""
+
+    intent: Literal["signal_meaning"] = "signal_meaning"
+
+
+MarkingKind = Literal["center", "lane_line", "edge", "hatched", "stop_line"]
+MarkingPattern = Literal["solid", "dashed", "double_solid", "solid_dashed", "dashed_solid"]
+
+
+class MarkingMeaning(_Model):
+    """Scene v6: what a road marking in the photo means (G.1, G.2), optionally only those of a
+    kind or pattern ("vạch liền trong ảnh có ý nghĩa gì?")."""
+
+    intent: Literal["marking_meaning"] = "marking_meaning"
+    kind: MarkingKind | None = None
+    pattern: MarkingPattern | None = None
+
+
+class MarkingIs(_Model):
+    """Scene v6 claim: the markings of this pattern (or kind) in the photo separate
+    `separates` ("Vạch liền trong ảnh có dùng để phân chia các làn xe cùng chiều không?")."""
+
+    intent: Literal["marking_is"] = "marking_is"
+    pattern: MarkingPattern | None = None
+    kind: MarkingKind | None = None
+    separates: Literal["same_direction_lanes", "opposite_directions"]
 
 
 class Count(_Model):
@@ -805,7 +887,7 @@ class AnyOf(_Model):
 
 Claim = Annotated[
     Union[Permitted, Forbidden, SpeedOk, Required, ExistsViolation, IsSign, Present, GuideClaim,
-          SpeedLimitIs, AllOf, AnyOf, CountIs, SignApplies, RulePermitted],
+          SpeedLimitIs, AllOf, AnyOf, CountIs, SignApplies, RulePermitted, MarkingIs],
     Field(discriminator="intent"),
 ]
 AllOf.model_rebuild()
@@ -853,7 +935,7 @@ class Explain(_Model):
     intent: Literal["explain"] = "explain"
     program: Annotated[Union[Permitted, Forbidden, SpeedOk, Required, ExistsViolation, IsSign, Present,
                              GuideClaim, SpeedLimitIs, AllOf, AnyOf, Verify, Choose, CountIs, SignApplies,
-                             RulePermitted],
+                             RulePermitted, MarkingIs],
                        Field(discriminator="intent")]
 
 
@@ -861,7 +943,7 @@ _PART = Annotated[
     Union[Permitted, Forbidden, SpeedOk, LanesFor, LanesWhere, BanTimes, Meaning, Required,
           ExistsViolation, Verify, Choose, IsSign, AllOf, AnyOf, WhichVehicles, LaneVehicles,
           SpeedLimit, Present, Guide, GuideClaim, SpeedLimitIs, Explain, Count, CountIs, AppliesTo,
-          SignApplies, RulePermitted, Duties],
+          SignApplies, RulePermitted, Duties, SignalMeaning, MarkingMeaning, MarkingIs],
     Field(discriminator="intent"),
 ]
 
@@ -878,7 +960,7 @@ Program = Annotated[
     Union[Permitted, Forbidden, SpeedOk, LanesFor, LanesWhere, BanTimes, Meaning, Required,
           ExistsViolation, Verify, Choose, IsSign, AllOf, AnyOf, WhichVehicles, LaneVehicles,
           SpeedLimit, Present, Guide, GuideClaim, SpeedLimitIs, Explain, Multi, Count, CountIs,
-          AppliesTo, SignApplies, RulePermitted, Duties],
+          AppliesTo, SignApplies, RulePermitted, Duties, SignalMeaning, MarkingMeaning, MarkingIs],
     Field(discriminator="intent"),
 ]
 

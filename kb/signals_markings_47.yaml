@@ -1,0 +1,49 @@
+# Phase 4.7 step 1d (owner, 2026-11-17: additive only): what a traffic light or a road marking in the
+# photo means, for `signal_meaning` / `marking_meaning`. Each line restates the cited text, quoted in
+# the comment. reviewed_by: assistant.
+
+reviewed_by: assistant
+
+signals:
+  # QCVN 41 art. 6.3.1 "Tín hiệu xanh: tín hiệu đèn màu xanh là được đi"
+  green: {text: "được đi; nếu có người đi bộ, xe lăn đang qua đường thì phải giảm tốc độ hoặc dừng lại nhường đường", article: "6"}
+  # 6.3.2 "Tín hiệu đèn màu vàng phải dừng lại trước vạch dừng; trường hợp đang đi trên vạch dừng hoặc đã đi qua vạch dừng ... thì được đi tiếp"
+  yellow: {text: "phải dừng lại trước vạch dừng; nếu đã đi trên hoặc qua vạch dừng thì được đi tiếp", article: "6"}
+  # 6.3.2 "Trường hợp tín hiệu đèn màu vàng nhấp nháy ... được đi nhưng phải quan sát, giảm tốc độ hoặc dừng lại nhường đường"
+  yellow_flashing: {text: "được đi nhưng phải quan sát, giảm tốc độ hoặc dừng lại nhường đường", article: "6"}
+  # 6.3.3 "Tín hiệu đèn màu đỏ là cấm đi: báo hiệu phải dừng lại trước vạch dừng"
+  red: {text: "cấm đi; phải dừng lại trước vạch dừng (không có vạch dừng thì dừng trước đèn)", article: "6"}
+  # 6.4.1 "chỉ được đi khi tín hiệu mũi tên bật sáng cho phép. Tín hiệu mũi tên cho phép rẽ trái thì đồng thời cho phép quay đầu"
+  green_arrow: {text: "được đi theo hướng mũi tên (mũi tên rẽ trái đồng thời cho phép quay đầu nếu không có báo hiệu cấm quay đầu)", article: "6"}
+  # 6.4.4 "Khi tín hiệu mũi tên màu đỏ ... thì phương tiện không được đi theo hướng mũi tên"
+  red_arrow: {text: "không được đi theo hướng mũi tên", article: "6"}
+
+markings:
+  # G.1 1.1 "Xe được phép cắt qua để sử dụng làn ngược chiều từ cả hai phía."
+  center/dashed: {text: "vạch 1.1: phân chia hai chiều xe chạy; xe được phép cắt qua để sử dụng làn ngược chiều", article: "G.1"}
+  # 1.2 "xe không được lấn làn, không được đè lên vạch"
+  center/solid: {text: "vạch 1.2: phân chia hai chiều xe chạy; xe không được lấn làn, không được đè lên vạch", article: "G.1"}
+  # 1.3 "xe không được lấn làn, không được đè lên vạch"
+  center/double_solid: {text: "vạch 1.3: phân chia hai chiều xe chạy; xe không được lấn làn, không được đè lên vạch", article: "G.1"}
+  # 1.4 "Xe trên làn đường tiếp giáp với vạch đứt nét được phép cắt qua ...; Xe trên làn đường tiếp giáp với vạch liền nét không được lấn làn"
+  center/solid_dashed: {text: "vạch 1.4: xe bên vạch đứt được cắt qua khi cần thiết; xe bên vạch liền không được lấn làn, đè vạch", article: "G.1"}
+  center/dashed_solid: {text: "vạch 1.4: xe bên vạch đứt được cắt qua khi cần thiết; xe bên vạch liền không được lấn làn, đè vạch", article: "G.1"}
+  # 2.1 "dùng để phân chia các làn xe cùng chiều ... xe được phép thực hiện việc chuyển làn đường qua vạch 2.1"
+  lane_line/dashed: {text: "vạch 2.1: phân chia các làn xe cùng chiều; xe được phép chuyển làn qua vạch", article: "G.1"}
+  # 2.2 "dùng để phân chia các làn xe cùng chiều trong trường hợp không cho phép xe chuyển làn"
+  lane_line/solid: {text: "vạch 2.2: phân chia các làn xe cùng chiều; không cho phép chuyển làn, không được lấn làn, đè vạch", article: "G.1"}
+  # 2.4 "xe trên làn đường tiếp giáp với vạch đứt nét được phép cắt qua khi cần thiết"
+  lane_line/solid_dashed: {text: "vạch 2.4: xe bên vạch đứt được cắt qua khi cần thiết; xe bên vạch liền không được lấn làn, đè vạch", article: "G.1"}
+  # 3.1 "xe chạy được phép đè lên vạch khi cần thiết và phải nhường đường cho xe thô sơ"
+  edge/solid: {text: "vạch 3.1: giới hạn mép phần đường xe chạy; được đè lên vạch khi cần thiết và phải nhường đường cho xe thô sơ", article: "G.1"}
+  # 4.1 "các phương tiện giao thông phải đi theo tuyến đường quy định, không được lấn vạch hoặc cắt qua vạch"
+  hatched: {text: "vạch kênh hóa 4.1: không được lấn vạch hoặc cắt qua vạch", article: "G.1"}
+  # G.2 7.1 "xác định vị trí người điều khiển phương tiện phải dừng lại khi có tín hiệu đèn đỏ hoặc khi có biển số R.122"
+  stop_line: {text: "vạch dừng 7.1: vị trí phải dừng lại khi có tín hiệu đèn đỏ hoặc biển R.122", article: "G.2"}
+
+# What each kind of line separates, for marking_is claims ("vạch liền có dùng để phân chia các làn
+# xe cùng chiều không?"): G.1 1.x center lines separate the two directions; 2.x lane lines
+# separate lanes of one direction.
+separates:
+  center: opposite_directions
+  lane_line: same_direction_lanes

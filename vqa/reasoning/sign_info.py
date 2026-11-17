@@ -70,6 +70,12 @@ def _duties() -> dict[str, Any]:
     return yaml.safe_load(Path(KB_DIR / "general_duties_47.yaml").read_text(encoding="utf-8"))["duties"]
 
 
+@lru_cache(maxsize=1)
+def signals_markings() -> dict[str, Any]:
+    """Phase 4.7 step 1d: meanings of lights and markings (kb/signals_markings_47.yaml)."""
+    return yaml.safe_load(Path(KB_DIR / "signals_markings_47.yaml").read_text(encoding="utf-8"))
+
+
 def duties(topic: str) -> dict[str, Any]:
     """Phase 4.7 step 1c: a general-rule duty row (kb/general_duties_47.yaml)."""
     return _duties()[topic]
