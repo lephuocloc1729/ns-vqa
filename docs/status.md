@@ -1644,13 +1644,16 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 - **Verification:** 2,070 tests pass with the CLI checks included. Each step was committed only after the full suite and the baseline replay passed.
 - **Next action belongs to the owner:** review the findings and approve the paid sequence. No phase-4.7 freeze, validation or private run was performed.
 
-### Phase 4.7: owner-written new-types questions (owner, 2026-11-17; no API calls)
+### Phase 4.7: new-types question sources corrected (owner, 2026-11-17; no API calls)
 
-- **The 50 rows from `owner_questions.txt`** were added verbatim (`581468a`). The owner confirmed them as owner-written, although the file's own header calls them AI-drafted.
-- **7 rows are DSL gaps,** reported apart.
-- **Who decides:** train (5 or more per type) and owner-written (3 or more per type) decide which types stay on, at 80% or better. The 50 assistant-written rows are a smoke test only.
-- **Duties** has only 2 expressible owner-written questions, so it is reported but not decided.
-- **Run estimate:** $0.39 for all 106 questions (cap $0.60), or $0.23 for the deciding groups only (cap $0.40).
+- **Owner's correction:** the 50 rows from `owner_questions.txt` are AI-drafted, not owner-written; the earlier confirmation was wrong.
+  - They are relabelled `ai_drafted_owner_reviewed` and kept as a smoke test, like `assistant_written`.
+  - Their line numbers were re-pointed after `41291ef` shifted the file.
+- **Owner-written rows:** none yet.
+  - The owner's note says rewritten lines are marked "owner |"; the file at `41291ef` has no such line.
+  - Its 50 newer questions carry no owner mark and are not in the gold.
+- **Who decides:** only train (5 or more per type) and owner-written (3 or more per type), at 80% or better. With 6 train rows (no type has 5) and no owner-written rows, no type can be decided yet.
+- **Estimate:** $0.39 for all 106 rows (cap $0.60); the deciding groups alone are 6 train rows, $0.07 (cap $0.20).
 
 ### Phase 4.7: measurements added before the paid checks (owner, 2026-11-17; no API calls)
 

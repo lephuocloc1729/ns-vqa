@@ -3,13 +3,13 @@
 The gold is data/annotations/gold_v12_new/gold_v12_new.yaml: train working-set rows by id (their text
 is read from the dataset at run time) and assistant-written rows with their own text. Each question is
 parsed once with parser v12; a parse is right when its normalized program equals the expected one
-(eval.parser_eval.canonical). Reported per group (train, owner-written, assistant-written) and type; the
-rule is fixed: >= 80% where a type has >= 5 train or >= 3 owner-written questions. Only train and
-owner-written rows decide which types stay on; assistant-written rows are a smoke test.
+(eval.parser_eval.canonical). Reported per group (train, owner-written, AI-drafted owner-reviewed,
+assistant-written) and type; the rule is fixed: >= 80% where a type has >= 5 train or >= 3 owner-written
+questions. Only train and owner-written rows decide which types stay on; the other two are smoke tests.
 
     .venv/bin/python eval/parser_newtypes.py estimate
     .venv/bin/python eval/parser_newtypes.py run --max-spend 0.60          # paid: the owner runs it
-    .venv/bin/python eval/parser_newtypes.py run --sources train owner_written --max-spend 0.40
+    .venv/bin/python eval/parser_newtypes.py run --sources train owner_written --max-spend <estimate's cap>
     .venv/bin/python eval/parser_newtypes.py score logs/parser_eval/newtypes_v12_*.jsonl
 """
 from __future__ import annotations
@@ -56,7 +56,7 @@ def refused_ids() -> tuple[set[str], set[str]]:
 def questions(rows: list[dict], train: Path = TRAIN) -> dict[str, str]:
     """Question text per row: assistant- and owner-written rows carry it; train rows are read by id."""
     bad_q, bad_i = refused_ids()
-    out = {r["id"]: r["question"] for r in rows if r["source"] in ("assistant_written", "owner_written")}
+    out = {r["id"]: r["question"] for r in rows if r["source"] != "train"}
     need = {r["id"] for r in rows if r["source"] == "train"}
     if need:
         for t in json.loads(train.read_text(encoding="utf-8")):
@@ -134,7 +134,8 @@ def _subgroup(r: dict) -> str:
 
 # Per group (owner, 2026-11-17): the minimum questions per type for the 80% rule, and whether the
 # group decides which types stay on (assistant-written rows are a smoke test only).
-GROUPS = {"train": (5, True), "owner_written": (3, True), "assistant_written": (5, False)}
+GROUPS = {"train": (5, True), "owner_written": (3, True), "ai_drafted_owner_reviewed": (3, False),
+          "assistant_written": (5, False)}
 
 
 def _rate_rule(c: int, n: int, min_n: int) -> str:

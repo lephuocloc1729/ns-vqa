@@ -26,13 +26,12 @@ def rows(src=None):
 
 def test_groups_and_sizes():
     n = Counter(r["source"] for r in rows())
-    assert n == {"train": 6, "assistant_written": 50, "owner_written": 50}
-    smoke = Counter(r["intent"] for r in rows() if r["source"] != "owner_written")
+    assert n == {"train": 6, "assistant_written": 50, "ai_drafted_owner_reviewed": 50}
+    smoke = Counter(r["intent"] for r in rows() if r["source"] in ("train", "assistant_written"))
     assert set(smoke) == NEW_INTENTS and min(smoke.values()) >= 5
-    own = Counter(r["intent"] for r in rows("owner_written") if not r.get("gap"))
-    assert set(own) == NEW_INTENTS
-    # 3 of the 5 owner duties questions are DSL gaps, so only duties has fewer than 3
-    assert {k for k, v in own.items() if v < 3} == {"duties"}
+    aid = Counter(r["intent"] for r in rows("ai_drafted_owner_reviewed") if not r.get("gap"))
+    assert set(aid) == NEW_INTENTS
+    assert not rows("owner_written")     # none marked "owner |" in owner_questions.txt yet
 
 
 def test_programs_are_valid():
@@ -49,12 +48,12 @@ def test_programs_are_valid():
 
 def test_owner_questions_are_verbatim_and_complete():
     lines = OWNER_FILE.read_text(encoding="utf-8").splitlines()
-    own = rows("owner_written")
-    for r in own:
+    for r in rows("ai_drafted_owner_reviewed"):
         t, q = [x.strip() for x in lines[r["line"] - 1].split("|", 1)]
         assert (t, q) == (r["intent"], r["question"]), r["id"]
-    listed = [l for l in lines if l.strip() and not l.lstrip().startswith("#")]
-    assert len(listed) == len(own)
+    # an owner-written row is exactly a line marked "owner | <type> | <question>"
+    marked = {tuple(x.strip() for x in l.split("|")[1:3]) for l in lines if l.split("|")[0].strip() == "owner"}
+    assert {(r["intent"], r["question"]) for r in rows("owner_written")} == marked
 
 
 def test_train_rows_keep_ids_only_and_are_outside_dev_validation_and_fewshots():
@@ -82,32 +81,34 @@ def _right(rs):
 
 def test_all_right_keeps_every_type_on_and_gaps_apart():
     s = pn.score(_right(rows()), rows())
-    assert set(s["groups"]) == {"train", "owner_written", "assistant_written"}
-    assert s["decision"]["duties"].startswith("not decided") and not s["weaker_intents"]
-    assert all(v == "stays on" for k, v in s["decision"].items() if k != "duties")
+    assert set(s["groups"]) == {"train", "ai_drafted_owner_reviewed", "assistant_written"}
+    # no owner-written rows yet and fewer than 5 train rows per type: no type is decided
+    assert all(v.startswith("not decided") for v in s["decision"].values()) and not s["weaker_intents"]
     assert len(s["gaps"]) == sum(1 for r in rows() if r.get("gap")) and all(g["parsed_out_of_scope"] for g in s["gaps"])
 
 
 def test_also_accept_counts_as_right():
-    r = next(x for x in rows("owner_written") if x.get("also_accept"))
+    r = next(x for x in rows("ai_drafted_owner_reviewed") if x.get("also_accept"))
     alt = {"id": r["id"], "status": "ok", "query": gold_query(r["also_accept"][0]).model_dump(mode="json")}
     s = pn.score([alt], [r])
     assert not s["misses"]
 
 
 def test_only_deciding_groups_turn_a_type_off():
-    """Assistant-written signal_meaning all wrong: still on. Owner-written signal_meaning all wrong: listed."""
+    """Smoke-test rows all wrong: nothing turned off. Owner-written rows all wrong: listed."""
     rs = rows()
-    def wrong(src):
-        return [p if not any(x["id"] == p["id"] and x["source"] == src and x["intent"] == "signal_meaning" for x in rs)
-                else {**p, "query": None, "status": "parse_failed"} for p in _right(rs)]
-    assert pn.score(wrong("assistant_written"), rs)["decision"]["signal_meaning"] == "stays on"
-    assert pn.score(wrong("owner_written"), rs)["weaker_intents"] == ["signal_meaning"]
+    bad = [p if not any(x["id"] == p["id"] and x["intent"] == "signal_meaning" and x["source"] != "train" for x in rs)
+           else {**p, "query": None, "status": "parse_failed"} for p in _right(rs)]
+    assert not pn.score(bad, rs)["weaker_intents"]
+    owner = [{**r, "id": f"own_t{k}", "source": "owner_written"}
+             for k, r in enumerate(x for x in rs if x["intent"] == "signal_meaning" and x["source"] == "assistant_written")]
+    wrong = [{"id": r["id"], "status": "parse_failed", "query": None} for r in owner]
+    assert pn.score(wrong, owner)["weaker_intents"] == ["signal_meaning"]
 
 
 def test_estimates_and_caps():
     all_ = pn.estimate(rows())
     deciding = pn.estimate(pn.select(rows(), ["train", "owner_written"]))
-    assert all_["questions"] == 106 and deciding["questions"] == 56
+    assert all_["questions"] == 106 and deciding["questions"] == 6
     for e in (all_, deciding):
         assert e["range_usd"][1] + 0.09 <= e["cap_usd"]

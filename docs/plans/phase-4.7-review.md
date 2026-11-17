@@ -74,7 +74,7 @@ runs, and the four never sum past $2.00:** the judged dev run's cap is what is l
 | # | check | estimate (range) | cap |
 |---|---|---|---|
 | 1 | parser v12 no-regression gate (public_dev gold) | $0.21 ($0.19–0.25) | $0.40 (the runner refuses lower) |
-| 2 | parser v12 new-types test: 106 questions (6 train, 50 owner file, 50 assistant smoke) / deciding groups only (56) | $0.39 ($0.33–0.51) / $0.23 ($0.20–0.30) | $0.60 / $0.40 |
+| 2 | parser v12 new-types test: 106 questions (6 train, 50 AI-drafted owner-reviewed, 50 assistant-written) | $0.39 ($0.33–0.51) | $0.60 |
 | 3 | scene v6 set-T check (sign reading + the v6 fields) | $0.13 ($0.11–0.16) | $0.20 (two $0.10 guards) |
 | 4 | judged dev run, scene v6 + parser v12 | $0.85 ($0.67–1.10) | what is left, at most $1.05 |
 | | **total** | **$1.58** with all 106 ($1.42 with the deciding groups only) | at the estimates, $0.42 (or $0.58) is left beyond step 4's estimate |
@@ -98,13 +98,13 @@ Rule: `regressed_types_without_design` must be empty; v12 forms are given back o
 ```zsh
 .venv/bin/python eval/parser_newtypes.py estimate
 .venv/bin/python eval/parser_newtypes.py run --max-spend 0.60
-# or the deciding groups only (train + owner file), without the assistant-written smoke test:
-# .venv/bin/python eval/parser_newtypes.py run --sources train owner_written --max-spend 0.40
+# deciding groups only (train + owner-written): today 6 train rows, $0.07, cap $0.20; no type can be decided
+# until owner-written rows ("owner |" lines) exist
 read -r 'nt_run?Path of the new-types predictions: '
 .venv/bin/python eval/parser_newtypes.py score "$nt_run"
 ```
 
-Rules (fixed): per type >= 80% exact programs where it has >= 5 train or >= 3 owner-file questions; only those two groups decide (`decision`, `weaker_intents`); the assistant-written rows are a smoke test. The 7 DSL gaps are reported apart (`gaps`). Duties has only 2 expressible owner-file questions, so it is reported, not decided.
+Rules (fixed): per type >= 80% exact programs where it has >= 5 train or >= 3 owner-written questions; only those two groups decide (`decision`, `weaker_intents`). The AI-drafted owner-reviewed and assistant-written rows are smoke tests, reported apart. The 7 DSL gaps are reported apart (`gaps`). With no owner-written rows yet, no type is decided.
 
 ### 3. Scene v6 set-T check
 
