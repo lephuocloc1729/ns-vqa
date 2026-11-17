@@ -1432,6 +1432,16 @@ Run `5c9251f5f207`, 15:47–16:25 UTC, at commit `2e1ff41`, with `eval/frozen_ph
   - two dataset answers disagree with their boards (train_230 direction and distance; train_248 calls a blue minimum-speed disc a maximum).
 - Tests 995 passed. Round spend $0.61 of $5.
 
+### Scene v5 set-T check (2026-11-17)
+
+- **Runs:** v5 pass 1 `82fe91ce935e` ($0.055) + fallback `3861a1816d1a` (v5-tile / v5-crop, `crop_always`; $0.059). Total **$0.114**; round $0.72 of $5.
+- **v5 + fallback** against frozen v4 + fallback (`d1ff09db5bf4`), set T, development:
+  - recall 90.8% (85–97) against 89.2% (81–96);
+  - code F1 72.9% (65–81) against 73.5% (67–81);
+  - strict 71.3% against 70.9%; rule-bearing 74.8% against 74.5%;
+  - non-duplicate recall / F1 91.1% / 73.6% against 88.9% / 74.7%.
+- **Passes:** the code-F1 gap (−0.6 points) is inside Haiku's 2.9-point run-to-run spread; the new rows don't hurt reading. One run each.
+
 ## Next steps, in order
 
 **Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Phase 4 closed (2026-11-16; closing entry above).** Phase 5 plan approved (2026-11-16). **Next: the one private-test run** (`eval/e2e_private.py run --confirm-frozen --max-spend 3`), on the owner's go-ahead on its $1.83 estimate.
