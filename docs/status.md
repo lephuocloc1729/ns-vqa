@@ -1597,6 +1597,12 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 - **No-regression rule: met** (`regressed_types_without_design` empty). 0086 is back to the v6 gold. Misses: 0005 and 0025 (wrong under v6 too), 0065 and 0087 (design: negative lanes; open "nên làm gì" as conduct).
 - **v9 is the last passing parser version.** Spend this round: **$2.11 of $5** ($0.70 reserved).
 
+### Dev re-parse with parser v9 (`dev_reparse_v9_8bbb5eb01cff`, on the candidate run's scenes; 2026-11-17)
+
+- **$0.011.** The 4 yes/no-worded dev questions (81, 231, 341, 515) were re-parsed; **only 231 changed**: "có cho biết khoảng cách ... không?" is now out of scope (it was a decided, wrong `guide distance`). No decided answer changed, so no judge call.
+- **Dev, scene v5 + guide reading + parser v9:** decided **73.6% (64/87; 95% CI 63–82)**, accuracy on decided **85.2% (74–92)**, overall **62.6%** (unchanged).
+- Spend this round: **$2.12 of $5** ($0.70 reserved).
+
 ## Next steps, in order
 
 ### Handoff (2026-11-17, later): B1 + B2 built; B4 ready for the owner's go-ahead
