@@ -66,7 +66,7 @@ def lookup(kind: str, code: str, category: str, extended: bool = False) -> tuple
 
 
 def conduct_out(code: str) -> str | None:
-    """Phase 4.7: why a row has no conduct line in law_db (kb/sign_info_47.yaml), else None."""
+    """Phase 4.7: why a row has no conduct line in its cited articles (kb/sign_info_47.yaml), else None."""
     return info47().get("conduct_out", {}).get(code)
 
 
