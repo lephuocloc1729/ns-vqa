@@ -269,3 +269,34 @@ def test_run_ids_come_from_the_prediction_records():
     p = pred("q1", MEANING)
     p["run_id"] = "abc123"
     assert score([p], gold)["run_ids"] == ["abc123"]
+
+
+# ---------------------------------------------------------------- phase 4.5 B4: v6 -> v7 by type
+
+def test_compare_versions_flags_drops_and_design_changes(tmp_path, monkeypatch):
+    import eval.parser_eval as pev2
+    gold = [{"id": "a", "split": "public_dev", "program": {"program": {"intent": "meaning", "sign": {"only": True}}}},
+            {"id": "b", "split": "public_dev", "program": {"out_of_scope": True}},
+            {"id": "c", "split": "public_dev", "program": {"program": {"intent": "meaning", "sign": {"only": True}}}}]
+    monkeypatch.setattr(pev2, "load_gold", lambda p=None: gold)
+    monkeypatch.setattr(pev2, "fewshot_ids", lambda v=None: set())
+    meaning = {"program": {"intent": "meaning", "sign": {"only": True}}}
+    oos = {"out_of_scope": True, "out_of_scope_reason": "x"}
+    guide = {"program": {"intent": "guide", "ask": "destinations"}}
+
+    def write(name, version, b, c):
+        from vqa.parsing.wire import WParse, to_query
+        p = tmp_path / name
+        rows = []
+        for qid, out in (("a", meaning), ("b", b), ("c", c)):
+            q = to_query(WParse.model_validate(out), 2025)
+            rows.append({"id": qid, "status": "out_of_scope" if q.out_of_scope else "ok",
+                         "query": q.model_dump(mode="json"), "prompt_version": version})
+        p.write_text("\n".join(json.dumps(r) for r in rows))
+        return p
+    old = write("old.jsonl", "v6", oos, meaning)
+    new = write("new.jsonl", "v7", guide, {"program": {"intent": "meaning", "sign": {"shape": "circle"}}})
+    r = pev2.compare_versions([old], [new])
+    assert set(r["regressed_types"]) == {"out_of_scope", "meaning"}
+    assert r["regressed_types_without_design"] == ["meaning"]          # c is a real miss; b is by design
+    assert {x["id"]: x["v7_design"] for x in r["lost_rows"]} == {"b": True, "c": False}

@@ -360,3 +360,12 @@ Free engine, selector and KB fixes come first. Each is checked by an engine-only
 - **After each type,** a free engine-only dev replay where parses exist. A type is kept if overall doesn't drop and accuracy on decided stays ≥ 70%. Parser v7 few-shots come from train, outside dev and validation, with the exact question text.
 - **Then B4, with commands and estimates:** the parser-gate rerun on public_dev gold intents (no old type may regress), the dev re-perception with v5 plus the board reading, the dev re-parse, and a judged dev run (which also confirms 81, 287 and 308). Stop there.
 - **Budget:** the round's $5, with $0.70 reserved for the final validation.
+
+## 15. B1 + B2 built (2026-11-17; no API calls)
+
+Built in the approved order (sign group → conduct + STOP → presence → divided road and several-vehicle speed → scope and placement → guide content), with parser v7 and the lane fix. Details, the replay table and the B4 commands are in `docs/status.md` ("Phase 4.5 B1 + B2 built" and the handoff after it).
+
+- **Every type was kept under the guardrail** on the indicative engine-only replay (hand-written v7-style programs plus the B6 trial's stored board readings): 32 → 59 decided (36.8% → 67.8%), accuracy on decided 93.8% → 86.4%, overall 34.5% → 58.6%. The stored-parse replay, the real guardrail, is unchanged at 32 decided (35 with boards).
+- **One addition beyond the stage-B table, needed by the approved "lane fix":** lanes counted from the right are negative in the DSL (-1 = rightmost), numbered by the engine from the scene's lane count, unknown without it.
+- **B4 rule fixed before the run:** no old gold intent type may lose pooled accuracy against v6's three runs, after giving back rows whose v7 program uses a v7 feature (`eval/parser_eval.py compare`).
+- **B4 cost:** gate rerun about $0.48, judged candidate dev run about $0.84; about $1.32 in all ($2.06 of $5 after it, with $0.70 still reserved).

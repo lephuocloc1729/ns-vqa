@@ -345,7 +345,8 @@ def estimate(model: str, prompt_tokens: list[int], max_tokens: int = MAX_TOKENS)
 
 def run(model: str, effort: str | None, max_spend: float, sdk=None, engine=None,
         gold_path: Path | None = None, public_file: Path | None = None,
-        split_file: Path | None = None, out_dir: Path | None = None) -> Path:
+        split_file: Path | None = None, out_dir: Path | None = None,
+        version: str = PROMPT_VERSION) -> Path:
     from vqa.llm.client import LLMClient
     from vqa.llm.spend import SpendGuard
     from vqa.parsing.claude_parser import ClaudeParser
@@ -353,16 +354,16 @@ def run(model: str, effort: str | None, max_spend: float, sdk=None, engine=None,
     if sdk is None:
         import anthropic
         sdk = anthropic.Anthropic()
-    rows = gate_rows(load_gold(gold_path))
+    rows = gate_rows(load_gold(gold_path), version)
     qs = load_dev_questions({g["id"] for g in rows}, public_file, split_file)
-    system = system_prompt(PROMPT_VERSION)
+    system = system_prompt(version)
     sys_blocks = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
     kw = {"output_config": {"effort": effort}} if effort else {}
     counts = [sdk.messages.count_tokens(model=model, system=sys_blocks,
                                         messages=[{"role": "user", "content": f"Question: {qs[g['id']]['question'].strip()}"}],
                                         **kw).input_tokens for g in rows]
     est = estimate(model, counts)
-    print(json.dumps({"model": model, "effort": effort, "prompt_version": PROMPT_VERSION,
+    print(json.dumps({"model": model, "effort": effort, "prompt_version": version,
                       "max_spend_usd": max_spend, **est}, indent=2))
     if est["worst_case_usd"] > max_spend:
         raise SystemExit(f"worst case ${est['worst_case_usd']:.4f} exceeds --max-spend "
@@ -371,12 +372,12 @@ def run(model: str, effort: str | None, max_spend: float, sdk=None, engine=None,
         from vqa.reasoning.engine import Engine
         engine = Engine()
     llm = LLMClient(model=model, guard=SpendGuard(max_spend), sdk=sdk)
-    parser = ClaudeParser(llm=llm, effort=effort, prompt_version=PROMPT_VERSION,
+    parser = ClaudeParser(llm=llm, effort=effort, prompt_version=version,
                           context_year=CONTEXT_YEAR, engine=engine, max_tokens=MAX_TOKENS)
     out_dir = out_dir or OUT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    path = out_dir / f"pred_{model}_{effort or 'default'}_{PROMPT_VERSION}_{stamp}.jsonl"
+    path = out_dir / f"pred_{model}_{effort or 'default'}_{version}_{stamp}.jsonl"
     with open(path, "w", encoding="utf-8") as f:
         for n, g in enumerate(rows, 1):
             r = parser.parse(qs[g["id"]]["question"])
@@ -384,12 +385,77 @@ def run(model: str, effort: str | None, max_spend: float, sdk=None, engine=None,
                    "status": r.status, "query": r.query.model_dump(mode="json") if r.query else None,
                    "errors": r.errors, "raw": r.raw, "usage": r.usage, "attempts": r.attempts,
                    "cost_usd": round(r.cost_usd, 6), "model": model, "effort": effort,
-                   "prompt_version": PROMPT_VERSION, "run_id": llm.run_id}
+                   "prompt_version": version, "run_id": llm.run_id}
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
             f.flush()
             print(f"[{n}/{len(rows)}] {g['id']}: {r.status}  spent ${llm.guard.spent:.4f}")
     print(f"predictions -> {path}  (spent ${llm.guard.spent:.4f})")
     return path
+
+
+# --------------------------------------------------------------------------- v6 -> v7 by type (phase 4.5 B4)
+
+# Program features parser v7 adds on purpose (phase 4.5 B2). A v7 miss whose program uses one
+# of them, on a row the v6 gold could not express that way, is a design change, not a regression.
+V7_FEATURES = ('"intent": "present"', '"intent": "guide"', '"aspect": "group"', '"aspect": "conduct"',
+               '"aspect": "scope"', '"aspect": "placement"', '"road_divided":', '"lane": -')
+
+
+def gold_type(g: dict) -> str:
+    p = (g.get("program") or {}).get("program")
+    return "out_of_scope" if not p else p.get("intent", "?")
+
+
+def compare_versions(old: list[Path], new: list[Path], gold_path: Path | None = None) -> dict[str, Any]:
+    """Pooled accuracy per gold intent type, old runs against new runs, on the gate rows of
+    both versions. A type regresses when its pooled accuracy drops. New misses on rows the old
+    runs got right are listed, marked `v7_design` when the new program uses a v7 feature."""
+    gold = load_gold(gold_path)
+
+    def pooled(paths: list[Path]) -> tuple[dict, dict, str]:
+        per_type: dict[str, list[int]] = {}
+        per_row: dict[str, list[tuple[bool, Any]]] = {}
+        version = None
+        for p in paths:
+            preds = load_predictions(p)
+            version = preds[0].get("prompt_version") if preds else version
+            by_id = {x["id"]: x for x in preds}
+            for g in gate_rows(gold, version):
+                r = score_one(g, by_id.get(g["id"]))
+                t = per_type.setdefault(gold_type(g), [0, 0])
+                t[0] += r["correct"]
+                t[1] += 1
+                per_row.setdefault(g["id"], []).append((r["correct"], (by_id.get(g["id"]) or {}).get("query")))
+        return per_type, per_row, version
+
+    ot, orow, ov = pooled(old)
+    nt, nrow, nv = pooled(new)
+    types = {}
+    for k in sorted(set(ot) | set(nt)):
+        o, n = ot.get(k, [0, 0]), nt.get(k, [0, 0])
+        oa, na = (o[0] / o[1] if o[1] else None), (n[0] / n[1] if n[1] else None)
+        types[k] = {"old": f"{o[0]}/{o[1]}", "new": f"{n[0]}/{n[1]}", "old_acc": oa, "new_acc": na,
+                    "regressed": oa is not None and na is not None and na < oa}
+    lost = []
+    for qid, runs in nrow.items():
+        if any(c for c, _ in orow.get(qid, [])) and not all(c for c, _ in runs):
+            progs = [json.dumps(q, ensure_ascii=False) for c, q in runs if not c]
+            lost.append({"id": qid, "new_wrong_runs": len(progs),
+                         "v7_design": any(f in p for p in progs for f in V7_FEATURES), "new_programs": progs[:1]})
+    # The same drop with design-change rows given back: a new miss whose program uses a v7
+    # feature counts as right again (the v6 gold has no way to write it).
+    design = {x["id"] for x in lost if x["v7_design"]}
+    type_of = {g["id"]: gold_type(g) for g in gold}
+    for k, v in types.items():
+        back = sum(sum(not c for c, _ in nrow[q]) for q in design if type_of.get(q) == k)
+        n = nt.get(k, [0, 0])
+        v["new_acc_without_design"] = (n[0] + back) / n[1] if n[1] else None
+        v["regressed_without_design"] = (v["old_acc"] is not None and v["new_acc_without_design"] is not None
+                                         and v["new_acc_without_design"] < v["old_acc"])
+    return {"old_version": ov, "new_version": nv, "types": types,
+            "regressed_types": [k for k, v in types.items() if v["regressed"]],
+            "regressed_types_without_design": [k for k, v in types.items() if v["regressed_without_design"]],
+            "lost_rows": lost}
 
 
 def main() -> None:
@@ -399,13 +465,19 @@ def main() -> None:
     r.add_argument("--model", default="claude-haiku-5-5")
     r.add_argument("--effort", choices=["low", "medium"], required=True)
     r.add_argument("--max-spend", type=float, required=True)
+    r.add_argument("--version", default=PROMPT_VERSION, help="parser prompt version (default: the frozen v6)")
+    c = sub.add_parser("compare", help="pooled accuracy per gold intent type: --old runs vs --new runs")
+    c.add_argument("--old", nargs="+", type=Path, required=True)
+    c.add_argument("--new", nargs="+", type=Path, required=True)
     s = sub.add_parser("score")
     s.add_argument("predictions", nargs="+", type=Path)
     s.add_argument("--gold", type=Path, default=None,
                    help="gold file (default: gold_intents_v1.jsonl, the one the gate was fixed on)")
     a = ap.parse_args()
     if a.cmd == "run":
-        run(a.model, a.effort, a.max_spend)
+        run(a.model, a.effort, a.max_spend, version=a.version)
+    elif a.cmd == "compare":
+        print(json.dumps(compare_versions(a.old, a.new), indent=2, ensure_ascii=False))
     else:
         print(score_files(a.predictions, a.gold))
 

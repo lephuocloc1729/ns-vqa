@@ -53,7 +53,7 @@ from vqa.llm.spend import SpendGuard
 from vqa.parsing.claude_parser import ClaudeParser
 from vqa.perception import prompt as scene_prompt
 from vqa.perception.cache import SceneCache
-from vqa.perception.fallback import FallbackConfig
+from vqa.perception.fallback import FallbackConfig, config_for as fallback_config_for
 from vqa.perception.guide import apply as apply_boards, needs_boards, prompt_id as guide_prompt_id, read_boards
 from vqa.perception.image import prepare_file
 from vqa.perception.scene import perceive
@@ -137,6 +137,10 @@ class Pipeline:
         self.fallback = AnswerFallback(llm=client("claude-sonnet-5-5"), version=c.answer_fallback_version)
 
     # ------------------------------------------------------------------ perception
+    def fallback_config(self) -> FallbackConfig | None:
+        """The scene fallback for this run's scene version (v4: the frozen FallbackConfig())."""
+        return fallback_config_for(self.config.scene_version) if self.config.scene_fallback else None
+
     def _perceive(self, image_path: Path) -> tuple[Any, dict[str, Any]]:
         c = self.config
         client = self._perception_client
@@ -150,7 +154,7 @@ class Pipeline:
             client = _RefuseCalls(c.perception_model)
         res = perceive(image_path, model=c.perception_model, version=c.scene_version, client=client,
                        cache=self.cache, use_cache=True,
-                       fallback=FallbackConfig() if c.scene_fallback else None)
+                       fallback=self.fallback_config())
         info = {"ok": res.ok, "error": res.error, "cache_hit": res.cache_hit,
                 "image_sha256": res.image_sha256, "prompt_id": res.prompt_id,
                 "scene_id": res.scene.scene_id if res.scene else None,

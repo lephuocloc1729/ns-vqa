@@ -90,6 +90,16 @@ class FallbackConfig:
                 "policy": self.policy, "drop_own_alt_on_agree": self.drop_own_alt_on_agree}
 
 
+def config_for(scene_version: str) -> FallbackConfig:
+    """The fallback for a scene prompt version: its own tile and crop prompts when they exist
+    (v5 -> v5-tile, v5-crop), else the frozen defaults. v4 gives exactly FallbackConfig()."""
+    root = scene_prompt.PROMPTS_DIR
+    tile, crop = f"{scene_version}-tile", f"{scene_version}-crop"
+    if (root / tile).is_dir() and (root / crop).is_dir():
+        return FallbackConfig(tile_version=tile, crop_version=crop)
+    return FallbackConfig()
+
+
 @dataclass
 class FallbackResult:
     scene: SceneGraph

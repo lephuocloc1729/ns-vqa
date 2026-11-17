@@ -1493,9 +1493,78 @@ One line each (✓ = the asked fact is right in A's output):
 - 521 — generic answer.
 - 525 ✓ Quốc lộ 1 straight.
 
+### Phase 4.5 B1 + B2 built (2026-11-17; no API calls)
+
+Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7), and the B4 tooling commit. Suite 1080 passed; `eval/freeze.py check` matches the phase-4 record.
+
+**Review of the WIP `0cd33cf`, fixed before building on it:**
+- the group aspect refused any scene with an unreadable candidate; it now drops and lists it, as `Engine.single_sign` does (dev 160);
+- conduct cited art. 22 / 32 (the name lists); now art. 21 / 27 / 31, the articles that say "phải chấp hành" and what warning signs require;
+- the scope line took an S.502 distance (distance *to* the section) as the scope; only S.501 counts;
+- presence matched by catalog row, so P.124a stood for P.124b; it now matches the sign's own code;
+- `board_read` was imported from the engine inside a loop in facts.py; moved to facts.py.
+
+**What was built, in the approved order:**
+1. **Sign group:** `meaning(aspect=group)`: decided when every readable selected sign (and every reading) falls in one art. 11 group; value `{"group": ...}`.
+2. **Conduct + STOP:** `meaning(aspect=conduct)`: the row's F5 items, banned actions with their vehicles, allowed directions and speed duties, then art. 21 / 27 / 31. A warning row without items gets art. 27's three duties. W.203 adds C.3 d) (oncoming traffic). R.122: "dừng lại ..., kể cả xe ưu tiên" (D.1 b).
+3. **Presence:** `present(code | meaning | category)`, used in `choose` with `expect: false`; an unread sign of a matching look makes "absent" unknown.
+4. **Divider and vehicle lists:** `road_divided` on `speed_ok` / `speed_limit` overrides the scene's; `speed_limit.vehicles` gives one limit per vehicle, decided only when every one is.
+5. **Scope and placement:** `meaning(aspect=scope | placement)` from `kb/sign_info.yaml` (art. 16, 26, 30, 34, 39, C.39, D.17, D.18; every line checked against the law_db text).
+6. **Guide content (B6):** `vqa/perception/guide.py`, the approved variant-A call (`scene/v5-guide`, the trial's spec and examples byte for byte), made only when the scene lists an I / IE board or an unread non-red board, cached as a region record over the whole image. Scene schema 1.3 `guide_boards` (left out of the dump when empty). Board speed discs become P.127 / R.306 signs `g1, g2, ...` unless the scene already has that value. `guide(ask=direction | distance | destinations | route, destination)` reads the boards; no legal conclusion. `PipelineConfig.guide_reading` (default off; in `freeze.POST_FREEZE_SWITCHES`).
+7. **Templates** for every new value type, and **validator** checks (present targets, no every_vehicle in a vehicle list, a destination for direction / distance). Guide values carry the distance as printed ("5 km") so templates pass the guard.
+8. **Lane fix:** a lane counted from the right is negative (`schemas.QuestionLane`; -1 = rightmost); the engine numbers it from the scene's lane count, and answers unknown when there is none. Before, the parser dropped such lanes and the claim became a whole-road claim.
+9. **Parser v7** (`prompts/parser/v7`): the intents and slots above, selector `category`, "xe cảnh sát / công an" = motor_vehicle with priority as stated, negative lanes kept on every claim, guide content in scope. Few-shots: v6's 18 (train_215 now a guide program) plus 11 from train outside the dev and validation sets and their images, exact text (train_109, 197, 344, 5, 457, 120, 417, 206, 294, 233, 460); none shares a duplicate group with a dev or validation image. Tests: no 6-word window of a dev question or a public_dev gate question in the spec. **No train question outside dev and validation mentions a police car, a divider or placement**, so those three have spec lines only. The retry sends only the error from v7 on (v1–v6 keep their echo).
+10. **Scene fallback per version:** `fallback.config_for(scene_version)`: v5 uses v5-tile / v5-crop; v4 gives exactly the frozen `FallbackConfig()`.
+
+**Engine-only dev replays (87 questions, no call).** Stored parses are the guardrail; the hand-program rows use programs written by hand in the form v7 is meant to produce (`eval/runs/e2e/dev_v7_handprograms.json`, local; only programs v7 can produce: the parser never sees codes, so 260 was dropped) and, for boards, the B6 trial's stored variant-A readings merged into the dev scenes (`dev_v7_handscenes.json`: 37 questions on 23 images; 3 dev images with a board have no trial reading). **Indicative only: these are not parses.** New decided answers carry provisional grades (assistant, against the dataset answer, conservative 0.5 where wording is partial), for the judge to confirm in B4.
+
+| step | decided | coverage | accuracy on decided | overall (non-decided = wrong) | kept? |
+|---|---|---|---|---|---|
+| stored parses (stage A) | 32 | 36.8% | 93.8% | 34.5% | — |
+| + group (hand programs) | 35 | 40.2% | 94.3% | 37.9% | yes |
+| + conduct + STOP | 38 | 43.7% | 90.8% | 39.7% | yes |
+| + presence | 38 | 43.7% | 90.8% | 39.7% | yes (107 uncertain) |
+| + divider, vehicle lists | 43 | 49.4% | 88.4% | 43.7% | yes |
+| + scope, placement | 46 | 52.9% | 88.0% | 46.6% | yes |
+| + guide boards and guide programs | **59** | **67.8%** | **86.4%** | **58.6%** | yes |
+| stored parses + boards only | 35 | 40.2% | 92.9% | 37.4% | (352, 381 now right) |
+
+- **Stays undecided, and why:** 99 and 107 (P.124a with a low P.123a alternative: readings disagree), 432 (four signs, three with alternatives), 337 and 375 (STOP read UNKNOWN by v4; v5 lists R.122), 520 (a warning sign among guide boards: two groups), 159 (an unread board alternative), 325 (a destination list doesn't answer "which expressway ends"), 260, 248, 250, 414 (compound questions), 231, 259, 80, 515, 521, 254 / 413 (speed ranges), 341, 351, 421, 450, 514, 518, 316.
+- **Wrong or partial among the new decided:** 230 and 249 (the boards disagree with the dataset; graded 0), 14 (the 90 disc isn't tied to lane 1 in the scene: car 80, gold 90; 0.5), 56 / 58 ("xe máy" may be a moped, so 60 / 50 is conditional; 0.5), 269 (art. 26.3: P.101–P.120 have no end sign; the dataset says "đến biển hết cấm"; 0.5), 413 (a range asked, the max given; 0.5), 216 / 219 / 222 (duties right, wording partial; 0.5).
+
 ## Next steps, in order
 
-### Handoff (2026-11-17): phase 4.5 stage B
+### Handoff (2026-11-17, later): B1 + B2 built; B4 ready for the owner's go-ahead
+
+- **Where things stand:** B1 + B2 are built and committed (see "Phase 4.5 B1 + B2 built"). Branch `phase-5`, nothing pushed. The freeze record `eval/frozen_phase4.json` still matches. **Spend this round: $0.74 of $5**, $0.70 reserved for the final validation, **$3.56 free**. No call was made in this step.
+- **Next: B4, on the owner's go-ahead (the owner runs the commands).** In this order; stop after each and look:
+  1. **Parser gate rerun on public_dev gold intents, parser v7, Sonnet 5.5 medium, 3 runs.** Measured v6 runs cost $0.12–0.16 each; v7's prompt is 18% longer. **Estimate $0.16 per run, $0.48 for three (range $0.40–0.60).**
+     ```
+     .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v7 --max-spend 0.30
+     .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v7 --max-spend 0.30
+     .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v7 --max-spend 0.30
+     .venv/bin/python eval/parser_eval.py score logs/parser_eval/pred_claude-sonnet-5-5_medium_v7_*.jsonl
+     .venv/bin/python eval/parser_eval.py compare --old logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-140559.jsonl logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141622.jsonl logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141902.jsonl --new logs/parser_eval/pred_claude-sonnet-5-5_medium_v7_*.jsonl
+     ```
+     **Rule (set before the run):** no old gold intent type may have lower pooled accuracy than v6's three runs, after giving back rows whose v7 program uses a v7 feature the v6 gold can't write (`regressed_types_without_design` must be empty). The gate (mean ≥ 90%) is reported too. If a type regresses, v7 is fixed as v8 before any dev run.
+  2. **Judged candidate dev run** (scene v5 + v5-tile / v5-crop, guide reading on, parser v7; fallback off; fresh perception, so it is also the dev re-perception and the dev re-parse; the judge grades every decided answer, including 81, 287 and 308). **Estimate $0.84 (range $0.67–1.10)**, from the frozen dev run's measured stage costs at 59 decided:
+     ```
+     .venv/bin/python eval/e2e_dev.py estimate --candidate
+     .venv/bin/python eval/e2e_dev.py run --label candidate --candidate --max-spend 1.3
+     .venv/bin/python eval/e2e_dev.py summary eval/runs/e2e/dev_candidate_*.jsonl
+     ```
+     Then the guardrail on the judged figures: overall ≥ 34.5% (stage A) and accuracy on decided ≥ 70%.
+  - **B4 total: about $1.32 (range $1.07–1.70)**; after it about $2.24 free plus the $0.70 reserve.
+- **Then B5 (owner's go-ahead):** the phase-4.5 freeze `eval/frozen_phase45.json` (scene v5, parser v7, guide reading on), then the final validation once.
+- **Open items:**
+  - **For the owner's review before the freeze:** `kb/sign_info.yaml` (scope, placement, conduct wording; reviewed_by assistant), the W.203 C.3 d) conduct item, the v7 spec lines without a train example (police car, divider, placement), and the earlier list (R.421, R.122, S.501, `kb/sign_catalog_effects.yaml`, KB-1 to KB-8, Circular 38 speeds).
+  - **Provisional grades** (assistant) now cover 81, 287, 308 and the new decided dev answers in `eval/runs/e2e/dev_provisional_grades.json` (local); the judged run replaces them.
+  - **Unread boards after the guide call:** once a scene has `guide_boards`, an unread blue / green / white board no longer counts as unreadable for any claim, lane claims included. Watch lane questions in the judged run.
+  - **Board discs are whole-road limits:** a disc tied to one lane on the board (dev 14) is applied to every lane.
+  - **DESIGN.md and CLAUDE.md** still say schema 1.2: the 1.3 boards, the new intents and slots, negative lanes and the guide call go in at B5.
+  - Speed ranges ("trong khoảng tốc độ nào") and compound questions (two asks in one) stay out of the DSL.
+
+### Handoff (2026-11-17): phase 4.5 stage B (kept as a record; B1 + B2 since built)
 
 #### Where things stand
 
