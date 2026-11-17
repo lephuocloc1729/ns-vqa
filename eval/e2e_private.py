@@ -28,6 +28,13 @@ or written (CLAUDE.md, "Dataset rules").
   for the DESIGN section 8 categories. The question text is reduced to feature names
   in memory and dropped.
 
+- **Rules-only figures (phase 4.6 step 2):** `rules_only` in the report gives decided coverage,
+  accuracy on decided and overall with non-decided counted wrong (95% CIs), by question type,
+  and on all, non-duplicate and duplicate images (duplicate: also in train or public).
+- **The estimate** uses counts only (146 questions, 104 images, 76 Natural QA, from DESIGN.md)
+  and phase-4.5 measured stage rates calibrated to the final validation; it does not read the
+  private file.
+
     .venv/bin/python eval/e2e_private.py estimate
     .venv/bin/python eval/e2e_private.py run --confirm-frozen --max-spend 3
 """
@@ -54,12 +61,17 @@ if str(ROOT) not in sys.path:
 from eval import e2e_eval as ee  # noqa: E402
 from eval import freeze  # noqa: E402
 from eval import parser_eval as pev  # noqa: E402
+from eval.report import duplicated_images, wilson_ci  # noqa: E402
 
 SPLIT = "private"                          # duplicates: also in train or public (eval/report.py)
 PRIVATE_DIR = pev.DATASET / "private_test data (post submission)"
 PRIVATE_QA = PRIVATE_DIR / "vlsp_2025_private_test.json"
 PRIVATE_IMAGES = PRIVATE_DIR / "private_test_images"
 EXPECTED = {"questions": 146, "images": 104}
+# The question-type split, from DESIGN.md's data table (70 Yes/No, 76 Natural QA), so the
+# estimate needs no read of the private file.
+EXPECTED_TYPES = {"Yes/No": 70, "Natural QA": 76}
+DECIDED = ("yes", "no", "value")
 OUT = ROOT / "eval" / "runs" / "e2e"
 SENTINEL = ROOT / "eval" / "private_ran.json"
 REPLAY = ROOT / "cache" / "private_run"
@@ -77,7 +89,7 @@ RECORD_FIELDS = ("id", "image_id", "question_type", "text", "verdict", "answered
 # is computed.
 _KEEP = ("image_id", "question_type", "correct", "strict", "trigger", "writer_status", "verdict",
          "engine_verdict", "fallback_status", "judge_label", "cost_usd", "judge_cost_usd", "seconds",
-         "answered_by", "features")
+         "answered_by", "features", "decided")
 
 # ---------------------------------------------------------------- question features
 # Keyword rules for the DESIGN section 8 categories ("What the private test asks").
@@ -188,11 +200,45 @@ def by_trigger(records: list[dict]) -> dict[str, Any]:
     return {k: _group([r for r in records if (r.get("trigger") or "rules") == k]) for k in keys}
 
 
-def aggregate(records: list[dict]) -> dict[str, Any]:
+def _rules_figs(rs: list[dict]) -> dict[str, Any]:
+    """Rules-only figures (phase 4.5 requirement): a question is decided when the rules answer
+    yes, no or a value; every other question counts as wrong."""
+    n = len(rs)
+    dec = [r for r in rs if r.get("decided")]
+    graded = [r for r in dec if r.get("correct") is not None]
+    right = sum(r["correct"] for r in graded)
+    return {"questions": n, "decided": len(dec),
+            "decided_coverage": len(dec) / n if n else None,
+            "decided_coverage_ci95": list(wilson_ci(len(dec), n)) if n else None,
+            "accuracy_on_decided": right / len(graded) if graded else None,
+            "accuracy_on_decided_ci95": list(wilson_ci(right, len(graded))) if graded else None,
+            "accuracy_on_decided_strict": (sum(r["strict"] for r in graded) / len(graded)) if graded else None,
+            "overall_non_decided_wrong": right / n if n else None,
+            "overall_non_decided_wrong_ci95": list(wilson_ci(right, n)) if n else None}
+
+
+def rules_only(records: list[dict], duplicates: dict | None = None) -> dict[str, Any]:
+    """The rules-only report, as `eval/e2e_validation.py`'s `aggregate`, plus the duplicate split
+    (private: an image also in train or public, eval/report.py) with 95% CIs on non-duplicates."""
+    dup = duplicated_images(SPLIT, duplicates)
+    nd = [r for r in records if r["image_id"] not in dup]
+    out = {**_rules_figs(records),
+           "not_decided_by_cause": dict(Counter(r.get("trigger") or "decided_but_not_yes_no_value"
+                                                for r in records if not r.get("decided"))),
+           "by_question_type": {t: _rules_figs([r for r in records if r["question_type"] == t])
+                                for t in sorted({r["question_type"] for r in records})},
+           "by_images": {"split": SPLIT, "against": ["public", "train"], "all_images": _rules_figs(records),
+                         "non_duplicate_images": _rules_figs(nd),
+                         "duplicate_images": _rules_figs([r for r in records if r["image_id"] in dup])}}
+    return out
+
+
+def aggregate(records: list[dict], duplicates: dict | None = None) -> dict[str, Any]:
     rep = ee.summarize(records, split=SPLIT)
     fb = [r for r in records if r.get("trigger") is not None and r.get("correct") is not None]
     rep.update(fallback_score=ee._mean([r["correct"] for r in fb]), fallback_n=len(fb),
-               by_trigger=by_trigger(records), by_feature=by_feature(records))
+               by_trigger=by_trigger(records), by_feature=by_feature(records),
+               rules_only=rules_only(records, duplicates))
     return rep
 
 
@@ -277,6 +323,7 @@ def run_private(max_spend: float, *, confirm_frozen: bool = False, sdk=None, que
             f.write(json.dumps({k: rec[k] for k in RECORD_FIELDS}, ensure_ascii=False, default=str) + "\n")
             f.flush()
             rec["features"] = features(q["question"])
+            rec["decided"] = rec["trigger"] is None and rec["engine_verdict"] in DECIDED
             rec.update(ee.grade(q, a.text, judge))
             records.append({k: rec.get(k) for k in _KEEP})
             del a, t, rec
@@ -300,26 +347,46 @@ def run_private(max_spend: float, *, confirm_frozen: bool = False, sdk=None, que
 
 # ---------------------------------------------------------------- estimate (no call)
 
-# public_holdout, measured (docs/status.md, phase 4 step 6): fallback rate and cost per question.
-HOLDOUT = {"fallback_rate": 0.49, "usd_per_question": 0.0127, "seconds_per_question": 39.7}
+# Phase 4.5 measured rates (phase 4.6, step 2; docs/plans/phase-4.6.md). Per stage:
+# - perception v5 + scene fallback + guide call, per image: the candidate dev run (7caed6170de6);
+# - parser v9, per question: the v9 gate run and the v9 dev re-parse (51 calls);
+# - writer per decided answer and judge per judged Natural QA answer: the candidate dev run;
+# - the fallback answer per non-decided question: the phase-4 rate (ee.COST), the last measured.
+# CALIBRATION scales the sum to the final validation's measured total ($0.8329 on 110 questions,
+# 54 images, 52 decided, 31 decided Natural QA, fallback off; $0.0076 per question): the stage
+# rates give $0.727 there, so x1.146.
+RATES = {"perception_per_image": 0.0021, "parser_per_question": 0.00396, "writer_per_decided": 0.00025,
+         "judge_per_answer": 0.00533, "fallback_per_question": ee.COST["fallback"]}
+CALIBRATION = 1.146
+DECIDED_SHARE = 0.473          # final validation (7a3dbec997f7); dev after phase 4.6 step 1: 0.805
 
 
-def estimate(qs: list[dict] | None = None) -> dict[str, Any]:
-    qs = qs if qs is not None else load_questions(with_answers=False)
-    n, images = len(qs), len({q["image_id"] for q in qs})
-    nqa = sum(q["question_type"] != "Yes/No" for q in qs)
-    c, fr = ee.COST, HOLDOUT["fallback_rate"]
-    lines = {"perception, Haiku + re-run + scene fallback, per image": images * c["perception_haiku_fb"],
-             "parser, Sonnet, per question": n * c["parser"],
-             "answer writer, Haiku, rules share": n * (1 - fr) * c["writer"],
-             "answer fallback, Sonnet, fallback share": n * fr * c["fallback"],
-             "judge, Opus, Natural QA": nqa * c["judge"]}
-    total = sum(lines.values())
-    return {"questions": n, "images": images, "natural_qa": nqa,
-            "lines_usd": {k: round(v, 3) for k, v in lines.items()}, "total_usd": round(total, 2),
-            "holdout_rate_usd": round(n * HOLDOUT["usd_per_question"], 2),
-            "range_usd_pm50": [round(0.5 * total, 2), round(1.5 * total, 2)],
-            "minutes": round(n * HOLDOUT["seconds_per_question"] / 60)}
+def estimate(qs: list[dict] | None = None, decided_share: float = DECIDED_SHARE) -> dict[str, Any]:
+    """Counts only. With no questions given it uses EXPECTED and EXPECTED_TYPES (DESIGN.md), so
+    the private file is not read. Two figures: with the fallback off (rules only) and with it on
+    (the private run's default: every non-decided question gets a fallback answer, and every
+    Natural QA answer is judged)."""
+    if qs is not None:
+        n, images = len(qs), len({q["image_id"] for q in qs})
+        nqa = sum(q["question_type"] != "Yes/No" for q in qs)
+    else:
+        n, images, nqa = EXPECTED["questions"], EXPECTED["images"], EXPECTED_TYPES["Natural QA"]
+    r = RATES
+    off = {"perception, per image": images * r["perception_per_image"],
+           "parser v9, per question": n * r["parser_per_question"],
+           "writer, decided share": n * decided_share * r["writer_per_decided"],
+           "judge, decided Natural QA": nqa * decided_share * r["judge_per_answer"]}
+    on_extra = {"fallback answer, non-decided share": n * (1 - decided_share) * r["fallback_per_question"],
+                "judge, non-decided Natural QA": nqa * (1 - decided_share) * r["judge_per_answer"]}
+    t_off = sum(off.values()) * CALIBRATION
+    t_on = (sum(off.values()) + sum(on_extra.values())) * CALIBRATION
+    return {"questions": n, "images": images, "natural_qa": nqa, "decided_share_assumed": decided_share,
+            "rates_usd": r, "calibration": CALIBRATION,
+            "lines_usd": {k: round(v, 3) for k, v in {**off, **on_extra}.items()},
+            "total_usd": round(t_on, 2), "total_fallback_off_usd": round(t_off, 2),
+            "range_usd": [round(0.8 * t_on, 2), round(1.3 * t_on, 2)],
+            "range_fallback_off_usd": [round(0.8 * t_off, 2), round(1.3 * t_off, 2)],
+            "minutes": round(n * 17.4 / 60)}
 
 
 def main() -> None:
@@ -331,7 +398,8 @@ def main() -> None:
     r.add_argument("--max-spend", type=float, required=True)
     a = ap.parse_args()
     if a.cmd == "estimate":
-        print(json.dumps(estimate(), indent=2, ensure_ascii=False))
+        print(json.dumps({"at_validation_decided_share": estimate(),
+                          "at_dev_decided_share": estimate(decided_share=0.805)}, indent=2, ensure_ascii=False))
     else:
         run_private(a.max_spend, confirm_frozen=a.confirm_frozen)
 

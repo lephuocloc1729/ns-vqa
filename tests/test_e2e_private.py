@@ -219,7 +219,8 @@ def test_the_estimate_uses_counts_only():
            "question": "x"} for i in range(10)]
     e = ep.estimate(qs)
     assert (e["questions"], e["images"], e["natural_qa"]) == (10, 5, 5)
-    assert e["total_usd"] == round(sum(e["lines_usd"].values()), 2) > 0
+    # phase 4.6: the stage lines times the calibration to the final validation's measured total
+    assert abs(e["total_usd"] - sum(e["lines_usd"].values()) * ep.CALIBRATION) <= 0.01 and e["total_usd"] > 0
 
 
 # ---------------------------------------------------------------- features (hand-written questions)
@@ -268,3 +269,57 @@ def test_a_phase45_mismatch_is_refused_before_the_sentinel(fake_set, field, valu
     with pytest.raises(SystemExit, match="differs from the freeze record"):
         _run(fake_set, frozen=p)
     assert not (fake_set / "private_ran.json").exists()
+
+
+# ---------------------------------------------------------------- phase 4.6 step 2: rules-only figures, re-based estimate
+
+def _rec(img, qt, decided, correct, trigger=None):
+    return {"image_id": img, "question_type": qt, "decided": decided, "correct": correct, "strict": correct,
+            "trigger": trigger}
+
+
+DUPS = {"groups": [{"images": [{"split": "private", "image_id": "p1"}, {"split": "train", "image_id": "t9"}]},
+                   {"images": [{"split": "private", "image_id": "p2"}, {"split": "private", "image_id": "p3"}]}]}
+
+
+def test_rules_only_figures_count_non_decided_as_wrong_and_split_duplicates():
+    rs = [_rec("p1", "Yes/No", True, 1.0), _rec("p1", "Natural QA", True, 0.5),
+          _rec("p2", "Yes/No", False, 1.0, "out_of_scope"),           # the fallback's grade does not count
+          _rec("p3", "Natural QA", True, 0.0), _rec("p3", "Natural QA", False, None, "uncertain")]
+    ro = ep.rules_only(rs, DUPS)
+    assert (ro["questions"], ro["decided"]) == (5, 3)
+    assert ro["decided_coverage"] == 0.6 and ro["accuracy_on_decided"] == 0.5 and ro["overall_non_decided_wrong"] == 0.3
+    assert ro["not_decided_by_cause"] == {"out_of_scope": 1, "uncertain": 1}
+    assert ro["by_question_type"]["Yes/No"]["decided"] == 1 and ro["by_question_type"]["Natural QA"]["questions"] == 3
+    bi = ro["by_images"]
+    assert bi["against"] == ["public", "train"]
+    assert bi["duplicate_images"]["questions"] == 2                 # p1 is also in train; p2/p3 only private
+    nd = bi["non_duplicate_images"]
+    assert (nd["questions"], nd["decided"], nd["overall_non_decided_wrong"]) == (3, 1, 0.0)
+    for k in ("decided_coverage_ci95", "accuracy_on_decided_ci95", "overall_non_decided_wrong_ci95"):
+        assert len(nd[k]) == 2
+
+
+def test_the_run_report_carries_the_rules_only_figures(fake_set):
+    rep = json.loads(_run(fake_set)[0].read_text())
+    ro = rep["rules_only"]
+    assert ro["questions"] == 2 and "non_duplicate_images" in ro["by_images"]
+    assert ro["decided"] + sum(ro["not_decided_by_cause"].values()) == 2
+
+
+def test_the_estimate_reads_no_private_file_by_default(monkeypatch):
+    def refuse(*a, **k):
+        raise AssertionError("the estimate must not read the private file")
+    monkeypatch.setattr(ep, "load_questions", refuse)
+    e = ep.estimate()
+    assert (e["questions"], e["images"], e["natural_qa"]) == (146, 104, 76)
+    assert e["total_fallback_off_usd"] < e["total_usd"]
+    assert ep.estimate(decided_share=0.8)["total_usd"] < e["total_usd"]    # fewer fallback answers
+
+
+def test_the_estimate_is_calibrated_to_the_final_validation():
+    """The stage rates times CALIBRATION give the final validation's measured $0.83 (fallback off)."""
+    qs = [{"id": f"q{i}", "image_id": f"i{i % 54}", "question_type": "Natural QA" if i < 57 else "Yes/No"}
+          for i in range(110)]
+    e = ep.estimate(qs, decided_share=52 / 110)
+    assert abs(e["total_fallback_off_usd"] - 0.83) <= 0.06
