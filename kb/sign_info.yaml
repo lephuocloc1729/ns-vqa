@@ -22,12 +22,16 @@ conduct_vi:
   yield_from_left: "nhường đường cho xe đi đến từ bên trái"
   stop_before_the_sign_or_line: "dừng lại trước biển hoặc trước vạch dừng, kể cả xe ưu tiên; chỉ đi khi an toàn hoặc có tín hiệu cho phép"
   pickup_point: "không dừng, đỗ xe tại điểm đón, trả khách (trừ xe buýt)"
+  watch_oncoming_traffic: "chú ý quan sát giao thông ngược chiều; xe đi ở chiều đường bị thu hẹp phải nhường đường cho xe đi ngược chiều"
 
 # The rule each conduct source rests on (cited next to the sign's own article).
 conduct_rule:
-  warning: {law_id: "QCVN 41:2024/BGTVT", article_id: "27"}     # "phải giảm tốc độ đến mức cần thiết, chú ý quan sát và chuẩn bị sẵn sàng xử lý"
-  mandatory: {law_id: "QCVN 41:2024/BGTVT", article_id: "32"}   # biển hiệu lệnh: "phải chấp hành"
-  prohibitory: {law_id: "QCVN 41:2024/BGTVT", article_id: "22"}
+  warning: {law_id: "QCVN 41:2024/BGTVT", article_id: "27"}     # "phải giảm tốc độ đến mức cần thiết, chú ý quan sát và chuẩn bị sẵn sàng xử lý những tình huống có thể xẩy ra"
+  mandatory: {law_id: "QCVN 41:2024/BGTVT", article_id: "31"}   # "các điều bắt buộc phải chấp hành"
+  prohibitory: {law_id: "QCVN 41:2024/BGTVT", article_id: "21"} # "phải chấp hành những điều cấm mà biển đã báo"
+
+# Art. 27 applies to every warning sign; a warning row with no conduct items of its own gets these.
+warning_default: [reduce_speed, observe, be_ready]
 
 # Verbs for "không được ..." from a prohibitory sign's banned actions.
 action_vi:

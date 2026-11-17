@@ -14,7 +14,13 @@ Grades:
   else it is listed as ungraded and left out of accuracy (and counted wrong in overall).
   A paid dev run with the judge confirms them later.
 
-    .venv/bin/python eval/dev_replay.py [--label step] [--changed]
+    .venv/bin/python eval/dev_replay.py [--label step] [--changed] [--programs FILE] [--scenes FILE]
+
+`--programs` (phase 4.5 stage B): a local JSON file {question id: QueryProgram} of hand-written
+programs in the form parser v7 is meant to produce, used in place of the stored parse for those
+ids. Indicative only (they are not parses); the stored-parse replay stays the guardrail.
+`--scenes`: a local JSON file {question id: {"guide_boards": [...]}} merged into the stored
+scenes (B6 board readings from the guide trial), also indicative.
 """
 
 from __future__ import annotations
@@ -62,7 +68,8 @@ def stored_decision(rec: dict) -> str:
     return hashlib.sha256(json.dumps(v, sort_keys=True, default=str, ensure_ascii=False).encode()).hexdigest()[:12]
 
 
-def replay(engine=None, dev_run: Path = DEV_RUN, provisional: Path = PROVISIONAL) -> dict[str, Any]:
+def replay(engine=None, dev_run: Path = DEV_RUN, provisional: Path = PROVISIONAL,
+           programs: dict[str, Any] | None = None, scenes: dict[str, Any] | None = None) -> dict[str, Any]:
     from vqa.answer.fallback import trigger
     from vqa.reasoning.engine import Engine, EngineError
     from vqa.schemas import QueryProgram, SceneGraph
@@ -74,8 +81,13 @@ def replay(engine=None, dev_run: Path = DEV_RUN, provisional: Path = PROVISIONAL
     out_rows, n_dec, right, graded, ungraded, changed = [], 0, 0.0, 0, [], []
     for r in rows:
         p = (r["trace"].get("parser") or {})
+        if programs and r["id"] in programs:
+            p = {"status": "ok", "program": programs[r["id"]]}
         prog = QueryProgram.model_validate(p["program"]) if p.get("program") else None
-        scene = SceneGraph.model_validate(r["scene"]) if r.get("scene") else None
+        sd = r.get("scene")
+        if sd and scenes and r["id"] in scenes:
+            sd = {**sd, **scenes[r["id"]]}
+        scene = SceneGraph.model_validate(sd) if sd else None
         ans, err = None, False
         if scene is not None and p.get("status") == "ok":
             try:
@@ -121,8 +133,11 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--label", default="")
     ap.add_argument("--changed", action="store_true")
+    ap.add_argument("--programs", type=Path)
+    ap.add_argument("--scenes", type=Path)
     a = ap.parse_args()
-    rep = replay()
+    load = lambda f: json.loads(f.read_text(encoding="utf-8")) if f else None  # noqa: E731
+    rep = replay(programs=load(a.programs), scenes=load(a.scenes))
     head = {k: v for k, v in rep.items() if k != "changed"}
     print(json.dumps({"label": a.label, **head, "changed_count": len(rep["changed"])}, ensure_ascii=False, default=str))
     if a.changed:

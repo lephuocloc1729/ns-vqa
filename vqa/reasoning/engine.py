@@ -14,7 +14,7 @@ from typing import Any
 
 from vqa.kb import KB_DIR, Catalog, load_catalog
 from vqa.reasoning import explain
-from vqa.reasoning.facts import reading_variants, scene_facts
+from vqa.reasoning.facts import board_read, reading_variants, scene_facts
 from vqa.reasoning.terms import Term, atom, to_prolog, vehicle_term
 from vqa.parsing.dsl import normalize
 from vqa.schemas import (
@@ -486,14 +486,17 @@ class Engine:
                           note="no readable sign in the scene matches the selector")
         entries = [(i, self.catalog.get(scene.sign(i).code)) for i in readable]
         if p.aspect == "group":
+            # Decided when every readable selected sign falls in one art. 11 group; unreadable
+            # candidates are dropped and listed, as for single-sign questions (Engine.single_sign).
+            # Alternative readings are handled by Engine.answer (one run per reading).
             groups = {sign_group_vi(e.code) for _, e in entries}
-            if len(groups) != 1 or unread:
+            if len(groups) != 1 or None in groups:
                 return Answer(verdict=Verdict.unknown, value={"groups": sorted(g for g in groups if g)},
                               uncertain_signs=unread,
-                              note="the selected signs are not all in one group" if len(groups) != 1
-                              else "a selected sign could not be read")
-            return Answer(verdict=Verdict.value, value={"group_vi": groups.pop()},
-                          citations=[si.ART11] + [e.source for _, e in entries])
+                              note="the selected signs are not all in one group")
+            return Answer(verdict=Verdict.value, value={"group": groups.pop()},
+                          citations=[si.ART11] + list({e.source.article_id: e.source for _, e in entries}.values()),
+                          uncertain_signs=unread)
         out, cites = [], []
         for i, e in entries:
             if p.aspect == "conduct":
@@ -507,7 +510,9 @@ class Engine:
                     text = hit[0]
                     s = scene.sign(i)
                     if p.aspect == "scope":
-                        d = next((pl.distance_m for pl in s.plates if pl.distance_m and (pl.code == "S.501" or pl.kind.value == "distance")), None)
+                        # S.501 (F.1) gives the length of the section; S.502 is the distance
+                        # to it, not the scope, so only S.501 counts here.
+                        d = next((pl.distance_m for pl in s.plates if pl.distance_m and pl.code == "S.501"), None)
                         if d:
                             text += f"; biển phụ S.501 ghi phạm vi {d:g} m"
                             cites.append(si.F1)
@@ -516,32 +521,43 @@ class Engine:
         if not out:
             return Answer(verdict=Verdict.unknown, uncertain_signs=unread,
                           note=f"no {p.aspect} rule for the selected signs")
+        cites = list({(c.law_id, c.article_id): c for c in cites}.values())
         return Answer(verdict=Verdict.value, value={p.aspect: out}, citations=cites, uncertain_signs=unread)
 
     def _present(self, scene: SceneGraph, p: Present) -> Answer:
-        """Closed world over the readable signs; an unread sign whose look could be the target
-        makes a "no" unknown."""
+        """Is a sign of this code / meaning / category in the photo? Closed world over the
+        readable signs (a sign counts by its own code, so P.124a does not stand for P.124b even
+        where they share a family row). An unread sign whose look could be the target makes a
+        "no" unknown. Alternative readings run through Engine.answer."""
         try:
             if p.code:
-                rows = {self.catalog.get(c).code for c in self.catalog.codes_matching(p.code)}
+                self.catalog.codes_matching(p.code)            # unknown codes are an error
+                match = lambda s: self.catalog.code_selects(p.code, s.code)  # noqa: E731
+                rows = [self.catalog.get(c) for c in self.catalog.codes_matching(p.code)]
             elif p.meaning:
-                rows = {self.catalog.get(c).code for c in self.catalog.codes_for_meaning(p.meaning)}
+                codes = set(self.catalog.codes_for_meaning(p.meaning))
+                match = lambda s: self.catalog.has(s.code) and self.catalog.get(s.code).code in codes  # noqa: E731
+                rows = [self.catalog.get(c) for c in codes]
             else:
-                rows = {s.code for s in self.catalog.signs if s.category == p.category}
+                cat = p.category.value if hasattr(p.category, "value") else p.category
+                match = lambda s: self.catalog.has(s.code) and self.catalog.get(s.code).category == cat  # noqa: E731
+                rows = [s for s in self.catalog.signs if s.category == cat]
         except KeyError as e:
             raise EngineError(str(e)) from None
-        hits = [s for s in scene.signs if self.catalog.has(s.code) and self.catalog.get(s.code).code in rows]
+        hits = [s for s in scene.signs if match(s)]
         if hits:
             return Answer(verdict=Verdict.yes, value={"signs": [s.id for s in hits]},
-                          citations=[self.catalog.get(hits[0].code).source])
-        looks = {self.category_of(self.catalog.get(c).visual.shape, self.catalog.get(c).visual.border,
-                                  self.catalog.get(c).visual.background) for c in rows}
-        maybe = [s.id for s in scene.signs if s.id in self.unreadable_signs(scene)
+                          citations=list({self.catalog.get(s.code).source.article_id: self.catalog.get(s.code).source
+                                          for s in hits}.values()))
+        looks = {self.category_of(r.visual.shape, r.visual.border, r.visual.background) for r in rows}
+        unread = set(self.unreadable_signs(scene))
+        maybe = [s.id for s in scene.signs if s.id in unread
                  and (self.visual_category(s) == "unknown" or self.visual_category(s) in looks)]
         if maybe:
             return Answer(verdict=Verdict.unknown, uncertain_signs=maybe,
                           note="a sign that could not be read might be it")
-        return Answer(verdict=Verdict.no, value={"signs": []})
+        return Answer(verdict=Verdict.no, value={"signs": []},
+                      citations=list({r.source.article_id: r.source for r in rows}.values())[:3])
 
     def _guide(self, scene: SceneGraph, p: Guide) -> Answer:
         """What a guide board says (B6). Read from the board data; no legal conclusion."""
@@ -953,13 +969,6 @@ _GROUPS_VI = [("DP.", "biển báo cấm"), ("IE.", "biển chỉ dẫn"), ("P."
 def sign_group_vi(code: str) -> str | None:
     """The art. 11 group name of a catalog code (phase 4.5 rank 1)."""
     return next((name for pre, name in _GROUPS_VI if code.startswith(pre)), None)
-
-
-def board_read(sign) -> bool:
-    """A rectangular, non-red board: its content is what the guide-board call reads."""
-    shape = getattr(sign.shape, "value", sign.shape)
-    colours = {getattr(sign.border, "value", sign.border), getattr(sign.background, "value", sign.background)}
-    return shape in ("rectangle", "square") and "red" not in colours
 
 
 def scene_lane_count(scene: SceneGraph) -> int | None:

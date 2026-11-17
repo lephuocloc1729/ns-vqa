@@ -8,6 +8,14 @@ from vqa.kb import Catalog, code_atom
 from vqa.reasoning.terms import Term, atom, cond_term, spec_term
 from vqa.schemas import Confidence, PlateKind, SceneGraph, Sign
 
+
+def board_read(sign) -> bool:
+    """A rectangular, non-red board: its content is what the guide-board call reads (B6).
+    Once a scene has `guide_boards`, such a board is no longer an unread sign."""
+    shape = getattr(sign.shape, "value", sign.shape)
+    colours = {getattr(sign.border, "value", sign.border), getattr(sign.background, "value", sign.background)}
+    return shape in ("rectangle", "square") and "red" not in colours
+
 UNKNOWN_CODE = "UNKNOWN"
 
 
@@ -116,7 +124,6 @@ def scene_facts(scene: SceneGraph, catalog: Catalog,
         # road-type defaults (kb/rules/zones.pl) don't stand in for a limit it might post.
         # A warning triangle can't post a speed limit, so it is left out.
         if not catalog.has(sign.code) and getattr(sign.shape, "value", None) not in ("triangle",):
-            from vqa.reasoning.engine import board_read
             if not (scene.guide_boards and board_read(sign)):      # B6: a board the guide call read
                 out.append(Term("unread_sign", atom(sign.id)))
     if scene.road.divided is not None:

@@ -55,20 +55,31 @@ def lookup(kind: str, code: str, category: str) -> tuple[str, Citation] | None:
 
 
 def conduct_items(entry, catalog: Catalog) -> tuple[list[str], list[Citation]]:
-    """What a catalog row requires of the driver, in Vietnamese, with the rules it rests on."""
+    """What a catalog row requires of the driver, in Vietnamese, with the rules it rests on:
+    the row's own conduct items (F5), its banned actions (with the vehicles they cover), its
+    allowed directions and speed limits, then the group's general rule (art. 21, 27, 31).
+    Every item restates catalog data; no permission is decided here."""
+    from vqa.answer.template import VEHICLE_VI
+
     data, e = info(), entry.effect
     items, cites = [], [entry.source]
-    items += [data["conduct_vi"].get(c, c) for c in e.conduct]
-    if e.prohibits:
-        acts = sorted({a.value for p in e.prohibits for a in p.actions})
-        items.append("không được " + ", ".join(data["action_vi"].get(a, a) for a in acts))
+    conduct = list(e.conduct)
+    if not conduct and entry.category == "warning":
+        conduct = list(data["warning_default"])          # art. 27 covers every warning sign
+    items += [data["conduct_vi"].get(c, c) for c in conduct]
+    for p in e.prohibits:
+        acts = ", ".join(data["action_vi"].get(a.value, a.value) for a in p.actions)
+        who = [VEHICLE_VI.get(v.cls.value, v.cls.value) for v in p.vehicles if v.cls.value != "vehicle"]
+        line = (", ".join(who) + " không được " if who else "không được ") + acts
+        if line not in items:
+            items.append(line)
     if e.only_directions:
         items.append("chỉ được " + ", ".join(data["action_vi"].get(a, a) for a in e.only_directions))
     if e.max_speed:
         items.append("không chạy quá tốc độ ghi trên biển")
     if e.min_speed:
         items.append("không chạy chậm hơn tốc độ ghi trên biển")
-    rule = data["conduct_rule"].get(entry.category if entry.category != "end_of_restriction" else "", None)
+    rule = data["conduct_rule"].get(entry.category)
     if items and rule:
         cites.append(_cite(rule))
     return items, cites

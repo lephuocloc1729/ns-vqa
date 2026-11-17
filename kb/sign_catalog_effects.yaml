@@ -37,8 +37,8 @@ effects:
   - code: W.227         # C.27: "tốc độ xe chạy phải giảm cho thích hợp, không gây nguy hiểm cho người và máy móc"
     effect: {conduct: [reduce_speed, observe, be_ready, mind_workers_and_machines]}
     effect_reviewed_by: assistant
-  - code: W.203(a,b,c)
-    effect: {conduct: [reduce_speed, observe, be_ready]}
+  - code: W.203(a,b,c)  # C.3 d): "người tham gia giao thông phải chú ý quan sát giao thông ngược chiều. Xe đi ở chiều đường bị thu hẹp phải nhường đường cho xe đi ngược chiều"
+    effect: {conduct: [reduce_speed, observe, be_ready, watch_oncoming_traffic]}
     effect_reviewed_by: assistant
   - code: W.224         # C.24: "các xe phải giảm tốc độ, nhường ưu tiên cho người đi bộ"
     effect: {conduct: [reduce_speed, yield_to_pedestrians, observe, be_ready]}
