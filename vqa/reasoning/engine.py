@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime as dt
 import itertools
+from pathlib import Path
 from typing import Any
 
 from vqa.kb import KB_DIR, Catalog, load_catalog
@@ -101,6 +102,16 @@ def _fmt_min(m: int) -> str:
 READING_POLICIES = ("all", "higher_confidence")
 
 
+V6_FIELDS = ("signals", "markings", "arrows")   # phase 4.7: switchable scene v6 fields
+
+
+def v6_fields_off_from_kb() -> tuple[str, ...]:
+    """The scene v6 fields the owner switched off (kb/v6_fields_47.yaml)."""
+    import yaml
+    path = Path(__file__).resolve().parents[2] / "kb" / "v6_fields_47.yaml"
+    return tuple((yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("off") or [])
+
+
 class Engine:
     """`reading_policy` (phase 4.6, D1): what to do when alternative sign readings disagree.
     "all" (the default, the frozen phase-4.5 behaviour): the verdict is `uncertain`.
@@ -108,12 +119,32 @@ class Engine:
     keeps the first reading); the answer lists those signs in `uncertain_signs`, says which
     reading it used in `note`, and carries `basis: ["reading_choice"]`."""
 
-    def __init__(self, catalog: Catalog | None = None, reading_policy: str = "all") -> None:
+    def __init__(self, catalog: Catalog | None = None, reading_policy: str = "all",
+                 v6_fields_off: tuple[str, ...] | None = None) -> None:
         if reading_policy not in READING_POLICIES:
             raise ValueError(f"reading_policy must be one of {READING_POLICIES}")
+        # phase 4.7: scene v6 fields switched off (kb/v6_fields_47.yaml unless given); their facts
+        # are dropped, so their rules give unknown
+        off = tuple(v6_fields_off) if v6_fields_off is not None else v6_fields_off_from_kb()
+        if set(off) - set(V6_FIELDS):
+            raise ValueError(f"v6_fields_off must be among {V6_FIELDS}")
+        self.v6_fields_off = off
         self.catalog = catalog or load_catalog()
         self.reading_policy = reading_policy
         _load_kb(self.catalog)
+
+    def _strip_v6(self, scene: SceneGraph) -> SceneGraph:
+        if not self.v6_fields_off:
+            return scene
+        upd: dict[str, Any] = {}
+        if "signals" in self.v6_fields_off and scene.signals:
+            upd["signals"] = []
+        if "markings" in self.v6_fields_off and scene.road.markings:
+            upd["road"] = scene.road.model_copy(update={"markings": []})
+        if "arrows" in self.v6_fields_off and any(r.directions for s in scene.signs for r in s.lanes):
+            upd["signs"] = [s.model_copy(update={"lanes": [r.model_copy(update={"directions": []}) for r in s.lanes]})
+                            for s in scene.signs]
+        return scene.model_copy(update=upd) if upd else scene
 
     # ------------------------------------------------------------------ low level
     def load_scene(self, scene: SceneGraph, selection: list[str] | None = None) -> None:
@@ -196,6 +227,7 @@ class Engine:
 
     # ------------------------------------------------------------------ entry point
     def answer(self, scene: SceneGraph, query: QueryProgram | Program) -> Answer:
+        scene = self._strip_v6(scene)
         if isinstance(query, QueryProgram) and query.out_of_scope:
             return Answer(verdict=Verdict.unknown, note="out of scope for the rules: "
                           + (query.out_of_scope_reason or "no DSL intent fits"))
