@@ -157,3 +157,27 @@ def test_v6_prompts_are_new_versions_and_v5_is_unchanged():
     cat = load_catalog()
     assert [s.code for s in listed_signs(cat, "scene", "v6")] == [s.code for s in listed_signs(cat, "scene", "v5")]
     json.dumps(scene_prompt.examples("v6"))
+
+
+def test_a_light_question_without_a_light_read_is_unknown(engine):
+    """"Gặp đèn tín hiệu như trong ảnh, xe có được đi tiếp không?" on a scene where perception read
+    no light: art. 6 makes passing depend on the light, so the signs alone give no yes."""
+    no_light = SceneGraph(scene_id="x", signs=[])
+    a = engine.answer(no_light, RulePermitted(action="go_straight", at_signal=True))
+    assert a.verdict is Verdict.unknown and "6" in arts(a) and "traffic light" in a.note
+    # only a pedestrian lamp read: still no vehicle light
+    ped = L(TrafficSignal(kind="pedestrian", colour="green"))
+    assert engine.answer(ped, RulePermitted(action="go_straight", at_signal=True)).verdict is Verdict.unknown
+    # with the light read, the light decides as before
+    assert engine.answer(L(TrafficSignal(colour="green")),
+                         RulePermitted(action="go_straight", at_signal=True)).verdict is Verdict.yes
+    assert engine.answer(L(TrafficSignal(colour="red")),
+                         RulePermitted(action="go_straight", at_signal=True)).verdict is Verdict.no
+    # without the flag the old behaviour stays (signs only)
+    assert engine.answer(no_light, RulePermitted(action="go_straight")).verdict is Verdict.yes
+
+
+def test_the_wire_carries_at_signal():
+    from vqa.parsing.wire import from_wire, to_query
+    q = to_query(from_wire({"program": {"intent": "rule_permitted", "action": "go_straight", "at_signal": True}}), 2025)
+    assert q.program.at_signal is True

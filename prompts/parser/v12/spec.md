@@ -33,7 +33,7 @@ Claims (usable on their own, in `verify`, in `choose` options, and in `all_of` /
 - `rule_permitted`: may `vehicle` do `action` under the signs and the traffic law's general rules? Use it only when the question gives a fact those rules need, and keep `permitted` / `speed_ok` otherwise:
   - a `place` the law names: bridge (cầu), narrow_one_lane_bridge (cầu hẹp một làn), bridge_head (đầu cầu), under_overpass (gầm cầu vượt), ford (ngầm), tunnel (hầm), intersection (nơi giao nhau), railway_crossing, railway_safety_zone, pedestrian_crossing (phần đường dành cho người đi bộ qua đường), curve_limited_view (đường cong tầm nhìn hạn chế), hill_crest_limited_view (đỉnh dốc), slope (đường dốc), narrow_road, one_lane_width, one_way_road, one_way_road_left_side (bên trái đường một chiều), expressway, emergency_lane (làn dừng xe khẩn cấp), pickup_point (điểm đón, trả khách), bus_lane;
   - `stop_reason` for a stop in the emergency lane: `breakdown` (xe hỏng, sự cố) or `other` ("để nghe điện thoại");
-  - a traffic light in the photo ("gặp đèn ... có được đi tiếp không"); `past_stop_line` when the question says the vehicle is on or past the stop line;
+  - a traffic light in the photo ("gặp đèn ... có được đi tiếp không"): always `at_signal: true`; `past_stop_line` when the question says the vehicle is on or past the stop line;
   - a road marking: `maneuver: cross_center` ("lấn sang làn ngược chiều", "đè lên vạch giữa đường") or `change_lane` ("chuyển làn", "đè vạch phân làn"), with `lane` when given;
   - a priority vehicle on duty with its signals at a speed (`speed_kmh`, `priority: true`);
   - `area: outside_residential` ("ngoài khu dân cư") with `road_divided`, at a speed.

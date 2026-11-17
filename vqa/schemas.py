@@ -789,6 +789,9 @@ class RulePermitted(_Model):
     # already on or past the stop line (art. 6.3.2)
     maneuver: Literal["cross_center", "change_lane"] | None = None
     past_stop_line: bool | None = None
+    # the question asks about passing a traffic light ("gặp đèn tín hiệu ... có được đi tiếp không"):
+    # with no light read in the photo the answer is unknown, never a yes from the signs alone (art. 6)
+    at_signal: bool = False
 
 
 DutyTopic = Literal["speed_and_distance", "lane_change", "overtaking", "turning", "stopping_parking",

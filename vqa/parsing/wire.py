@@ -242,6 +242,7 @@ class WRulePermitted(_W):                    # phase 4.7 step 1c
     stop_reason: Optional[Literal["breakdown", "other"]] = None
     maneuver: Optional[Literal["cross_center", "change_lane"]] = None
     past_stop_line: Optional[bool] = None
+    at_signal: Optional[bool] = None
 
 
 class WDuties(_W):                           # phase 4.7 step 1c

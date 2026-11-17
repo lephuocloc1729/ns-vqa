@@ -1644,6 +1644,14 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 - **Verification:** 2,070 tests pass with the CLI checks included. Each step was committed only after the full suite and the baseline replay passed.
 - **Next action belongs to the owner:** review the findings and approve the paid sequence. No phase-4.7 freeze, validation or private run was performed.
 
+### Phase 4.7: light questions without a light read (2026-11-17; no API calls)
+
+- **Fix** (owner's yes, before the v12 gate): `rule_permitted.at_signal`.
+  - With the flag set and no vehicle light read, the answer is unknown, citing art. 6. Before, it could be a "yes" from the signs alone.
+  - Parser v12's spec sets `at_signal: true` for every light question, so the v12 prompt id changes; no gate has run yet.
+- **Replay:** 88/88 decided identical. The hand-program replay is also 88 decided; dev 341 is now unknown.
+- **Next:** the paid checks in `docs/plans/phase-4.7-review.md`, in order: the v12 gate, then the v6 set-T check, then the judged dev run. If the v6 set-T check fails, run the dev run with `--scene-version v5 --parser-version v12`.
+
 ### Handoff (2026-11-17, later): phase 4.7 step 1 done; step 2 in progress (no API calls)
 
 - **Built and committed:**

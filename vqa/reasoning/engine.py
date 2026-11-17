@@ -816,6 +816,11 @@ class Engine:
             out = self.call(Term("q_v6", Term("light", atom(p.action.value), veh, past)))
             if out["verdict"] != "none":
                 parts.append((out["verdict"], [_reason(r) for r in out["reasons"]], "art. 6 lights"))
+            elif p.at_signal:
+                parts.append(("unknown", [], "art. 6 lights: no vehicle light read"))
+        elif p.at_signal and p.maneuver is None and p.speed_kmh is None:
+            # art. 6: passing a light depends on the light; none was read, so no yes from signs alone
+            parts.append(("unknown", [], "art. 6 lights: no light read"))
         if p.maneuver is not None:                                           # scene v6: G.1
             self.load_scene(scene)
             out = self.call(Term("q_v6", Term("marking", atom(p.maneuver), lane if lane is not None else atom("none"))))
@@ -831,8 +836,13 @@ class Engine:
             art = {"overtake": "14", "u_turn": "15", "stop": "18", "park": "18"}.get(p.action.value)
             if art:
                 cites = [Citation(law_id="36/2024/QH15", article_id=art)]
+        no_light = verdict is Verdict.unknown and any(w.startswith("art. 6 lights: no") for _, _, w in parts)
+        if no_light:
+            cites = cites or [Citation(law_id="QCVN 41:2024/BGTVT", article_id="6")]
         return Answer(verdict=verdict, value={"parts": [{"what": w, "verdict": v} for v, _, w in parts]},
-                      reasons=support, citations=cites, basis=_basis(support))
+                      reasons=support, citations=cites, basis=_basis(support),
+                      note="the question is about a traffic light, and none was read in the photo" if no_light
+                      else None)
 
     def _v6_meaning(self, scene: SceneGraph, p) -> Answer:
         """Scene v6: lights (art. 6) and markings (G.1, G.2) in the photo, from

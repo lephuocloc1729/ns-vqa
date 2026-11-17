@@ -4,11 +4,11 @@
 
 The matrix currently has **700 modelled, 18 to build, 432 not applicable and 8 out** (1,158 cells). Rebuilding the matrix after hand-program replay adds zero structural cells. Against the first committed matrix with the same 1,158-cell layout (`7aaa800`, 536 modelled), the step-1 implementation and classifications add a net 164 modelled cells. The column deltas are identity/meaning/group +3, applicability +79, permission +9, speed +2, lane +5, scope +27, placement +2, conduct +35, compound/explain +1 and counting/presence +1. Other columns have zero net change. These are capability classifications; some changes reclassify previously inapplicable cells. The free replay tests whether those capabilities are exercised on stored scenes.
 
-The ordinary replay preserves all 88 decided answers from baseline `464c1f8`. With the wire programs below it again preserves all 88 (verdict, value and citations). Of 107 total cases, 89 return a decided verdict, but **zero additional matrix cells have a newly verified decision on the cached scenes**.
+The ordinary replay preserves all 88 decided answers from baseline `464c1f8`. With the wire programs below it again preserves all 88 (verdict, value and citations). Of 107 total cases, 88 return a decided verdict after the `at_signal` fix (89 before it), and **zero additional matrix cells have a newly verified decision on the cached scenes**.
 
 | Matrix cell or form checked | Cached evidence |
 |---|---|
-| T8 traffic lights × permitted | The additional yes came from the sign-permission branch alone. The v5 scene had no signals, the answer had no article 6 citation and no light reason. This result cannot establish permission at the light. See the missing-signal issue below. |
+| T8 traffic lights × permitted | Before the `at_signal` fix the additional yes came from the sign-permission branch alone (no light in the v5 scene). With `at_signal: true` the answer is unknown, as art. 6 requires. See the missing-signal issue below. |
 | T9 road markings × identity/meaning and permission | The solid-line separation and centre-line crossing programs validate. Neither D3 image has a cached scene for this replay. |
 | R.303 × applicability and compound; counting × presence | The combined roundabout/vehicle-class claim and the two category-count claims validate. Both D3 questions are also v12 examples and neither has a cached scene. They supply no independent accuracy evidence. |
 | T6 priority vehicles × speed | The on-duty speed claim validates. Both named vehicles share the priority class. The local program uses 51 as a representative point above 50. Its D3 scene is unavailable. |
@@ -57,7 +57,7 @@ The three YAML files carry file-level `reviewed_by: assistant`. The Prolog files
 
 **Generated suite:** two failing cases on one catalog row, P.106b × tractor and P.106b × special machine. The B.6 row restricts the truck load condition through `effect.value.applies_to`. The test had applied it to both other classes. Restricting the oracle to the listed classes and subclasses resolves both cases. All 784 cases pass, zero catalog or rule changes, zero entries in `KNOWN_DIFFERENCES`. This establishes agreement with the tested catalog effects, not a human legal audit.
 
-**Missing-signal issue in the already committed 4.7 path:** QCVN art. 6 makes passage depend on the signal. A question explicitly asking whether one may proceed at a light can return yes from signs alone when the signal is absent from the stored scene. The v12 wire form has no field marking a signal as required and `vqa/reasoning/engine.py:812` checks light rules only if signals are present. The free replay reproduced this. Owner decision needed before changing this committed behaviour; an additive signal-specific claim could preserve previous programs.
+**Missing-signal issue (fixed, owner 2026-11-17, before the v12 gate):** QCVN art. 6 makes passage depend on the signal, but a light question could return yes from the signs alone when perception read no light. `rule_permitted` now has `at_signal`. With it set and no vehicle light read, the answer is unknown, citing art. 6 with the note "the question is about a traffic light, and none was read in the photo". With a light read, the light decides as before. Without the flag, behaviour is unchanged. Parser v12's spec says to set `at_signal: true` for every light question. Hand-program replay: dev 341 is now unknown, not yes, so decided stays 88 of 107, all 88 identical.
 
 ## Not built
 
