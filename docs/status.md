@@ -1400,6 +1400,14 @@ Run `5c9251f5f207`, 15:47–16:25 UTC, at commit `2e1ff41`, with `eval/frozen_ph
 - **`law_db` has no article for speed limits by road type,** so those questions stay out.
 - **Proposed** (`docs/plans/phase-4.5.md` section 10, awaiting approval): ranks 1–8 (accuracy, expressway, selector and lane fixes; parser v7; sign group; conduct + STOP; presence; scope and placement), about $2.55 and 8.5 days, projected dev coverage about 58%; rank 9 (guide-sign content) only past a stopping point.
 
+### Phase 4.5: coverage first; stage A proposal (owner, 2026-11-17; no API calls)
+
+- **Priorities changed** (`phase-4.5.md` section 11): keep a change if dev overall doesn't drop and accuracy on decided stays ≥ 70%. Success = final validation coverage and overall outside the baseline's CI, accuracy reported. CLAUDE.md gains the knowledge-based-rule exception.
+- **Stage A, step 1** (`eval/sign_popularity.py`, train only): of the 80 most popular codes, 38 modelled, 37 meaning-only, 4 effect_unmodelled, 1 missing (R.415). Train text names codes almost never; the ranking rests on gold and perception readings.
+- **Steps 2–4 proposed** (`docs/plans/phase-4.5-stageA-signs.md`, awaiting the owner's OK): family templates F3–F7 (new effect keys `zone`, `conduct`, `permits`, `pass_side`, `yield_from`, `informational`), rows R.415(a,b), R.122, S.501; 7 knowledge-based rules (KB-1–KB-7) plus an optional KB-8.
+- **Two findings:** speed limits by road type come from Circular 38/2024, outside the allowed sources, so they stay out. The approved rank-1 item "P.127 covers every vehicle" contradicts QCVN 41 B.27 (motor vehicles only); the proposal replaces it with a parser v7 fix in stage B.
+- Round spend unchanged: $0.61 of $5.
+
 ## Next steps, in order
 
 **Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Phase 4 closed (2026-11-16; closing entry above).** Phase 5 plan approved (2026-11-16). **Next: the one private-test run** (`eval/e2e_private.py run --confirm-frozen --max-spend 3`), on the owner's go-ahead on its $1.83 estimate.

@@ -262,3 +262,28 @@ Free engine, selector and KB fixes come first. Each is checked by an engine-only
 | rank 9, if it goes ahead: scene v5 guide runs on set T and dev, 2 iterations | about $0.80 more ($3.96 of $5) |
 
 **Time:** ranks 1–8 about 8.5 days; rank 9 about 3.5 more.
+
+## 11. Change of priorities: coverage first (owner, 2026-11-17)
+
+**This replaces section 10's ranking and the 85% guardrail.**
+
+- **Guardrail:** a change is kept if dev overall (non-decided = wrong) doesn't drop and dev accuracy on decided stays ≥ 70%. Accuracy on decided is reported every time.
+- **Success criterion:** the final validation's decided coverage and overall are clearly above the baseline (outside its 95% CI: coverage above 39.1%, overall above 30.4%). Accuracy on decided is reported. The 80% / 70% targets are reported as met or missed. This replaces the section-9 criterion's "accuracy on decided ≥ 85%".
+- **Dev stays at 87 questions.** The round's hard budget stays **$5** ($0.61 spent).
+
+**Stage A (free, no API):**
+1. Choose the 80 most popular sign codes from train only (never private). Count each code in train question and answer text (the validation set's questions excluded), in set-T gold labels, and in perception's readings of train images in stored runs. List the 80 with their counts and the train questions each touches, and whether each has a modelled effect, is effect_unmodelled or meaning-only, or is missing from the catalog.
+2. Give each of the 80 a modelled effect, using family templates where possible (prohibitory bans and limits, mandatory directions and lanes, warning conduct, end of restriction, information and expressway). Add missing rows.
+3. **Sources (CLAUDE.md exception):** a rule cites its `law_db` article when one exists, follows its wording, and quotes it where the effect depends on a phrase. With no article, a rule may come from knowledge of current Vietnamese traffic law (QCVN 41:2024/BGTVT and Law 36/2024/QH15 only), marked `law_id: interpretation` with a `basis` note naming the law and article believed. It is shown in proofs and never counted as a law citation, and it never contradicts a `law_db` article. Every knowledge-based rule is listed separately for review first. New and changed rows are `reviewed_by: assistant`.
+4. **Before writing them all:** the 80-sign list, the family templates and the proposed knowledge-based rules go to the owner. **Stop for the owner's OK.**
+5. After the OK, build:
+   - the templates and rows for the 80 signs;
+   - rank 1, the accuracy fixes (`choose` with unknown options → unknown; R.411 without lane rows → unknown; P.127 covers every vehicle; group names follow art. 11);
+   - rank 2, the expressway rules (Law 36 art. 25);
+   - rank 3, the selector and lane-count fixes.
+
+   Tests go per family template and per fix, on hand-made scenes modelled on train, with no cuts.
+6. Engine-only replay on the dev parses (free): before and after each step; which gains need no parser change; what the catalog change requires (scene prompt v5, parser hash: set-T check, dev re-perception) and its cost.
+7. Record, commit, and stop with the stage-A figures, the remaining budget, and the stage-B plan priced in money and days.
+
+**Stage B** (parser v7 for sign group, conduct and STOP, presence, scope and placement; the parser-gate rerun on public_dev gold intents; optional rank 9, guide-sign content) waits for the owner's decision after stage A.
