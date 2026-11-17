@@ -104,19 +104,36 @@ c38_outside_limit(veh(C, Attrs), Divided, Kmh) :-
 c38_outside(g1, true, 90).  c38_outside(g1, false, 80).
 c38_outside(g2, true, 80).  c38_outside(g2, false, 70).
 c38_outside(g3, true, 70).  c38_outside(g3, false, 60).
+c38_outside(g4, true, 60).  c38_outside(g4, false, 50).   % kept for the review: no class reaches g4 yet
 
 leaf(c38_group(_, _, _)).
-%  g1: passenger cars up to 28 seats (not buses), trucks up to 3.5 t; g2: coaches over 28 seats,
-%  trucks over 3.5 t; g3: buses, motorcycles. Classes or masses the question leaves open fail,
-%  so the limit stays unknown.
+%  Owner's check (2026-11-17): art. 7's groups as believed, from memory (interpretation):
+%  g1 "xe ô tô chở người đến 28 chỗ (trừ xe buýt); ô tô tải có khối lượng hàng chuyên chở cho phép
+%     tham gia giao thông đến 3,5 tấn";
+%  g2 "xe ô tô chở người trên 28 chỗ (trừ xe buýt); ô tô tải có khối lượng hàng chuyên chở ... trên
+%     3,5 tấn (trừ ô tô xi téc ...)";
+%  g3 "ô tô buýt; ô tô đầu kéo kéo sơ mi rơ moóc; xe mô tô; ô tô chuyên dùng (trừ ô tô trộn vữa ...)";
+%  g4 "ô tô kéo rơ moóc; ô tô kéo xe khác; ô tô trộn vữa, trộn bê tông lưu động; ô tô xi téc".
+%  The truck test is the PAYLOAD (load_t), not the gross mass. A gross mass up to 3.5 t still
+%  bounds the payload (load <= gross, B.15), so it gives g1; a larger gross mass says nothing.
+%  A coach (xe khách) needs its seat count; `bus` (any passenger vehicle, maybe a coach) and
+%  g4's vehicles (no class in the ontology; a truck over 3.5 t might be a tanker, g4) are not
+%  placed, so the limit stays unknown for them. A truck over 3.5 t payload is placed in g2,
+%  which assumes it is not a tanker: a question naming a tanker has no class to say so.
 c38_group(C, _, g1) :- memberchk(C, [passenger_car, taxi]), !.
-c38_group(C, _, g2) :- C == coach, !.
-c38_group(C, _, g3) :- memberchk(C, [bus, city_bus, motorbike, motorcycle, sidecar]), !.
+c38_group(coach, Attrs, G) :-
+    memberchk(a(seats, S), Attrs), !,
+    cmp_truth(gt, S, 28, T),
+    (   T == true -> G = g2 ; T == false -> G = g1 ).
+c38_group(C, _, g3) :- memberchk(C, [city_bus, motorbike, motorcycle, sidecar]), !.
 c38_group(truck, Attrs, G) :-
-    (   memberchk(a(gross_t, W), Attrs), number(W) -> true
-    ;   memberchk(a(load_t, W), Attrs), number(W), W > 3.5
-    ), !,
-    ( W =< 3.5 -> G = g1 ; G = g2 ).
+    (   memberchk(a(load_t, L), Attrs)
+    ->  cmp_truth(gt, L, 3.5, T),
+        (   T == true -> G = g2 ; T == false -> G = g1 )
+    ;   memberchk(a(gross_t, W), Attrs),
+        cmp_truth(le, W, 3.5, true),
+        G = g1
+    ), !.
 
 %!  q_general(+Action, +Veh, +Place, -Out) is det.
 q_general(Action, Veh, Place, _{verdict:V, reasons:Rs}) :-

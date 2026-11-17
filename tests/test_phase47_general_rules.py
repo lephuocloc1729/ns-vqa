@@ -107,10 +107,11 @@ def test_circular38_outside_residential_limits(engine):
 
 
 def test_circular38_needs_the_vehicle_group(engine):
-    """A truck of unstated mass: the group (up to / over 3.5 t) is unknown, so the answer is."""
+    """A truck of unstated payload: the group (up to / over 3.5 t) is unknown, so the answer is."""
     p = RulePermitted(speed_kmh=85, vehicle=V("truck"), area="outside_residential", road_divided=True)
     assert engine.answer(EMPTY, p).verdict is Verdict.unknown
-    p = RulePermitted(speed_kmh=85, vehicle=V("truck", gross_t=10), area="outside_residential", road_divided=True)
+    # owner's check (2026-11-17): the group goes by payload, so a 10 t payload (not gross mass) is group 2
+    p = RulePermitted(speed_kmh=85, vehicle=V("truck", load_t=10), area="outside_residential", road_divided=True)
     assert engine.answer(EMPTY, p).verdict is Verdict.no
 
 
@@ -133,3 +134,39 @@ def test_duties_cite_their_article(engine, topic, art):
     from vqa.schemas import Duties
     a = engine.answer(EMPTY, Duties(topic=topic))
     assert a.verdict is Verdict.value and a.value["duties"] and (L36, art) in arts(a)
+
+
+# ---------------------------------------------------------------- Circular 38 groups (owner's check)
+
+def _c38(engine, veh, speed=75, divided=True):
+    p = RulePermitted(speed_kmh=speed, vehicle=veh, area="outside_residential", road_divided=divided)
+    return engine.answer(EMPTY, p).verdict
+
+
+def test_circular38_trucks_go_by_payload_not_gross_mass(engine):
+    """Art. 7 (believed) groups trucks by "khối lượng hàng chuyên chở" (payload). 85 km/h on a divided
+    road: payload 3 t is group 1 (90) -> yes; payload 5 t is group 2 (80) -> no."""
+    assert _c38(engine, V("truck", load_t=3), 85) is Verdict.yes
+    assert _c38(engine, V("truck", load_t=5), 85) is Verdict.no
+    assert _c38(engine, V("truck", load_gt=3.5), 85) is Verdict.no
+
+
+def test_circular38_gross_mass_only_bounds_the_payload(engine):
+    """Gross 3 t means payload at most 3 t (B.15): group 1. Gross 10 t says nothing about payload."""
+    assert _c38(engine, V("truck", gross_t=3), 85) is Verdict.yes
+    assert _c38(engine, V("truck", gross_t=10), 85) is Verdict.unknown
+
+
+def test_circular38_coaches_need_their_seat_count(engine):
+    assert _c38(engine, V("coach"), 85) is Verdict.unknown
+    assert _c38(engine, V("coach", seats=45), 85) is Verdict.no          # > 28 seats: group 2, 80
+    assert _c38(engine, V("coach", seats=16), 85) is Verdict.yes         # <= 28 seats: group 1, 90
+    assert _c38(engine, V("coach", seats_gt=29), 85) is Verdict.no
+
+
+def test_circular38_ambiguous_classes_stay_unknown(engine):
+    """`bus` may be a coach or a city bus; group 4's vehicles (tankers, mixers, trailer towing) have
+    no class, so nothing is placed in group 4."""
+    assert _c38(engine, V("bus"), 65) is Verdict.unknown
+    assert _c38(engine, V("city_bus"), 75) is Verdict.no                 # group 3, 70
+    assert _c38(engine, V("motorbike"), 65, divided=False) is Verdict.no  # group 3 undivided, 60

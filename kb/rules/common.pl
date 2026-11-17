@@ -72,7 +72,7 @@ rule_basis(r_kb2_roundabout, "QCVN 41:2024 art. 32 / D.3 and Law 36/2024 art. 22
 rule_basis(r_c38_expressway, "Circular 38/2024/TT-BGTVT art. 9 (believed): on expressways the maximum is 120 km/h and the minimum 60 km/h unless signs say otherwise").
 rule_basis(r_c38_residential, "Circular 38/2024/TT-BGTVT art. 6 (believed): in residential areas, motor vehicles at most 60 km/h on a divided road (or one-way with two or more lanes) and 50 km/h on an undivided two-way road; signs override").
 rule_basis(r_c38_moped, "Circular 38/2024/TT-BGTVT art. 8 (believed): mopeds (xe gắn máy) at most 40 km/h").
-rule_basis(r_c38_outside, "Circular 38/2024/TT-BGTVT art. 7 (believed): outside residential areas, on a divided road (or one-way with two or more lanes) / an undivided two-way road: cars up to 28 seats and trucks up to 3.5 t 90 / 80 km/h; coaches over 28 seats and trucks over 3.5 t 80 / 70; buses and motorcycles 70 / 60; signs override").
+rule_basis(r_c38_outside, "Circular 38/2024/TT-BGTVT art. 7 (believed): outside residential areas, on a divided road (or one-way with two or more lanes) / an undivided two-way road: passenger vehicles up to 28 seats and trucks with a payload up to 3.5 t 90 / 80 km/h; over 28 seats and payload over 3.5 t (not tankers) 80 / 70; city buses, tractor units, motorcycles 70 / 60; trailer-towing vehicles, mixers, tankers 60 / 50; signs override. The truck test is the payload").
 
 % --------------------------------------------------------------------------
 % Three-valued logic (leaves: evaluated directly, shown as one proof node)
