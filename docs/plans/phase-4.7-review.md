@@ -65,3 +65,47 @@ The three YAML files carry file-level `reviewed_by: assistant`. The Prolog files
 - R.411 applicability by vehicle class. Lane arrows support directions on a specified lane.
 - Violations by pictured vehicles against lights or markings.
 - Art. 51 marking scope and its interaction with signs under the priority order of art. 4.
+
+## Owner-run paid checks, in order
+
+No paid check was run during this handoff. Run from the repository root on the clean branch. The estimates sum to **$1.19** and the caps to **$1.65**, leaving **$0.35** of the $2.00 budget outside these caps. The comparisons and summaries below are offline. At each `read` prompt paste the exact output file path printed by the preceding run.
+
+### 1. Parser v12 gate — estimate $0.21, cap $0.40
+
+V11 cost $0.186. Use the $0.40 cap for the runner's up-front budget check. Score the one run, compare it to the three v6 runs, and use the stored v11 run to inspect compatibility on previously supported forms. The existing no-regression gate evaluates intent types; a passing aggregate alone cannot establish identical individual parses.
+
+```zsh
+.venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v12 --max-spend 0.40
+read -r 'gate_run?Path of completed v12 predictions: '
+.venv/bin/python eval/parser_eval.py score "$gate_run"
+.venv/bin/python eval/parser_eval.py compare --old \
+  logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-140559.jsonl \
+  logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141622.jsonl \
+  logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141902.jsonl --new "$gate_run"
+.venv/bin/python eval/parser_eval.py compare --old \
+  logs/parser_eval/pred_claude-sonnet-5-5_medium_v11_20261117-184930.jsonl --new "$gate_run"
+```
+
+### 2. Scene v6 set-T check — estimate $0.13, combined cap $0.20
+
+V5 cost $0.055 for pass 1 and $0.059 for the tile/crop pass. Each command creates its own spend guard, hence two $0.10 caps. Score the new fallback result against the existing v5 fallback result. V5 achieved 90.8% recall and 72.9% code F1. The plan keeps v6 when recall holds and code F1 is within the 2.9-point run-to-run spread.
+
+```zsh
+.venv/bin/python eval/perception_eval.py run --set T --model claude-haiku-5-5 --version v6 --max-spend 0.10
+read -r 'scene_run?Path of completed v6 pass-1 run: '
+.venv/bin/python eval/perception_eval.py fallback "$scene_run" --policy crop_always --max-spend 0.10
+read -r 'scene_fb?Path of completed v6 fallback run: '
+.venv/bin/python eval/perception_eval.py score \
+  eval/runs/perception/T_claude-haiku-5-5_v5+fb_3861a1816d1a.jsonl "$scene_fb"
+```
+
+### 3. Judged dev — estimate $0.85, cap $1.05
+
+The phase-4.5 candidate measured $0.81. If the gates support proceeding, the command below runs fresh perception with guide reading, parser v12, higher-confidence readings, the writer and dev scoring. Answer-level fallback is off. Verify the candidate settings and prompt IDs in the dev run header. Compare judged overall with 69.0% and accuracy on decided with the 70% guardrail.
+
+```zsh
+.venv/bin/python eval/e2e_dev.py run --label phase47 --candidate \
+  --scene-version v6 --parser-version v12 --reading-policy higher_confidence --max-spend 1.05
+read -r 'dev_run?Path of completed judged dev run: '
+.venv/bin/python eval/e2e_dev.py summary "$dev_run"
+```

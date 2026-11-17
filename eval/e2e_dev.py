@@ -342,6 +342,10 @@ def main() -> None:
     r.add_argument("--label", required=True)
     r.add_argument("--max-spend", type=float, required=True)
     r.add_argument("--candidate", action="store_true", help="scene v5 + guide reading + parser v8 (CANDIDATE)")
+    r.add_argument("--scene-version", help="scene prompt override for a candidate run")
+    r.add_argument("--parser-version", help="parser prompt override for a candidate run")
+    r.add_argument("--reading-policy", choices=["all", "higher_confidence"],
+                   help="alternative sign-reading policy for a candidate run")
     rp = sub.add_parser("reparse")
     rp.add_argument("--from", dest="src", type=Path, required=True)
     rp.add_argument("--version", required=True)
@@ -359,7 +363,10 @@ def main() -> None:
     elif a.cmd == "summary":
         print(json.dumps(summary(a.file), indent=2))
     else:
-        run_dev(a.label, a.max_spend, candidate=CANDIDATE if a.candidate else None)
+        overrides = {k: getattr(a, k) for k in ("scene_version", "parser_version", "reading_policy")
+                     if getattr(a, k) is not None}
+        candidate = {**CANDIDATE, **overrides} if a.candidate or overrides else None
+        run_dev(a.label, a.max_spend, candidate=candidate)
 
 
 if __name__ == "__main__":
