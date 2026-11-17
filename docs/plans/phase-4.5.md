@@ -142,3 +142,31 @@ Measured once, on the validation set (section 5), after the phase-4.5 freeze:
 | Q4 | A baseline validation run with today's frozen system (aggregate only, about $1.1) before any fix | yes |
 | Q5 | Fixes 5 and 6 (perception, high risk) only if fixes 1–4 leave coverage short | yes |
 | Q6 | The private run with fallback on, so the demo figure comes from the same run | yes |
+
+## 9. Scope-expansion round (owner, 2026-11-17)
+
+The baseline validation (`docs/status.md`) decided 30.0% (22–39), with accuracy on decided 72.7% (56–85) and overall 21.8% (15–30). Out of scope was the biggest cause: 43 of 110. This round widens what the rules can answer, and it is built on a dev set with the validation set's profile.
+
+**Hard budget: $5 for everything in this round** (dev runs, parser v7 development and its gate rerun, the final validation). No API call is made without the owner's go-ahead on an estimate, and the owner runs paid commands.
+
+**Dev set:** the 87 questions on 60 images left in the validation pool once the validation set is removed (`data/splits/train_dev.json`, ids only). It has the same profile as the validation set: untouched, and no duplicates with public or private. **Dev may be read question by question; the validation set stays aggregate only.**
+- **One difference (found when it was built):** the dev set is **all Natural QA** (87 of 87). The validation draw took Yes/No images first, and that took every Yes/No image in the pool. So Yes/No question types come from train minus the validation set (step 3a) and from public_dev, not from dev.
+
+**Steps:**
+1. **Dev run:** the frozen system, fallback off, keeping per-question records (scenes, parses, verdicts, grades) in the gitignored `eval/runs/` folder (`eval/e2e_dev.py`).
+2. **Dev analysis (free):** every undecided dev question with its cause, and for out_of_scope, the missing intent. Each is classed as either a parser wording failure (the question fits an existing intent) or a new question type. Accuracy on decided, with the wrong answers explained.
+3. **Scope expansion:**
+   - a. Count the question types across train minus the validation set (free). For each type the system can't answer: train and dev counts; whether it needs a new DSL intent (parser v7), a new rule over an existing intent, or only a parser wording fix; its law articles; whether perception can supply what it needs; size in days.
+   - b. Propose the set to add, ranked by train questions gained per day, with a stopping point. For each: the intent schema, rules, tests and accuracy risk. Free engine, selector and KB fixes come first, checked by engine-only replay on the dev parses. Parser v7 gets few-shots from train with the exact question text, then a parser-gate rerun on public_dev gold intents, where no regression is allowed (priced). **Stop for the owner's approval before building.**
+   - c. **Guardrail:** after each new type, the dev replay must keep accuracy on decided ≥ 85%. A type that can't stays out of scope (in the demo it goes to the fallback).
+4. **After the fixes:** one dev replay; the new freeze record `eval/frozen_phase45.json`; then the final validation command, run once.
+
+**Success criterion (fixed now):** the final validation's decided coverage and overall are clearly above the baseline (outside the baseline's 95% CI: above 39.1% coverage and above 30.4% overall), and accuracy on decided is ≥ 85%. The 80% / 70% targets stay as written and are reported as met or missed.
+
+**Rules:**
+- Fixes are built from dev, train and public_dev only.
+- Tests use hand-made scenes modelled on train.
+- Every rule cites its `law_id` + `article_id`, and Prolog rules have no cuts.
+- The owner reviews new catalog rows before the freeze.
+- Files are staged by name, with the list checked before each commit.
+- Not touched: the validation set beyond its aggregate, public_holdout, private, and gold.

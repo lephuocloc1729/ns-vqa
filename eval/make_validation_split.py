@@ -14,6 +14,7 @@ Writes `data/splits/train_validation.json` (ids only). The set is aggregate only
 public_holdout: no question, answer or per-question result is read in phase 4.5.
 
     .venv/bin/python eval/make_validation_split.py
+    .venv/bin/python eval/make_validation_split.py dev     # the dev set (pool minus validation)
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ from eval import coverage_analysis as ca  # noqa: E402
 SEED = 20261116
 TARGET = 110
 OUT = ROOT / "data" / "splits" / "train_validation.json"
+DEV_OUT = ROOT / "data" / "splits" / "train_dev.json"
 
 
 def draw(images: list[str], questions: list[dict], seed: int = SEED, target: int = TARGET) -> list[str]:
@@ -71,11 +73,31 @@ def build(seed: int = SEED, target: int = TARGET) -> dict:
     }
 
 
+def build_dev(validation: dict | None = None) -> dict:
+    """The dev set (owner, 2026-11-17): the pool minus the validation set. Readable question by
+    question, unlike the validation set."""
+    images, questions, _ = ca.pool()
+    val = validation or json.loads(OUT.read_text(encoding="utf-8"))
+    vimg = set(val["images"])
+    dimg = sorted(i for i in images if i not in vimg)
+    qs = sorted((q for q in questions if q["image_id"] in set(dimg)), key=lambda q: q["id"])
+    return {"what": "phase-4.5 dev set: the validation pool minus the validation set; readable per question "
+                    "(owner, 2026-11-17)",
+            "images": dimg, "questions": [q["id"] for q in qs],
+            "counts": {"images": len(dimg), "questions": len(qs),
+                       "question_types": dict(Counter(q["question_type"] for q in qs))}}
+
+
 def split_sha256(path: Path = OUT) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
 def main() -> None:
+    if sys.argv[1:] == ["dev"]:
+        rec = build_dev()
+        DEV_OUT.write_text(json.dumps(rec, indent=1) + "\n", encoding="utf-8")
+        print(f"{DEV_OUT.relative_to(ROOT)}: {rec['counts']}")
+        return
     rec = build()
     OUT.write_text(json.dumps(rec, indent=1) + "\n", encoding="utf-8")
     print(f"{OUT.relative_to(ROOT)}: {rec['counts']}")
