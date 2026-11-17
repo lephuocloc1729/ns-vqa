@@ -1408,6 +1408,19 @@ Run `5c9251f5f207`, 15:47–16:25 UTC, at commit `2e1ff41`, with `eval/frozen_ph
 - **Two findings:** speed limits by road type come from Circular 38/2024, outside the allowed sources, so they stay out. The approved rank-1 item "P.127 covers every vehicle" contradicts QCVN 41 B.27 (motor vehicles only); the proposal replaces it with a parser v7 fix in stage B.
 - Round spend unchanged: $0.61 of $5.
 
+### Phase 4.5 stage A built (2026-11-17; no API calls)
+
+- **Built:**
+  - rank 1 (choose with an unknown option → unknown; R.411 bears on direction claims; art. 11 group names);
+  - families F3–F7, with effects for 37 meaning rows in `kb/sign_catalog_effects.yaml` and new rows R.421, R.122, S.501 (R.415 was not missing);
+  - rank 2 (`kb/rules/zones.pl`: expressway entry and stopping, Law 36 art. 25; KB-8 law-cited, Law 36 art. 18.4 i; Circular 38/2024 default speeds as interpretations);
+  - rank 3 (selector colours, KB-6).
+- "P.127 covers every vehicle" was dropped (B.27: motor vehicles only).
+- **Frozen prompts stay reproducible** (`listed_from: phase45` rows are left out of scene v1–v4 and parser v1–v6 listings); `freeze check` still matches the phase-4 record.
+- **Dev replay:** decided 35 → 32 (40.2% → 36.8%), accuracy on decided **80.0% → 93.8%**, overall **32.2% → 34.5%**. The guardrail holds at every step. Grades for 81, 287 and 308 are provisional (assistant-graded).
+- Tests 982 passed. Round spend unchanged: $0.61 of $5.
+- **Stage-B proposal** (`phase-4.5.md` section 12): B1–B5 about 6 days and $2.57; B6 guide content gated, about 3.5 days and $0.80. Awaiting the owner's decision.
+
 ## Next steps, in order
 
 **Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Phase 4 closed (2026-11-16; closing entry above).** Phase 5 plan approved (2026-11-16). **Next: the one private-test run** (`eval/e2e_private.py run --confirm-frozen --max-spend 3`), on the owner's go-ahead on its $1.83 estimate.

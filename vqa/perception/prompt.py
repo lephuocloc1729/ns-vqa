@@ -57,9 +57,12 @@ def carries_value(sign) -> bool:
     return bool(e.value or e.max_speed or e.min_speed or e.lane_board)
 
 
-def catalog_listing() -> str:
+def catalog_listing(version: str | None = None) -> str:
+    """The catalog listing. Versions frozen before phase 4.5 leave out its new rows."""
+    from vqa.kb import listed_signs
+
     lines = []
-    for s in load_catalog().signs:
+    for s in listed_signs(load_catalog(), "scene", version):
         v = s.visual
         lines.append(f"{s.code} | {s.name_vi} | {v.shape} / {v.border} / {v.background}"
                      + (" | value" if carries_value(s) else ""))
@@ -73,7 +76,7 @@ def system_prompt(version: str = DEFAULT_VERSION) -> str:
     for ex in examples(version):
         shots.append(f"Example ({ex['note']}):\n"
                      + json.dumps(ex["output"], ensure_ascii=False, separators=(",", ":")))
-    return (f"{spec}\n\n{catalog_listing()}\n\n# Examples\n\n" + "\n\n".join(shots) + "\n")
+    return (f"{spec}\n\n{catalog_listing(version)}\n\n# Examples\n\n" + "\n\n".join(shots) + "\n")
 
 
 class PictogramError(RuntimeError):

@@ -9,7 +9,8 @@ from conftest import V, articles, scene, sign
 def test_meaning_rows_loaded():
     cat = load_catalog()
     rows = [s for s in cat.signs if s.meaning_only]
-    assert len(rows) >= 140
+    with_effects = [s for s in cat.signs if s.effect_reviewed_by == "assistant" and s.category in ("warning", "information")]
+    assert len(rows) + len(with_effects) >= 140        # phase 4.5 gave 37 of them effects (kb/sign_catalog_effects.yaml)
     assert {s.category for s in rows} == {"warning", "information"}
     assert all(s.effect.prohibits == [] for s in rows)
     expressway = [s for s in rows if s.code.startswith("IE.")]
@@ -64,15 +65,23 @@ def test_review_provenance():
     # 39 meaning rows plus the owner's review of rule rows P.118 and P.119
     assert len(human) == 41 and "IE.473" in human and "IE.472b" in human
     assert {"P.118", "P.119"} <= set(human)
-    assert all(s.reviewed_by == "none" for s in cat.signs if not s.meaning_only and s.code not in {"P.118", "P.119"})
-    visual = sorted(s.code for s in cat.signs if s.visual_reviewed_by == "assistant")
+    # rule rows nobody has checked; rows added in phase 4.5 are assistant-checked (owner, 2026-11-17)
+    new45 = {s.code for s in cat.signs if s.listed_from == "phase45"}
+    assert new45 == {"R.421", "R.122", "S.501"} and all(by[c].reviewed_by == "assistant" for c in new45)
+    assert all(s.reviewed_by in ("none", "human") for s in cat.signs if not s.meaning_only and s.code not in {"P.118", "P.119"} | new45)
+    visual = sorted(s.code for s in cat.signs if s.visual_reviewed_by == "assistant" and not s.listed_from)
     assert visual == ["IE.451a", "IE.471", "IE.473", "W.242(a,b)", "W.243(a,b,c)"]
+    assert all(by[c].visual_reviewed_by == "assistant" for c in new45)
     assert by["IE.471"].visual.background == "yellow"
     # The owner's D10 visual check (2026-11-15): all 55 rows on the list, 35 rule rows
     # and 20 meaning rows; four of them fixed.
     seen = [s for s in cat.signs if s.visual_reviewed_by == "human"]
     assert len(seen) == 55
-    assert sum(not s.meaning_only for s in seen) == 35 and sum(s.meaning_only for s in seen) == 20
+    # counted by the file a row comes from (phase 4.5 gave some meaning rows effects)
+    import yaml
+    from vqa.kb import MEANING_PATH
+    meaning_codes = {r["code"] for r in yaml.safe_load(MEANING_PATH.read_text(encoding="utf-8"))["signs"]}
+    assert sum(s.code not in meaning_codes for s in seen) == 35 and sum(s.code in meaning_codes for s in seen) == 20
     assert by["P.102"].visual.border == "none" and by["P.102"].visual.background == "red"
     assert by["I.415"].visual.shape == "other"
     assert by["IE.451b"].visual.background == "blue"

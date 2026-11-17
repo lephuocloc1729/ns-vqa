@@ -13,6 +13,7 @@
 
 :- multifile leaf/1.
 :- discontiguous leaf/1.
+:- discontiguous rule_basis/2.
 
 % --------------------------------------------------------------------------
 % Rule sources (law_id + article_id, same format as the dataset's relevant_articles)
@@ -32,6 +33,24 @@ rule_source(r_sign_groups,         'QCVN 41:2024/BGTVT', '11').
 % Interpretations: our readings, not law text. Their law_id is `interpretation`, so a
 % proof shows them but they never count as a law citation (vqa.reasoning.explain).
 rule_source(r_load_implies_gross,  interpretation, load_implies_gross).
+% phase 4.5 stage A (owner, 2026-11-17): zones, conduct places, and their interpretations.
+rule_source(r_expressway_entry,    '36/2024/QH15', '25').    % 25.3: who may not use the expressway
+rule_source(r_expressway_stop,     '36/2024/QH15', '25').    % 25.2: stop / park only where allowed
+rule_source(r_pickup_point,        '36/2024/QH15', '18').    % 18.4 i): no stopping at "điểm đón, trả khách"
+rule_source(r_residential_zone,    'QCVN 41:2024/BGTVT', 'D.17').
+rule_source(r_kb4_expressway_zone, interpretation, kb4_expressway_zone).
+rule_source(r_kb1_pass_side,       interpretation, kb1_r302_pass_side_only).
+rule_source(r_kb2_roundabout,      interpretation, kb2_r303_yield_only).
+rule_source(r_c38_expressway,      interpretation, circular_38_2024_expressway_speeds).
+rule_source(r_c38_residential,     interpretation, circular_38_2024_residential_speeds).
+rule_source(r_c38_moped,           interpretation, circular_38_2024_moped_speed).
+% The basis of each interpretation (shown with it; never counted as a law citation).
+rule_basis(r_kb4_expressway_zone, "QCVN 41:2024 P.3 and the IE rows: IE.452 / IE.451b start the expressway, IE.453b/c end it; Law 36/2024 art. 25 sets its rules").
+rule_basis(r_kb1_pass_side, "QCVN 41:2024 D.2: R.302 orders how to pass the obstacle, not the turns at the next intersection").
+rule_basis(r_kb2_roundabout, "QCVN 41:2024 art. 32 / D.3 and Law 36/2024 art. 22.3: R.303 orders yielding and the way round the island, not which exit is taken").
+rule_basis(r_c38_expressway, "Circular 38/2024/TT-BGTVT art. 9 (believed): on expressways the maximum is 120 km/h and the minimum 60 km/h unless signs say otherwise").
+rule_basis(r_c38_residential, "Circular 38/2024/TT-BGTVT art. 6 (believed): in residential areas, motor vehicles at most 60 km/h on a divided road (or one-way with two or more lanes) and 50 km/h on an undivided two-way road; signs override").
+rule_basis(r_c38_moped, "Circular 38/2024/TT-BGTVT art. 8 (believed): mopeds (xe gắn máy) at most 40 km/h").
 
 % --------------------------------------------------------------------------
 % Three-valued logic (leaves: evaluated directly, shown as one proof node)

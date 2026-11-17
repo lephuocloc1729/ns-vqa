@@ -66,7 +66,7 @@ def test_no_public_or_private_ids_in_the_prompt_files():
 def test_prompt_hash_covers_the_catalog(monkeypatch):
     before = sp.prompt_hash("v1")
     assert sp.prompt_id("v1") == f"scene/v1@{before[:12]}"
-    monkeypatch.setattr(sp, "catalog_listing", lambda: "P.999 | changed | circle / red / white")
+    monkeypatch.setattr(sp, "catalog_listing", lambda version=None: "P.999 | changed | circle / red / white")
     sp.system_prompt.cache_clear()
     try:
         assert sp.prompt_hash("v1") != before

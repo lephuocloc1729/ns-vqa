@@ -111,6 +111,14 @@ def scene_facts(scene: SceneGraph, catalog: Catalog,
         # are kept as atoms; kb/query.pl only checks those that are action/1.
         out.append(Term("scene_vehicle", atom(v.id), atom(v.cls.value),
                         v.lane, atom(v.action.value), None if v.speed_kmh is None else float(v.speed_kmh)))
+    for sign in scene.signs:
+        # phase 4.5: a sign that couldn't be read gets no sign/3 fact; this says it is there, so
+        # road-type defaults (kb/rules/zones.pl) don't stand in for a limit it might post.
+        # A warning triangle can't post a speed limit, so it is left out.
+        if not catalog.has(sign.code) and getattr(sign.shape, "value", None) not in ("triangle",):
+            out.append(Term("unread_sign", atom(sign.id)))
+    if scene.road.divided is not None:
+        out.append(Term("road_divided", atom("true" if scene.road.divided else "false")))
     if selection is not None:
         out.append(Term("selection_active"))
         out += [Term("selected", atom(sid)) for sid in selection]

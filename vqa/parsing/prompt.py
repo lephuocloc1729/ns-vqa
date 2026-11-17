@@ -27,9 +27,12 @@ def examples(version: str = "v6") -> list[dict]:
             if line.strip()]
 
 
-def catalog_table() -> str:
+def catalog_table(version: str | None = None) -> str:
+    """The catalog table. Versions frozen before phase 4.5 (v1-v6) leave out its new rows."""
+    from vqa.kb import listed_signs
+
     lines = ["code | key | tags | name (vi)", "--- | --- | --- | ---"]
-    for s in load_catalog().signs:
+    for s in listed_signs(load_catalog(), "parser", version):
         lines.append(f"{s.code} | {s.key} | {', '.join(s.tags)} | {s.name_vi}")
     return "\n".join(lines)
 
@@ -41,5 +44,5 @@ def system_prompt(version: str = "v6") -> str:
     for ex in examples(version):
         shots.append(f"Question: {ex['question']}\nAnswer: "
                      + json.dumps(ex["output"], ensure_ascii=False, separators=(",", ":")))
-    return (f"{spec}\n\n## Sign catalog\n\n{catalog_table()}\n\n## Examples\n\n"
+    return (f"{spec}\n\n## Sign catalog\n\n{catalog_table(version)}\n\n## Examples\n\n"
             + "\n\n".join(shots) + "\n")

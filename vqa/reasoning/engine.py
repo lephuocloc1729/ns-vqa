@@ -124,9 +124,7 @@ class Engine:
                 continue
             if sel.shape and s.shape != sel.shape:
                 continue
-            if sel.border and s.border != sel.border:
-                continue
-            if sel.background and s.background != sel.background:
+            if not self._colours_match(sel, s):
                 continue
             if sel.side and s.position.side != sel.side:
                 continue
@@ -140,6 +138,19 @@ class Engine:
                 r = pick(s.position.rank_top_down for s in ranked)
                 out = [s for s in ranked if s.position.rank_top_down == r]
         return [s.id for s in out]
+
+    @staticmethod
+    def _colours_match(sel: Selector, s) -> bool:
+        """Border and background as asked. Phase 4.5 rank 3: when that fails, a colour the
+        question names still matches if the sign shows it as border or background ("biển đỏ
+        có vạch trắng" is P.102: red face, no border). Selection only, not a legal decision."""
+        want = [c for c in (sel.border, sel.background) if c]
+        if not want:
+            return True
+        if (not sel.border or s.border == sel.border) and (not sel.background or s.background == sel.background):
+            return True
+        shown = {c for c in (s.border, s.background) if c}
+        return all(c in shown for c in want)
 
     def single_sign(self, scene: SceneGraph, ids: list[str]) -> tuple[list[str] | None, list[str]]:
         """Resolve a single-sign selector (`only`: "Đây là biển gì?") over its candidates
@@ -308,10 +319,7 @@ class Engine:
         if isinstance(p, Permitted):
             return self._permitted(scene, p)
         if isinstance(p, SpeedOk):
-            self.load_scene(scene)
-            out = self.call(Term("q_speed", vehicle_term(p.vehicle), float(p.speed_kmh),
-                                 p.lane, _ctx(p.when, scene, p.lane)))
-            return _verdict_answer(out)
+            return self._speed_ok(scene, p)
         if isinstance(p, (LanesFor, LanesWhere)):
             return self._lanes(scene, p)
         if isinstance(p, BanTimes):
@@ -342,6 +350,28 @@ class Engine:
         out = self.call(Term("q_permitted", atom(p.action.value), vehicle_term(p.vehicle),
                              _ctx(p.when, scene, p.lane)))
         return _verdict_answer(out)
+
+    def _speed_ok(self, scene: SceneGraph, p: SpeedOk) -> Answer:
+        self.load_scene(scene)
+        out = self.call(Term("q_speed", vehicle_term(p.vehicle), float(p.speed_kmh),
+                             p.lane, _ctx(p.when, scene, p.lane)))
+        ans = _verdict_answer(out)
+        n = scene_lane_count(scene)
+        if p.lane is not None or ans.verdict is not Verdict.unknown or not n \
+                or not any(s.position.lane for s in scene.signs):
+            return ans
+        # KB-6 (phase 4.5, owner 2026-11-17): speed signs over some lanes and no lane in the
+        # claim: decided when every lane gives the same verdict (signs over lanes apply per
+        # lane; an interpretation, no law sentence says it).
+        per = [self._speed_ok(scene, p.model_copy(update={"lane": lane})) for lane in range(1, n + 1)]
+        vs = {a.verdict for a in per}
+        if len(vs) == 1 and vs <= {Verdict.yes, Verdict.no}:
+            first = per[0]
+            return first.model_copy(update={
+                "value": {"per_lane": [a.verdict.value for a in per], "rule": "kb6_every_lane_agrees"},
+                "citations": [c for a in per for c in a.citations],
+                "note": "every lane gives the same answer (interpretation KB-6)"})
+        return ans
 
     def _lanes(self, scene: SceneGraph, p: LanesFor | LanesWhere) -> Answer:
         n = scene_lane_count(scene)

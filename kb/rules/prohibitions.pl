@@ -37,7 +37,14 @@ forbids(enter, Veh, Ctx, S, T) :-
     integer(Lane),
     lane_block(Veh, Lane, Ctx, S, T).
 
+% Zones and places (kb/rules/zones.pl, phase 4.5): expressway entry and stopping, pick-up points.
+forbids(Action, Veh, Ctx, S, T) :-
+    zone_forbids(Action, Veh, Ctx, S, T).
+
 % ---- why a sign that concerns the action does not forbid it
+
+clears(Action, Veh, Ctx, S, Why) :-
+    zone_clears(Action, Veh, Ctx, S, Why).
 
 clears(Action, Veh, Ctx, S, Why) :-
     scene_sign(S, Code),

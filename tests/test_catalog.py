@@ -25,7 +25,9 @@ def test_every_row_has_an_effect_or_is_auxiliary(catalog):
     for s in catalog.signs:
         e = s.effect
         has_effect = any([e.prohibits, e.max_speed, e.min_speed, e.lane_board,
-                          e.lane_reserved, e.only_directions, e.ends])
+                          e.lane_reserved, e.only_directions, e.ends,
+                          # phase 4.5 family templates F3-F7
+                          e.zone, e.conduct, e.permits, e.pass_side, e.yield_from, e.informational])
         assert has_effect or s.category == "auxiliary" or s.meaning_only or s.effect_unmodelled, s.code
         if s.meaning_only:
             assert not has_effect and s.category in ("warning", "information"), s.code

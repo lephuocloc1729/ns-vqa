@@ -43,6 +43,11 @@ class ValueRule(_M):
     applies_to: list[VehicleClass]
 
 
+class Zone(_M):
+    kind: Literal["expressway", "residential"]
+    at: Literal["start", "end"]
+
+
 class Effect(_M):
     prohibits: list[Prohibition] = []
     except_: list[VehicleClass] = Field(default=[], alias="except")
@@ -56,6 +61,13 @@ class Effect(_M):
     only_directions: list[Literal["go_straight", "turn_left", "turn_right"]] = []
     ends: list[str] = []
     placement: PlacementRules | None = None
+    # phase 4.5 stage A (owner, 2026-11-17): family templates F3-F7
+    zone: Zone | None = None          # F4: the sign starts or ends an expressway / residential zone
+    conduct: list[str] = []             # F5: what the driver must do (stage B's `conduct` intent)
+    permits: list[Action] = []          # F6: the sign marks a place where the action is allowed
+    pass_side: Literal["as_shown"] | None = None   # F3b: R.302, pass the obstacle on the side shown
+    yield_from: Literal["left", "right"] | None = None  # F3c: R.303, who yields at the roundabout
+    informational: bool = False         # F7: a guide / information sign that orders nothing (KB-3)
 
 
 Direction = Literal["go_straight", "turn_left", "turn_right", "u_turn"]
@@ -121,6 +133,13 @@ class CatalogSign(_M):
     # separately because corrections there may come from a different reviewer.
     reviewed_by: Literal["human", "assistant", "none"] = "none"
     visual_reviewed_by: Literal["human", "assistant", "none"] = "none"
+    # who checked the row's effect, when it was added or changed after the name was checked
+    # (phase 4.5: kb/sign_catalog_effects.yaml and edited rule rows)
+    effect_reviewed_by: Literal["human", "assistant", "none"] = "none"
+    # A row added after the phase-4 freeze (phase 4.5). Frozen prompt versions (scene v1-v4 with
+    # their tiles and crops, parser v1-v6) don't list it, so their ids stay reproducible; scene
+    # v5 and parser v7 on do (vqa.kb.FROZEN_PROMPT_VERSIONS).
+    listed_from: Literal["phase45"] | None = None
 
     @property
     def base(self) -> str:
@@ -269,6 +288,16 @@ class Catalog(_M):
                     out.append(Term("only_direction", c, atom(a)))
             for ended in e.ends:
                 out.append(Term("ends", c, atom(code_atom(ended))))
+            if e.zone:
+                out.append(Term("zone_sign", c, atom(e.zone.kind), atom(e.zone.at)))
+            out += [Term("conduct", c, atom(x)) for x in e.conduct]
+            out += [Term("permits_here", c, atom(a.value)) for a in e.permits]
+            if e.pass_side:
+                out.append(Term("pass_side", c, atom(e.pass_side)))
+            if e.yield_from:
+                out.append(Term("yield_from", c, atom(e.yield_from)))
+            if e.informational:
+                out.append(Term("informational", c))
             if e.placement:
                 pl = e.placement
                 if pl.standard != "either":
@@ -296,7 +325,40 @@ def load_catalog(path: str | Path = CATALOG_PATH,
     if meaning_path and Path(meaning_path).exists():
         with open(meaning_path, encoding="utf-8") as f:
             raw["signs"] = raw["signs"] + yaml.safe_load(f)["signs"]
+    if meaning_path and EFFECTS_PATH.exists():
+        merge_effects(raw["signs"], yaml.safe_load(EFFECTS_PATH.read_text(encoding="utf-8"))["effects"])
     return Catalog.model_validate(raw)
+
+
+EFFECTS_PATH = Path(__file__).resolve().parents[1] / "kb" / "sign_catalog_effects.yaml"
+
+# Prompt versions frozen before phase 4.5: their catalog listings leave out rows marked
+# `listed_from: phase45`, so the prompt ids pinned in tests, caches and freeze records still hold.
+FROZEN_PROMPT_VERSIONS = {"scene": {"v1", "v2", "v3", "v4", "v4-tile", "v4-crop"},
+                          "parser": {"v1", "v2", "v3", "v4", "v5", "v6"}}
+
+
+def listed_signs(catalog: "Catalog", kind: str, version: str | None) -> list[CatalogSign]:
+    """The rows a prompt of `kind` ("scene" or "parser") at `version` lists."""
+    frozen = version is None or version in FROZEN_PROMPT_VERSIONS[kind]
+    return [s for s in catalog.signs if not (frozen and s.listed_from)]
+
+
+def merge_effects(signs: list[dict], effects: list[dict]) -> None:
+    """Phase 4.5 stage A: effects for rows of the generated meaning file, kept apart so the
+    generator (tools/draft_catalog_rows.py) can't overwrite them. Each entry names a row by
+    its exact code; its effect keys are added, and the row is no longer meaning-only."""
+    by_code = {s["code"]: s for s in signs}
+    for e in effects:
+        row = by_code.get(e["code"])
+        if row is None:
+            raise ValueError(f"sign_catalog_effects.yaml: no catalog row {e['code']!r}")
+        row["effect"] = {**(row.get("effect") or {}), **e.get("effect", {})}
+        row["meaning_only"] = False
+        row["effect_unmodelled"] = False
+        row["effect_reviewed_by"] = e.get("effect_reviewed_by", "none")
+        if e.get("note"):
+            row["note"] = (row.get("note") + " | " if row.get("note") else "") + e["note"]
 
 
 __all__ = ["Catalog", "CatalogSign", "load_catalog", "code_atom", "cond_term"]

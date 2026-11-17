@@ -35,7 +35,7 @@
 #
 # VehicleSpec is {class, conditions: [{attr, op, value}]} as in vqa/schemas.py.
 
-version: "qcvn41-2024.phase1"
+version: "qcvn41-2024.phase45a"
 law_versions:
   - "QCVN 41:2024/BGTVT"
   - "36/2024/QH15"
@@ -859,9 +859,15 @@ signs:
     category: mandatory
     visual: {shape: circle, border: none, background: blue}
     variants: [a, b, c]
-    effect_unmodelled: true
+    # D.2 c): "Biển có hiệu lực bắt buộc các loại xe phải đi vòng chướng ngại vật theo hướng
+    # mũi tên chỉ." KB-1 (interpretation, owner 2026-11-17): it orders only how to pass the
+    # obstacle, not the turns at the next intersection.
+    effect:
+      pass_side: as_shown
+      conduct: [pass_obstacle_side_shown]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.2"}
     visual_reviewed_by: human
+    effect_reviewed_by: assistant
 
   # D.3 b): "Biển có hiệu lực bắt buộc các loại xe muốn chuyển hướng phải chạy vòng
   # theo đảo an toàn theo hướng mũi tên."
@@ -871,9 +877,15 @@ signs:
     name_en: Roundabout
     category: mandatory
     visual: {shape: circle, border: none, background: blue}
-    effect_unmodelled: true
+    # Law 36/2024 art. 22.3: "Tại nơi đường giao nhau có báo hiệu đi theo vòng xuyến, phải
+    # nhường đường cho xe đi đến từ bên trái." KB-2 (interpretation): it orders who yields and
+    # the way round the island, not which exit is taken.
+    effect:
+      yield_from: left
+      conduct: [go_round_the_island, yield_from_left]
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.3"}
     visual_reviewed_by: human
+    effect_reviewed_by: assistant
 
   # D.13: "Biển có tác dụng bắt buộc người tham gia giao thông phải đi đúng làn đường
   # đã được chỉ dẫn hướng phù hợp với hành trình của xe." Lane rows don't carry
@@ -896,9 +908,29 @@ signs:
     name_en: Start of built-up area
     category: mandatory
     visual: {shape: rectangle, border: white, background: blue}
-    effect_unmodelled: true
+    # D.17 c): the residential stretch "bắt đầu bằng biển số R.420 ... và kết thúc bằng biển
+    # số R.421". Its speed limits come from Circular 38/2024 (interpretation, rules r_c38_*).
+    effect:
+      zone: {kind: residential, at: start}
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.17"}
     visual_reviewed_by: human
+    effect_reviewed_by: assistant
+
+  # D.18: "Biển có tác dụng báo cho người tham gia giao thông biết phạm vi phải tuân theo
+  # những quy định đi đường được áp dụng ở khu đông dân cư đã hết hiệu lực."
+  - code: R.421
+    listed_from: phase45
+    key: built_up_area_end
+    name_vi: Hết khu đông dân cư
+    name_en: End of built-up area
+    category: end_of_restriction
+    visual: {shape: rectangle, border: white, background: blue}
+    effect:
+      zone: {kind: residential, at: end}
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.18"}
+    reviewed_by: assistant
+    visual_reviewed_by: assistant
+    effect_reviewed_by: assistant
 
   # ------------------------------------------------------------------ reserved lanes
   - code: R.412a
@@ -1000,6 +1032,39 @@ signs:
       lane_board: true
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.16"}
     visual_reviewed_by: human
+
+  # D.1 b): "Biển có hiệu lực buộc các loại xe cơ giới và thô sơ kể cả xe được ưu tiên theo
+  # quy định dừng lại trước biển hoặc trước vạch ngang đường" (no priority exemption).
+  - code: R.122
+    listed_from: phase45
+    key: stop
+    name_vi: Dừng lại
+    name_en: Stop
+    category: mandatory
+    visual: {shape: octagon, border: white, background: red}
+    effect:
+      priority_exempt: false
+      conduct: [stop_before_the_sign_or_line]
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.1"}
+    reviewed_by: assistant
+    visual_reviewed_by: assistant
+    effect_reviewed_by: assistant
+
+  # F.1 a): "để thông báo chiều dài đoạn đường nguy hiểm hoặc cấm hoặc hiệu lệnh hoặc hạn chế
+  # bên dưới một số biển báo chính"; the length is in metres.
+  - code: S.501
+    listed_from: phase45
+    key: plate_sign_range
+    name_vi: Phạm vi tác dụng của biển
+    name_en: Range of the sign
+    category: auxiliary
+    visual: {shape: rectangle, border: black, background: white}
+    effect:
+      informational: true
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "F.1"}
+    reviewed_by: assistant
+    visual_reviewed_by: assistant
+    effect_reviewed_by: assistant
 
   - code: R.415b
     key: end_of_lanes_by_vehicle

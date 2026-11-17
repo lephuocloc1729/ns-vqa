@@ -124,7 +124,7 @@ def candidates(catalog: Catalog | None = None) -> dict[str, list[str]]:
     """Each coarse type's closed candidate list (catalog row codes, in catalog order)."""
     catalog = catalog or load_catalog()
     out: dict[str, list[str]] = {t: [] for t in COARSE_TYPES}
-    for s in catalog.signs:
+    for s in (x for x in catalog.signs if not x.listed_from):      # the pinned trial predates phase 4.5 rows
         out[row_type(s)].append(s.code)
     return out
 

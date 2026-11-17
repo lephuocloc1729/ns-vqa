@@ -22,7 +22,13 @@
            class_interpretation/3, % class_interpretation(Class, LawId, ArticleId)
            attr_interpretation/1,  % attr_interpretation(Rule), e.g. load_implies_gross
            catalog_key/2,        % catalog_key(Code, Key)
-           catalog_tag/2.        % catalog_tag(Code, Tag)
+           catalog_tag/2,        % catalog_tag(Code, Tag)
+           zone_sign/3,          % zone_sign(Code, expressway|residential, start|end)   phase 4.5 F4
+           conduct/2,            % conduct(Code, What)       F5, used by stage B's conduct intent
+           permits_here/2,       % permits_here(Code, Action) F6 (I.409 u_turn, I.408 park)
+           pass_side/2,          % pass_side(Code, as_shown)  F3b (R.302)
+           yield_from/2,         % yield_from(Code, left)     F3c (R.303)
+           informational/1.      % informational(Code)        F7 (orders nothing)
 
 % ---- scene facts (replaced for every query)
 :- dynamic sign/3,               % sign(S, Code, Confidence)
@@ -45,7 +51,9 @@
            lane_vehicle/3,       % lane_vehicle(S, Lane, Spec)  lane open only to these
            scene_vehicle/5,      % scene_vehicle(V, Class, Lane|unknown, Action, Speed|unknown)
            selected/1,           % selected(S): restrict reasoning to these signs
-           selection_active/0.
+           selection_active/0,
+           road_divided/1,       % road_divided(true|false): the scene's road has a divider (phase 4.5)
+           unread_sign/1.        % unread_sign(S): a sign that couldn't be read (not a warning triangle)
 
 scene_fact(sign/3).        scene_fact(sign_value/2).   scene_fact(sign_lane/3).
 scene_fact(sign_placement/2).
@@ -56,6 +64,7 @@ scene_fact(group/2).       scene_fact(group_vehicle/3). scene_fact(group_time/4)
 scene_fact(group_days/3).
 scene_fact(local_plate/2). scene_fact(local_vehicle/2). scene_fact(local_action/2).
 scene_fact(selected/1).    scene_fact(selection_active/0).
+scene_fact(road_divided/1). scene_fact(unread_sign/1).
 
 catalog_fact(catalog_sign/4). catalog_fact(prohibits/3). catalog_fact(catalog_except/2).
 catalog_fact(no_priority_exempt/1). catalog_fact(value_cond/4). catalog_fact(catalog_days/2).
@@ -63,6 +72,8 @@ catalog_fact(max_speed_for/2). catalog_fact(min_speed_for/2). catalog_fact(lane_
 catalog_fact(lane_reserved/2). catalog_fact(direction_sign/1). catalog_fact(only_direction/2).
 catalog_fact(ends/2). catalog_fact(standard_placement/2). catalog_fact(placement_effect/4).
 catalog_fact(class_interpretation/3). catalog_fact(attr_interpretation/1). catalog_fact(catalog_key/2). catalog_fact(catalog_tag/2).
+catalog_fact(zone_sign/3). catalog_fact(conduct/2). catalog_fact(permits_here/2).
+catalog_fact(pass_side/2). catalog_fact(yield_from/2). catalog_fact(informational/1).
 
 clear_scene :-
     forall(scene_fact(N/A), (functor(H, N, A), retractall(H))).

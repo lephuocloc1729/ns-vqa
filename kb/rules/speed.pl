@@ -48,6 +48,10 @@ speed_violation(Veh, Speed, Lane, Ctx, S, T) :-
     applies(S, Code, [Spec], Veh, Ctx, T1),
     and3([T0, T1], T).
 
+% Default speeds by road type (kb/rules/zones.pl, Circular 38/2024, interpretations).
+speed_violation(Veh, Speed, _Lane, Ctx, S, T) :-
+    default_violation(Veh, Speed, Ctx, S, T).
+
 % Lane is the lane in Ctx; assess/6 checks it against the lanes the sign covers.
 max_speed_sign(Veh, Speed, _Lane, Ctx, S, [limit-T0|Checks]) :-
     scene_sign(S, Code),
@@ -98,6 +102,9 @@ limit_candidate(Veh, Ctx, Kind, S, V, T) :-
     applies(S, Code, [Spec], Veh, Ctx, T1),
     and3([T0, T1], T).
 
+limit_candidate(Veh, Ctx, Kind, S, V, T) :-
+    default_limit_value(Veh, Ctx, Kind, S, V, T).
+
 board_limit(max, S, L, Spec, V) :- lane_limit(S, L, Spec, V).
 board_limit(min, S, L, Spec, V) :- lane_min(S, L, Spec, V).
 
@@ -113,6 +120,8 @@ speed_clears(Veh, Speed, Lane, Ctx, S, Why) :-
 speed_clears(Veh, Speed, Lane, Ctx, S, Why) :-
     min_speed_sign(Veh, Speed, Lane, Ctx, S, Checks),
     first_false(Checks, Why).
+speed_clears(Veh, Speed, _Lane, Ctx, S, Why) :-
+    default_clears(Veh, Speed, Ctx, S, Why).
 speed_clears(Veh, Speed, Lane, Ctx, S, within_limit) :-
     scene_sign(S, Code),
     lane_board(Code),

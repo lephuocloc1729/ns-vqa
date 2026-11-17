@@ -48,11 +48,11 @@ def test_the_candidate_lists_partition_the_catalog():
     c = tp.candidates(CAT)
     assert set(c) == set(tp.COARSE_TYPES)
     codes = [x for v in c.values() for x in v]
-    assert sorted(codes) == sorted(s.code for s in CAT.signs) and len(codes) == len(set(codes))
+    assert sorted(codes) == sorted(s.code for s in CAT.signs if not s.listed_from) and len(codes) == len(set(codes))
 
 
 def test_auxiliary_rows_are_the_plate_list():
-    assert tp.candidates(CAT)["plate"] == [s.code for s in CAT.signs if s.category == "auxiliary"]
+    assert tp.candidates(CAT)["plate"] == [s.code for s in CAT.signs if s.category == "auxiliary" and not s.listed_from]
     assert "P.127" in tp.candidates(CAT)["red_circle"] and "W.207a" not in tp.candidates(CAT)["red_circle"]
 
 
@@ -70,7 +70,8 @@ def test_the_read_prompt_lists_every_type_and_the_full_catalog():
     for t in tp.COARSE_TYPES:
         assert f"## {t}" in text
     for s in CAT.signs:
-        assert f"{s.code} | {s.name_vi}" in text
+        if not s.listed_from:                       # rows added in phase 4.5 postdate the pinned trial
+            assert f"{s.code} | {s.name_vi}" in text
     assert "escape" in text and "UNKNOWN" in text
 
 
