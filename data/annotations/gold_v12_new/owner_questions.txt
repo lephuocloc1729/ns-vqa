@@ -1,119 +1,69 @@
 # format: type | question
 
 # count
-count | Trong ảnh có mấy biển cấm rẽ trái vậy?
-count | Tôi đếm được bao nhiêu biển báo giới hạn tốc độ trên đoạn đường này?
-count | Có tất cả bao nhiêu biển cấm xe tải trong hình?
-count | Những biển báo chỗ sang đường cho người đi bộ xuất hiện mấy lần trong ảnh?
-count | Dọc đoạn đường chụp trong hình có bao nhiêu biển cấm đỗ xe?
-count | Bạn đếm giúp tôi số biển báo đường một chiều trong ảnh với?
-count | Có bao nhiêu biển báo nguy hiểm hình tam giác trong bức ảnh này?
-count | Đoạn đường phía trước có mấy biển báo cấm đi ngược chiều?
-count | Trong hình, biển báo giao nhau với đường sắt có tất cả mấy cái?
-count | Tôi muốn biết số biển yêu cầu đi thẳng xuất hiện trong ảnh là bao nhiêu?
-count | Có mấy biển báo dành cho người đi bộ được đặt ở khu vực này?
-count | Nhìn cả hai bên đường thì có tổng cộng bao nhiêu biển báo cấm bóp còi?
+count | Ở đây có mấy biển cấm xe máy vậy?
+count | Trong hình có bao nhiêu biển báo sắp đến ngã tư?
+count | Đếm cả hai bên đường thì có mấy biển giới hạn tốc độ?
+count | Có bao nhiêu biển cấm rẽ phải trong tấm hình này?
+count | Đoạn này có mấy biển báo chỗ quay đầu xe?
 
 # count_is
-count_is | Trong hình có đúng hai biển cấm quay đầu phải không?
-count_is | Tôi thấy ba biển giới hạn tốc độ, đếm vậy đúng không?
-count_is | Có phải ảnh này chỉ có một biển cấm xe máy không?
-count_is | Số biển cấm dừng và đỗ xe trong ảnh có nhiều hơn hai không?
-count_is | Ở đây không có biển cấm vượt nào, đúng chứ?
-count_is | Ảnh này có ít nhất một biển báo đường trơn phải không?
-count_is | Hai bên đường có tổng cộng bốn biển cấm đỗ, đúng chứ?
-count_is | Tôi đếm ra hai biển bắt buộc rẽ phải, có đúng không nhỉ?
-count_is | Trong hình có hơn một biển báo trẻ em không?
-count_is | Không thấy biển hạn chế chiều cao nào trong ảnh, đúng không bạn?
+count_is | Chỗ này có hai biển cấm xe tải đúng không?
+count_is | Tôi đếm được ba biển báo nguy hiểm, có đúng không nhỉ?
+count_is | Trong ảnh chỉ có một biển cấm dừng thôi phải không?
+count_is | Có ít nhất hai biển chỉ hướng đi trong hình này không?
+count_is | Đoạn này không có biển cấm xe đạp nào đúng chứ?
 
 # applies_to
-applies_to | Biển cấm ở giữa ảnh dành cho những loại xe nào vậy?
-applies_to | Những xe nào phải tuân theo biển tròn viền đỏ bên phải đường?
-applies_to | Biển có hình chiếc xe tải này cấm những loại phương tiện nào?
-applies_to | Bạn giải thích giúp tôi biển bên trái ảnh áp dụng cho các loại xe nào với?
-applies_to | Biển hạn chế tốc độ ngay trước cầu có hiệu lực với những phương tiện nào?
-applies_to | Những loại xe nào bị biển cấm ở đầu ngõ này hạn chế?
-applies_to | Biển tròn xanh có hình phương tiện trong ảnh quy định đường dành cho những xe nào?
-applies_to | Biển đặt ngay lối vào cầu này áp dụng với nhóm phương tiện nào vậy?
-applies_to | Nhìn biển cấm bên cạnh cổng, những xe nào không được đi vào?
-applies_to | Biển có hình hai phương tiện gạch chéo kia nhắm đến những loại xe nào?
+applies_to | Biển ngay đầu đường này cấm những xe nào?
+applies_to | Những loại xe nào phải đi theo biển xanh kia?
+applies_to | Biển bên cạnh đèn giao thông áp dụng cho xe gì vậy?
+applies_to | Nhìn biển này thì những xe nào không được vào cầu?
+applies_to | Biển cấm phía trên cùng dành cho những loại phương tiện nào?
 
 # sign_applies
-sign_applies | Tôi đi xe máy thì có phải chấp hành biển này không?
-sign_applies | Biển cấm trong ảnh có áp dụng cho xe khách không vậy?
-sign_applies | Xe tải cũng thuộc đối tượng bị cấm bởi biển bên phải, đúng không?
-sign_applies | Có phải xe đạp cũng nằm trong phạm vi áp dụng của biển này không?
-sign_applies | Biển ở giữa ảnh có dành cho ô tô con không nhỉ?
-sign_applies | Xe buýt có chịu sự hạn chế của biển tròn viền đỏ này không?
-sign_applies | Tôi chạy xe mô tô hai bánh thì biển phía trước có áp dụng cho tôi không?
-sign_applies | Xe kéo rơ moóc có thuộc diện phải tuân theo biển này không vậy?
-sign_applies | Có phải biển cấm ở lối vào cũng áp dụng với máy kéo không?
-sign_applies | Xe tải 5 tấn có nằm trong nhóm phương tiện mà biển này cấm không?
-sign_applies | Đi xe gắn máy cũng phải theo biển tròn xanh bên phải, đúng chứ?
-sign_applies | Biển cấm vượt trong ảnh có hiệu lực với ô tô khách không nhỉ?
+sign_applies | Tôi đi xe con thì có bị biển này cấm không?
+sign_applies | Biển kia có tính cả xe máy điện không vậy?
+sign_applies | Xe khách 16 chỗ có thuộc loại xe bị cấm ở đây không?
+sign_applies | Biển này áp dụng cho cả xe tải nhỏ đúng không?
+sign_applies | Xe đạp cũng phải theo biển chỉ hướng này à?
 
 # rule_permitted
-rule_permitted | Đang đi trên cầu như trong ảnh thì tôi có được dừng xe để nghe điện thoại không?
-rule_permitted | Trong hầm đường bộ, ô tô có được quay đầu không vậy?
-rule_permitted | Đường cong bị khuất tầm nhìn thế này thì xe máy có được vượt xe phía trước không?
-rule_permitted | Đèn đang đỏ như hình, nếu không có tín hiệu nào cho phép rẽ phải thì xe máy được rẽ phải không?
-rule_permitted | Đèn vừa chuyển vàng mà ô tô vẫn còn trước vạch dừng và có thể dừng an toàn thì được đi tiếp không?
-rule_permitted | Với đèn vàng nhấp nháy như ảnh, xe tải có được đi qua giao lộ không?
-rule_permitted | Tôi có được lái ô tô đè qua vạch liền phân chia hai chiều xe chạy trong hình để vượt không?
-rule_permitted | Nếu bảo đảm an toàn thì xe máy được chuyển làn qua vạch trắng đứt như trong ảnh, đúng không?
-rule_permitted | Tôi có được đỗ ô tô ngay trên phần đường dành cho người đi bộ trong ảnh không?
-rule_permitted | Đến chỗ đường bộ cắt đường sắt thế này, xe máy có được quay đầu không?
-rule_permitted | Ô tô được lùi xe trong hầm như chỗ này không bạn?
-rule_permitted | Xe đã đi qua vạch dừng rồi đèn mới chuyển vàng thì được tiếp tục đi chứ?
-rule_permitted | Đèn xanh nhưng phía bên kia ngã tư đang ùn tắc, ô tô có được tiến vào giao lộ không?
-rule_permitted | Đèn chính đang đỏ nhưng mũi tên xanh cho rẽ phải đang sáng thì tôi được rẽ phải sau khi nhường đường đúng quy định không?
-rule_permitted | Xe tôi ở phía nét liền của vạch vàng kép một liền một đứt thì có được cắt qua để sang phía đường đối diện không?
-rule_permitted | Ở đoạn có vạch vàng đứt phân chia hai chiều như ảnh, ô tô được cắt qua để vượt nếu đủ điều kiện an toàn, đúng không?
+rule_permitted | Tôi dừng xe trên cầu một lát để thả người xuống có được không?
+rule_permitted | Chỗ này là ngã ba thì có được lùi ô tô không?
+rule_permitted | Đang ở trong hầm thì tôi có được đỗ xe để xem bản đồ không?
+rule_permitted | Tới đoạn đường sắt cắt ngang này có được vượt xe phía trước không?
+rule_permitted | Đèn đỏ mà đường đang vắng, không có tín hiệu cho đi thì xe đạp vẫn phải chờ đúng không?
+rule_permitted | Tôi chưa tới vạch dừng, vẫn dừng an toàn được mà đèn chuyển vàng thì có được chạy tiếp không?
+rule_permitted | Đèn xanh rồi nhưng người đi bộ vẫn đang qua đường thì tôi có được chạy cắt ngang trước mặt họ không?
+rule_permitted | Đèn vàng nhấp nháy thế này thì tôi được đi qua sau khi quan sát và nhường đường đúng không?
+rule_permitted | Vạch trắng đứt giữa hai làn như này thì tôi được chuyển làn khi an toàn phải không?
+rule_permitted | Tôi có được đè qua hai vạch vàng liền này để vượt xe chậm phía trước không?
 
 # duties
-duties | Muốn chuyển sang làn bên trái ở đoạn này thì tôi cần làm những gì?
-duties | Khi rẽ phải ở ngã tư trong ảnh, người lái ô tô phải thực hiện những việc nào?
-duties | Tôi định lùi xe ra khỏi chỗ đỗ này, cần làm gì để đúng quy tắc giao thông?
-duties | Gặp người đi bộ đang qua đường trên vạch như trong hình thì tài xế phải làm gì?
-duties | Xe khách tới chỗ giao nhau không có đèn và không có biển ưu tiên như ảnh thì phải nhường đường thế nào?
-duties | Khi xe cứu thương đang phát tín hiệu ưu tiên tiến đến từ phía sau, tôi phải xử lý thế nào?
-duties | Ô tô đi từ đường nhánh ra đường chính như trong ảnh phải nhường đường ra sao?
-duties | Chuẩn bị đi vào vòng xuyến này thì người lái xe máy phải nhường đường thế nào?
-duties | Thấy rào chắn đường sắt phía trước đang hạ xuống, tài xế cần làm gì?
-duties | Khi muốn vượt chiếc xe phía trước trên đoạn đường này, người lái ô tô cần thực hiện những việc gì?
+duties | Tôi muốn tấp xe vào lề đoạn này thì cần làm gì?
+duties | Đang đi mà thấy xe chữa cháy hú còi phía sau thì tôi phải xử lý sao?
+duties | Từ trong ngõ chạy ra đường lớn như ảnh thì tôi phải nhường xe thế nào?
+duties | Muốn quay đầu ở chỗ được phép này thì tôi cần làm những gì trước?
+duties | Tới chỗ giao nhau mà có người điều khiển giao thông thì tôi phải theo hiệu lệnh thế nào?
 
 # signal_meaning
-signal_meaning | Đèn vàng đang nhấp nháy ở ngã tư này có ý nghĩa gì vậy?
-signal_meaning | Mũi tên xanh chỉ sang trái trên cụm đèn trong ảnh báo điều gì?
-signal_meaning | Đèn đỏ hình mũi tên hướng sang phải có ý nghĩa thế nào?
-signal_meaning | Đèn xanh tròn đang sáng trong hình truyền đạt hiệu lệnh gì cho người lái xe?
-signal_meaning | Dấu X màu đỏ sáng phía trên làn đường kia có nghĩa là gì?
-signal_meaning | Mũi tên xanh hướng xuống ngay trên làn xe kia có ý nghĩa gì?
-signal_meaning | Đèn đỏ tròn đang sáng ở ngã tư báo hiệu điều gì cho người đi xe máy?
-signal_meaning | Đèn vàng sáng liên tục trong cụm đèn phía trước có nghĩa thế nào?
-signal_meaning | Tín hiệu hình người màu xanh bên kia đường có ý nghĩa gì với người đi bộ?
-signal_meaning | Đèn mũi tên xanh chỉ thẳng đang sáng thì người lái ô tô phải hiểu thế nào?
+signal_meaning | Đèn mũi tên đỏ chỉ sang trái kia báo gì vậy?
+signal_meaning | Đèn hình người màu đỏ đang sáng nghĩa là sao?
+signal_meaning | Cái đèn mũi tên xanh chỉ sang phải cho biết điều gì?
+signal_meaning | Đèn vàng ở giữa sáng liên tục thì mình phải hiểu thế nào?
+signal_meaning | Đèn dấu X phía trên làn bên trái đang đỏ là báo gì?
 
 # marking_meaning
-marking_meaning | Vạch vàng liền ở giữa đường trong ảnh có ý nghĩa gì?
-marking_meaning | Hai vạch vàng liền chạy song song này dùng để báo điều gì vậy?
-marking_meaning | Vạch trắng đứt giữa các làn xe trong hình có tác dụng gì?
-marking_meaning | Vạch trắng ngang ngay trước đèn tín hiệu là vạch gì vậy?
-marking_meaning | Những sọc trắng rộng nằm ngang mặt đường ở phía trước dùng để làm gì?
-marking_meaning | Mũi tên vừa chỉ thẳng vừa chỉ sang phải trên làn xe này có nghĩa gì?
-marking_meaning | Ô kẻ vạch vàng dạng mắt võng giữa ngã tư dùng để báo điều gì?
-marking_meaning | Cặp vạch vàng gồm một nét liền và một nét đứt trong hình có ý nghĩa thế nào?
-marking_meaning | Mũi tên cong sang trái sơn trên mặt làn đường này hướng dẫn điều gì?
-marking_meaning | Vạch trắng liền chạy dọc mép phần đường xe chạy trong ảnh dùng để làm gì?
+marking_meaning | Mũi tên chỉ thẳng dưới mặt đường này có ý nghĩa gì?
+marking_meaning | Vạch liền màu trắng ngăn hai làn cùng chiều này quy định thế nào?
+marking_meaning | Vạch vàng đứt ở giữa đường dùng để làm gì?
+marking_meaning | Phần mặt đường kẻ các vạch chéo trong ảnh có ý nghĩa gì?
+marking_meaning | Mũi tên quay đầu được sơn trên làn này báo điều gì?
 
 # marking_is
-marking_is | Vạch vàng ở giữa ảnh dùng để phân chia hai chiều xe chạy, đúng không?
-marking_is | Có phải vạch trắng đứt này ngăn cách các làn xe cùng chiều không?
-marking_is | Vạch trắng ngang trước đầu ô tô trong ảnh có phải là vạch dừng xe không?
-marking_is | Vạch liền giữa hai chiều đường như hình là loại không được đè qua, phải không?
-marking_is | Với vạch vàng một nét liền một nét đứt trong ảnh, phía nét đứt được phép cắt qua khi an toàn đúng chứ?
-marking_is | Những sọc trắng song song ngang đường phía trước có phải chỗ dành cho người đi bộ qua đường không?
-marking_is | Mũi tên sơn trên làn này cho phép cả đi thẳng lẫn rẽ phải, đúng không?
-marking_is | Có phải ô vạch vàng mắt võng trong ảnh đánh dấu khu vực không được dừng xe không?
-marking_is | Hai vạch vàng liền ở giữa đường là để chia các làn cùng chiều, đúng chứ?
-marking_is | Vạch trắng liền ngoài cùng bên phải có phải vạch phân chia hai chiều xe chạy không?
+marking_is | Vạch trước đầu xe kia là chỗ phải dừng khi đèn đỏ đúng không?
+marking_is | Mấy sọc trắng ngang đường này có phải vạch cho người đi bộ không?
+marking_is | Vạch vàng đứt kia chia hai chiều xe chạy phải không?
+marking_is | Mũi tên dưới làn bên phải chỉ cho rẽ phải thôi đúng chứ?
+marking_is | Phần kẻ vạch chéo kia có phải khu vực không được đi xe vào không?
