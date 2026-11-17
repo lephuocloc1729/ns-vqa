@@ -1,0 +1,71 @@
+# format: type | question
+# AI-drafted questions for owner review; not yet owner-written or owner-validated.
+# Written independently without reading dataset questions or the session's 50 questions.
+
+# count
+count | Trong ảnh có mấy biển cấm rẽ trái vậy?
+count | Tôi đếm được bao nhiêu biển báo giới hạn tốc độ trên đoạn đường này?
+count | Có tất cả bao nhiêu biển cấm xe tải trong hình?
+count | Những biển báo chỗ sang đường cho người đi bộ xuất hiện mấy lần trong ảnh?
+count | Dọc đoạn đường chụp trong hình có bao nhiêu biển cấm đỗ xe?
+count | Bạn đếm giúp tôi số biển báo đường một chiều trong ảnh với?
+
+# count_is
+count_is | Trong hình có đúng hai biển cấm quay đầu phải không?
+count_is | Tôi thấy ba biển giới hạn tốc độ, đếm vậy đúng không?
+count_is | Có phải ảnh này chỉ có một biển cấm xe máy không?
+count_is | Số biển cấm dừng và đỗ xe trong ảnh có nhiều hơn hai không?
+count_is | Ở đây không có biển cấm vượt nào, đúng chứ?
+
+# applies_to
+applies_to | Biển cấm ở giữa ảnh dành cho những loại xe nào vậy?
+applies_to | Những xe nào phải tuân theo biển tròn viền đỏ bên phải đường?
+applies_to | Biển có hình chiếc xe tải này cấm những loại phương tiện nào?
+applies_to | Bạn giải thích giúp tôi biển bên trái ảnh áp dụng cho các loại xe nào với?
+applies_to | Biển hạn chế tốc độ ngay trước cầu có hiệu lực với những phương tiện nào?
+
+# sign_applies
+sign_applies | Tôi đi xe máy thì có phải chấp hành biển này không?
+sign_applies | Biển cấm trong ảnh có áp dụng cho xe khách không vậy?
+sign_applies | Xe tải cũng thuộc đối tượng bị cấm bởi biển bên phải, đúng không?
+sign_applies | Có phải xe đạp cũng nằm trong phạm vi áp dụng của biển này không?
+sign_applies | Biển ở giữa ảnh có dành cho ô tô con không nhỉ?
+sign_applies | Xe buýt có chịu sự hạn chế của biển tròn viền đỏ này không?
+
+# rule_permitted
+rule_permitted | Đang đi trên cầu như trong ảnh thì tôi có được dừng xe để nghe điện thoại không?
+rule_permitted | Trong hầm đường bộ, ô tô có được quay đầu không vậy?
+rule_permitted | Đường cong bị khuất tầm nhìn thế này thì xe máy có được vượt xe phía trước không?
+rule_permitted | Đèn đang đỏ như hình, nếu không có tín hiệu nào cho phép rẽ phải thì xe máy được rẽ phải không?
+rule_permitted | Đèn vừa chuyển vàng mà ô tô vẫn còn trước vạch dừng và có thể dừng an toàn thì được đi tiếp không?
+rule_permitted | Với đèn vàng nhấp nháy như ảnh, xe tải có được đi qua giao lộ không?
+rule_permitted | Tôi có được lái ô tô đè qua vạch liền phân chia hai chiều xe chạy trong hình để vượt không?
+rule_permitted | Nếu bảo đảm an toàn thì xe máy được chuyển làn qua vạch trắng đứt như trong ảnh, đúng không?
+
+# duties
+duties | Muốn chuyển sang làn bên trái ở đoạn này thì tôi cần làm những gì?
+duties | Khi rẽ phải ở ngã tư trong ảnh, người lái ô tô phải thực hiện những việc nào?
+duties | Tôi định lùi xe ra khỏi chỗ đỗ này, cần làm gì để đúng quy tắc giao thông?
+duties | Gặp người đi bộ đang qua đường trên vạch như trong hình thì tài xế phải làm gì?
+duties | Xe khách tới chỗ giao nhau không có đèn và không có biển ưu tiên như ảnh thì phải nhường đường thế nào?
+
+# signal_meaning
+signal_meaning | Đèn vàng đang nhấp nháy ở ngã tư này có ý nghĩa gì vậy?
+signal_meaning | Mũi tên xanh chỉ sang trái trên cụm đèn trong ảnh báo điều gì?
+signal_meaning | Đèn đỏ hình mũi tên hướng sang phải có ý nghĩa thế nào?
+signal_meaning | Đèn xanh tròn đang sáng trong hình truyền đạt hiệu lệnh gì cho người lái xe?
+signal_meaning | Dấu X màu đỏ sáng phía trên làn đường kia có nghĩa là gì?
+
+# marking_meaning
+marking_meaning | Vạch vàng liền ở giữa đường trong ảnh có ý nghĩa gì?
+marking_meaning | Hai vạch vàng liền chạy song song này dùng để báo điều gì vậy?
+marking_meaning | Vạch trắng đứt giữa các làn xe trong hình có tác dụng gì?
+marking_meaning | Vạch trắng ngang ngay trước đèn tín hiệu là vạch gì vậy?
+marking_meaning | Những sọc trắng rộng nằm ngang mặt đường ở phía trước dùng để làm gì?
+
+# marking_is
+marking_is | Vạch vàng ở giữa ảnh dùng để phân chia hai chiều xe chạy, đúng không?
+marking_is | Có phải vạch trắng đứt này ngăn cách các làn xe cùng chiều không?
+marking_is | Vạch trắng ngang trước đầu ô tô trong ảnh có phải là vạch dừng xe không?
+marking_is | Vạch liền giữa hai chiều đường như hình là loại không được đè qua, phải không?
+marking_is | Với vạch vàng một nét liền một nét đứt trong ảnh, phía nét đứt được phép cắt qua khi an toàn đúng chứ?
