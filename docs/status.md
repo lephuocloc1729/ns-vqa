@@ -1634,6 +1634,55 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Handoff (2026-11-17): coverage round 2
+
+#### Where things stand
+
+- **Phase 4.5 is closed.** Its one final validation ran (`7a3dbec997f7`, frozen `eval/frozen_phase45.json`, fallback off, aggregate only; sentinel `eval/validation_ran_final.json`, committed): **decided coverage 47.3% (52/110; 95% CI 38–57), accuracy on decided 77.9% (65–87), overall 36.8% (28–46)**, against the baseline's 30.0%, 72.7%, 21.8%. The fixed success criterion is met (coverage > 39.1%, overall > 30.4%); **every target and floor is missed** (coverage 80% / 70%, accuracy 88% / 85%, overall 70% / 60%). Details: "Phase 4.5 final validation" above.
+- **Frozen system (`eval/frozen_phase45.json`, profile `phase45`):** scene v5 + v5-tile / v5-crop, guide-board call on (`scene/v5-guide`), parser v9, writer `answer/v3`, answer fallback v2, `crop_always` + T4. `eval/freeze.py check --profile phase45` matches; `eval/frozen_phase4.json` still matches the phase-4 profile.
+- **Branch `phase-5`, nothing pushed.**
+- **Spend this round: $2.95 of $5** (B3 + B6 tests $0.135; dev run $0.612; parser gate runs v7 $0.194, v8 $0.180, v9 $0.192; candidate dev run $0.81; v9 dev re-parse $0.011; final validation $0.83). **$2.05 left.**
+
+#### The owner's goal for round 2
+
+- **More coverage before the private run.** The private test stays on hold until then.
+
+#### Why questions are not decided
+
+- **Validation (aggregate only; 58 of 110):** out of scope 28, uncertain 16, unknown 7, unreadable sign 4, program can't run 2, parse failed 1. By type: Yes/No 39.6% decided (90.5% right when decided), Natural QA 54.4% decided (69.4%). No per-question cause may be read.
+- **Dev (readable; the v9 re-parse `dev_reparse_v9_8bbb5eb01cff`, 23 of 87):**
+  - out of scope 12: 15, 231, 248, 259, 260, 341, 351, 361, 386, 413, 414, 515 (compound questions 248 / 414; speed ranges 413; a board's symbols 259 / 260; traffic light 341; "why" 351; lane arrows 515; yes/no about a board 231);
+  - uncertain 6: 138, 159, 432, 450, 517, 521 (alternative readings disagree);
+  - unknown 3: 415, 421, 451; program can't run 1: 145; unreadable sign 1: 514.
+- **Dev overstates validation** (73.6% vs 47.3% decided): dev is all Natural QA and guide-heavy, and stage B was tuned on it; validation is half Yes/No, and Yes/No is where coverage is lowest. "Out of scope" and "uncertain" are the two largest causes on both.
+
+#### Fix before the private run
+
+- **`eval/e2e_private.py` lacks the rules-only figures.** Its aggregate reports overall (with the fallback) and `rule_coverage`, not decided coverage, accuracy on decided and overall with non-decided counted wrong (the phase-4.5 requirement). Add them, as `eval/e2e_validation.py`'s `aggregate` does.
+- **Its estimate uses phase-4 rates** (`HOLDOUT`: fallback rate 0.49, $0.0127 per question; `ee.COST`). Re-base it on the phase-4.5 measured rates (final validation: $0.0076 per question with the fallback off, plus the fallback's share if it stays on).
+- It already checks `frozen_phase45.json` by default and builds its pipeline from that profile.
+
+#### Open decision (owner)
+
+- **A "final2" validation run.** `validation_ran_final.json` blocks a second `final`. Measuring round-2 changes on the validation set needs a new label (e.g. `final2`, its own freeze record and sentinel), and the owner's decision on whether the validation set may be used a second time: each use spends some of its independence. Without it, round 2 is measured on dev only (readable, tuned on, optimistic) before the private run.
+
+#### Key files and commands
+
+- Plans and records: `docs/plans/phase-4.5.md` (sections 11–15), this file, `CLAUDE.md` (data rules). DESIGN.md and CLAUDE.md still describe schema 1.2: the 1.3 boards, the new intents and slots, negative lanes and the guide call are not written up yet.
+- Freeze: `eval/freeze.py` (`PROFILES`, `check --profile phase45`, `write --profile ...`; a record is written once).
+- Dev: `eval/e2e_dev.py` (`run --candidate`, `reparse --from ... --version ...`, `summary`, `estimate --candidate`); runs in `eval/runs/e2e/` (local): `dev_candidate_7caed6170de6.jsonl`, `dev_reparse_v9_8bbb5eb01cff.jsonl`.
+- Engine-only replay: `eval/dev_replay.py` (`--programs`, `--scenes`; provisional grades `eval/runs/e2e/dev_provisional_grades.json`).
+- Parser gate: `eval/parser_eval.py run --version vN --max-spend 0.40` (one run decides from v8 on), `score`, `compare --old <v6 runs> --new <run>`.
+- Validation: `eval/e2e_validation.py` (aggregate only; labels `baseline`, `final`, both used).
+- Private: `eval/e2e_private.py` (on hold; fix the two items above first).
+- Code added in phase 4.5: `vqa/perception/guide.py`, `vqa/reasoning/sign_info.py` + `kb/sign_info.yaml`, `kb/sign_catalog_effects.yaml`, `kb/rules/zones.pl`, `prompts/parser/v7`–`v9`, `prompts/scene/v5*`.
+- Reviews still owed before the private run: `kb/sign_info.yaml`, `kb/sign_catalog_effects.yaml`, R.421 / R.122 / S.501, KB-1 to KB-8, Circular 38 speeds, the v7–v9 spec lines without train examples (police car, divider, placement), the guide-trial labels.
+
+#### Working rules
+
+- Stage files by name and check the staged list; no API call without the owner's go-ahead on an estimate; the owner runs paid commands.
+- Not touched: the validation set beyond its aggregate, public_holdout, private, gold.
+
 ### Handoff (2026-11-17, later): B1 + B2 built; B4 ready for the owner's go-ahead
 
 - **Where things stand:** B1 + B2 are built and committed (see "Phase 4.5 B1 + B2 built"). Branch `phase-5`, nothing pushed. The freeze record `eval/frozen_phase4.json` still matches. **Spend this round: $0.74 of $5**, $0.70 reserved for the final validation, **$3.56 free**. No call was made in this step.
