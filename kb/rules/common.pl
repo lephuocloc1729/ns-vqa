@@ -39,6 +39,12 @@ rule_source(r_expressway_stop,     '36/2024/QH15', '25').    % 25.2: stop / park
 rule_source(r_pickup_point,        '36/2024/QH15', '18').    % 18.4 i): no stopping at "điểm đón, trả khách"
 rule_source(r_residential_zone,    'QCVN 41:2024/BGTVT', 'D.17').
 rule_source(r_kb4_expressway_zone, interpretation, kb4_expressway_zone).
+% phase 4.7 step 1b: art. 27 "báo cho người tham gia giao thông biết trước": a warning is
+% addressed to every road user (kb/rules/coverage47.pl).
+rule_source(r_warning_all_users,   'QCVN 41:2024/BGTVT', '27').
+% art. 31 "báo cho người tham gia giao thông biết các điều bắt buộc"; art. 35 "giúp người tham gia giao thông"
+rule_source(r_mandatory_all_users, 'QCVN 41:2024/BGTVT', '31').
+rule_source(r_guide_all_users,     'QCVN 41:2024/BGTVT', '35').
 rule_source(r_kb1_pass_side,       interpretation, kb1_r302_pass_side_only).
 rule_source(r_kb2_roundabout,      interpretation, kb2_r303_yield_only).
 rule_source(r_c38_expressway,      interpretation, circular_38_2024_expressway_speeds).

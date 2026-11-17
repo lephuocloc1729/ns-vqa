@@ -692,6 +692,45 @@ class Present(_Model):
         return self
 
 
+class Count(_Model):
+    """Phase 4.7 (owner, 2026-11-17): "Trong ảnh có bao nhiêu biển cấm?": how many signs match the
+    selector (group, look, name or code). Plates are not counted as signs (art. 41). An unread sign
+    that could match makes the count a range, and the answer unknown with that range. With
+    `vehicle`: only the signs whose effect is addressed to that vehicle ("áp dụng cho xe máy")."""
+
+    intent: Literal["count"] = "count"
+    sign: Selector = Selector()
+    vehicle: Vehicle | None = None
+
+
+class CountIs(_Model):
+    """Phase 4.7: the claim form of `count`: "Trong ảnh có hai biển cấm, đúng không?". Yes when the
+    count is exactly n, no when n is outside the possible range, unknown otherwise."""
+
+    intent: Literal["count_is"] = "count_is"
+    sign: Selector = Selector()
+    n: Annotated[int, Field(ge=0)]
+    vehicle: Vehicle | None = None
+
+
+class AppliesTo(_Model):
+    """Phase 4.7: "Biển này áp dụng cho những loại xe nào?": the vehicle classes the selected
+    sign's effect is addressed to (bans, mandatory directions, maximum speeds), with its stated
+    exceptions. Who, not when: time and day plates are left out (kb/rules/coverage47.pl)."""
+
+    intent: Literal["applies_to"] = "applies_to"
+    sign: Selector = Selector(only=True)
+
+
+class SignApplies(_Model):
+    """Phase 4.7: the claim form: "Biển này áp dụng cho cả xe cơ giới lẫn xe thô sơ, đúng không?".
+    Yes when the sign is addressed to every listed vehicle, no when it surely isn't to one."""
+
+    intent: Literal["sign_applies"] = "sign_applies"
+    sign: Selector = Selector(only=True)
+    vehicles: Annotated[list[Vehicle], Field(min_length=1)]
+
+
 class AllOf(_Model):
     """A and B (and ...): yes when every claim holds."""
 
@@ -708,7 +747,7 @@ class AnyOf(_Model):
 
 Claim = Annotated[
     Union[Permitted, Forbidden, SpeedOk, Required, ExistsViolation, IsSign, Present, GuideClaim,
-          SpeedLimitIs, AllOf, AnyOf],
+          SpeedLimitIs, AllOf, AnyOf, CountIs, SignApplies],
     Field(discriminator="intent"),
 ]
 AllOf.model_rebuild()
@@ -755,14 +794,15 @@ class Explain(_Model):
 
     intent: Literal["explain"] = "explain"
     program: Annotated[Union[Permitted, Forbidden, SpeedOk, Required, ExistsViolation, IsSign, Present,
-                             GuideClaim, SpeedLimitIs, AllOf, AnyOf, Verify, Choose],
+                             GuideClaim, SpeedLimitIs, AllOf, AnyOf, Verify, Choose, CountIs, SignApplies],
                        Field(discriminator="intent")]
 
 
 _PART = Annotated[
     Union[Permitted, Forbidden, SpeedOk, LanesFor, LanesWhere, BanTimes, Meaning, Required,
           ExistsViolation, Verify, Choose, IsSign, AllOf, AnyOf, WhichVehicles, LaneVehicles,
-          SpeedLimit, Present, Guide, GuideClaim, SpeedLimitIs, Explain],
+          SpeedLimit, Present, Guide, GuideClaim, SpeedLimitIs, Explain, Count, CountIs, AppliesTo,
+          SignApplies],
     Field(discriminator="intent"),
 ]
 
@@ -778,7 +818,8 @@ class Multi(_Model):
 Program = Annotated[
     Union[Permitted, Forbidden, SpeedOk, LanesFor, LanesWhere, BanTimes, Meaning, Required,
           ExistsViolation, Verify, Choose, IsSign, AllOf, AnyOf, WhichVehicles, LaneVehicles,
-          SpeedLimit, Present, Guide, GuideClaim, SpeedLimitIs, Explain, Multi],
+          SpeedLimit, Present, Guide, GuideClaim, SpeedLimitIs, Explain, Multi, Count, CountIs,
+          AppliesTo, SignApplies],
     Field(discriminator="intent"),
 ]
 

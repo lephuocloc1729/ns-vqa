@@ -18,7 +18,7 @@ from vqa.reasoning.facts import board_read, reading_variants, scene_facts, top_r
 from vqa.reasoning.terms import Term, atom, to_prolog, vehicle_term
 from vqa.parsing.dsl import normalize
 from vqa.schemas import (
-    AllOf, Answer, AnyOf, BanTimes, Choose, Citation, ExistsViolation, Explain, Guide, GuideClaim, IsSign,
+    AllOf, Answer, AnyOf, AppliesTo, BanTimes, Choose, Count, CountIs, SignApplies, Citation, ExistsViolation, Explain, Guide, GuideClaim, IsSign,
     LanesFor, LanesWhere, LaneVehicles, Meaning, Multi, Permitted, Present, SpeedLimit, SpeedLimitIs,
     ONTOLOGY_CLASSES, Forbidden, Program, QueryProgram, Reason, Required, SceneGraph, Selector,
     SpeedOk, Vehicle, VehicleClass, Verdict, Verify, When, WhichVehicles,
@@ -380,6 +380,10 @@ class Engine:
             return self._meaning(scene, p) if p.aspect == "name" else self._meaning_aspect(scene, p)
         if isinstance(p, Present):
             return self._present(scene, p)
+        if isinstance(p, (Count, CountIs)):          # phase 4.7 step 1b
+            return self._count(scene, p)
+        if isinstance(p, (AppliesTo, SignApplies)):  # phase 4.7 step 1b
+            return self._applies_to(scene, p)
         if isinstance(p, Guide):
             return self._guide(scene, p)
         if isinstance(p, GuideClaim):
@@ -597,6 +601,124 @@ class Engine:
                     out.append({"sign_id": i, "code": e.code, "name_vi": e.name_vi, p.aspect: text})
                     cites += [e.source, hit[1]]
         return out, cites
+
+    # ------------------------------------------------------------------ phase 4.7 step 1b
+    def _could_match(self, scene: SceneGraph, sel: Selector, sid: str) -> bool:
+        """An unread sign could be one the selector picks: it passes the look filters, and its
+        look is that of a catalog row the group / name / code filters allow."""
+        look_only = sel.model_copy(update={"category": None, "meaning": None, "code": None})
+        if sid not in self.resolve(scene, look_only):
+            return False
+        rows = self.catalog.signs
+        if sel.category:
+            cat = sel.category.value if hasattr(sel.category, "value") else sel.category
+            rows = [r for r in rows if r.category == cat]
+        if sel.meaning:
+            try:
+                codes = set(self.catalog.codes_for_meaning(sel.meaning))
+            except KeyError as e:
+                raise EngineError(str(e)) from None
+            rows = [r for r in rows if r.code in codes]
+        if sel.code:
+            rows = [r for r in rows if r.code in self.catalog.codes_matching(sel.code)]
+        looks = {self.category_of(r.visual.shape, r.visual.border, r.visual.background) for r in rows}
+        vc = self.visual_category(scene.sign(sid))
+        return vc == "unknown" or vc in looks
+
+    def _covers(self, scene: SceneGraph, ids: list[str], veh: Vehicle) -> tuple[str, list[Reason]]:
+        """yes / no / unknown / none over the selected signs (kb/rules/coverage47.pl)."""
+        self.load_scene(scene)
+        verdicts, reasons = [], []
+        for sid in ids:
+            out = self.call(Term("q_covers", sid, vehicle_term(veh)))
+            verdicts.append(out["verdict"])
+            reasons += [_reason(r) for r in out["reasons"]]
+        for v in ("yes", "unknown", "no"):
+            if v in verdicts:
+                return v, reasons
+        return "none", reasons
+
+    def _count(self, scene: SceneGraph, p: Count | CountIs) -> Answer:
+        sel = p.sign.model_copy(update={"only": False})
+        ids = self.resolve(scene, sel)
+        readable = [i for i in ids if self.catalog.has(scene.sign(i).code)]
+        unread = [i for i in self.unreadable_signs(scene) if self._could_match(scene, sel, i)]
+        reasons: list[Reason] = []
+        if p.vehicle is not None:
+            kept, maybe = [], []
+            for i in readable:
+                v, r = self._covers(scene, [i], p.vehicle)
+                reasons += r
+                if v == "yes":
+                    kept.append(i)
+                elif v in ("unknown", "none"):
+                    maybe.append(i)
+            readable, unread = kept, unread + maybe
+        lo, hi = len(readable), len(readable) + len(unread)
+        cites = [Citation(law_id="QCVN 41:2024/BGTVT", article_id="11")] if sel.category else []
+        cites += list({self.catalog.get(scene.sign(i).code).source.key(): self.catalog.get(scene.sign(i).code).source
+                       for i in readable}.values())
+        cites += _cites(reasons)
+        value = {"count": lo, "signs": readable} if lo == hi else {"at_least": lo, "at_most": hi, "signs": readable}
+        if isinstance(p, Count):
+            if lo == hi:
+                return Answer(verdict=Verdict.value, value=value, reasons=reasons, citations=cites)
+            return Answer(verdict=Verdict.unknown, value=value, uncertain_signs=unread, reasons=reasons,
+                          citations=cites, note="a sign that could not be read may be one of them")
+        if lo == hi == p.n:
+            return Answer(verdict=Verdict.yes, value=value, reasons=reasons, citations=cites)
+        if p.n < lo or p.n > hi:
+            return Answer(verdict=Verdict.no, value=value, reasons=reasons, citations=cites,
+                          uncertain_signs=unread)
+        return Answer(verdict=Verdict.unknown, value=value, uncertain_signs=unread, reasons=reasons,
+                      citations=cites, note="a sign that could not be read may be one of them")
+
+    def _applies_to(self, scene: SceneGraph, p: AppliesTo | SignApplies) -> Answer:
+        ids = self.resolve(scene, p.sign)
+        if not ids:
+            return Answer(verdict=Verdict.unknown, note="no sign in the scene matches the selector")
+        unread: list[str] = []
+        if p.sign.only:
+            chosen, unread = self.single_sign(scene, ids)
+            if chosen is None:
+                return Answer(verdict=Verdict.unknown, uncertain_signs=unread,
+                              note="expected exactly one sign in the scene")
+            ids = chosen
+        ids = [i for i in ids if self.catalog.has(scene.sign(i).code)]
+        if not ids:
+            return Answer(verdict=Verdict.unknown, uncertain_signs=unread, note="the sign could not be read")
+        if any(self.catalog.get(scene.sign(i).code).effect_unmodelled for i in ids):
+            return Answer(verdict=Verdict.unknown, uncertain_signs=unread,
+                          note="a selected sign has an effect the rules don't model")
+        if isinstance(p, SignApplies):
+            per = [(v, *self._covers(scene, ids, v)) for v in p.vehicles]
+            reasons = [r for _, _, rs in per for r in rs]
+            verdicts = [v for _, v, _ in per]
+            if "none" in verdicts:
+                return Answer(verdict=Verdict.unknown, uncertain_signs=unread,
+                              note="who this sign is addressed to is not modelled")
+            verdict = (Verdict.no if "no" in verdicts else Verdict.unknown if "unknown" in verdicts
+                       else Verdict.yes)
+            return Answer(verdict=verdict, value={"per_vehicle": {v.cls.value: x for v, x, _ in per}},
+                          reasons=reasons, citations=_cites(reasons), basis=_basis(reasons),
+                          uncertain_signs=unread)
+        results = {}
+        for c in ONTOLOGY_CLASSES:
+            v, rs = self._covers(scene, ids, Vehicle(**{"class": c}))
+            if v == "none":
+                return Answer(verdict=Verdict.unknown, uncertain_signs=unread,
+                              note="who this sign is addressed to is not modelled")
+            results[c.value] = (v, rs)
+        hits, conditional = self.report_classes(results, "yes")
+        support = [r for c in hits + conditional for r in results[c][1] if r.truth in ("true", "unknown")]
+        e = self.catalog.get(scene.sign(ids[0]).code)
+        exceptions = [x.value for x in e.effect.except_]
+        return Answer(verdict=Verdict.value,
+                      value={"applies_to": hits, "conditional": conditional, "exceptions": exceptions,
+                             "priority_exempt": e.effect.priority_exempt,
+                             "per_class": {c: v for c, (v, _) in results.items()}},
+                      reasons=support, citations=_cites(support) or [e.source], basis=_basis(support),
+                      uncertain_signs=unread)
 
     def _present(self, scene: SceneGraph, p: Present) -> Answer:
         """Is a sign of this code / meaning / category in the photo? Closed world over the

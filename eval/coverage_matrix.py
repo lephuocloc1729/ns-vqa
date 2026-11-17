@@ -65,6 +65,24 @@ def _intents() -> set[str]:
     return out
 
 
+_ENGINE = None
+
+
+def _probe(code: str, program):
+    """The engine's answer for a scene holding just this sign (look from the catalog row)."""
+    global _ENGINE
+    from vqa.reasoning.engine import Engine
+    from vqa.schemas import Position, SceneGraph, Sign
+    _ENGINE = _ENGINE or Engine()
+    row = _ENGINE.catalog.get(code)
+    vis = row.visual
+    from vqa.schemas import LaneSpec
+    lanes = [LaneSpec(lane=1, max_speed=60)] if row.effect.lane_board else []
+    sign = Sign(id="s1", code=code, confidence="high", shape=vis.shape, border=vis.border,
+                background=vis.background, position=Position(rank_top_down=1, side="right"), lanes=lanes)
+    return _ENGINE.answer(SceneGraph(scene_id="probe", signs=[sign]), program)
+
+
 def sign_cells(code: str, cat, intents: set[str]) -> dict[str, tuple[str, str]]:
     """(status, note) per column for one stage-A row."""
     if not cat.has(code):
@@ -77,20 +95,13 @@ def sign_cells(code: str, cat, intents: set[str]) -> dict[str, tuple[str, str]]:
     cells: dict[str, tuple[str, str]] = {}
     cells["identity"] = (M, "is_sign / meaning name, group, article")
 
-    # who it applies to
-    if e.category in ("warning",) or eff.informational:
-        cells["applies"] = (NA, "applies to every road user (art. 27 / guide sign)")
-    elif eff.prohibits or eff.max_speed or eff.min_speed or eff.lane_reserved or eff.lane_board:
-        have = "applies_to" in intents
-        cells["applies"] = (M if have else B,
-                            "which_vehicles exists for bans; applies_to claim, every_vehicle except, covered classes"
-                            + ("" if have else " to build"))
-    elif e.effect_unmodelled:
-        cells["applies"] = (B, "effect not modelled")
-    elif has_rule or eff.conduct:
-        cells["applies"] = (B, "applies_to over the row's vehicles (art. 31 / its article)")
+    # who it applies to: probed on a one-sign scene with the engine (applies_to)
+    if e.category == "end_of_restriction":
+        cells["applies"] = (NA, "an end sign lifts another sign's effect")
     else:
-        cells["applies"] = (NA, "no vehicle-specific effect")
+        a = _probe(code, schemas.AppliesTo()) if "applies_to" in intents else None
+        cells["applies"] = (M, "applies_to / sign_applies") if a is not None and a.verdict.value == "value" \
+            else (B, "applies_to not decided" if a is not None else "applies_to to build")
 
     # permitted / forbidden / required
     if e.effect_unmodelled:

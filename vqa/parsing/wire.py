@@ -214,8 +214,32 @@ class WSpeedLimitIs(_W):                     # phase 4.6 I4
     lane: Optional[int] = None
 
 
+class WCountIs(_W):                          # phase 4.7
+    intent: Literal["count_is"]
+    sign: Optional[WSelector] = None
+    n: int
+    vehicle: Optional[WVehicle] = None
+
+
+class WSignApplies(_W):                      # phase 4.7
+    intent: Literal["sign_applies"]
+    sign: Optional[WSelector] = None
+    vehicles: list[WVehicle]
+
+
+class WCount(_W):                            # phase 4.7
+    intent: Literal["count"]
+    sign: Optional[WSelector] = None
+    vehicle: Optional[WVehicle] = None
+
+
+class WAppliesTo(_W):                        # phase 4.7
+    intent: Literal["applies_to"]
+    sign: Optional[WSelector] = None
+
+
 _LEAF_MODELS = (WPermitted, WForbidden, WSpeedOk, WRequired, WExistsViolation, WIsSign, WPresent,
-                WGuideClaim, WSpeedLimitIs)
+                WGuideClaim, WSpeedLimitIs, WCountIs, WSignApplies)
 LeafClaim = Annotated[Union[_LEAF_MODELS], Field(discriminator="intent")]
 
 
@@ -317,7 +341,8 @@ class WExplain(_W):                          # phase 4.6 I3
 
 
 _PART_MODELS = _CLAIM_MODELS + (WVerify, WChoose, WLanesFor, WLanesWhere, WBanTimes,
-                                WMeaning, WWhichVehicles, WLaneVehicles, WSpeedLimit, WGuide, WExplain)
+                                WMeaning, WWhichVehicles, WLaneVehicles, WSpeedLimit, WGuide, WExplain,
+                                WCount, WAppliesTo)
 Part = Annotated[Union[_PART_MODELS], Field(discriminator="intent")]
 
 
