@@ -4,7 +4,7 @@
 #   the v12 few-shots), picked by wording; this file keeps their ids and programs only (no text).
 # - source: assistant_written # - source: owner_written rows come from owner_questions.txt (text verbatim, `line` = its line). That
 #   file's header reads "AI-drafted questions for owner review; not yet owner-written or owner-validated";
-#   the owner's confirmation is pending. `gap: true` marks a question the DSL cannot express: its expected
+#   the owner confirmed them as owner-written (2026-11-17), so they decide with train. `gap: true` marks a question the DSL cannot express: its expected
 #   program is out of scope, and it is reported apart from the type rates. `also_accept` lists other
 #   programs that are equally right.
 # Decision (owner, 2026-11-17): only train (>= 5 per type) and owner_written (>= 3 per type) decide which
