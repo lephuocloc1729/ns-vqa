@@ -1591,6 +1591,12 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
      ```
 - **Spend this round: $1.92 of $5** ($0.70 reserved).
 
+### Parser v9 gate run (public_dev gold intents, Sonnet 5.5 medium, one run; 2026-11-17)
+
+- **Run `pred_claude-sonnet-5-5_medium_v9_20261117-133917`: $0.192.** Program accuracy **91.5% (43/47)**, 95% CI 80.1–96.6%; non-duplicate 94.1% (n=17); no failed parse. **Gate (≥ 90%, one run): PASS.**
+- **No-regression rule: met** (`regressed_types_without_design` empty). 0086 is back to the v6 gold. Misses: 0005 and 0025 (wrong under v6 too), 0065 and 0087 (design: negative lanes; open "nên làm gì" as conduct).
+- **v9 is the last passing parser version.** Spend this round: **$2.11 of $5** ($0.70 reserved).
+
 ## Next steps, in order
 
 ### Handoff (2026-11-17, later): B1 + B2 built; B4 ready for the owner's go-ahead
