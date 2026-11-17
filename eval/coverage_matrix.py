@@ -35,9 +35,14 @@ COLUMNS = [
     ("scope", "where it takes effect / ends"),
     ("placement", "where it is placed"),
     ("conduct", "driver conduct"),
-    ("count", "counting and presence"),
+    ("guide", "guide-board content"),
+    ("values", "weight and height limits"),
+    ("photo", "vehicles in the photo"),
     ("compound", "compound and explain"),
 ]
+# Counting and presence is one intent for every row (owner, 2026-11-17), so it is reported once in
+# the summary, not per sign.
+INTENT_LEVEL = [("count", "counting and presence", ("count",), "present exists; count / count_is to build")]
 
 
 def stage_a_codes() -> list[str]:
@@ -144,7 +149,23 @@ def sign_cells(code: str, cat, intents: set[str]) -> dict[str, tuple[str, str]]:
     else:
         cells["conduct"] = (B, "no conduct items")
 
-    cells["count"] = (M, "present + count") if "count" in intents else (B, "present exists; count to build")
+    # guide-board content (phase 4.5 B6 / 4.6 I2: guide asks and guide_claim)
+    if eff.informational or eff.zone or code.startswith(("I.414", "I.415", "I.444", "IE.4", "I.419", "I.449")):
+        cells["guide"] = (M, "guide / guide_claim")
+    else:
+        cells["guide"] = (NA, "not a guide board")
+    # weight and height limits (value conditions on the number read on the sign)
+    cells["values"] = (M, f"value: {eff.value.attr}") if eff.value else (NA, "no dimension or weight limit")
+    # vehicles in the photo (exists_violation)
+    if e.effect_unmodelled:
+        cells["photo"] = (B, "effect not modelled")
+    elif eff.prohibits or eff.max_speed or eff.min_speed or eff.lane_reserved or eff.only_directions \
+            or eff.placement or eff.lane_board:
+        cells["photo"] = (M, "exists_violation")
+    elif eff.zone:
+        cells["photo"] = (B, "zone entry by a pictured vehicle")
+    else:
+        cells["photo"] = (NA, "nothing a pictured vehicle can break")
     cells["compound"] = (M, "multi / explain / choose")
     return cells
 
@@ -155,42 +176,41 @@ TOPICS = [
      {"identity": (NA, ""), "applies": (B, "per class at the road type"), "pfr": (NA, ""),
       "speed": (B, "expressway / residential defaults modelled; outside residential, divided roads to build"),
       "time": (NA, ""), "lane": (NA, ""), "scope": (NA, ""), "placement": (NA, ""),
-      "conduct": (B, "art. 12.1 keep speed and distance"), "count": (NA, ""), "compound": (M, "")}),
+      "conduct": (B, "art. 12.1 keep speed and distance"), "compound": (M, "")}),
     ("lane use", "Law 36 art. 13", {"identity": (NA, ""), "applies": (B, "13.3 rudimentary right, motor left"),
      "pfr": (B, "13.2 change lanes only where allowed; 13.4 reserved lanes"), "speed": (B, "13.1 slower keeps right"),
      "time": (NA, ""), "lane": (B, "lane sets"), "scope": (NA, ""), "placement": (NA, ""),
-     "conduct": (B, "13.2 signal, observe"), "count": (NA, ""), "compound": (M, "")}),
+     "conduct": (B, "13.2 signal, observe"), "compound": (M, "")}),
     ("overtaking", "Law 36 art. 14; QCVN 41 B.25 (P.125)", {"identity": (NA, ""), "applies": (B, ""),
      "pfr": (B, "14.3 overtake on the left; 14.4 where banned"), "speed": (NA, ""), "time": (NA, ""),
      "lane": (B, "14.3 exceptions on multi-lane roads"), "scope": (NA, ""), "placement": (NA, ""),
-     "conduct": (B, "14.1 signal, observe"), "count": (NA, ""), "compound": (M, "")}),
+     "conduct": (B, "14.1 signal, observe"), "compound": (M, "")}),
     ("turning and U-turns", "Law 36 art. 15; QCVN 41 6.2.2", {"identity": (NA, ""), "applies": (NA, ""),
      "pfr": (B, "15.4 no U-turn places"), "speed": (NA, ""), "time": (NA, ""), "lane": (B, "turn lanes"),
      "scope": (NA, ""), "placement": (NA, ""), "conduct": (B, "15.1-15.2 slow, signal, yield"),
-     "count": (NA, ""), "compound": (M, "")}),
+     "compound": (M, "")}),
     ("stopping and parking", "Law 36 art. 18", {"identity": (NA, ""), "applies": (B, ""),
-     "pfr": (B, "18.3 places where stopping / parking is banned"), "speed": (NA, ""), "time": (NA, ""),
+     "pfr": (B, "18.3 places where stopping / parking is banned"), "photo": (B, "a pictured vehicle stopped at a banned place"), "speed": (NA, ""), "time": (NA, ""),
      "lane": (NA, ""), "scope": (NA, ""), "placement": (NA, ""), "conduct": (B, "18.2 signal, keep right"),
-     "count": (NA, ""), "compound": (M, "")}),
+     "compound": (M, "")}),
     ("priority vehicles", "Law 36 art. 27; QCVN 41 art. 7", {"identity": (NA, ""),
      "applies": (B, "27.2 the order of priority"), "pfr": (B, "27.4 not bound by lights, may go against the flow"),
      "speed": (B, "27.4 'không bị hạn chế tốc độ'"), "time": (NA, ""), "lane": (NA, ""), "scope": (NA, ""),
-     "placement": (NA, ""), "conduct": (B, "27.5 others slow down, keep right, yield"), "count": (NA, ""),
-     "compound": (M, "")}),
+     "placement": (NA, ""), "conduct": (B, "27.5 others slow down, keep right, yield"), "compound": (M, "")}),
     ("expressways", "Law 36 art. 25", {"identity": (NA, ""), "applies": (M, "zone entry ban (KB-4)"),
      "pfr": (B, "25.1 c no driving in the emergency lane; 25.2 stopping"), "speed": (M, "Circular 38 defaults"),
      "time": (NA, ""), "lane": (B, "emergency lane"), "scope": (M, "IE.452 to IE.453"), "placement": (NA, ""),
-     "conduct": (B, "25.1 entering, leaving"), "count": (NA, ""), "compound": (M, "")}),
+     "conduct": (B, "25.1 entering, leaving"), "compound": (M, "")}),
     ("traffic lights", "QCVN 41 art. 4, 6, 8", {"identity": (B, "colour / arrow meaning (art. 6.3, 6.4)"),
      "applies": (B, "27.4 priority vehicles"), "pfr": (B, "6.3 green go, yellow stop, red no go"),
      "speed": (NA, ""), "time": (NA, ""), "lane": (B, "arrow lights per direction"), "scope": (B, "art. 8"),
      "placement": (OUTC, "art. 9 heights: no question form"), "conduct": (B, "6.3.1 yield to pedestrians"),
-     "count": (B, "signals in the scene"), "compound": (M, "")}),
+     "photo": (B, "a pictured vehicle against the light"), "compound": (M, "")}),
     ("road markings", "QCVN 41 art. 48-51, G.1-G.4", {"identity": (B, "line kind meaning (G.1)"),
      "applies": (B, "2.3 reserved-lane line"), "pfr": (B, "cross / change lane by line pattern"),
      "speed": (NA, ""), "time": (NA, ""), "lane": (B, "between which lanes"), "scope": (B, "art. 51"),
      "placement": (OUTC, "dimensions: no question form"), "conduct": (B, "G.1 3.1 yield to rudimentary"),
-     "count": (B, "markings in the scene"), "compound": (M, "")}),
+     "photo": (B, "a pictured vehicle crossing a line"), "compound": (M, "")}),
 ]
 
 
@@ -229,6 +249,7 @@ def matrix() -> str:
     tl = ["| | topic | source | " + " | ".join(h for _, h in COLUMNS) + " |",
           "|---|---|---|" + "---|" * len(COLUMNS)]
     for i, (name, src, cells) in enumerate(TOPICS, 1):
+        cells = {c: cells.get(c, (NA, "")) for c, _ in COLUMNS}
         tl.append(f"| T{i} | {name} | {src} | " + " | ".join(abbrev[cells[c][0]] for c, _ in COLUMNS) + " |")
         for c, _ in COLUMNS:
             totals[c][cells[c][0]] += 1
@@ -241,6 +262,10 @@ def matrix() -> str:
     for c, h in COLUMNS:
         t = totals[c]
         tot.append(f"| {h} | {t[M]} | {t[B]} | {t[NA]} | {t[OUTC]} |")
+    for _, h, need, note in INTENT_LEVEL:
+        st = M if all(n in intents for n in need) else B
+        tot.append(f"| {h} (one intent for every row) | {int(st == M)} | {int(st == B)} | 0 | 0 |")
+        grand[st] += 1
     tot.append(f"| **all cells ({sum(grand.values())})** | **{grand[M]}** | **{grand[B]}** | **{grand[NA]}** | **{grand[OUTC]}** |")
     return "\n".join(["## Totals", "", *tot, "", "## Signs (80 rows)", "",
                       "M = modelled, **B** = to build, – = not applicable, out = out (reason in the notes).", "",
@@ -274,8 +299,8 @@ only), so 420 of the 530 are checked. A question may match several columns.
 | symbols and letters on a sign | 5 |
 | traffic lights | 3 |
 
-**Question forms the owner's taxonomy misses** (added as columns of the check; proposed as matrix
-columns in step 1):
+**Question forms the owner's first taxonomy missed.** Items 1-3 are matrix columns since the owner's
+OK (2026-11-17); counting and presence is reported once, as one intent for every row:
 1. **Guide-board content** (147 by wording): places, distances, arrow directions, route codes and
    what a board says lies ahead. Modelled since phase 4.5/4.6 (`guide`, `guide_claim`); it has no
    column in the taxonomy because it is not a sign-row property.
