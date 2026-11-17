@@ -1634,6 +1634,16 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Phase 4.7 plan proposed (2026-11-17; no API calls)
+
+- **Plan:** `docs/plans/phase-4.7.md`, waiting for the owner's OK (decisions O1–O6, section 7). Nothing is built.
+- **Findings:**
+  - `law_db` covers markings, lights, lane use, expressways, priority vehicles and route codes, so only KB-9 (fined = violation, Decree 168 basis) and KB-10 are knowledge-based.
+  - No train question asks a fine amount.
+  - "Can't run" comes only from selectors: a free sweep of 82 programs × 60 scenes found no engine exception.
+  - The auxiliary-plate selector can never match (145, D3 183).
+- **Expected:** dev +8 of 13 without a scene change, +3 more with scene v6 (R.411 directions, lights, markings). Estimate $0.62 without v6, $1.17 with it, of the $2.00.
+
 ### Handoff (2026-11-17): coverage round 3 (phase 4.7)
 
 #### Where things stand
