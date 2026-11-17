@@ -1442,6 +1442,21 @@ Run `5c9251f5f207`, 15:47–16:25 UTC, at commit `2e1ff41`, with `eval/frozen_ph
   - non-duplicate recall / F1 91.1% / 73.6% against 88.9% / 74.7%.
 - **Passes:** the code-F1 gap (−0.6 points) is inside Haiku's 2.9-point run-to-run spread; the new rows don't hurt reading. One run each.
 
+### B6 guide-board test (dev, 24 hand-labelled images; 2026-11-17)
+
+Run `dev_guide_trial_d454d4d13cfa` (Haiku 5.5, medium, `scene/v5-guide-trial@c921108016d7`), **$0.021**; round $0.74 of $5. Scored against `eval/guide_trial/labels_dev.yaml` (assistant-checked).
+
+| | entry recall | entry precision | distance accuracy | arrow accuracy (strict / lenient) | speed-disc recall / precision | boards on no-text images | cost |
+|---|---|---|---|---|---|---|---|
+| **A: photo alone** | **93.9%** (46 of 49) | 82.1% | **100%** (15 of 15) | 84.8% / **89.1%** | **100%** (10 of 10) / 71.4% | 0 | $0.009 |
+| B: photo + board crops | 81.6% (40 of 49) | 76.9% | 93.3% | 100% / 100% | 100% / 90.9% | 0 | $0.011 |
+
+- **Both clear the bar proposed before the run** (entry recall ≥ 80%, distance ≥ 85%, lenient arrows ≥ 75%, speed recall ≥ 85%, no made-up boards). A has the better recall and costs less.
+- **Precision is understated:** most "extra" lines are ones the labels file under `other` (NOI BAI AIRPORT, NHẬP LÀN, KẾT THÚC, the safe-distance board) or bus-stop route lines the labeller judged too small, which Haiku read. The extra speed discs are real discs that aren't on guide boards. No made-up place names were seen.
+- **Weak spots:** arrows on a roundabout diagram board (A gave no direction); route plates (QL 1, QL 217) not listed as entries; B merges stacked lines.
+- **The speed discs on expressway boards were all read** (80/60, 90/60, 100/60, 120/60), the content behind dev 254, 352, 381 and 413.
+- **Recommendation:** B6 is worth building, with variant A's reading (the photo alone, a separate call only on images where perception lists an I/IE board). The decision is the owner's.
+
 ## Next steps, in order
 
 **Next (2026-11-16): phase 4, procedure step 4 (tuning, D8: at most 5 runs).** Step 2 is done (above). The D5 gate failed on the template rate (7.8% > 5%). Tuning approved (owner, 2026-11-16; plan section "Tuning on public_dev"): T1 + T3, then T2, then T4, each its own run (D8: 3 of 5). **T1 + T3 done: D5 passes** (above). **T2 done** (above): fallback failures 6 → 1, overall 81.7%. **T4 done** (above): overall 84.6%, rule coverage 61.4%, D5 passes. 3 of 5 tuning runs used. **Phase 4 closed (2026-11-16; closing entry above).** Phase 5 plan approved (2026-11-16). **Next: the one private-test run** (`eval/e2e_private.py run --confirm-frozen --max-spend 3`), on the owner's go-ahead on its $1.83 estimate.
