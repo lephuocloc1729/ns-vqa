@@ -1634,6 +1634,19 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Handoff (2026-11-17): phase 4.6 steps 1–2 built; D3 ready for the owner's go-ahead
+
+- **Plan:** `docs/plans/phase-4.6.md`, approved with D1–D6 (section 7). Built so far is listed in section 8.
+- **Step 1, policy A** (`43f5b10`, `8fc3d66`): this is `Engine(reading_policy="higher_confidence")`, set through `PipelineConfig.reading_policy`.
+  - The default `"all"` keeps the frozen behaviour, and both freeze records still match.
+  - Dev replay: **80.5% decided, 82.9% on decided, overall 66.7%** (was 73.6% / 85.2% / 62.6%). The grades are provisional (6 answers) until step 6's judge. Kept under the guardrail.
+- **Step 2, `eval/e2e_private.py`** (`c3c9f40`): it now has the rules-only figures with the duplicate split, and an estimate from counts only.
+  - Private estimate: fallback off **$1.15** (0.92–1.50); fallback on **$2.10** (1.68–2.73), at validation's decided share. **D6 is open** on these figures.
+- **D3 runner** (`08630ce`): `eval/e2e_trainset.py`, biased set, parse only.
+- **Next (paid, the owner's go-ahead):** `.venv/bin/python eval/e2e_trainset.py run --max-spend 0.55`. Estimate $0.40 (range $0.32–0.52), 101 questions.
+- **Spend this round:** $2.95 of $5, so **$2.05 left**. No call was made in these steps.
+- **Then:** I1–I4 and parser v10 (step 4, free), the gate (step 5), the dev re-parse (step 6), the freeze and final2 (step 7), and the doc update (step 8, D5 yes).
+
 ### Handoff (2026-11-17): coverage round 2
 
 #### Where things stand

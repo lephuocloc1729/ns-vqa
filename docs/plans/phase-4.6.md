@@ -1,6 +1,6 @@
 # Phase 4.6 plan (proposed): coverage round 2
 
-**Status: proposed (2026-11-17), awaiting the owner's approval.** Every figure below is free: it comes from stored runs through `eval/phase46_analysis.py` (no API call). Nothing in `vqa/` or `app/` has changed. Not touched: the validation set beyond its ids and aggregate, its sentinels, public_holdout, private, gold, `eval/frozen_phase4.json`, `eval/frozen_phase45.json`.
+**Status: approved (owner, 2026-11-17)** with the decisions in section 7, which override sections 2–6 where they differ. **Steps 1 and 2 and the D3 runner are built** (section 8). Every figure below is free: it comes from stored runs through `eval/phase46_analysis.py` (no API call). Nothing in `vqa/` or `app/` has changed. Not touched: the validation set beyond its ids and aggregate, its sentinels, public_holdout, private, gold, `eval/frozen_phase4.json`, `eval/frozen_phase45.json`.
 
 **Goal (owner, round 2):** more decided coverage before the private run, which stays on hold.
 
@@ -146,3 +146,48 @@ Each step ends with a status entry and a commit (files staged by name). The owne
 - **D4** final2 validation: yes or no.
 - **D5** the schema 1.3 doc update in CLAUDE.md and DESIGN.md: yes or no (and whether `SCHEMA_VERSION` changes).
 - **D6** the private run's budget, outside the round's $2.05.
+
+## 7. Decisions (owner, 2026-11-17)
+
+- **D1: policy A.** Built as a switch: `Engine(reading_policy="higher_confidence")` / `PipelineConfig.reading_policy`. The default `"all"` (disagreeing readings give `uncertain`) is the frozen behaviour of both freeze records, which still match. The phase-4.6 freeze profile will set `"higher_confidence"`.
+- **D2: I1–I4** (`multi`, guide-board content, `explain`, speed range).
+- **D3: parse only**, all 101 train Yes/No questions with v9, no new perception, **about $0.40**. Causes are reported by question type, marked biased. This replaces section 2.2's options.
+- **D4: final2 yes, run last.** Its cap is set when it runs, to what is left of the $2.05 and at most $1.05. Every step's cap is set when that step runs, so the caps never sum past $2.05.
+- **D5: yes** to the doc update in CLAUDE.md and DESIGN.md: schema 1.3, the phase-4.5 and 4.6 intents, and the uncertain-verdict wording that policy A changes. `SCHEMA_VERSION` stays "1.2" for now.
+- **D6:** decided after step 2's re-based estimate (section 8).
+
+**Budget, revised ($2.05 left; each cap set when its step runs):**
+
+| step | estimate (range) | cap when it runs |
+|---|---|---|
+| 3. D3 parse-only train Yes/No | $0.40 ($0.32–0.52) | $0.55 |
+| 5. parser gate v10, one run | $0.21 ($0.19–0.25) | $0.30 |
+| 6. dev re-parse v10, `--select all` | $0.33 ($0.27–0.43) | $0.45 |
+| 7. final2 validation | $0.85 ($0.70–1.05) | what is left, at most $1.05 |
+| **total** | **$1.79** | |
+
+- **Expected left for final2: $1.11** after steps 3, 5 and 6 at their estimates, so its cap is $1.05.
+- **If steps 3, 5 and 6 all land at the top of their ranges ($1.20), $0.85 is left.** That equals final2's estimate with no margin, so final2's cap would be $0.85, and a run that needs more would stop part way and still use up the label. If less than $0.90 is left by then, final2 needs the owner's decision first.
+
+## 8. Built (2026-11-17; no API call)
+
+**Step 1, policy A** (`43f5b10`, `8fc3d66`): `vqa/reasoning/facts.py` `top_reading`, `vqa/reasoning/engine.py` `_higher_confidence`, the switch in `vqa/pipeline.py` and `eval/freeze.py`, and the tests in `tests/test_phase46_reading_policy.py`.
+- **The answer** names the reading it used in `note`, lists the signs in `uncertain_signs` and carries `basis: ["reading_choice"]`.
+- **Dev replay** (`eval/phase46_analysis.py step1`, every dev question through the engine switch): **70 of 87 decided (80.5%), accuracy on decided 82.9%, overall 66.7%**, against 73.6% / 85.2% / 62.6%. Only the 6 uncertain answers changed; their grades are provisional until step 6's judge. **Guardrail met; kept.**
+
+**Step 2, `eval/e2e_private.py`** (`c3c9f40`):
+- **Rules-only figures:** `rules_only` in the report gives decided coverage, accuracy on decided and overall with non-decided counted wrong, each with its 95% CI. They come by question type and on all, non-duplicate and duplicate images (duplicate: also in train or public).
+- **The re-based estimate** uses counts only (146 questions, 104 images, 76 Natural QA, from DESIGN.md), so the private file is not read. It uses the phase-4.5 stage rates, calibrated ×1.146 to the final validation's measured $0.83.
+- **Still to do before the private run:** point it at the phase-4.6 freeze record once that exists (step 7).
+
+| private run estimate (D6) | at validation's decided share (47.3%) | at dev's decided share after step 1 (80.5%) |
+|---|---|---|
+| fallback off (rules only) | **$1.15** ($0.92–1.50) | $1.32 ($1.06–1.72) |
+| fallback on (the run's default; a fallback answer per non-decided question) | **$2.10** ($1.68–2.73) | $1.67 ($1.34–2.17) |
+
+The fallback-answer rate is still phase 4's ($0.008 per call); no later run measured it.
+
+**D3 runner, `eval/e2e_trainset.py`** (`08630ce`):
+- **What it refuses:** any dev or validation question or image id (ids only from the split files), a dirty tree, and a configuration that differs from `frozen_phase45.json`.
+- **What it does:** parses with v9, makes no perception call, and rebuilds cached scenes cache-only with every call refused. The engine runs with policy A. Records are marked biased.
+- **Command:** `.venv/bin/python eval/e2e_trainset.py estimate` gives 101 questions on 83 images, **$0.40 ($0.32–0.52)**. Run: `.venv/bin/python eval/e2e_trainset.py run --max-spend 0.55`, then `summary <file>`.
