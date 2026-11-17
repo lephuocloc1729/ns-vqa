@@ -7,8 +7,10 @@
 prediction record per question to logs/parser_eval/ (gitignored): id, split,
 image_id, status, query (QueryProgram, or out_of_scope), errors, raw replies,
 token usage, cost, attempts, model, effort, prompt version. No question text is
-written. Before the first call it prints the estimate and stops if the spend
-guard's worst case (every question retried, nothing cached) exceeds --max-spend.
+written. Before the first call it prints the estimate and stops if the expected cost, or one
+call's worst case, exceeds --max-spend. During the run the spend guard checks each call's
+worst case against what is left, so spend never passes --max-spend; a run it stops is renamed
+`*.partial.jsonl` and is not a gate run.
 
 `score` compares predictions with the gold and prints, per split: program exact
 match, slot F1, out-of-scope precision/recall and cost; every accuracy is given
@@ -64,6 +66,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from eval.report import format_report, score_report, wilson_ci  # noqa: E402
 from vqa.llm.pricing import cost_usd, worst_case_usd  # noqa: E402
+from vqa.llm.spend import SpendLimitExceeded  # noqa: E402
 from vqa.parsing.dsl import normalize  # noqa: E402
 from vqa.parsing.prompt import examples, system_prompt  # noqa: E402
 from vqa.parsing.wire import WParse, to_query  # noqa: E402
@@ -365,9 +368,14 @@ def run(model: str, effort: str | None, max_spend: float, sdk=None, engine=None,
     est = estimate(model, counts)
     print(json.dumps({"model": model, "effort": effort, "prompt_version": version,
                       "max_spend_usd": max_spend, **est}, indent=2))
-    if est["worst_case_usd"] > max_spend:
-        raise SystemExit(f"worst case ${est['worst_case_usd']:.4f} exceeds --max-spend "
-                         f"${max_spend:.2f}; nothing was sent")
+    # The hard cap is the spend guard's: before every call it checks that call's worst case
+    # against what is left of --max-spend, so spend never passes it (owner, 2026-11-17; the
+    # whole-run worst case, every question twice with nothing cached, was a $8 floor for v7).
+    # Refused up front: an expected cost over the cap, or a cap below one call's worst case.
+    per_call = est["worst_case_usd"] / (2 * est["questions"]) if est["questions"] else 0.0
+    if est["expected_usd"] > max_spend or per_call > max_spend:
+        raise SystemExit(f"expected ${est['expected_usd']:.4f} (one call at worst ${per_call:.4f}) exceeds "
+                         f"--max-spend ${max_spend:.2f}; nothing was sent")
     if engine is None:
         from vqa.reasoning.engine import Engine
         engine = Engine()
@@ -378,9 +386,14 @@ def run(model: str, effort: str | None, max_spend: float, sdk=None, engine=None,
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")
     path = out_dir / f"pred_{model}_{effort or 'default'}_{version}_{stamp}.jsonl"
+    stopped = None
     with open(path, "w", encoding="utf-8") as f:
         for n, g in enumerate(rows, 1):
-            r = parser.parse(qs[g["id"]]["question"])
+            try:
+                r = parser.parse(qs[g["id"]]["question"])
+            except SpendLimitExceeded as e:
+                stopped = e
+                break
             rec = {"id": g["id"], "split": g["split"], "image_id": qs[g["id"]]["image_id"],
                    "status": r.status, "query": r.query.model_dump(mode="json") if r.query else None,
                    "errors": r.errors, "raw": r.raw, "usage": r.usage, "attempts": r.attempts,
@@ -389,6 +402,12 @@ def run(model: str, effort: str | None, max_spend: float, sdk=None, engine=None,
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
             f.flush()
             print(f"[{n}/{len(rows)}] {g['id']}: {r.status}  spent ${llm.guard.spent:.4f}")
+    if stopped is not None:
+        partial = path.with_suffix(".partial.jsonl")
+        path.rename(partial)
+        print(f"stopped by the spend guard after {n - 1} of {len(rows)} questions ({stopped}); "
+              f"partial file -> {partial}  (spent ${llm.guard.spent:.4f}). Not a gate run.")
+        return partial
     print(f"predictions -> {path}  (spent ${llm.guard.spent:.4f})")
     return path
 

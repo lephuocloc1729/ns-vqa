@@ -216,10 +216,10 @@ def test_run_writes_predictions_with_raw_replies(fake_data, engine, monkeypatch)
     assert s["splits"]["public_dev"]["accuracy"] == 1.0
 
 
-def test_run_refuses_when_the_worst_case_exceeds_the_limit(fake_data, engine):
+def test_run_refuses_when_one_call_could_exceed_the_limit(fake_data, engine):
     sdk = FakeSDK([])
     with pytest.raises(SystemExit, match="exceeds --max-spend"):
-        pe.run("claude-opus-5-5", "medium", 0.05, sdk=sdk, engine=engine,
+        pe.run("claude-opus-5-5", "medium", 0.005, sdk=sdk, engine=engine,
                gold_path=fake_data / "gold.jsonl", public_file=fake_data / "public.json",
                split_file=fake_data / "split.json", out_dir=fake_data / "out")
     assert sdk.created == [] and sdk.counted == 2       # counted (free), nothing sent
@@ -300,3 +300,25 @@ def test_compare_versions_flags_drops_and_design_changes(tmp_path, monkeypatch):
     assert set(r["regressed_types"]) == {"out_of_scope", "meaning"}
     assert r["regressed_types_without_design"] == ["meaning"]          # c is a real miss; b is by design
     assert {x["id"]: x["v7_design"] for x in r["lost_rows"]} == {"b": True, "c": False}
+
+
+def test_the_cap_is_the_guards_and_a_stopped_run_is_partial(fake_data, engine, monkeypatch):
+    """Owner, 2026-11-17: the run starts when the expected cost fits; the guard stops it before
+    any call that could pass the cap, and the file is marked partial (not a gate run)."""
+    from vqa.llm.spend import SpendLimitExceeded
+    sdk = FakeSDK([json.dumps(MEANING), json.dumps(OOS)])
+    calls = {"n": 0}
+    import vqa.parsing.claude_parser as cp
+    real = cp.ClaudeParser.parse
+
+    def parse(self, q, signs=None):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise SpendLimitExceeded("the next call could pass the cap")
+        return real(self, q, signs)
+    monkeypatch.setattr(cp.ClaudeParser, "parse", parse)
+    path = pe.run("claude-haiku-5-5", "low", 0.5, sdk=sdk, engine=engine,
+                  gold_path=fake_data / "gold.jsonl", public_file=fake_data / "public.json",
+                  split_file=fake_data / "split.json", out_dir=fake_data / "out")
+    assert path.name.endswith(".partial.jsonl") and len(path.read_text().splitlines()) == 1
+    assert not list((fake_data / "out").glob("*_v6_*[0-9].jsonl"))

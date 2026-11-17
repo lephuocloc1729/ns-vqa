@@ -1538,11 +1538,11 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 - **Where things stand:** B1 + B2 are built and committed (see "Phase 4.5 B1 + B2 built"). Branch `phase-5`, nothing pushed. The freeze record `eval/frozen_phase4.json` still matches. **Spend this round: $0.74 of $5**, $0.70 reserved for the final validation, **$3.56 free**. No call was made in this step.
 - **Next: B4, on the owner's go-ahead (the owner runs the commands).** In this order; stop after each and look:
-  1. **Parser gate rerun on public_dev gold intents, parser v7, Sonnet 5.5 medium, 3 runs.** Measured v6 runs cost $0.12–0.16 each; v7's prompt is 18% longer. **Estimate $0.16 per run, $0.48 for three (range $0.40–0.60).**
+  1. **Parser gate rerun on public_dev gold intents, parser v7, Sonnet 5.5 medium, 3 runs.** Measured v6 runs cost $0.12–0.16 each; v7's prompt is 18% longer. **Estimate $0.16 per run, $0.48 for three (range $0.40–0.60).** **Cap (owner, 2026-11-17):** `--max-spend 0.40` per run. The tool now refuses only when the expected cost or one call's worst case is over the cap; the spend guard checks each call's worst case (about $0.086) against what is left, so a run never passes $0.40 and stops near $0.31. A stopped run is renamed `*.partial.jsonl` and is not a gate run. (The old up-front check needed the whole-run worst case, $8.09 for v7.)
      ```
-     .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v7 --max-spend 0.30
-     .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v7 --max-spend 0.30
-     .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v7 --max-spend 0.30
+     .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v7 --max-spend 0.40
+     .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v7 --max-spend 0.40
+     .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v7 --max-spend 0.40
      .venv/bin/python eval/parser_eval.py score logs/parser_eval/pred_claude-sonnet-5-5_medium_v7_*.jsonl
      .venv/bin/python eval/parser_eval.py compare --old logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-140559.jsonl logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141622.jsonl logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141902.jsonl --new logs/parser_eval/pred_claude-sonnet-5-5_medium_v7_*.jsonl
      ```
