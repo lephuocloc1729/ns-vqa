@@ -158,4 +158,26 @@ def reading_variants(scene: SceneGraph) -> list[tuple[SceneGraph, dict[str, str]
     return variants
 
 
-__all__ = ["scene_facts", "sign_facts", "reading_variants", "cond_term"]
+_RANK = {Confidence.high: 3, Confidence.medium: 2, Confidence.low: 1}
+
+
+def top_reading(scene: SceneGraph) -> tuple[SceneGraph, dict[str, str], dict[str, list[tuple[str, str]]]]:
+    """The scene with every low/medium-confidence sign set to its highest-confidence reading
+    (phase 4.6, policy A, owner 2026-11-17). A tie keeps the first reading, perception's own
+    choice. Returns (scene, {sign_id: chosen code}, {sign_id: [(other code, confidence), ...]})."""
+    sc = scene.model_copy(deep=True)
+    chosen, others = {}, {}
+    for s in sc.signs:
+        if not s.alternatives or s.confidence == Confidence.high:
+            continue
+        opts = [(s.code, s.value, s.confidence)] + [(a.code, a.value, a.confidence) for a in s.alternatives]
+        best = max(range(len(opts)), key=lambda i: (_RANK[opts[i][2]], -i))
+        code, value, conf = opts[best]
+        others[s.id] = [(c, f.value) for i, (c, _, f) in enumerate(opts) if i != best]
+        s.code, s.value, s.confidence = code, (value if value is not None else s.value), conf
+        s.alternatives = []
+        chosen[s.id] = code
+    return sc, chosen, others
+
+
+__all__ = ["scene_facts", "sign_facts", "reading_variants", "top_reading", "cond_term"]

@@ -2,6 +2,7 @@
 
     .venv/bin/python eval/phase46_analysis.py calibrate       # set T: is the first reading right when perception lists alternatives?
     .venv/bin/python eval/phase46_analysis.py uncertain [-v]  # dev replay of uncertain-reading policies
+    .venv/bin/python eval/phase46_analysis.py step1           # step 1 guardrail: the engine's policy A on all dev
     .venv/bin/python eval/phase46_analysis.py trainset        # the biased train working set and its cost estimate
     .venv/bin/python eval/phase46_analysis.py oos             # out-of-scope wording groups (dev records, train text)
 
@@ -204,6 +205,55 @@ def judge_estimate(k: int, run: Path = CANDIDATE_RUN) -> dict[str, Any]:
             "total_usd": round(k * (w + j), 3), "range_usd": [round(0.8 * k * (w + j), 3), round(1.5 * k * (w + j), 3)]}
 
 
+def step1(run: Path = REPARSE_RUN) -> dict[str, Any]:
+    """Step 1's guardrail replay: every dev question through `Engine(reading_policy="higher_confidence")`
+    on the stored scenes and v9 parses. An answer whose decision is unchanged keeps its stored grade;
+    a changed one takes its provisional grade (or is listed as ungraded and counted wrong)."""
+    from vqa.answer.fallback import trigger
+    from vqa.reasoning.engine import Engine, EngineError
+    from vqa.schemas import QueryProgram, SceneGraph
+    eng = Engine(reading_policy="higher_confidence")
+    _, rows = _jsonl(run)
+    prov = json.loads(PROVISIONAL.read_text(encoding="utf-8")) if PROVISIONAL.exists() else {}
+    dec, right, changed, ungraded, causes = 0, 0.0, [], [], Counter()
+    for r in rows:
+        p = r["trace"].get("parser") or {}
+        scene = SceneGraph.model_validate(r["scene"]) if r.get("scene") else None
+        ans, err = None, False
+        if scene is not None and p.get("status") == "ok":
+            try:
+                ans = eng.answer(scene, QueryProgram.model_validate(p["program"]))
+            except EngineError:
+                err = True
+        why = trigger(scene_ok=scene is not None, parse_status=p.get("status"), answer=ans, engine_error=err)
+        decided = why is None and ans is not None and ans.verdict.value in DECIDED
+        old = r.get("engine_answer")
+        same = decided == r["decided"] and (not decided or _decision(ans) == hashlib.sha256(json.dumps(
+            {"verdict": old["verdict"], "value": old.get("value")}, sort_keys=True, default=str,
+            ensure_ascii=False).encode()).hexdigest()[:12])
+        if not decided:
+            causes[why] += 1
+            if not same:
+                changed.append({"id": r["id"], "was": "decided", "now": why})
+            continue
+        dec += 1
+        g = r["correct"] if same else ((prov.get(r["id"]) or {}).get(_decision(ans)) or {}).get("grade")
+        if not same:
+            changed.append({"id": r["id"], "was": r["trigger"] or "decided", "now": "decided",
+                            "provisional_grade": g, "basis": ans.basis})
+        if g is None:
+            ungraded.append(r["id"])
+        else:
+            right += g
+    n = len(rows)
+    return {"run": run.name, "policy": "higher_confidence", "questions": n, "decided": dec,
+            "coverage": dec / n, "accuracy_on_decided": right / dec if dec else None,
+            "overall_non_decided_wrong": right / n, "not_decided_by_cause": dict(causes),
+            "changed": changed, "ungraded": ungraded,
+            "guardrail": {"overall_floor": 0.6264367816091954, "accuracy_floor": 0.70,
+                          "kept": right / n >= 0.6264367816091954 and (right / dec if dec else 0) >= 0.70}}
+
+
 # ---------------------------------------------------------------- 2. the biased train working set
 
 def working_set() -> list[dict]:
@@ -328,12 +378,13 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("calibrate")
+    sub.add_parser("step1")
     u = sub.add_parser("uncertain")
     u.add_argument("-v", "--verbose", action="store_true")
     sub.add_parser("trainset")
     sub.add_parser("oos")
     a = ap.parse_args()
-    res = {"calibrate": calibrate, "trainset": trainset, "oos": oos}.get(a.cmd)
+    res = {"calibrate": calibrate, "step1": step1, "trainset": trainset, "oos": oos}.get(a.cmd)
     out = uncertain(verbose=a.verbose) if a.cmd == "uncertain" else res()
     print(json.dumps(out, indent=1, ensure_ascii=False, default=str))
 

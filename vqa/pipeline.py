@@ -86,6 +86,7 @@ class PipelineConfig:
     answer_fallback_version: str = "v2"
     answer_fallback: bool = True                # False: non-decided questions get no fallback (phase 4.5)
     guide_reading: bool = False                 # phase 4.5 B6: the guide-board call (vqa/perception/guide.py)
+    reading_policy: str = "all"                 # phase 4.6 D1: "higher_confidence" = policy A (Engine)
     max_spend: float | None = None              # None: the spend guard's default
 
 
@@ -122,7 +123,7 @@ class Pipeline:
                  engine: Engine | None = None, guard: SpendGuard | None = None) -> None:
         self.config = c = config or PipelineConfig()
         self.guard = guard or SpendGuard(c.max_spend)
-        self.engine = engine or Engine()
+        self.engine = engine or Engine(reading_policy=c.reading_policy)
         self.cache = SceneCache(c.cache_dir)
 
         def client(model: str) -> LLMClient:

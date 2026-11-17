@@ -14,7 +14,7 @@ from typing import Any
 
 from vqa.kb import KB_DIR, Catalog, load_catalog
 from vqa.reasoning import explain
-from vqa.reasoning.facts import board_read, reading_variants, scene_facts
+from vqa.reasoning.facts import board_read, reading_variants, scene_facts, top_reading
 from vqa.reasoning.terms import Term, atom, to_prolog, vehicle_term
 from vqa.parsing.dsl import normalize
 from vqa.schemas import (
@@ -87,9 +87,21 @@ def _fmt_min(m: int) -> str:
     return f"{m // 60:02d}:{m % 60:02d}"
 
 
+READING_POLICIES = ("all", "higher_confidence")
+
+
 class Engine:
-    def __init__(self, catalog: Catalog | None = None) -> None:
+    """`reading_policy` (phase 4.6, D1): what to do when alternative sign readings disagree.
+    "all" (the default, the frozen phase-4.5 behaviour): the verdict is `uncertain`.
+    "higher_confidence" (policy A): answer with each sign's highest-confidence reading (a tie
+    keeps the first reading); the answer lists those signs in `uncertain_signs`, says which
+    reading it used in `note`, and carries `basis: ["reading_choice"]`."""
+
+    def __init__(self, catalog: Catalog | None = None, reading_policy: str = "all") -> None:
+        if reading_policy not in READING_POLICIES:
+            raise ValueError(f"reading_policy must be one of {READING_POLICIES}")
         self.catalog = catalog or load_catalog()
+        self.reading_policy = reading_policy
         _load_kb(self.catalog)
 
     # ------------------------------------------------------------------ low level
@@ -189,6 +201,8 @@ class Engine:
         if all(_same(first, a) for _, a in answers[1:]):
             return first
         uncertain = sorted({sid for picked, _ in answers for sid in picked})
+        if self.reading_policy == "higher_confidence":
+            return self._higher_confidence(scene, program, answers, uncertain)
         return Answer(
             verdict=Verdict.uncertain,
             value={"readings": [{"signs": p, "verdict": a.verdict.value, "value": a.value}
@@ -198,6 +212,19 @@ class Engine:
             uncertain_signs=uncertain,
             note="alternative readings of these signs lead to different answers",
         )
+
+    def _higher_confidence(self, scene: SceneGraph, program, answers, uncertain: list[str]) -> Answer:
+        """Policy A: the readings disagree; answer with the highest-confidence reading of each sign."""
+        top, chosen, others = top_reading(scene)
+        ans = next((a for picked, a in answers if picked == chosen), None) or self._run(top, program)
+        used = ", ".join(f"{sid} {code}" for sid, code in sorted(chosen.items()))
+        alt = "; ".join(f"{sid}: " + ", ".join(f"{c} ({conf})" for c, conf in others[sid]) for sid in sorted(others))
+        note = (f"alternative readings disagree; answered with the higher-confidence reading ({used}); "
+                f"other readings: {alt}")
+        return ans.model_copy(update={
+            "uncertain_signs": sorted(set(ans.uncertain_signs) | set(uncertain)),
+            "note": note + (f"; {ans.note}" if ans.note else ""),
+            "basis": list(dict.fromkeys([*ans.basis, "reading_choice"]))})
 
     # ------------------------------------------------------------------ per program
     # Claims whose verdict rests on "no visible sign says otherwise" (closed world):

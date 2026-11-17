@@ -39,8 +39,10 @@ RUN_SPECIFIC = ("cache_dir", "cache_only", "max_spend")
 # defaults are the frozen behaviour. `answer_fallback` (phase 4.5): off, a question the
 # rules don't decide gets no fallback call; decided answers are the same either way.
 # `guide_reading` (phase 4.5 B6): off, no guide-board call, the frozen behaviour.
+# `reading_policy` (phase 4.6, D1): "all", disagreeing readings give `uncertain`, the frozen
+# behaviour of both records; "higher_confidence" is policy A.
 # Kept apart from RUN_SPECIFIC because the phase-4 record lists RUN_SPECIFIC verbatim.
-POST_FREEZE_SWITCHES = {"answer_fallback": True, "guide_reading": False}
+POST_FREEZE_SWITCHES = {"answer_fallback": True, "guide_reading": False, "reading_policy": "all"}
 
 # Phase 4.5 (owner, 2026-11-17, B5): freeze profiles. A profile is the PipelineConfig fields that
 # differ from today's defaults (which stay the phase-4 configuration, so its record and runs
@@ -56,6 +58,9 @@ RECORDS = {"phase4": FROZEN, "phase45": FROZEN_PHASE45}
 # defaults are its behaviour); phase 4.5 freezes guide_reading (on) and still leaves out
 # answer_fallback, which each runner sets (validation: off; private: the default, on).
 EXCLUDED_SWITCHES = {"phase4": tuple(POST_FREEZE_SWITCHES), "phase45": ("answer_fallback",)}
+# Switches added after a record was written, left out of its comparison without changing the
+# record's own `excluded_switches` list. Their defaults are that record's behaviour.
+LATER_SWITCHES = {"phase4": (), "phase45": ("reading_policy",)}
 
 
 def profile_of(record: dict[str, Any]) -> str:
@@ -86,7 +91,8 @@ def live(perception_model: str | None = None, profile: str = "phase4") -> dict[s
 
     c = pipeline_config(profile, perception_model)
     skip = EXCLUDED_SWITCHES[profile]
-    pc = {k: v for k, v in dataclasses.asdict(c).items() if k not in RUN_SPECIFIC and k not in skip}
+    pc = {k: v for k, v in dataclasses.asdict(c).items()
+          if k not in RUN_SPECIFIC and k not in skip and k not in LATER_SWITCHES.get(profile, ())}
     fc = sfb.config_for(c.scene_version)
     pm = c.perception_model
     parser_system = pp.system_prompt(c.parser_version)
