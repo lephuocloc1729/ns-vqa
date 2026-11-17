@@ -196,6 +196,8 @@ FROZEN_PROMPTS = {
            "fewshot.jsonl": "f644a21c024865bf4bbe55c00a44542e6ded14d84a3dfc383421856f2a1c04a5"},
     "v7": {"spec.md": "05c471a0bedc379480ca61305fa78413ec05be5e6f9696c843b5103157f8a16c",
            "fewshot.jsonl": "3e967613d95d4b269da63218cf43972c0ed85e6bfcd89774dc3b881bd50b9c9f"},
+    "v8": {"spec.md": "1a9cebdc2ad2663af8811baa764a3dd107f6ecea08ad21fe0c1b86987793d05c",
+           "fewshot.jsonl": "3e967613d95d4b269da63218cf43972c0ed85e6bfcd89774dc3b881bd50b9c9f"},
 }
 
 
@@ -231,7 +233,7 @@ def test_v6_is_v5_with_the_sign_rules_narrowed():
     assert "put that selector on every claim about the sign" in diff[1]
 
 
-@pytest.mark.parametrize("version", ["v5", "v6", "v7", "v8"])
+@pytest.mark.parametrize("version", ["v5", "v6", "v7", "v8", "v9"])
 def test_spec_does_not_quote_gate_questions(version):
     # rules learned from public_dev errors must not carry a gate question's wording,
     # or it would act as an unexcluded few-shot
@@ -261,14 +263,14 @@ def test_each_version_changes_one_spec_line(old, new, changed):
     assert len(a) == len(b) and len(diff) == 1 and changed in diff[0]
 
 
-@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6", "v7", "v8"])
+@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9"])
 def test_fewshots_are_valid_programs(engine, version):
     for ex in examples(version):
         q = to_query(WParse.model_validate(ex["output"]), 2026)
         assert validator.check(q, engine) == [], ex["id"]
 
 
-@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6", "v7", "v8"])
+@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9"])
 def test_fewshots_come_from_train_or_public_dev_only(version):
     split = json.loads((ROOT / "data" / "splits" / "public_split.json").read_text())
     holdout = set(split["public_holdout"]["questions"])
@@ -472,7 +474,7 @@ def test_v7_keeps_v6_fewshots_and_adds_train_ones_outside_dev_and_validation():
         assert not {img[e["id"]] for e in v7 if e["split"] == "train"} & banned_img
 
 
-@pytest.mark.parametrize("version", ["v7", "v8"])
+@pytest.mark.parametrize("version", ["v7", "v8", "v9"])
 def test_v7_covers_the_new_intents_and_slots(version):
     progs = json.dumps([e["output"] for e in examples(version)])
     for needle in ('"aspect": "group"', '"aspect": "conduct"', '"aspect": "scope"', '"intent": "present"',
@@ -483,7 +485,7 @@ def test_v7_covers_the_new_intents_and_slots(version):
         assert rule in spec, rule
 
 
-@pytest.mark.parametrize("version", ["v7", "v8"])
+@pytest.mark.parametrize("version", ["v7", "v8", "v9"])
 def test_v7_spec_does_not_quote_dev_questions(version):
     """Dev is the tuning set: its wording must not sit in the spec as an unlisted few-shot."""
     train = (Path(os.environ.get("VQA_DATASET_DIR", ROOT / "VLSP2025-MLQA-Natural"))
@@ -525,3 +527,22 @@ def test_v8_is_v7_with_three_spec_fixes_and_the_same_fewshots():
     assert len(b) == len(a) + 1 and len(added) == 4
     spec = "\n".join(b)
     assert "never a truth value" in spec and "loại biển gì" in spec and "without `only`" in spec
+
+
+def test_v9_is_v8_with_the_general_yes_no_rule():
+    """Owner, 2026-11-17 (B4 accepted): one yes/no wording rule for every intent, built from
+    train outside dev and validation. v9 = v8 with that line replacing v8's narrower one,
+    plus five few-shots appended (exact text, checked by the provenance tests)."""
+    d8, d9 = (ROOT / "prompts" / "parser" / v for v in ("v8", "v9"))
+    a, b = ((d / "spec.md").read_text().splitlines() for d in (d8, d9))
+    diff = [y for x, y in zip(a, b) if x != y]
+    assert len(a) == len(b) and len(diff) == 1
+    for w in ('"có ... không?"', '"có phải ... không?"', '"... được không?"', '"..., đúng hay sai?"',
+              "never a value program", "`is_sign` with `category`", "`present`"):
+        assert w in diff[0], w
+    e8, e9 = examples("v8"), examples("v9")
+    assert e9[:len(e8)] == e8
+    assert [e["id"] for e in e9[len(e8):]] == ["train_136", "train_127", "train_124", "train_424", "train_19"]
+    kinds = [json.dumps(e["output"]) for e in e9[len(e8):]]
+    assert '"intent": "is_sign"' in kinds[0] and '"intent": "present"' in kinds[1]
+    assert all('"out_of_scope": true' in k for k in kinds[2:4])

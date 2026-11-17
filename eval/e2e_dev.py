@@ -26,6 +26,13 @@ answer, the scene, the trace and the grade). The run's scene cache is kept besid
     .venv/bin/python eval/e2e_dev.py estimate [--candidate]
     .venv/bin/python eval/e2e_dev.py run --label frozen --max-spend 1.0
     .venv/bin/python eval/e2e_dev.py run --label candidate --candidate --max-spend 1.3
+    .venv/bin/python eval/e2e_dev.py reparse --from eval/runs/e2e/dev_candidate_7caed6170de6.jsonl --version v9 --max-spend 0.20
+
+`reparse` (phase 4.5, owner 2026-11-17): a new parser version on a stored dev run, with no
+perception call. It re-parses the dev questions whose wording the new rule is about
+(`--select yesno`, chosen by pattern, never by outcome; `--select all` re-parses every
+question), runs the engine on the stored scenes, and only for a decided answer whose
+program changed calls the writer and the judge. Unchanged parses keep their record and grade.
 """
 
 from __future__ import annotations
@@ -33,6 +40,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import re
 import sys
 import uuid
 from collections import Counter
@@ -137,6 +145,89 @@ def run_dev(label: str, max_spend: float, *, sdk=None, questions: list[dict] | N
     return out
 
 
+# The yes/no wordings of parser v9's rule (the same list as its spec line).
+YESNO = re.compile(r"(đúng hay sai|đúng không|phải không|được không|có phải .*không|\bcó\b.*\bkhông\s*\??\s*$)", re.I)
+
+
+def reparse(src: Path, version: str, max_spend: float, *, select: str = "yesno", sdk=None, out_dir: Path = OUT,
+            git=freeze.git_state, questions: list[dict] | None = None) -> Path:
+    import dataclasses
+    import tempfile
+    from eval.judge import Judge
+    from eval.parser_eval import canonical
+    from vqa.answer.digest import build as build_digest
+    from vqa.answer.fallback import trigger
+    from vqa.answer.template import template_answer
+    from vqa.llm.client import LLMClient
+    from vqa.llm.spend import SpendGuard
+    from vqa.pipeline import Pipeline, PipelineConfig
+    from vqa.reasoning.engine import EngineError
+    from vqa.schemas import Answer, QueryProgram, SceneGraph, Verdict
+
+    g = git()
+    if not g["clean"]:
+        raise SystemExit("the git working tree is not clean: commit or remove these first:\n  " + "\n  ".join(g["dirty"]))
+    head, rows = ee.load(src)
+    qs = {q["id"]: q for q in (questions if questions is not None else load_questions())}
+    guard = SpendGuard(max_spend)
+    base = PipelineConfig(**{k: v for k, v in (head.get("candidate") or {}).items()})
+    with tempfile.TemporaryDirectory() as tmp:
+        pipe = Pipeline(dataclasses.replace(base, parser_version=version, cache_only=True, cache_dir=Path(tmp),
+                                            answer_fallback=False), sdk=sdk, guard=guard)
+        judge = Judge(llm=LLMClient(model="claude-opus-5-5", guard=guard, sdk=sdk))
+        run_id = uuid.uuid4().hex[:12]
+        out = out_dir / f"dev_reparse_{version}_{run_id}.jsonl"
+        new_head = {**head, "kind": "dev_reparse", "label": f"reparse_{version}", "run_id": run_id,
+                    "from_run": head["run_id"], "parser_version": version, "select": select,
+                    "git_commit": g["commit"], "started": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}
+        changed = []
+        with open(out, "w", encoding="utf-8") as f:
+            f.write(json.dumps(new_head, ensure_ascii=False) + "\n")
+            for r in rows:
+                q = qs[r["id"]]
+                if select != "all" and not YESNO.search(q["question"]):
+                    f.write(json.dumps({**r, "reparsed": False}, ensure_ascii=False, default=str) + "\n")
+                    continue
+                pr = pipe.parser.parse(q["question"])
+                old = (r["trace"].get("parser") or {})
+                old_c = canonical(QueryProgram.model_validate(old["program"])) if old.get("program") else None
+                new_c = canonical(pr.query) if pr.query is not None else None
+                if old.get("status") == pr.status and old_c == new_c:
+                    f.write(json.dumps({**r, "reparsed": True, "changed": False}, ensure_ascii=False, default=str) + "\n")
+                    continue
+                scene = SceneGraph.model_validate(r["scene"]) if r.get("scene") else None
+                ans, err = None, None
+                if scene is not None and pr.status == "ok":
+                    try:
+                        ans = pipe.engine.answer(scene, pr.query)
+                    except EngineError as e:
+                        err = str(e)
+                why = trigger(scene_ok=scene is not None, parse_status=pr.status, answer=ans, engine_error=err is not None)
+                decided = why is None and ans is not None and ans.verdict.value in DECIDED
+                rec = {**r, "reparsed": True, "changed": True, "decided": decided, "trigger": why,
+                       "engine_verdict": ans.verdict.value if ans else None, "parse_status": pr.status,
+                       "engine_answer": ans.model_dump(mode="json") if ans else None,
+                       "correct": None, "strict": None, "judge_label": None, "judge_reason": None,
+                       "was": {"decided": r["decided"], "correct": r["correct"], "trigger": r["trigger"]}}
+                rec["trace"] = {**r["trace"], "parser": {"status": pr.status, "attempts": pr.attempts, "errors": pr.errors,
+                                                        "cost_usd": pr.cost_usd,
+                                                        "program": pr.query.model_dump(mode="json", by_alias=True, exclude_none=True)
+                                                        if pr.query else None}}
+                if decided:
+                    w = pipe.writer.write(q["question"], ans, scene)
+                    rec["text"] = w.text
+                    rec.update(ee.grade(q, w.text, judge))
+                else:
+                    a = ans or Answer(verdict=Verdict.unknown)
+                    rec["text"] = template_answer(build_digest(a, scene, pipe.engine.catalog), q["question"])
+                changed.append(r["id"])
+                f.write(json.dumps(rec, ensure_ascii=False, default=str) + "\n")
+                f.flush()
+                print(f"{r['id']}: changed; {'decided' if decided else why}  spent ${guard.spent:.4f}")
+    print(f"reparse {run_id} -> {out}  changed: {changed}  (spent ${guard.spent:.4f})")
+    return out
+
+
 def _with_boards(pipe, img, scene):
     """The scene with the boards the guide call read, from the run's cache (no call)."""
     if scene is None or not pipe.config.guide_reading:
@@ -220,11 +311,18 @@ def main() -> None:
     r.add_argument("--label", required=True)
     r.add_argument("--max-spend", type=float, required=True)
     r.add_argument("--candidate", action="store_true", help="scene v5 + guide reading + parser v8 (CANDIDATE)")
+    rp = sub.add_parser("reparse")
+    rp.add_argument("--from", dest="src", type=Path, required=True)
+    rp.add_argument("--version", required=True)
+    rp.add_argument("--max-spend", type=float, required=True)
+    rp.add_argument("--select", choices=["yesno", "all"], default="yesno")
     s = sub.add_parser("summary")
     s.add_argument("file", type=Path)
     a = ap.parse_args()
     if a.cmd == "estimate":
         print(json.dumps(estimate(candidate=a.candidate), indent=2, ensure_ascii=False))
+    elif a.cmd == "reparse":
+        reparse(a.src, a.version, a.max_spend, select=a.select)
     elif a.cmd == "summary":
         print(json.dumps(summary(a.file), indent=2))
     else:

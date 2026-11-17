@@ -1573,6 +1573,24 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 - **Spend this round: $1.92 of $5** ($0.70 reserved; **$2.38 free**).
 - **B4 is done. Next, on the owner's go-ahead: B5** (the phase-4.5 freeze `eval/frozen_phase45.json` with scene v5, parser v8, guide reading on; then the final validation once). Free fixes worth weighing first, each needing its own check: a parser rule for yes/no questions about board content (231; a new parser version and one gate run, about $0.18), and whether v5's P.101 / P.102 confusion (287, 90) is worth a scene-prompt change (it would need the set-T check again).
 
+### Parser v9: one yes/no rule for every intent (owner, 2026-11-17: B4 accepted; no API calls)
+
+- **v9 = v8 with one spec line replaced** (v8's narrower "value intents never answer a stated claim"): yes/no wordings for every intent ("..., đúng hay sai?", "... đúng không?", "... phải không?", "có ... không?", "có phải ... không?", "... được không?") take the claim the question asks about, never a value program; a sign's group asked this way is `is_sign` with `category`; a sign being in the photo is `present`; a fact with no claim form (board places, directions, distances; driver duties; scope; placement) is out of scope.
+- **Five new few-shots from train**, outside dev and validation and their images, exact text: train_136 (group → `is_sign` category), train_127 (in the photo → `present`), train_124 and train_424 (board facts asked yes/no → out of scope), train_19 ("có phải ... không?" → a ban for every vehicle). Not fitted to dev 231; tests check that no 6-word window of a dev or public_dev gate question is in the spec.
+- **v8 is pinned.** `eval/e2e_dev.py reparse`: a new parser version on a stored dev run, no perception call; it re-parses the yes/no-worded dev questions (chosen by pattern), runs the engine on the stored scenes, and calls the writer and judge only for decided answers whose program changed.
+- **Commands (owner runs them):**
+  1. Gate run, one run, same no-regression rule against v6's three runs. **Estimate $0.19 (range $0.17–0.22)**, from v8's measured $0.180:
+     ```
+     .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v9 --max-spend 0.40
+     .venv/bin/python eval/parser_eval.py score logs/parser_eval/pred_claude-sonnet-5-5_medium_v9_*.jsonl
+     .venv/bin/python eval/parser_eval.py compare --old logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-140559.jsonl logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141622.jsonl logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141902.jsonl --new logs/parser_eval/pred_claude-sonnet-5-5_medium_v9_*.jsonl
+     ```
+  2. If it passes: the dev re-parse of the 4 yes/no-worded dev questions (81, 231, 341, 515) on the candidate run's stored scenes. **Estimate $0.07** (one prompt-cache write, four parses, the writer and judge for at most two changed decided answers):
+     ```
+     .venv/bin/python eval/e2e_dev.py reparse --from eval/runs/e2e/dev_candidate_7caed6170de6.jsonl --version v9 --max-spend 0.20
+     ```
+- **Spend this round: $1.92 of $5** ($0.70 reserved).
+
 ## Next steps, in order
 
 ### Handoff (2026-11-17, later): B1 + B2 built; B4 ready for the owner's go-ahead
