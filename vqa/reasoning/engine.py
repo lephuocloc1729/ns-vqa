@@ -18,7 +18,7 @@ from vqa.reasoning.facts import board_read, reading_variants, scene_facts, top_r
 from vqa.reasoning.terms import Term, atom, to_prolog, vehicle_term
 from vqa.parsing.dsl import normalize
 from vqa.schemas import (
-    AllOf, Answer, AnyOf, AppliesTo, BanTimes, Choose, Count, CountIs, SignApplies, Citation, ExistsViolation, Explain, Guide, GuideClaim, IsSign,
+    AllOf, Answer, AnyOf, AppliesTo, BanTimes, Choose, Count, CountIs, Duties, RulePermitted, SignApplies, Citation, ExistsViolation, Explain, Guide, GuideClaim, IsSign,
     LanesFor, LanesWhere, LaneVehicles, Meaning, Multi, Permitted, Present, SpeedLimit, SpeedLimitIs,
     ONTOLOGY_CLASSES, Forbidden, Program, QueryProgram, Reason, Required, SceneGraph, Selector,
     SpeedOk, Vehicle, VehicleClass, Verdict, Verify, When, WhichVehicles,
@@ -384,6 +384,13 @@ class Engine:
             return self._count(scene, p)
         if isinstance(p, (AppliesTo, SignApplies)):  # phase 4.7 step 1b
             return self._applies_to(scene, p)
+        if isinstance(p, RulePermitted):               # phase 4.7 step 1c
+            return self._rule_permitted(scene, p)
+        if isinstance(p, Duties):                      # phase 4.7 step 1c
+            from vqa.reasoning import sign_info as si
+            row = si.duties(p.topic)
+            return Answer(verdict=Verdict.value, value={"topic": p.topic, "duties": row["items"]},
+                          citations=[Citation(**row["source"])])
         if isinstance(p, Guide):
             return self._guide(scene, p)
         if isinstance(p, GuideClaim):
@@ -719,6 +726,89 @@ class Engine:
                              "per_class": {c: v for c, (v, _) in results.items()}},
                       reasons=support, citations=_cites(support) or [e.source], basis=_basis(support),
                       uncertain_signs=unread)
+
+    def _goal(self, goal: Term) -> Reason | None:
+        """A phase-4.7 helper goal proved with its proof, or None when it fails."""
+        out = self.call(Term("q_goal", goal))
+        if out["ok"] not in (True, "true"):
+            return None
+        return Reason(truth="true", proof=explain.to_node(out["proof"]))
+
+    def _rule_permitted(self, scene: SceneGraph, p: RulePermitted) -> Answer:
+        """Signs (Permitted / SpeedOk) and Law 36's general rules (kb/rules/general47.pl), each
+        part three-valued; no when any part forbids, yes when every part allows."""
+        veh = vehicle_term(p.vehicle)
+        n = scene_lane_count(scene)
+        lane = p.lane
+        if lane is not None and lane < 0:
+            if not n:
+                return Answer(verdict=Verdict.unknown, note="the question counts lanes from the right, "
+                              "and the scene does not say how many lanes there are")
+            lane = n + 1 + lane
+        parts: list[tuple[str, list[Reason], str]] = []          # (yes|no|unknown, reasons, what)
+        self.load_scene(scene)
+        if p.place is not None:
+            if p.place.value == "emergency_lane" and p.action.value in ("stop", "park"):
+                reason = atom(p.stop_reason or "unknown")
+                rs = []
+                for t in ("true", "false", "unknown"):
+                    r = self._goal(Term("emergency_stop", reason, atom(t)))
+                    if r is not None:
+                        rs = [r.model_copy(update={"truth": t})]
+                        parts.append(({"true": "no", "false": "yes", "unknown": "unknown"}[t], rs, "art. 25.2"))
+                        break
+            else:
+                out = self.call(Term("q_general", atom(p.action.value), veh, atom(p.place.value)))
+                rs = [_reason(r) for r in out["reasons"]]
+                parts.append(("yes" if out["verdict"] == "none" else out["verdict"], rs, "general rule"))
+        if lane is not None and n:          # the rule itself checks the vehicle is rudimentary
+            for t in ("true", "false"):
+                r = self._goal(Term("rudimentary_lane", veh, lane, n, atom(t)))
+                if r is not None:
+                    parts.append(("no" if t == "true" else "yes", [r.model_copy(update={"truth": t})], "art. 13.3"))
+        if p.speed_kmh is not None:
+            exempt = self._goal(Term("priority_exempt_speed", veh)) if p.vehicle.priority else None
+            if exempt is not None:
+                parts.append(("yes", [exempt.model_copy(update={"truth": "false", "detail": "priority_on_duty"})],
+                              "art. 27.4"))
+            else:
+                a = self._run(scene, SpeedOk(vehicle=p.vehicle, speed_kmh=p.speed_kmh, lane=lane,
+                                             road_divided=p.road_divided))
+                posted = any(self.catalog.has(sg.code) and (self.catalog.get(sg.code).effect.max_speed
+                                                            or self.catalog.get(sg.code).effect.lane_board)
+                             for sg in scene.signs)
+                # Circular 38's defaults hold only where no speed sign is posted ("signs override")
+                if not posted and p.area == "outside_residential" and p.road_divided is not None:
+                    self.load_scene(scene)
+                    out = self.call(Term("q_c38", veh, atom(str(p.road_divided).lower())))
+                    lim = None if out["limit"] in ("none", None) else float(out["limit"])
+                    if lim is None:              # the vehicle's group (e.g. a truck's mass) is not stated
+                        parts.append(("unknown", [], "Circular 38 art. 7"))
+                        a = None
+                    else:
+                        ok = p.speed_kmh <= lim
+                        parts.append(("yes" if ok else "no",
+                                      [Reason(truth="false" if ok else "true", detail=f"limit_{lim:g}",
+                                              proof=explain.to_node(out["proof"]))], "Circular 38 art. 7"))
+                        a = None
+                if a is not None:
+                    parts.append((a.verdict.value if a.verdict.value in ("yes", "no") else "unknown",
+                                  a.reasons, "signs"))
+        else:
+            a = self._run(scene, Permitted(action=p.action, vehicle=p.vehicle, lane=lane))
+            parts.append((a.verdict.value if a.verdict.value in ("yes", "no") else "unknown", a.reasons, "signs"))
+        verdicts = [v for v, _, _ in parts]
+        verdict = (Verdict.no if "no" in verdicts else Verdict.unknown if ("unknown" in verdicts or not parts)
+                   else Verdict.yes)
+        want = {"no": "no", "yes": "yes", "unknown": "unknown"}[verdict.value]
+        support = [r for v, rs, _ in parts if v == want or verdict is Verdict.yes for r in rs]
+        cites = _cites(support)
+        if verdict is Verdict.yes and p.place is not None and not cites:
+            art = {"overtake": "14", "u_turn": "15", "stop": "18", "park": "18"}.get(p.action.value)
+            if art:
+                cites = [Citation(law_id="36/2024/QH15", article_id=art)]
+        return Answer(verdict=verdict, value={"parts": [{"what": w, "verdict": v} for v, _, w in parts]},
+                      reasons=support, citations=cites, basis=_basis(support))
 
     def _present(self, scene: SceneGraph, p: Present) -> Answer:
         """Is a sign of this code / meaning / category in the photo? Closed world over the

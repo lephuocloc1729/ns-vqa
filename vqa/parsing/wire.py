@@ -40,7 +40,7 @@ from typing import Annotated, Any, Literal, Optional, Union
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 from vqa.kb import load_catalog
-from vqa.schemas import Action, Colour, Program, QueryProgram, Shape, Side, VehicleClass
+from vqa.schemas import Action, Colour, Place, Program, QueryProgram, Shape, Side, VehicleClass
 
 _CATALOG = load_catalog()
 
@@ -227,6 +227,27 @@ class WSignApplies(_W):                      # phase 4.7
     vehicles: list[WVehicle]
 
 
+PlaceLit = Literal[tuple(x.value for x in Place)]  # type: ignore[valid-type]
+
+
+class WRulePermitted(_W):                    # phase 4.7 step 1c
+    intent: Literal["rule_permitted"]
+    action: ActionLit = "enter"
+    vehicle: Optional[WVehicle] = None
+    place: Optional[PlaceLit] = None
+    lane: Optional[int] = None
+    speed_kmh: Optional[float] = None
+    area: Optional[Literal["outside_residential"]] = None
+    road_divided: Optional[bool] = None
+    stop_reason: Optional[Literal["breakdown", "other"]] = None
+
+
+class WDuties(_W):                           # phase 4.7 step 1c
+    intent: Literal["duties"]
+    topic: Literal["speed_and_distance", "lane_change", "overtaking", "turning", "stopping_parking",
+                   "priority_vehicle_signal", "expressway"]
+
+
 class WCount(_W):                            # phase 4.7
     intent: Literal["count"]
     sign: Optional[WSelector] = None
@@ -239,7 +260,7 @@ class WAppliesTo(_W):                        # phase 4.7
 
 
 _LEAF_MODELS = (WPermitted, WForbidden, WSpeedOk, WRequired, WExistsViolation, WIsSign, WPresent,
-                WGuideClaim, WSpeedLimitIs, WCountIs, WSignApplies)
+                WGuideClaim, WSpeedLimitIs, WCountIs, WSignApplies, WRulePermitted)
 LeafClaim = Annotated[Union[_LEAF_MODELS], Field(discriminator="intent")]
 
 
@@ -342,7 +363,7 @@ class WExplain(_W):                          # phase 4.6 I3
 
 _PART_MODELS = _CLAIM_MODELS + (WVerify, WChoose, WLanesFor, WLanesWhere, WBanTimes,
                                 WMeaning, WWhichVehicles, WLaneVehicles, WSpeedLimit, WGuide, WExplain,
-                                WCount, WAppliesTo)
+                                WCount, WAppliesTo, WDuties)
 Part = Annotated[Union[_PART_MODELS], Field(discriminator="intent")]
 
 
@@ -393,7 +414,8 @@ def from_wire(data: dict[str, Any]) -> WParse:
 
 # --------------------------------------------------------------------------- convert
 
-_NEEDS_VEHICLE = {"permitted", "forbidden", "speed_ok", "lanes_for", "lanes_where", "ban_times"}
+_NEEDS_VEHICLE = {"permitted", "forbidden", "speed_ok", "lanes_for", "lanes_where", "ban_times",
+                  "rule_permitted"}
 # speed_limit and speed_limit_is default to motor_vehicle in the schema itself (no default recorded)
 _ATTRS = ("load_t", "gross_t", "seats", "height_m", "width_m", "length_m", "seats_gt",
           "seats_lt", "load_gt", "load_lt", "gross_gt", "gross_lt")

@@ -692,6 +692,64 @@ class Present(_Model):
         return self
 
 
+class Place(str, Enum):
+    """Phase 4.7 step 1c: places named in Law 36/2024's general rules (kb/rules/general47.pl):
+    art. 14.6 (no overtaking), 15.4 (no U-turns), 18.4 (no stopping or parking), 25 (expressways)."""
+    bridge = "bridge"                                     # "trên cầu"
+    narrow_one_lane_bridge = "narrow_one_lane_bridge"     # "cầu hẹp có một làn đường"
+    bridge_head = "bridge_head"                           # "đầu cầu"
+    under_overpass = "under_overpass"                     # "gầm cầu vượt"
+    ford = "ford"                                         # "ngầm"
+    tunnel = "tunnel"                                     # "hầm đường bộ"
+    intersection = "intersection"                         # "nơi đường giao nhau"
+    railway_crossing = "railway_crossing"                 # "giao nhau cùng mức với đường sắt"
+    railway_safety_zone = "railway_safety_zone"           # "phạm vi an toàn của đường sắt"
+    pedestrian_crossing = "pedestrian_crossing"           # "phần đường dành cho người đi bộ qua đường"
+    curve_limited_view = "curve_limited_view"             # "đường cong có tầm nhìn bị hạn chế / che khuất"
+    hill_crest_limited_view = "hill_crest_limited_view"   # "đỉnh dốc / gần đầu dốc, tầm nhìn bị hạn chế"
+    slope = "slope"                                       # "đường dốc"
+    narrow_road = "narrow_road"                           # "đường hẹp"
+    one_lane_width = "one_lane_width"                     # "chiều rộng chỉ đủ cho một làn xe cơ giới"
+    one_way_road = "one_way_road"                         # "đường một chiều"
+    one_way_road_left_side = "one_way_road_left_side"     # "bên trái đường một chiều"
+    expressway = "expressway"                             # "đường cao tốc"
+    emergency_lane = "emergency_lane"                     # "làn dừng xe khẩn cấp"
+    pickup_point = "pickup_point"                         # "điểm đón, trả khách"
+    bus_lane = "bus_lane"                                 # "đường dành riêng cho xe buýt"
+
+
+class RulePermitted(_Model):
+    """Phase 4.7 step 1c: may the vehicle do this, under the signs in the photo and Law 36's
+    general rules? ("Xe có được quay đầu trên cầu không?", "Xe cứu thương làm nhiệm vụ có được chạy
+    70 km/h không?", "Xe đạp có được đi ở làn trái không?"). No when a sign or a general rule forbids
+    it; yes when the signs allow it and no general rule the question's facts trigger forbids it.
+    `stop_reason` is for stops in the emergency lane (art. 25.2: only on a breakdown).
+    `area: outside_residential` with `road_divided` gives Circular 38 art. 7's limits
+    (interpretation) when no speed sign applies."""
+
+    intent: Literal["rule_permitted"] = "rule_permitted"
+    action: Action = Action.enter
+    vehicle: Vehicle = Field(default_factory=lambda: Vehicle(**{"class": "motor_vehicle"}))
+    place: Place | None = None
+    lane: QuestionLane | None = None
+    speed_kmh: float | None = None
+    area: Literal["outside_residential"] | None = None
+    road_divided: bool | None = None
+    stop_reason: Literal["breakdown", "other"] | None = None
+
+
+DutyTopic = Literal["speed_and_distance", "lane_change", "overtaking", "turning", "stopping_parking",
+                    "priority_vehicle_signal", "expressway"]
+
+
+class Duties(_Model):
+    """Phase 4.7 step 1c: what Law 36's general rules require of the driver in a situation
+    ("Khi chuyển làn, người lái xe phải làm gì?"), from kb/general_duties_47.yaml."""
+
+    intent: Literal["duties"] = "duties"
+    topic: DutyTopic
+
+
 class Count(_Model):
     """Phase 4.7 (owner, 2026-11-17): "Trong ảnh có bao nhiêu biển cấm?": how many signs match the
     selector (group, look, name or code). Plates are not counted as signs (art. 41). An unread sign
@@ -747,7 +805,7 @@ class AnyOf(_Model):
 
 Claim = Annotated[
     Union[Permitted, Forbidden, SpeedOk, Required, ExistsViolation, IsSign, Present, GuideClaim,
-          SpeedLimitIs, AllOf, AnyOf, CountIs, SignApplies],
+          SpeedLimitIs, AllOf, AnyOf, CountIs, SignApplies, RulePermitted],
     Field(discriminator="intent"),
 ]
 AllOf.model_rebuild()
@@ -794,7 +852,8 @@ class Explain(_Model):
 
     intent: Literal["explain"] = "explain"
     program: Annotated[Union[Permitted, Forbidden, SpeedOk, Required, ExistsViolation, IsSign, Present,
-                             GuideClaim, SpeedLimitIs, AllOf, AnyOf, Verify, Choose, CountIs, SignApplies],
+                             GuideClaim, SpeedLimitIs, AllOf, AnyOf, Verify, Choose, CountIs, SignApplies,
+                             RulePermitted],
                        Field(discriminator="intent")]
 
 
@@ -802,7 +861,7 @@ _PART = Annotated[
     Union[Permitted, Forbidden, SpeedOk, LanesFor, LanesWhere, BanTimes, Meaning, Required,
           ExistsViolation, Verify, Choose, IsSign, AllOf, AnyOf, WhichVehicles, LaneVehicles,
           SpeedLimit, Present, Guide, GuideClaim, SpeedLimitIs, Explain, Count, CountIs, AppliesTo,
-          SignApplies],
+          SignApplies, RulePermitted, Duties],
     Field(discriminator="intent"),
 ]
 
@@ -819,7 +878,7 @@ Program = Annotated[
     Union[Permitted, Forbidden, SpeedOk, LanesFor, LanesWhere, BanTimes, Meaning, Required,
           ExistsViolation, Verify, Choose, IsSign, AllOf, AnyOf, WhichVehicles, LaneVehicles,
           SpeedLimit, Present, Guide, GuideClaim, SpeedLimitIs, Explain, Multi, Count, CountIs,
-          AppliesTo, SignApplies],
+          AppliesTo, SignApplies, RulePermitted, Duties],
     Field(discriminator="intent"),
 ]
 

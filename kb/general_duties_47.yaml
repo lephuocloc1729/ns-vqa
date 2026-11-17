@@ -1,0 +1,50 @@
+# Phase 4.7 step 1c (owner, 2026-11-17: additive only): what the driver must do under Law 36/2024's
+# general rules, for `duties` ("Khi chuyển làn, người lái xe phải làm gì?"). Each item restates the
+# cited clause; the clause is quoted in the comment. reviewed_by: assistant.
+
+reviewed_by: assistant
+
+duties:
+  speed_and_distance:
+    # 12.1 "phải chấp hành quy định về tốc độ, khoảng cách an toàn tối thiểu với xe phía trước";
+    # 12.2 "phải bảo đảm tốc độ phù hợp điều kiện của cầu, đường, mật độ giao thông, địa hình, thời tiết"
+    items: ["chấp hành quy định về tốc độ và khoảng cách an toàn tối thiểu với xe phía trước",
+            "bảo đảm tốc độ phù hợp với điều kiện cầu, đường, mật độ giao thông, địa hình, thời tiết"]
+    source: {law_id: "36/2024/QH15", article_id: "12"}
+  lane_change:
+    # 13.2 "chỉ được chuyển làn đường ở những nơi cho phép; mỗi lần chuyển làn đường chỉ được phép chuyển
+    # sang một làn đường liền kề; khi chuyển làn đường phải có tín hiệu báo trước; phải quan sát"
+    items: ["chỉ chuyển làn ở nơi cho phép, mỗi lần sang một làn liền kề",
+            "có tín hiệu báo trước và quan sát, bảo đảm khoảng cách an toàn trước khi chuyển làn"]
+    source: {law_id: "36/2024/QH15", article_id: "13"}
+  overtaking:
+    # 14.2 "Khi vượt các xe phải vượt bên trái"; 14.3 "chỉ được vượt khi không có chướng ngại vật phía
+    # trước, không có xe chạy ngược chiều"; 14.5 "phải có báo hiệu nhấp nháy bằng đèn chiếu sáng phía trước hoặc còi"
+    items: ["vượt bên trái (bên phải chỉ khi xe trước rẽ trái hoặc xe chuyên dùng đang làm việc)",
+            "chỉ vượt khi phía trước không có chướng ngại vật và không có xe chạy ngược chiều",
+            "báo hiệu xin vượt bằng đèn hoặc còi; từ 22 giờ đến 05 giờ trong đô thị chỉ bằng đèn"]
+    source: {law_id: "36/2024/QH15", article_id: "14"}
+  turning:
+    # 15.2 "phải quan sát, bảo đảm khoảng cách an toàn với xe phía sau, giảm tốc độ và có tín hiệu báo
+    # hướng rẽ"; 15.3 "phải nhường đường cho người đi bộ, xe thô sơ, xe đi ngược chiều"
+    items: ["quan sát, giảm tốc độ và có tín hiệu báo hướng rẽ, chuyển dần sang làn gần nhất với hướng rẽ",
+            "nhường đường cho người đi bộ, xe thô sơ và xe đi ngược chiều"]
+    source: {law_id: "36/2024/QH15", article_id: "15"}
+  stopping_parking:
+    # 18.3 "a) Có tín hiệu báo ... khi ra, vào vị trí dừng xe, đỗ xe; b) Không làm ảnh hưởng đến người đi bộ"
+    # 18.5 "chỉ được dừng xe, đỗ xe sát mép đường phía bên phải theo chiều đi của mình"
+    items: ["có tín hiệu báo khi ra, vào vị trí dừng, đỗ; không làm ảnh hưởng đến người đi bộ và xe khác",
+            "dừng, đỗ ở lề đường rộng hoặc sát mép đường bên phải theo chiều đi"]
+    source: {law_id: "36/2024/QH15", article_id: "18"}
+  priority_vehicle_signal:
+    # 27.5 "phải giảm tốc độ, đi sát lề đường bên phải hoặc dừng lại để nhường đường"
+    items: ["giảm tốc độ, đi sát lề đường bên phải hoặc dừng lại để nhường đường cho xe ưu tiên"]
+    source: {law_id: "36/2024/QH15", article_id: "27"}
+  expressway:
+    # 25.1 a) "phải có tín hiệu xin vào và phải nhường đường cho xe đang chạy trên đường"; b) "phải quan sát
+    # biển báo hiệu chỉ dẫn, thực hiện chuyển dần sang làn đường sát bên phải"; c) "Không được cho xe chạy
+    # ở làn dừng xe khẩn cấp và phần lề đường"
+    items: ["khi nhập vào đường cao tốc: có tín hiệu xin vào, nhường đường cho xe đang chạy, dùng làn tăng tốc nếu có",
+            "khi ra khỏi đường cao tốc: quan sát biển chỉ dẫn, chuyển dần sang làn bên phải, dùng làn giảm tốc nếu có",
+            "không chạy ở làn dừng xe khẩn cấp và phần lề đường"]
+    source: {law_id: "36/2024/QH15", article_id: "25"}

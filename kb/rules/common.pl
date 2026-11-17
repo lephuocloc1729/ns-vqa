@@ -50,6 +50,14 @@ rule_source(r_kb2_roundabout,      interpretation, kb2_r303_yield_only).
 rule_source(r_c38_expressway,      interpretation, circular_38_2024_expressway_speeds).
 rule_source(r_c38_residential,     interpretation, circular_38_2024_residential_speeds).
 rule_source(r_c38_moped,           interpretation, circular_38_2024_moped_speed).
+% phase 4.7 step 1c: general rules of Law 36/2024 (kb/rules/general47.pl), and Circular 38 art. 7
+rule_source(r_l36_lane_use,        '36/2024/QH15', '13').
+rule_source(r_l36_overtaking,      '36/2024/QH15', '14').
+rule_source(r_l36_u_turn,          '36/2024/QH15', '15').
+rule_source(r_l36_stopping,        '36/2024/QH15', '18').
+rule_source(r_l36_expressway,      '36/2024/QH15', '25').
+rule_source(r_l36_priority,        '36/2024/QH15', '27').
+rule_source(r_c38_outside,         interpretation, circular_38_2024_outside_residential_speeds).
 % The basis of each interpretation (shown with it; never counted as a law citation).
 rule_basis(r_kb4_expressway_zone, "QCVN 41:2024 P.3 and the IE rows: IE.452 / IE.451b start the expressway, IE.453b/c end it; Law 36/2024 art. 25 sets its rules").
 rule_basis(r_kb1_pass_side, "QCVN 41:2024 D.2: R.302 orders how to pass the obstacle, not the turns at the next intersection").
@@ -57,6 +65,7 @@ rule_basis(r_kb2_roundabout, "QCVN 41:2024 art. 32 / D.3 and Law 36/2024 art. 22
 rule_basis(r_c38_expressway, "Circular 38/2024/TT-BGTVT art. 9 (believed): on expressways the maximum is 120 km/h and the minimum 60 km/h unless signs say otherwise").
 rule_basis(r_c38_residential, "Circular 38/2024/TT-BGTVT art. 6 (believed): in residential areas, motor vehicles at most 60 km/h on a divided road (or one-way with two or more lanes) and 50 km/h on an undivided two-way road; signs override").
 rule_basis(r_c38_moped, "Circular 38/2024/TT-BGTVT art. 8 (believed): mopeds (xe gắn máy) at most 40 km/h").
+rule_basis(r_c38_outside, "Circular 38/2024/TT-BGTVT art. 7 (believed): outside residential areas, on a divided road (or one-way with two or more lanes) / an undivided two-way road: cars up to 28 seats and trucks up to 3.5 t 90 / 80 km/h; coaches over 28 seats and trucks over 3.5 t 80 / 70; buses and motorcycles 70 / 60; signs override").
 
 % --------------------------------------------------------------------------
 % Three-valued logic (leaves: evaluated directly, shown as one proof node)

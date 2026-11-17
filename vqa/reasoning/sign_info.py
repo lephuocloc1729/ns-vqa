@@ -65,6 +65,16 @@ def lookup(kind: str, code: str, category: str, extended: bool = False) -> tuple
     return None
 
 
+@lru_cache(maxsize=1)
+def _duties() -> dict[str, Any]:
+    return yaml.safe_load(Path(KB_DIR / "general_duties_47.yaml").read_text(encoding="utf-8"))["duties"]
+
+
+def duties(topic: str) -> dict[str, Any]:
+    """Phase 4.7 step 1c: a general-rule duty row (kb/general_duties_47.yaml)."""
+    return _duties()[topic]
+
+
 def conduct_out(code: str) -> str | None:
     """Phase 4.7: why a row has no conduct line in its cited articles (kb/sign_info_47.yaml), else None."""
     return info47().get("conduct_out", {}).get(code)

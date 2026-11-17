@@ -17,20 +17,20 @@ dev failures; dev, D3 and train are checks only (owner, 2026-11-17).
 | column | modelled | to build | n/a | out |
 |---|---|---|---|---|
 | identity, meaning, group | 79 | 3 | 7 | 0 |
-| who it applies to, exceptions | 77 | 9 | 3 | 0 |
-| permitted / forbidden / required | 48 | 10 | 31 | 0 |
-| speed | 11 | 4 | 74 | 0 |
+| who it applies to, exceptions | 79 | 4 | 5 | 1 |
+| permitted / forbidden / required | 53 | 5 | 31 | 0 |
+| speed | 13 | 1 | 74 | 1 |
 | time | 33 | 2 | 54 | 0 |
-| lane | 35 | 8 | 46 | 0 |
+| lane | 37 | 5 | 47 | 0 |
 | where it takes effect / ends | 80 | 3 | 6 | 0 |
 | where it is placed | 79 | 1 | 7 | 2 |
-| driver conduct | 76 | 10 | 0 | 3 |
+| driver conduct | 83 | 3 | 0 | 3 |
 | guide-board content | 20 | 1 | 68 | 0 |
 | weight and height limits | 4 | 1 | 84 | 0 |
-| vehicles in the photo | 37 | 10 | 42 | 0 |
+| vehicles in the photo | 37 | 11 | 41 | 0 |
 | compound and explain | 88 | 1 | 0 | 0 |
 | counting and presence (one intent for every row) | 1 | 0 | 0 | 0 |
-| **all cells (1158)** | **668** | **63** | **422** | **5** |
+| **all cells (1158)** | **686** | **41** | **424** | **7** |
 
 ## Signs (80 rows)
 
@@ -123,13 +123,13 @@ M = modelled, **B** = to build, – = not applicable, out = out (reason in the n
 
 | | topic | source | identity, meaning, group | who it applies to, exceptions | permitted / forbidden / required | speed | time | lane | where it takes effect / ends | where it is placed | driver conduct | guide-board content | weight and height limits | vehicles in the photo | compound and explain |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| T1 | speed by road type | Circular 38/2024 (interpretation, r_c38_*); Law 36 art. 12 | – | **B** | – | **B** | – | – | – | – | **B** | – | – | – | M |
-| T2 | lane use | Law 36 art. 13 | – | **B** | **B** | **B** | – | **B** | – | – | **B** | – | – | – | M |
-| T3 | overtaking | Law 36 art. 14; QCVN 41 B.25 (P.125) | – | **B** | **B** | – | – | **B** | – | – | **B** | – | – | – | M |
-| T4 | turning and U-turns | Law 36 art. 15; QCVN 41 6.2.2 | – | – | **B** | – | – | **B** | – | – | **B** | – | – | – | M |
-| T5 | stopping and parking | Law 36 art. 18 | – | **B** | **B** | – | – | – | – | – | **B** | – | – | **B** | M |
-| T6 | priority vehicles | Law 36 art. 27; QCVN 41 art. 7 | – | **B** | **B** | **B** | – | – | – | – | **B** | – | – | – | M |
-| T7 | expressways | Law 36 art. 25 | – | M | **B** | M | – | **B** | M | – | **B** | – | – | – | M |
+| T1 | speed by road type | Circular 38/2024 art. 6-9 (interpretation, r_c38_*); Law 36 art. 12 | – | M | – | M | – | – | – | – | M | – | – | – | M |
+| T2 | lane use | Law 36 art. 13 | – | M | M | out | – | M | – | – | M | – | – | **B** | M |
+| T3 | overtaking | Law 36 art. 14; QCVN 41 B.25 (P.125) | – | – | M | – | – | – | – | – | M | – | – | – | M |
+| T4 | turning and U-turns | Law 36 art. 15; QCVN 41 6.2.2 | – | – | M | – | – | **B** | – | – | M | – | – | – | M |
+| T5 | stopping and parking | Law 36 art. 18 | – | – | M | – | – | – | – | – | M | – | – | **B** | M |
+| T6 | priority vehicles | Law 36 art. 27; QCVN 41 art. 7 | – | out | **B** | M | – | – | – | – | M | – | – | – | M |
+| T7 | expressways | Law 36 art. 25 | – | M | M | M | – | M | M | – | M | – | – | – | M |
 | T8 | traffic lights | QCVN 41 art. 4, 6, 8 | **B** | **B** | **B** | – | – | **B** | **B** | out | **B** | – | – | **B** | M |
 | T9 | road markings | QCVN 41 art. 48-51, G.1-G.4 | **B** | **B** | **B** | – | – | **B** | **B** | out | **B** | – | – | **B** | M |
 
@@ -161,30 +161,12 @@ M = modelled, **B** = to build, – = not applicable, out = out (reason in the n
 - IE.453b, photo: zone entry by a pictured vehicle
 - IE.453c, conduct: as IE.453b
 - IE.453c, photo: zone entry by a pictured vehicle
-- topic speed by road type, applies: per class at the road type
-- topic speed by road type, speed: expressway / residential defaults modelled; outside residential, divided roads to build
-- topic speed by road type, conduct: art. 12.1 keep speed and distance
-- topic lane use, applies: 13.3 rudimentary right, motor left
-- topic lane use, pfr: 13.2 change lanes only where allowed; 13.4 reserved lanes
-- topic lane use, speed: 13.1 slower keeps right
-- topic lane use, lane: lane sets
-- topic lane use, conduct: 13.2 signal, observe
-- topic overtaking, pfr: 14.3 overtake on the left; 14.4 where banned
-- topic overtaking, lane: 14.3 exceptions on multi-lane roads
-- topic overtaking, conduct: 14.1 signal, observe
-- topic turning and U-turns, pfr: 15.4 no U-turn places
-- topic turning and U-turns, lane: turn lanes
-- topic turning and U-turns, conduct: 15.1-15.2 slow, signal, yield
-- topic stopping and parking, pfr: 18.3 places where stopping / parking is banned
-- topic stopping and parking, conduct: 18.2 signal, keep right
-- topic stopping and parking, photo: a pictured vehicle stopped at a banned place
-- topic priority vehicles, applies: 27.2 the order of priority
-- topic priority vehicles, pfr: 27.4 not bound by lights, may go against the flow
-- topic priority vehicles, speed: 27.4 'không bị hạn chế tốc độ'
-- topic priority vehicles, conduct: 27.5 others slow down, keep right, yield
-- topic expressways, pfr: 25.1 c no driving in the emergency lane; 25.2 stopping
-- topic expressways, lane: emergency lane
-- topic expressways, conduct: 25.1 entering, leaving
+- topic lane use, speed: 13.1 'tốc độ thấp hơn phải đi về bên phải' gives no number to check
+- topic lane use, photo: lane change across a marking (scene v6)
+- topic turning and U-turns, lane: turn lanes from R.411 arrows (scene v6)
+- topic stopping and parking, photo: a pictured vehicle stopped at a listed place: perception gives no place
+- topic priority vehicles, applies: 27.2's order matters only between priority vehicles; no question form
+- topic priority vehicles, pfr: 27.4 'không phụ thuộc vào tín hiệu đèn' (lights: scene v6)
 - topic traffic lights, identity: colour / arrow meaning (art. 6.3, 6.4)
 - topic traffic lights, applies: 27.4 priority vehicles
 - topic traffic lights, pfr: 6.3 green go, yellow stop, red no go
