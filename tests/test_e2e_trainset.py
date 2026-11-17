@@ -96,3 +96,10 @@ def test_a_cached_scene_runs_the_engine_and_grades_by_the_yes_no_mapping(images,
 def test_the_estimate_is_parse_only():
     e = et.estimate(QS)
     assert e["biased"] is True and e["questions"] == 2 and e["total_usd"] == round(2 * et.PARSER_RATE, 3)
+
+
+def test_no_key_is_refused_before_anything_is_written(images, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    with pytest.raises(SystemExit, match="ANTHROPIC_API_KEY"):
+        _run(images, sdk=None)
+    assert not (images / "runs").exists()

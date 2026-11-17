@@ -27,6 +27,7 @@ import argparse
 import datetime as dt
 import json
 import math
+import os
 import sys
 import uuid
 from collections import Counter
@@ -112,6 +113,8 @@ def run(max_spend: float, *, sdk=None, questions: list[dict] | None = None, out_
 
     from eval.phase46_analysis import group_of
 
+    if sdk is None and not os.environ.get("ANTHROPIC_API_KEY"):
+        raise SystemExit("ANTHROPIC_API_KEY is not set: no call can be made (nothing written)")
     forbidden = forbidden if forbidden is not None else forbidden_ids()
     qs = questions if questions is not None else load_questions(forbidden=forbidden)
     check_ids(qs, forbidden)
