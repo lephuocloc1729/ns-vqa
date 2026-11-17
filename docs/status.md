@@ -1634,6 +1634,26 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Handoff (2026-11-17): phase 4.7 step 1, parts 1a–1c built; 1d next (no API calls)
+
+- **Owner's option 1** (`6b014df`): the two final2 record tests read the phase-46 engine-code hash at freeze commit `9d78dad` from git. This is the only edit to old tests.
+- **Matrix columns** (`7aaa800`): guide-board, weight/height and photo-vehicle columns added; counting is one intent. Now 1158 cells: 686 modelled, 41 to build, 424 n/a, 7 out (`eval/coverage_matrix.py matrix`).
+- **1a** (`9fea0d4`, fix `3d207fe`): `kb/sign_info_47.yaml` adds scope, placement and conduct lines, used only when no selected sign has a line.
+- **1b** (`6a0e5a1`): two intent pairs.
+  - `count` / `count_is` (art. 11; an unread sign that could match makes a range);
+  - `applies_to` / `sign_applies` (`kb/rules/coverage47.pl`).
+- **1c** (`5643d28`):
+  - `rule_permitted` (`kb/rules/general47.pl`): Law 36 art. 13.3, 14.6, 15.4, 18.4, 25.1–25.2 and 27.4; Circular 38 art. 7 as an interpretation (`r_c38_outside`);
+  - `duties` (`kb/general_duties_47.yaml`).
+- **Proof** after each part: `eval/phase47_replay.py check` gives 88/88 decided identical (baseline `464c1f8`).
+- **Next:**
+  - **1d:** scene v6. R.411 lane directions, lights and markings; a new `listed_from` value so frozen prompts stay unchanged; the set-T check is paid.
+  - **1e:** parser v12, covering the new intents, with train few-shots.
+  - **Step 2:** generated tests (prohibitory × class, mandatory × direction) and contradiction tests.
+  - **Step 3:** v12 hand-program replays.
+  - **Then:** the review list and the paid commands, within $2.00.
+- **Working rule learned:** run the suite as `set -o pipefail; pytest | tail`. `9fea0d4` went in with 2 failures because the pipe hid them; `3d207fe` fixed it.
+
 ### Phase 4.7, law-first approach: step 0 done, step 1 blocked (2026-11-17; no API calls)
 
 - **Owner, 2026-11-17:** build the rule engine from the law (the 80 stage-A signs plus the general topics). The change is additive only, and existing tests must stay unchanged. This replaces the dev-driven plan below.
