@@ -437,6 +437,13 @@ V10_FEATURES = ('"intent": "multi"', '"intent": "guide_claim"', '"intent": "expl
                 '"kind": "range"', '"aspect": "article"', '"ask": "road_type"', '"day_parity":')
 DESIGN_FEATURES = V7_FEATURES + V10_FEATURES
 
+# Phase 4.7 (owner, 2026-11-17): parser v12 must parse today's forms as v11 does, so its new forms
+# are given back as design only on rows whose gold is out of scope (lights, markings, counting,
+# who a sign applies to, general rules); on any other row a v12 form counts as a miss.
+V12_FEATURES = ('"intent": "count"', '"intent": "count_is"', '"intent": "applies_to"', '"intent": "sign_applies"',
+                '"intent": "rule_permitted"', '"intent": "duties"', '"intent": "signal_meaning"',
+                '"intent": "marking_meaning"', '"intent": "marking_is"')
+
 
 def gold_type(g: dict) -> str:
     p = (g.get("program") or {}).get("program")
@@ -474,11 +481,14 @@ def compare_versions(old: list[Path], new: list[Path], gold_path: Path | None = 
         types[k] = {"old": f"{o[0]}/{o[1]}", "new": f"{n[0]}/{n[1]}", "old_acc": oa, "new_acc": na,
                     "regressed": oa is not None and na is not None and na < oa}
     lost = []
+    gold_oos = {g["id"] for g in gold if gold_type(g) == "out_of_scope"}
     for qid, runs in nrow.items():
         if any(c for c, _ in orow.get(qid, [])) and not all(c for c, _ in runs):
             progs = [json.dumps(q, ensure_ascii=False) for c, q in runs if not c]
+            design = any(f in p for p in progs for f in DESIGN_FEATURES) or (
+                qid in gold_oos and any(f in p for p in progs for f in V12_FEATURES))
             lost.append({"id": qid, "new_wrong_runs": len(progs),
-                         "v7_design": any(f in p for p in progs for f in DESIGN_FEATURES), "new_programs": progs[:1]})
+                         "v7_design": design, "new_programs": progs[:1]})
     # The same drop with design-change rows given back: a new miss whose program uses a v7
     # feature counts as right again (the v6 gold has no way to write it).
     design = {x["id"] for x in lost if x["v7_design"]}
