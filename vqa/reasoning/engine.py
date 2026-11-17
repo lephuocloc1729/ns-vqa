@@ -325,14 +325,22 @@ class Engine:
         return (isinstance(p, Permitted) and p.action.value in ("go_straight", "turn_left", "turn_right", "u_turn")
                 and self.catalog.has(sign.code) and self.catalog.get(sign.code).key == "lane_directions")
 
+    def _r411_arrows_decide_in(self, scene: SceneGraph, sign, p: Program) -> bool:
+        if isinstance(p, ExistsViolation):
+            lanes = [v.lane for v in scene.vehicles]
+            return (sign.code.startswith("R.411") and bool(lanes)
+                    and all(l is not None and any(r.lane == l and r.directions for r in sign.lanes) for l in lanes))
+        return self._r411_arrows_decide(sign, p)
+
     @staticmethod
     def _r411_arrows_decide(sign, p: Program) -> bool:
         """Phase 4.7 (scene v6): an R.411 board whose arrows were read for the lane a claim asks
         about is modelled for that claim (kb/rules/signals47.pl, D.13). Without arrows, or with no
         lane asked, it stays unmodelled as before."""
         lane = getattr(p, "lane", None)
-        return (lane is not None and sign.code.startswith("R.411")
-                and any(row.lane == lane and row.directions for row in sign.lanes))
+        if not sign.code.startswith("R.411"):
+            return False
+        return (lane is not None and any(row.lane == lane and row.directions for row in sign.lanes))
 
     def _run(self, scene: SceneGraph, p: Program) -> Answer:
         """Dispatch, then: a closed-world verdict becomes unknown when the scene has an
@@ -346,7 +354,7 @@ class Engine:
         unmodelled = [sid for sid in self.unmodelled_signs(scene)
                       if (self.could_matter(self.visual_category(scene.sign(sid)), p)
                           or self._lane_directions_matter(scene.sign(sid), p))
-                      and not self._r411_arrows_decide(scene.sign(sid), p)]
+                      and not self._r411_arrows_decide_in(scene, scene.sign(sid), p)]
         if cw is not None and (unread or unmodelled) and ans.verdict == cw:
             note = ("a sign in the scene could not be read; it may change this answer" if unread
                     else "a sign in the scene has an effect the rules don't model; "
@@ -707,7 +715,10 @@ class Engine:
         ids = [i for i in ids if self.catalog.has(scene.sign(i).code)]
         if not ids:
             return Answer(verdict=Verdict.unknown, uncertain_signs=unread, note="the sign could not be read")
-        if any(self.catalog.get(scene.sign(i).code).effect_unmodelled for i in ids):
+        # phase 4.7: R.411's order is addressed to every road user (D.13 "bắt buộc người tham gia giao
+        # thông"), so who it applies to is known though its directions need the lane arrows
+        if any(self.catalog.get(scene.sign(i).code).effect_unmodelled
+               and not scene.sign(i).code.startswith("R.411") for i in ids):
             return Answer(verdict=Verdict.unknown, uncertain_signs=unread,
                           note="a selected sign has an effect the rules don't model")
         if isinstance(p, SignApplies):
@@ -880,8 +891,10 @@ class Engine:
                 arts.add(data["markings"][key]["article"])
         if not rows:
             return Answer(verdict=Verdict.unknown, note="no such marking was read in the photo")
-        return Answer(verdict=Verdict.value, value={"markings": rows},
-                      citations=[Citation(law_id="QCVN 41:2024/BGTVT", article_id=a) for a in sorted(arts)])
+        # art. 51: a marking alone is followed as it is; with lights or signs, all of them, in art. 4's order
+        return Answer(verdict=Verdict.value, value={"markings": rows, "effect": data["marking_effect"]["text"]},
+                      citations=[Citation(law_id="QCVN 41:2024/BGTVT", article_id=a)
+                                 for a in sorted(arts | {data["marking_effect"]["article"]})])
 
     def _present(self, scene: SceneGraph, p: Present) -> Answer:
         """Is a sign of this code / meaning / category in the photo? Closed world over the

@@ -17,20 +17,20 @@ dev failures; dev, D3 and train are checks only (owner, 2026-11-17).
 | column | modelled | to build | n/a | out |
 |---|---|---|---|---|
 | identity, meaning, group | 82 | 0 | 7 | 0 |
-| who it applies to, exceptions | 80 | 2 | 6 | 1 |
-| permitted / forbidden / required | 57 | 1 | 31 | 0 |
+| who it applies to, exceptions | 81 | 0 | 7 | 1 |
+| permitted / forbidden / required | 58 | 0 | 31 | 0 |
 | speed | 13 | 0 | 75 | 1 |
 | time | 33 | 0 | 56 | 0 |
-| lane | 40 | 1 | 48 | 0 |
-| where it takes effect / ends | 80 | 2 | 6 | 1 |
-| where it is placed | 79 | 1 | 7 | 2 |
-| driver conduct | 85 | 1 | 0 | 3 |
+| lane | 41 | 0 | 48 | 0 |
+| where it takes effect / ends | 82 | 0 | 6 | 1 |
+| where it is placed | 80 | 0 | 7 | 2 |
+| driver conduct | 85 | 0 | 0 | 4 |
 | guide-board content | 20 | 0 | 69 | 0 |
 | weight and height limits | 4 | 0 | 85 | 0 |
-| vehicles in the photo | 37 | 10 | 42 | 0 |
+| vehicles in the photo | 44 | 0 | 44 | 1 |
 | compound and explain | 89 | 0 | 0 | 0 |
 | counting and presence (one intent for every row) | 1 | 0 | 0 | 0 |
-| **all cells (1158)** | **700** | **18** | **432** | **8** |
+| **all cells (1158)** | **713** | **0** | **435** | **10** |
 
 ## Signs (80 rows)
 
@@ -47,14 +47,14 @@ M = modelled, **B** = to build, – = not applicable, out = out (reason in the n
 | 7 | P.127c | M | M | M | M | – | M | M | M | M | – | – | M | M |
 | 8 | I.444(a,b,c,d,e,f,g,h,i,j,k,l,m) | M | M | – | – | – | – | M | M | M | M | – | – | M |
 | 9 | W.245a | M | M | – | – | – | – | M | M | M | – | – | – | M |
-| 10 | IE.452 | M | M | M | M | – | – | M | M | M | M | – | **B** | M |
+| 10 | IE.452 | M | M | M | M | – | – | M | M | M | M | – | M | M |
 | 11 | P.125 | M | M | M | – | M | M | M | M | M | – | – | M | M |
 | 12 | P.102 | M | M | M | – | M | M | M | M | M | – | – | M | M |
 | 13 | P.111b | M | M | M | – | M | M | M | M | M | – | – | M | M |
 | 14 | P.123b | M | M | M | – | M | M | M | M | M | – | – | M | M |
 | 15 | I.415 | M | M | – | – | – | – | M | M | M | M | – | – | M |
 | 16 | P.105 | M | M | M | – | M | M | M | M | M | – | – | M | M |
-| 17 | R.420 | M | M | M | M | – | – | M | M | M | M | – | **B** | M |
+| 17 | R.420 | M | M | M | M | – | – | M | M | M | M | – | M | M |
 | 18 | P.104 | M | M | M | – | M | M | M | M | M | – | – | M | M |
 | 19 | P.127b | M | M | M | M | – | M | M | M | M | – | – | M | M |
 | 20 | P.123a | M | M | M | – | M | M | M | M | M | – | – | M | M |
@@ -79,12 +79,12 @@ M = modelled, **B** = to build, – = not applicable, out = out (reason in the n
 | 39 | P.106b | M | M | M | – | M | M | M | M | M | – | M | M | M |
 | 40 | R.403a | M | M | M | – | M | M | M | M | M | – | – | M | M |
 | 41 | P.110a | M | M | M | – | M | M | M | M | M | – | – | M | M |
-| 42 | R.411 | M | **B** | M | – | – | M | M | M | M | – | – | **B** | M |
+| 42 | R.411 | M | M | M | – | – | M | M | M | M | – | – | M | M |
 | 43 | W.224 | M | M | – | – | – | – | M | M | M | – | – | – | M |
 | 44 | P.101 | M | M | M | – | M | M | M | M | M | – | – | M | M |
 | 45 | P.103b | M | M | M | – | M | M | M | M | M | – | – | M | M |
 | 46 | W.233 | M | M | – | – | – | – | M | M | M | – | – | – | M |
-| 47 | IE.451b | M | M | M | M | – | – | M | M | M | M | – | **B** | M |
+| 47 | IE.451b | M | M | M | M | – | – | M | M | M | M | – | M | M |
 | 48 | P.112 | M | M | M | – | M | M | M | M | M | – | – | M | M |
 | 49 | IE.474 | M | M | – | – | – | – | M | M | M | M | – | – | M |
 | 50 | P.124c | M | M | M | – | M | M | M | M | M | – | – | M | M |
@@ -102,11 +102,11 @@ M = modelled, **B** = to build, – = not applicable, out = out (reason in the n
 | 62 | IE.467 | M | M | – | – | – | – | M | M | M | M | – | – | M |
 | 63 | IE.471 | M | M | – | – | – | – | M | M | M | M | – | – | M |
 | 64 | P.117 | M | M | M | – | M | M | M | M | M | – | M | M | M |
-| 65 | R.415 (as R.415b) | M | – | M | – | – | – | **B** | **B** | **B** | – | – | – | M |
+| 65 | R.415 (as R.415b) | M | – | M | – | – | – | M | M | out | – | – | – | M |
 | 66 | I.401 | M | M | – | – | – | – | M | M | M | – | – | – | M |
 | 67 | I.417(a,b,c) | M | M | – | – | – | – | M | M | M | M | – | – | M |
-| 68 | IE.453b | M | M | M | M | – | – | M | M | out | M | – | **B** | M |
-| 69 | IE.453c | M | M | M | M | – | – | M | M | out | M | – | **B** | M |
+| 68 | IE.453b | M | M | M | M | – | – | M | M | out | M | – | – | M |
+| 69 | IE.453c | M | M | M | M | – | – | M | M | out | M | – | – | M |
 | 70 | P.118 | M | M | M | – | M | M | M | M | M | – | M | M | M |
 | 71 | R.301b | M | M | M | – | M | – | M | M | M | – | – | M | M |
 | 72 | R.412f | M | M | M | – | M | M | M | M | M | – | – | M | M |
@@ -124,43 +124,27 @@ M = modelled, **B** = to build, – = not applicable, out = out (reason in the n
 | | topic | source | identity, meaning, group | who it applies to, exceptions | permitted / forbidden / required | speed | time | lane | where it takes effect / ends | where it is placed | driver conduct | guide-board content | weight and height limits | vehicles in the photo | compound and explain |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | T1 | speed by road type | Circular 38/2024 art. 6-9 (interpretation, r_c38_*); Law 36 art. 12 | – | M | – | M | – | – | – | – | M | – | – | – | M |
-| T2 | lane use | Law 36 art. 13 | – | M | M | out | – | M | – | – | M | – | – | **B** | M |
+| T2 | lane use | Law 36 art. 13 | – | M | M | out | – | M | – | – | M | – | – | M | M |
 | T3 | overtaking | Law 36 art. 14; QCVN 41 B.25 (P.125) | – | – | M | – | – | – | – | – | M | – | – | – | M |
-| T4 | turning and U-turns | Law 36 art. 15; QCVN 41 6.2.2 | – | – | M | – | – | **B** | – | – | M | – | – | – | M |
-| T5 | stopping and parking | Law 36 art. 18 | – | – | M | – | – | – | – | – | M | – | – | **B** | M |
-| T6 | priority vehicles | Law 36 art. 27; QCVN 41 art. 7 | – | out | **B** | M | – | – | – | – | M | – | – | – | M |
+| T4 | turning and U-turns | Law 36 art. 15; QCVN 41 6.2.2 | – | – | M | – | – | M | – | – | M | – | – | – | M |
+| T5 | stopping and parking | Law 36 art. 18 | – | – | M | – | – | – | – | – | M | – | – | out | M |
+| T6 | priority vehicles | Law 36 art. 27; QCVN 41 art. 7 | – | out | M | M | – | – | – | – | M | – | – | – | M |
 | T7 | expressways | Law 36 art. 25 | – | M | M | M | – | M | M | – | M | – | – | – | M |
-| T8 | traffic lights | QCVN 41 art. 4, 6, 8 | M | M | M | – | – | M | out | out | M | – | – | **B** | M |
-| T9 | road markings | QCVN 41 art. 48-51, G.1-G.4 | M | **B** | M | – | – | M | **B** | out | M | – | – | **B** | M |
+| T8 | traffic lights | QCVN 41 art. 4, 6, 8 | M | M | M | – | – | M | out | out | M | – | – | M | M |
+| T9 | road markings | QCVN 41 art. 48-51, G.1-G.4 | M | – | M | – | – | M | M | out | M | – | – | M | M |
 
 ## Cell notes (to build / out)
 
-- IE.452, photo: zone entry by a pictured vehicle
-- R.420, photo: zone entry by a pictured vehicle
 - R.404a, conduct: D.12 only marks the end of the car road; no duty of its own
-- R.411, applies: applies_to not decided
-- R.411, photo: a pictured vehicle's lane and turn against the arrows
-- IE.451b, photo: zone entry by a pictured vehicle
-- R.415, scope: no sign_info line
-- R.415, placement: no sign_info line
-- R.415, conduct: no conduct items
+- R.415, conduct: D.16 only marks the end of the lanes by vehicle type; no duty of its own
 - IE.453b, conduct: the end-of-expressway sign states no duty of its own (art. 47 lists it; Law 36 art. 25 covers driving on the expressway)
-- IE.453b, photo: zone entry by a pictured vehicle
 - IE.453c, conduct: as IE.453b
-- IE.453c, photo: zone entry by a pictured vehicle
 - topic lane use, speed: 13.1 'tốc độ thấp hơn phải đi về bên phải' gives no number to check
-- topic lane use, photo: lane change across a marking (scene v6)
-- topic turning and U-turns, lane: turn lanes from R.411 arrows (scene v6)
-- topic stopping and parking, photo: a pictured vehicle stopped at a listed place: perception gives no place
+- topic stopping and parking, photo: a pictured vehicle stopped at a listed place: perception reads no places (bridge, crossing ...)
 - topic priority vehicles, applies: 27.2's order matters only between priority vehicles; no question form
-- topic priority vehicles, pfr: 27.4 'không phụ thuộc vào tín hiệu đèn' (lights: scene v6)
 - topic traffic lights, scope: art. 8 says where a light takes effect; no question form beyond pfr
 - topic traffic lights, placement: art. 9 heights: no question form
-- topic traffic lights, photo: a pictured vehicle against the light (exists_violation over signals)
-- topic road markings, applies: 2.3 reserved-lane line
-- topic road markings, scope: art. 51 combined with signs (art. 4)
 - topic road markings, placement: dimensions: no question form
-- topic road markings, photo: a pictured vehicle crossing a line
 
 ## Taxonomy check on train wording
 

@@ -153,6 +153,8 @@ def test_lane_board_rows_say_who(engine):
     assert a.value["per_vehicle"] == {"car": "yes", "motorbike": "no"} and a.verdict is Verdict.no
 
 
-def test_an_unmodelled_sign_gives_unknown(engine):
-    r411 = SceneGraph(scene_id="x", signs=[S("s1", "R.411", shape="rectangle", border="none", bg="blue")])
-    assert engine.answer(r411, AppliesTo()).verdict is Verdict.unknown
+def test_an_unreadable_sign_gives_unknown(engine):
+    """R.411, the only effect_unmodelled row, is addressed to every road user since the matrix's last
+    cells (D.13; tests/test_phase47_remaining_cells.py); an unread sign still gives unknown."""
+    unread = SceneGraph(scene_id="x", signs=[S("s1", "UNKNOWN")])
+    assert engine.answer(unread, AppliesTo()).verdict is Verdict.unknown

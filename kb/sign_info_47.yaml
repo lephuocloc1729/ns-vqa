@@ -27,6 +27,10 @@ scope:
     # E.8: "Phạm vi quy định đỗ xe sẽ hết hiệu lực 10 m trước khi đến nơi đường giao nhau tiếp theo"
     text: "nơi được phép đỗ xe; phạm vi cho phép đỗ hết hiệu lực 10 m trước nơi đường giao nhau tiếp theo"
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "E.8"}
+  - codes: [R.415b]
+    # D.16: "Để chỉ dẫn hết đoạn đường lưu thông trên từng làn đường theo quy định, đặt biển số R.415b"
+    text: "từ vị trí đặt biển, hết đoạn đường lưu thông trên từng làn đường theo biển R.415a"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.16"}
   - category: information
     # 15.1: "Hiệu lực của các loại biển báo nguy hiểm và cảnh báo và biển chỉ dẫn có giá trị trên các làn đường của chiều xe chạy."
     text: "có giá trị trên các làn đường của chiều xe chạy"
@@ -41,6 +45,10 @@ placement:
     # D.12 a)
     text: "ở nơi hết đoạn đường dành cho ô tô đi lại"
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.12"}
+  - codes: [R.415b]
+    # D.16 (as for scope)
+    text: "ở nơi hết đoạn đường lưu thông trên từng làn đường theo quy định"
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.16"}
 
 # Conduct for rows whose catalog effect gives no item. `items` are Vietnamese lines.
 conduct:
@@ -99,3 +107,4 @@ conduct_out:
   IE.453b: "the end-of-expressway sign states no duty of its own (art. 47 lists it; Law 36 art. 25 covers driving on the expressway)"
   IE.453c: "as IE.453b"
   R.404a: "D.12 only marks the end of the car road; no duty of its own"
+  R.415b: "D.16 only marks the end of the lanes by vehicle type; no duty of its own"

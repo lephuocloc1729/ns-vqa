@@ -41,6 +41,11 @@ markings:
   # G.2 7.1 "xác định vị trí người điều khiển phương tiện phải dừng lại khi có tín hiệu đèn đỏ hoặc khi có biển số R.122"
   stop_line: {text: "vạch dừng 7.1: vị trí phải dừng lại khi có tín hiệu đèn đỏ hoặc biển R.122", article: "G.2"}
 
+# art. 51: "Vạch kẻ đường khi sử dụng độc lập thì người tham gia giao thông phải tuân theo ý nghĩa của vạch
+# kẻ đường. Vạch kẻ đường khi sử dụng kết hợp với đèn tín hiệu, biển báo hiệu thì ... phải tuân theo ý nghĩa,
+# hiệu lệnh của cả vạch kẻ đường và đèn tín hiệu, biển báo hiệu theo thứ tự quy định tại Điều 4"
+marking_effect: {text: "vạch dùng độc lập thì tuân theo ý nghĩa của vạch; dùng cùng đèn tín hiệu, biển báo thì tuân theo cả vạch, đèn và biển theo thứ tự ưu tiên tại Điều 4", article: "51"}
+
 # What each kind of line separates, for marking_is claims ("vạch liền có dùng để phân chia các làn
 # xe cùng chiều không?"): G.1 1.x center lines separate the two directions; 2.x lane lines
 # separate lanes of one direction.

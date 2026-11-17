@@ -181,6 +181,42 @@ violation_item(Ctx, _{vehicle_id:VS, kind:"unknown_action", sign_id:SS, truth:"u
     scene_vehicle(V, C, _, unknown, _),
     once(( action(A), forbids(A, veh(C, []), Ctx, S, _) )),
     atom_string(V, VS), atom_string(S, SS).
+% Phase 4.7 (owner, 2026-11-17: additive only): pictured vehicles against zones and scene v6 facts.
+% A vehicle driving on past a zone sign enters the zone (expressway entry bans, Law 36 art. 25).
+violation_item(Ctx, _{vehicle_id:VS, kind:"zone", sign_id:SS, truth:TS, proof:D}) :-
+    scene_vehicle(V, C, _, driving, _),
+    G = zone_forbids(enter, veh(C, []), Ctx, S, T),
+    prove(G, P),
+    atom_string(V, VS), atom_string(S, SS), atom_string(T, TS),
+    proof_root(G, P, D).
+% A vehicle turning (or going straight) from its lane against an R.411 board's arrows (D.13).
+violation_item(_Ctx, _{vehicle_id:VS, kind:"lane_arrows", sign_id:SS, truth:TS, proof:D}) :-
+    scene_vehicle(V, _C, Lane, Act, _),
+    integer(Lane),
+    G = r411_forbids(Act, Lane, S, T),
+    prove(G, P),
+    atom_string(V, VS), atom_string(S, SS), atom_string(T, TS),
+    proof_root(G, P, D).
+% A vehicle moving against a light (art. 6). A still photo doesn't show whether it passed the stop
+% line before the light changed (6.3.2), so a light that forbids gives unknown, never true.
+violation_item(_Ctx, _{vehicle_id:VS, kind:"light", sign_id:"", truth:"unknown", proof:D}) :-
+    scene_vehicle(V, C, _, Act0, _),
+    photo_light_action(Act0, Act),
+    G = light_forbids(Act, veh(C, []), unknown, T),
+    prove(G, P), T \== false,
+    atom_string(V, VS),
+    proof_root(G, P, D).
+% A vehicle crossing a line (G.1): the line next to its lane, or the centre line when no lane is known.
+violation_item(_Ctx, _{vehicle_id:VS, kind:"marking", sign_id:"", truth:TS, proof:D}) :-
+    scene_vehicle(V, _C, Lane, crossing_line, _),
+    (   integer(Lane) -> M = change_lane ; M = cross_center ),
+    G = marking_forbids(M, Lane, T),
+    prove(G, P), T \== false,
+    atom_string(V, VS), atom_string(T, TS),
+    proof_root(G, P, D).
+
+photo_light_action(driving, go_straight).
+photo_light_action(A, A) :- memberchk(A, [go_straight, turn_left, turn_right, u_turn]).
 
 violation_clear(Ctx, C) :-
     scene_vehicle(V, Cl, _, Act, _),

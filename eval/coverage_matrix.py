@@ -185,14 +185,18 @@ def sign_cells(code: str, cat, intents: set[str]) -> dict[str, tuple[str, str]]:
     cells["values"] = (M, f"value: {eff.value.attr}") if eff.value else (NA, "no dimension or weight limit")
     # vehicles in the photo (exists_violation)
     if code.startswith("R.411"):
-        cells["photo"] = (B, "a pictured vehicle's lane and turn against the arrows")
+        cells["photo"] = (M, "exists_violation: a pictured vehicle's lane and turn against the arrows (D.13)")
     elif e.effect_unmodelled:
         cells["photo"] = (B, "effect not modelled")
     elif eff.prohibits or eff.max_speed or eff.min_speed or eff.lane_reserved or eff.only_directions \
             or eff.placement or eff.lane_board:
         cells["photo"] = (M, "exists_violation")
+    elif eff.zone and eff.zone.at == "start" and eff.zone.kind == "expressway":
+        cells["photo"] = (M, "exists_violation: a pictured vehicle driving into the expressway (Law 36 art. 25)")
+    elif eff.zone and eff.zone.at == "start":
+        cells["photo"] = (M, "exists_violation: a pictured vehicle's speed against the zone default (Circular 38)")
     elif eff.zone:
-        cells["photo"] = (B, "zone entry by a pictured vehicle")
+        cells["photo"] = (NA, "an end-of-zone sign: nothing a pictured vehicle can break")
     else:
         cells["photo"] = (NA, "nothing a pictured vehicle can break")
     cells["compound"] = (M, "multi / explain / choose")
@@ -209,20 +213,20 @@ TOPICS = [
      "pfr": (M, "13.4 reserved lanes (R.412, lane_block); 13.3 (rule_permitted)"),
      "speed": (OUTC, "13.1 'tốc độ thấp hơn phải đi về bên phải' gives no number to check"),
      "lane": (M, "13.3 rightmost lane"), "conduct": (M, "duties lane_change (13.2)"),
-     "photo": (B, "lane change across a marking (scene v6)"), "compound": (M, "")}),
+     "photo": (M, "exists_violation: a pictured vehicle crossing a line (G.1)"), "compound": (M, "")}),
     ("overtaking", "Law 36 art. 14; QCVN 41 B.25 (P.125)", {"applies": (NA, "every vehicle (art. 14)"),
      "pfr": (M, "14.6 places (rule_permitted); P.125 signs"), "lane": (NA, "multi-lane roads follow art. 13 (14.1)"),
      "conduct": (M, "duties overtaking (14.2-14.5)"), "compound": (M, "")}),
     ("turning and U-turns", "Law 36 art. 15; QCVN 41 6.2.2", {"pfr": (M, "15.4 places (rule_permitted); P.123/P.124 signs"),
-     "lane": (B, "turn lanes from R.411 arrows (scene v6)"), "conduct": (M, "duties turning (15.2-15.3)"),
+     "lane": (M, "choose over lanes with permitted(lane) and R.411 arrows (D.13)"), "conduct": (M, "duties turning (15.2-15.3)"),
      "compound": (M, "")}),
     ("stopping and parking", "Law 36 art. 18", {"applies": (NA, "every vehicle (art. 18)"),
      "pfr": (M, "18.4 places (rule_permitted); P.130/P.131 signs"),
-     "photo": (B, "a pictured vehicle stopped at a listed place: perception gives no place"),
+     "photo": (OUTC, "a pictured vehicle stopped at a listed place: perception reads no places (bridge, crossing ...)"),
      "conduct": (M, "duties stopping_parking (18.3, 18.5)"), "compound": (M, "")}),
     ("priority vehicles", "Law 36 art. 27; QCVN 41 art. 7",
      {"applies": (OUTC, "27.2's order matters only between priority vehicles; no question form"),
-      "pfr": (B, "27.4 'không phụ thuộc vào tín hiệu đèn' (lights: scene v6)"),
+      "pfr": (M, "27.4 'không phụ thuộc vào tín hiệu đèn' (rule_permitted with a light)"),
       "speed": (M, "27.4 'không bị hạn chế tốc độ' (rule_permitted)"),
       "conduct": (M, "duties priority_vehicle_signal (27.5)"), "compound": (M, "")}),
     ("expressways", "Law 36 art. 25", {"applies": (M, "zone entry ban (KB-4)"),
@@ -236,12 +240,12 @@ TOPICS = [
      "scope": (OUTC, "art. 8 says where a light takes effect; no question form beyond pfr"),
      "placement": (OUTC, "art. 9 heights: no question form"),
      "conduct": (M, "signal_meaning: 6.3.1 yield to pedestrians, 6.3.2 flashing yellow"),
-     "photo": (B, "a pictured vehicle against the light (exists_violation over signals)"), "compound": (M, "")}),
+     "photo": (M, "exists_violation over signals: unknown at red (6.3.2 stop-line timing), no at green"), "compound": (M, "")}),
     ("road markings", "QCVN 41 art. 48-51, G.1-G.4", {"identity": (M, "marking_meaning, marking_is (G.1; scene v6)"),
-     "applies": (B, "2.3 reserved-lane line"), "pfr": (M, "cross_center / change_lane by pattern (rule_permitted)"),
-     "lane": (M, "lane lines by `between`"), "scope": (B, "art. 51 combined with signs (art. 4)"),
+     "applies": (NA, "the reserved lane's sign (R.412, D.14) says who; line 2.3 adds no addressee"), "pfr": (M, "cross_center / change_lane by pattern (rule_permitted)"),
+     "lane": (M, "lane lines by `between`"), "scope": (M, "marking_meaning states art. 51 (alone / with lights and signs, art. 4 order)"),
      "placement": (OUTC, "dimensions: no question form"), "conduct": (M, "marking_meaning: 3.1 yield to rudimentary"),
-     "photo": (B, "a pictured vehicle crossing a line"), "compound": (M, "")}),
+     "photo": (M, "exists_violation: crossing_line against G.1"), "compound": (M, "")}),
 ]
 
 
