@@ -294,3 +294,24 @@ The fallback-answer rate is still phase 4's ($0.008 per call); no later run meas
   - After the gate ($0.21) and the dev re-parse ($0.33, cap $0.45), about **$1.09** is expected to be left.
   - final2 needs at least $0.90 left.
   - If both runs hit their caps, $0.78 is left and final2 goes to the owner.
+
+## 12. Step 5 result: v10 fails the no-regression rule; v11 built (the one allowed fix)
+
+**v10 gate run** (`pred_claude-sonnet-5-5_medium_v10_20261117-184429.jsonl`, **$0.1895**, 47 public_dev questions):
+- **Program accuracy 76.6% (36/47),** against v9's 91.5%. The gate (≥ 90%) fails; the gold is v6-era, so design rows count as wrong here.
+- **Against v6's three runs, by type:** `regressed_types_without_design` = **`permitted`** (8/10) and **`which_vehicles`** (1/2). **v10 fails the rule.**
+- **New misses against v9, read question by question (public_dev is readable):**
+  - 0014 and 0095, `permitted`: a truck's stated weight ("xe tải trên 4T / 10t") parsed as `gross_gt` instead of `load_gt`. **Caused by v10's new weight-only vehicle line,** which was too broad.
+  - 0058, `which_vehicles`: `sign: {only: true}` dropped. v10 changed nothing there, so it is probably run noise.
+  - 0055 and 0063: v6 gold says out of scope; v10 writes `guide_claim`. Design, given back.
+  - 0084: `forbidden` + `every_vehicle` instead of `is_sign`. 0086: `aspect: group` where v9's spec says `name` for "loại biển nào", a real miss given back as design because `group` is a v7 feature.
+
+**v11** (`prompts/parser/v11/`) = v10 with two spec lines changed and v10's few-shots:
+- the weight-only line applies only when no kind of vehicle is named, and a weight given with a kind keeps `load_gt` ("xe tải trên 5 tấn" = truck, `load_gt: 5`);
+- `which_vehicles` keeps the sign selector the question gives.
+
+Neither line quotes a gate question (checked by the spec tests).
+
+**Next: the v11 gate run, then the same compare.** Estimate **$0.19** (v10 measured $0.1895; same prompt length), cap **$0.40**.
+- **If v11 fails the rule, stop:** no further fix is allowed, and the owner decides.
+- **Budget:** $3.37 + $0.19 = **$3.56 spent, $1.44 left.** After the v11 gate ($0.19) and the dev re-parse ($0.33), about **$0.92** would be left: just above final2's $0.90 floor, with no margin. A dev re-parse above $0.35 puts final2 below the floor.

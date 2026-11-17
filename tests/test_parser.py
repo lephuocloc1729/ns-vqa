@@ -236,7 +236,7 @@ def test_v6_is_v5_with_the_sign_rules_narrowed():
     assert "put that selector on every claim about the sign" in diff[1]
 
 
-@pytest.mark.parametrize("version", ["v5", "v6", "v7", "v8", "v9", "v10"])
+@pytest.mark.parametrize("version", ["v5", "v6", "v7", "v8", "v9", "v10", "v11"])
 def test_spec_does_not_quote_gate_questions(version):
     # rules learned from public_dev errors must not carry a gate question's wording,
     # or it would act as an unexcluded few-shot
@@ -266,14 +266,14 @@ def test_each_version_changes_one_spec_line(old, new, changed):
     assert len(a) == len(b) and len(diff) == 1 and changed in diff[0]
 
 
-@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10"])
+@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11"])
 def test_fewshots_are_valid_programs(engine, version):
     for ex in examples(version):
         q = to_query(WParse.model_validate(ex["output"]), 2026)
         assert validator.check(q, engine) == [], ex["id"]
 
 
-@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10"])
+@pytest.mark.parametrize("version", ["v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11"])
 def test_fewshots_come_from_train_or_public_dev_only(version):
     split = json.loads((ROOT / "data" / "splits" / "public_split.json").read_text())
     holdout = set(split["public_holdout"]["questions"])
@@ -477,7 +477,7 @@ def test_v7_keeps_v6_fewshots_and_adds_train_ones_outside_dev_and_validation():
         assert not {img[e["id"]] for e in v7 if e["split"] == "train"} & banned_img
 
 
-@pytest.mark.parametrize("version", ["v7", "v8", "v9", "v10"])
+@pytest.mark.parametrize("version", ["v7", "v8", "v9", "v10", "v11"])
 def test_v7_covers_the_new_intents_and_slots(version):
     progs = json.dumps([e["output"] for e in examples(version)])
     for needle in ('"aspect": "group"', '"aspect": "conduct"', '"aspect": "scope"', '"intent": "present"',
@@ -488,7 +488,7 @@ def test_v7_covers_the_new_intents_and_slots(version):
         assert rule in spec, rule
 
 
-@pytest.mark.parametrize("version", ["v7", "v8", "v9", "v10"])
+@pytest.mark.parametrize("version", ["v7", "v8", "v9", "v10", "v11"])
 def test_v7_spec_does_not_quote_dev_questions(version):
     """Dev is the tuning set: its wording must not sit in the spec as an unlisted few-shot."""
     train = (Path(os.environ.get("VQA_DATASET_DIR", ROOT / "VLSP2025-MLQA-Natural"))
@@ -578,3 +578,16 @@ def test_v10_adds_the_phase46_intents_with_train_fewshots_outside_dev_and_valida
     for rule in ("`guide_claim`", "`speed_limit_is`", "`multi`", "`explain`", "`kind: range`", "`day_parity",
                  "`gross_gt`", "`article`"):
         assert rule in spec, rule
+
+
+def test_v11_is_v10_with_two_spec_fixes_and_the_same_fewshots():
+    """Phase 4.6 step 5 (v10 gate run, public_dev): v10 regressed `permitted` (a truck's stated
+    weight read as gross weight, from v10's new weight-only line) and `which_vehicles` (the sign
+    selector dropped). v11 = v10 with those two lines fixed; the few-shots are v10's."""
+    d10, d11 = (ROOT / "prompts" / "parser" / v for v in ("v10", "v11"))
+    assert (d10 / "fewshot.jsonl").read_bytes() == (d11 / "fewshot.jsonl").read_bytes()
+    a, b = ((d / "spec.md").read_text().splitlines() for d in (d10, d11))
+    diff = [y for x, y in zip(a, b) if x != y]
+    assert len(a) == len(b) and len(diff) == 2
+    assert "Only when the question names no kind of vehicle" in diff[1] or "Only when the question names no kind of vehicle" in diff[0]
+    assert any("keeps the sign selector" in d for d in diff)

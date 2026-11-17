@@ -1634,7 +1634,17 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
-### Handoff (2026-11-17): phase 4.6 step 4 built; step 5 (the v10 gate) ready for the owner's go-ahead
+### Handoff (2026-11-17): v10 failed the gate's no-regression rule; v11 built, its gate is next
+
+- **v10 gate** ($0.1895): 76.6%; `permitted` and `which_vehicles` regressed without design. The cause and the v11 fix are in `docs/plans/phase-4.6.md` section 12.
+- **Next (paid, the owner runs it):**
+  ```
+  .venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v11 --max-spend 0.40
+  ```
+  Then `score` and `compare --old <the three v6 runs> --new logs/parser_eval/pred_claude-sonnet-5-5_medium_v11_*.jsonl`. Estimate $0.19. If v11 fails, stop for the owner.
+- **Spend:** $3.56 of $5, so **$1.44 left**. About $0.92 would be left before final2, against its $0.90 floor.
+
+### Handoff (2026-11-17): phase 4.6 step 4 built; step 5 (the v10 gate) (kept as a record)
 
 - **Step 4** (`bd16777`): F1, F2 (with a corrected diagnosis), `day_parity`, I1–I4 and parser v10, and the free replays. Details: `docs/plans/phase-4.6.md` section 10.
   - Dev, indicative: **86.2% decided, 80.0% on decided, overall 69.0%**, with hand-written programs and provisional grades.
