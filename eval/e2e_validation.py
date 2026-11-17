@@ -4,6 +4,8 @@ Two runs on the validation set (`data/splits/train_validation.json`, untouched t
 questions), each once:
 - `baseline`: today's frozen phase-4 system (`eval/frozen_phase4.json`), before any fix (Q4);
 - `final`: the phase-4.5 freeze (`eval/frozen_phase45.json`), after the fixes.
+- `final2` (phase 4.6, owner 2026-11-17): the phase-4.6 freeze (`eval/frozen_phase46.json`), round 2;
+  its own sentinel `eval/validation_ran_final2.json`; once, aggregate only.
 
 Rules-only: the pipeline runs with the answer fallback **off**. A question is decided
 when the rules answer yes, no or a value; every other question counts as wrong and is
@@ -52,7 +54,10 @@ from eval.make_validation_split import OUT as SPLIT_FILE  # noqa: E402
 from eval.report import wilson_ci  # noqa: E402
 
 OUT = ROOT / "eval" / "runs" / "e2e"
-LABELS = {"baseline": ROOT / "eval" / "frozen_phase4.json", "final": ROOT / "eval" / "frozen_phase45.json"}
+LABELS = {"baseline": ROOT / "eval" / "frozen_phase4.json", "final": ROOT / "eval" / "frozen_phase45.json",
+          # phase 4.6 (owner, 2026-11-17, D4): a second use of the validation set, once, aggregate only
+          "final2": ROOT / "eval" / "frozen_phase46.json"}
+PHASE = {"baseline": "phase 4.5", "final": "phase 4.5", "final2": "phase 4.6"}
 DECIDED = ("yes", "no", "value")
 # docs/plans/phase-4.5.md, section 4 (owner, 2026-11-16): fixed, they don't move after any result.
 TARGETS = {"decided_coverage": {"target": 0.80, "floor": 0.70},
@@ -159,7 +164,7 @@ def run_validation(label: str, max_spend: float, *, confirm_frozen: bool = False
     run_id = uuid.uuid4().hex[:12]
     started = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
     s = sentinel_path or sentinel(label)
-    mark = {"what": f"the one {label} validation run (phase 4.5); its existence blocks a second run",
+    mark = {"what": f"the one {label} validation run ({PHASE[label]}); its existence blocks a second run",
             "run_id": run_id, "started": started, "git_commit": g["commit"], "status": "started",
             "frozen_record": Path(frozen).name,
             "frozen_record_sha256": hashlib.sha256(Path(frozen).read_bytes()).hexdigest(),
@@ -189,7 +194,7 @@ def run_validation(label: str, max_spend: float, *, confirm_frozen: bool = False
             records.append({k: rec.get(k) for k in _KEEP + ("judge_label",)})
             del a, t, rec
             print(f"[{n}/{len(qs)}]  spent ${guard.spent:.4f}")          # a counter only
-    report = {"what": f"phase-4.5 validation, {label}, aggregate only, fallback off", "run_id": run_id,
+    report = {"what": f"{PHASE[label]} validation, {label}, aggregate only, fallback off", "run_id": run_id,
               "label": label, "started": started,
               "finished": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
               "git_commit": g["commit"], "frozen_record": Path(frozen).name, "profile": g["profile"],

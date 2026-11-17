@@ -1634,7 +1634,18 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
-### Handoff (2026-11-17): step 6 judged; final2 below the $0.90 floor, so it is the owner's decision
+### Handoff (2026-11-17): final2 prepared; the owner runs it
+
+- **The owner raised the round by $0.25 to $5.25:** $4.16 spent, **$1.09 left**.
+- **Freeze `eval/frozen_phase46.json`** (parser v11, policy A, scene v5 + guide; plus an engine-code hash). Label `final2`, sentinel `eval/validation_ran_final2.json`. Plan section 15.
+- **Next (paid):**
+  ```
+  .venv/bin/python eval/e2e_validation.py run --label final2 --confirm-frozen --max-spend 1.05
+  ```
+  Estimate $0.86 (range $0.70–1.05). Once, aggregate only.
+- **Then:** D6 (the private run's budget, and pointing `e2e_private.py` at `frozen_phase46.json`), and step 8 (the doc update).
+
+### Handoff (2026-11-17): step 6 judged; final2 below the $0.90 floor, so it is the owner's decision (kept as a record)
 
 - **Step 6** (`f52e160181ca`, $0.4092; 86 of 87 questions, train_526 carried over from v9): judged dev **85.1% decided, 81.1% on decided, overall 69.0%** (was 73.6% / 85.2% / 62.6%). Guardrail met. Details: plan section 14.
 - **Spend:** $4.16 of $5, so **$0.84 left**, below final2's $0.90 floor.

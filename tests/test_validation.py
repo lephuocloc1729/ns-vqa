@@ -225,3 +225,45 @@ def test_a_final_mismatch_is_refused_before_the_sentinel(fake_set, field, value)
     with pytest.raises(SystemExit, match="differs from the freeze record"):
         _run_final(fake_set, frozen=p)
     assert not (fake_set / "validation_ran_final.json").exists()
+
+
+# ---------------------------------------------------------------- phase 4.6: final2 (owner, 2026-11-17, D4)
+
+def _run_final2(fake_set, **kw):
+    sdk = kw.pop("sdk", None) or _e2e_sdk()
+    sdk.replies.setdefault("perception", [SCENE_REPLY, SCENE_REPLY])
+    args = dict(confirm_frozen=True, sdk=sdk, questions=[dict(q, id=f"train_secret_{i}") for i, q in enumerate(QS)],
+                out_dir=fake_set / "agg", image_path=lambda i: fake_set / f"{i}.jpg",
+                sentinel_path=fake_set / "validation_ran_final2.json", git=CLEAN)
+    args.update(kw)
+    return ev.run_validation("final2", 1.0, **args), sdk
+
+
+def test_final2_has_its_own_record_and_sentinel():
+    assert ev.LABELS["final2"] == fz.FROZEN_PHASE46 and ev.sentinel("final2").name == "validation_ran_final2.json"
+    assert ev.sentinel("final2") != ev.sentinel("final")
+    rec = fz.load(fz.FROZEN_PHASE46)
+    assert rec["profile"] == "phase46" and rec["pipeline_config"]["parser_version"] == "v11"
+    assert rec["pipeline_config"]["reading_policy"] == "higher_confidence" and rec["engine_code"]["files"] > 0
+    assert fz.check(fz.FROZEN_PHASE46) == [] and fz.check(fz.FROZEN_PHASE45) == [] and fz.check(fz.FROZEN) == []
+
+
+def test_the_final2_run_uses_the_phase46_profile(fake_set):
+    out, sdk = _run_final2(fake_set)
+    rep = json.loads(out.read_text())
+    assert rep["frozen_record"] == "frozen_phase46.json" and rep["profile"] == "phase46"
+    assert rep["what"].startswith("phase 4.6 validation, final2")
+    assert rep["prompt_ids"]["parser"].startswith("parser/v11@") and "fallback" not in sdk.created
+    assert rep["frozen_config"]["pipeline_config"]["reading_policy"] == "higher_confidence"
+    mark = json.loads((fake_set / "validation_ran_final2.json").read_text())
+    assert mark["status"] == "finished" and mark["frozen_record"] == "frozen_phase46.json"
+
+
+def test_an_engine_code_change_is_refused_before_the_final2_sentinel(fake_set):
+    rec = fz.load(fz.FROZEN_PHASE46)
+    rec["engine_code"]["sha256"] = "0" * 64
+    p = fake_set / "frozen46.json"
+    p.write_text(json.dumps(rec), encoding="utf-8")
+    with pytest.raises(SystemExit, match="differs from the freeze record"):
+        _run_final2(fake_set, frozen=p)
+    assert not (fake_set / "validation_ran_final2.json").exists()

@@ -49,18 +49,38 @@ POST_FREEZE_SWITCHES = {"answer_fallback": True, "guide_reading": False, "readin
 # are untouched). A record names its profile ("phase4" when it names none); the runners build
 # their pipeline from the profile of the record they check.
 FROZEN_PHASE45 = ROOT / "eval" / "frozen_phase45.json"
+# Phase 4.6 (owner, 2026-11-17, D4): the round-2 system, for the final2 validation run and the
+# private test: scene v5 + guide reading, parser v11, reading policy A.
+FROZEN_PHASE46 = ROOT / "eval" / "frozen_phase46.json"
 PROFILES: dict[str, dict[str, Any]] = {
     "phase4": {},
     "phase45": {"scene_version": "v5", "parser_version": "v9", "guide_reading": True},
+    "phase46": {"scene_version": "v5", "parser_version": "v11", "guide_reading": True,
+                "reading_policy": "higher_confidence"},
 }
-RECORDS = {"phase4": FROZEN, "phase45": FROZEN_PHASE45}
+RECORDS = {"phase4": FROZEN, "phase45": FROZEN_PHASE45, "phase46": FROZEN_PHASE46}
 # Left out of a profile's comparison: phase 4 leaves out both post-freeze switches (their
 # defaults are its behaviour); phase 4.5 freezes guide_reading (on) and still leaves out
 # answer_fallback, which each runner sets (validation: off; private: the default, on).
-EXCLUDED_SWITCHES = {"phase4": tuple(POST_FREEZE_SWITCHES), "phase45": ("answer_fallback",)}
+EXCLUDED_SWITCHES = {"phase4": tuple(POST_FREEZE_SWITCHES), "phase45": ("answer_fallback",),
+                     "phase46": ("answer_fallback",)}
 # Switches added after a record was written, left out of its comparison without changing the
 # record's own `excluded_switches` list. Their defaults are that record's behaviour.
-LATER_SWITCHES = {"phase4": (), "phase45": ("reading_policy",)}
+LATER_SWITCHES = {"phase4": (), "phase45": ("reading_policy",), "phase46": ()}
+WHAT = {"phase45": "phase 4.5, B5: the frozen configuration for the final validation run and the private test",
+        "phase46": "phase 4.6: the frozen configuration for the final2 validation run and the private test"}
+# Phase 4.6: from this record on, the rule engine's code and knowledge base are frozen too (the
+# prompts alone don't pin what the engine decides). Hashed: every .py under vqa/, and kb/.
+CODE_HASHED_FROM = {"phase46"}
+
+
+def code_hash(root: Path = ROOT) -> dict[str, Any]:
+    files = sorted([*(root / "vqa").rglob("*.py"), *(root / "kb").rglob("*.pl"), *(root / "kb").rglob("*.yaml")])
+    files = [f for f in files if "__pycache__" not in f.parts]
+    h = hashlib.sha256()
+    for f in files:
+        h.update(str(f.relative_to(root)).encode("utf-8") + b"\0" + f.read_bytes() + b"\0")
+    return {"files": len(files), "sha256": h.hexdigest(), "covers": ["vqa/**/*.py", "kb/**/*.pl", "kb/**/*.yaml"]}
 
 
 def profile_of(record: dict[str, Any]) -> str:
@@ -107,12 +127,14 @@ def live(perception_model: str | None = None, profile: str = "phase4") -> dict[s
     if profile == "phase4":
         return out
     gcfg = guide.config()
-    out = {"what": "phase 4.5, B5: the frozen configuration for the final validation run and the private test",
+    out = {"what": WHAT[profile],
            "profile": profile, **{k: v for k, v in out.items() if k != "what"}}
     out["excluded_switches"] = list(skip)
     out["prompts"]["guide"] = {"id": guide.prompt_id(), "sha256": guide.prompt_hash(), "model": c.perception_model,
                                "effort": guide.effort_for(c.perception_model), "max_tokens": gcfg.get("max_tokens"),
                                "on": c.guide_reading}
+    if profile in CODE_HASHED_FROM:
+        out["engine_code"] = code_hash()
     return out
 
 

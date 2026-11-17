@@ -368,3 +368,17 @@ Neither line quotes a gate question (checked by the spec tests).
 2. No final2: round 2 is measured on dev only (readable, tuned on, optimistic) before the private run.
 
 The private run's budget (D6) is outside the round either way: $1.15 with the fallback off, $2.10 with it on (step 2's estimate).
+
+## 15. final2 prepared (owner, 2026-11-17: the round raised by $0.25)
+
+- **Budget:** the round is now **$5.25**; $4.16 spent, **$1.09 left**, so final2's cap is **$1.05** (D4: what is left, at most $1.05).
+- **Freeze record `eval/frozen_phase46.json`** (profile `phase46`, written once): scene v5 with v5-tile / v5-crop and the guide call, parser **v11**, writer v3, **reading policy A** (`higher_confidence`), fallback off for validation.
+  - **New in this record: `engine_code`,** a sha256 over every `.py` under `vqa/` and every `.pl` and `.yaml` under `kb/` (190 files at writing). From this record on, a change to the engine or the knowledge base after the freeze is refused, not only a prompt change.
+  - `frozen_phase4.json` and `frozen_phase45.json` still match their profiles; neither record was changed.
+- **Label `final2` in `eval/e2e_validation.py`:** its record is `frozen_phase46.json` and its sentinel `eval/validation_ran_final2.json`. It runs once, aggregate only, with the same fixed targets. `baseline` and `final` stay blocked by their sentinels.
+- **Estimate $0.86 (range $0.70–1.05):** the final run's measured $0.833, plus the writer and the judge on about 5 more decided Natural QA answers (dev decided +11.5 points). The spend guard keeps one call's worst case (about $0.09) free, so a run that needs more than about $0.96 stops part way, and a stopped run still uses the label.
+- **Command (the owner runs it; it needs a clean tree):**
+  ```
+  .venv/bin/python eval/e2e_validation.py run --label final2 --confirm-frozen --max-spend 1.05
+  ```
+- **Still required before the private run (D6):** `eval/e2e_private.py` checks `frozen_phase45.json` by default; it must be pointed at `frozen_phase46.json` if round 2 is the system the private test measures.
