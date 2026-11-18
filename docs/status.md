@@ -1634,6 +1634,15 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Candidate judged: scene v5 + parser v14 + signals off (owner run, 2026-11-18): 0.5 point under the bar
+
+- **Run:** `eval/e2e_dev.py rejudge` → `eval/runs/e2e/dev_rejudge_f1f0ba0d2f8c.jsonl`, **$0.0347** (estimate $0.049, cap $0.15). 79 of 87 rows kept from step 6 (identical engine answers, judged grades); 6 changed decided answers written and judged; 2 now undecided.
+- **Judged figures (87 questions):** 73 decided (83.9%, CI 74.8–90.2); **accuracy on decided 81.5%** (CI 71.1–88.8; ≥ 70% holds); **overall 68.4%** (59.5 points). The bar is 69.0% (step 6: 60.0 points), so **the candidate is 0.5 point under it.**
+- **Changed answers, judged:** train_80 0.0 (provisional 0.5; step 6 0.0), train_81 1.0, train_159 0.5 (was undecided: +0.5), train_231 0.0, train_272 1.0, train_295 1.0. Not decided now: **train_250 (was 1.0: −1.0)**, train_514 (was 0.0).
+  - The net −0.5 is train_250 (−1.0) against train_159 (+0.5). train_250: v14 splits "rẽ hướng nào ... qua Đường Tránh Vinh" and "còn bao xa đến khu công nghiệp" into two `guide` parts, and the direction to "Đường Tránh Vinh" is unknown on the board read; v11 asked both parts about VSIP and was judged right.
+- **Spend:** $2.38 + $0.03 = **$2.41 of $2.60; $0.19 left.**
+- Not decided by cause: 7 unknown, 5 out of scope, 2 program cannot run.
+
 ### Phase 4.7 candidate: scene v5 + parser v14 + signals off (owner, 2026-11-18; no API calls)
 
 - **Owner's decision:** scene v6 is not kept (it fails the dev guardrail, and its set-T gain is within Haiku's run-to-run spread). The candidate is **scene v5 + parser v14 + signals off**.
