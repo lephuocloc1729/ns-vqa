@@ -1634,6 +1634,64 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Handoff (2026-11-18): phase 4.8c, new question types
+
+#### Phase 4.8: closed and frozen (`f8bcb67`)
+
+- **Frozen system:** `eval/frozen_phase48.json`, profile `phase48`: scene v5 (with tile and crop prompts and the guide call), **parser v16**, writer v3, answer fallback v2, reading policy `higher_confidence`, signals off (`kb/v6_fields_47.yaml`), engine switches **several_signs on, confusable_pairs off** (`kb/switches_48.yaml`), engine-code hash (64 files). `eval/e2e_private.py` accepts profile `phase48` only.
+- **Figures:**
+  - **dev2** (biased, gap-finding only): **79 decided, 64.6% on decided, 51.0% overall** (baseline under phase 4.7: 74 / 58.8% / 43.5%);
+  - **dev guardrail:** **69.0% overall, 81.1% on decided** (bars 68.4% / 70%).
+- **Known regressions:** v16 lost dev2 **433** and **491** (right before, now out of scope); new wrong answers on dev2 **169** (B6 picks R.403b; the answer lists who it bans), **207**, **400**. Still listed: **train_250** (decided again under v16, but fragile: the two-part board question) and **own_65** (stop line parsed as another claim).
+
+#### Where dev2 loses its points (49 per 100, owner's breakdown)
+
+| cause | points | examples |
+|---|---|---|
+| perception | about 24 | P.130 / P.131a swap (about 4), invented P.101 / P.102, variants (W.201a/b, P.124a/c), sign charts, lane arrows not read (R.411, R.415a, P.127c), unreadable signs |
+| parser out of scope | 13 | single wordings with no DSL form (seasonal times, fines, symbol meanings, compound claims, numbered sign clusters) |
+| answer composition | about 7 | value answers that list too much (all signs, pedestrians), conditional lanes written as undecided |
+| rules or gold | about 5 | |
+
+#### Not kept in phase 4.8
+
+- **Voting** three Haiku reads: +1.9 F1 on set T, under the +2.9 bar.
+- **Scene v7** (visual notes for P.130 / P.131a, P.125 / P.103a, P.117 / P.101): +3.6 F1, −2.5 recall in one run; it removed the P.131a → P.130 swap. **A candidate for a later round, judged on repeated runs.**
+- **Opus and Sonnet** as the perception model: cost (Opus about $2.5–4.5 for one set-T run).
+- **The confusable table** (`kb/confusables_48.yaml`): built, switched off; it failed its keep rule (dev overall 67.2% < 68.4% on the free estimate).
+- **Haiku's run-to-run spread on set T is about 4 F1 points** (three reads: 73.0%, 77.0%, 73.7%). Single-run perception comparisons can't resolve gains under that.
+
+#### The owner's next step: phase 4.8c
+
+1. **New question types (parser v17)** plus the free batch (engine and rule-only fixes), then one gate.
+2. **Re-freeze as `phase49`** (new profile and record; point `e2e_private.py` at it, with its tests).
+3. **dev3** (not built yet): untouched questions, aggregate only, runs once, like the validation set.
+4. **Then the private run.**
+
+#### Spend
+
+- **Phase 4.8: $2.69 of $5.00, $2.31 left.** Keep about **$1.00 for dev3**. The private run has its own budget.
+
+#### Key files and commands
+
+- **Freeze:** `eval/freeze.py` profiles `phase4`, `phase45`, `phase46`, `phase47`, `phase48` (records `eval/frozen_phase4.json` ... `frozen_phase48.json`, each written once). The phase-4.7 record's tests check its engine hash at 4ad9137 (`tests/freeze_at.py`); a later freeze needs the same for phase 4.8 if the engine changes again.
+- **dev2:** `data/splits/train_dev2.json` (`eval/make_dev2_split.py`, seed 20261118); runner `eval/e2e_dev2.py` (`estimate`, `run` with `--scene-version` / `--parser-version` for a candidate, `summary`). Latest judged dev2: `eval/runs/e2e/dev2_reparse_v16_c95f3934da5c.jsonl`; latest judged dev: `dev_reparse_v16_248e38bd215e.jsonl`.
+- **Rejudge and re-parse** (both read dev and dev2 runs; the tree must be clean):
+- **Replay** (free): `eval/phase48_replay.py check` (baseline at `b1f6b80`; `INTENDED` lists the planned changes; `--several-signs`, `--confusable-pairs` override the switches).
+- **Paid-script pattern:** a script in the session scratchpad, run by the owner in the terminal tab where `ANTHROPIC_API_KEY` is set (from the keychain), piped through `tee` to a log; the assistant watches the log for a done marker. The assistant's own shell has no key.
+
+```zsh
+.venv/bin/python eval/freeze.py check --profile phase48
+.venv/bin/python eval/phase48_replay.py check
+.venv/bin/python eval/e2e_dev.py rejudge --programs <run> --scenes <run> --dry-run
+.venv/bin/python eval/e2e_dev.py reparse --from <judged run> --version <vN> --select all --reading-policy higher_confidence --max-spend <cap>
+.venv/bin/python eval/e2e_dev2.py summary <file>
+.venv/bin/python eval/e2e_dev2.py run --label <label> --parser-version <vN> --max-spend <cap>
+.venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version <vN> --max-spend 0.45
+.venv/bin/python eval/perception_eval.py score <run> ...
+.venv/bin/python eval/e2e_private.py estimate
+```
+
 ### Phase 4.8 closes: freeze phase48, private runner on it (owner, 2026-11-18; no API calls)
 
 - **Freeze `phase48`** (`eval/freeze.py`; `eval/frozen_phase48.json`, written once, a second write refused; `freeze.py check --profile phase48` matches): scene v5 (`scene/v5@7a3291ea5dff`, tile v5-tile, crop v5-crop, scene fallback `crop_always`) with the guide call on, **parser v16** (`parser/v16@b296b65cb7cb`), writer v3, answer fallback v2, reading policy `higher_confidence`, `v6_fields_off: ["signals"]`, **`engine_switches: {several_signs: true, confusable_pairs: false}`** (`kb/switches_48.yaml`, new in the record), and the engine-code hash (64 files). `answer_fallback` is left out as before (the private run keeps the default, on).
