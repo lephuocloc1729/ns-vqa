@@ -1692,6 +1692,20 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### dev3 estimate (2026-11-18; no API calls, no question text read)
+
+- **Pool (ids and types only):** the train working set minus every dev and dev2 question **and image**, the train few-shots of parser v7–v17 and the train rows of `gold_v12_new`: **118 questions on 95 images** (82 Natural QA, 36 Yes/No). dev3 is not built yet (split builder and runner: aggregate only, runs once, fallback off, like the validation set).
+- **Cost** (the private runner's rates with v17's gate rate for the parser, $0.0050 per question; calibration x1.146; fallback off; decided share 0.839 from dev; 20 seeded draws per size):
+
+| size | images | estimate | range (x0.8–x1.3) |
+|---|---|---|---|
+| 80 (56 Natural QA, 24 Yes/No) | 65–73 | **$0.93–0.95** | up to $1.24 |
+| 100 (70 / 30, as dev2) | 80–84 | $1.16–1.17 | up to $1.52 |
+| all 118 | 95 | $1.37 | $1.09–1.78 |
+
+- **Budget:** phase 4.8 has **about $1.20** left. Only the 80-question draw fits with its range near the cap; a run stopped by the spend guard would leave a partial aggregate on a set that runs once.
+- **Superseded:** the assistant's free check (dev 68.97% with asked_only also off) was not used; the owner froze phase49 with asked_only on and the 0.01-point exception (`e8f9134`).
+
 ### Phase49 freeze: v17 accepted by owner (2026-11-18)
 
 - **Owner decision:** “frozen v17 because 0.01% is fine”. Freeze v17 with the retained switches. This is an explicit exception to the dev overall guardrail, not a claim that the original threshold passed.
