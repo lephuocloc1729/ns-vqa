@@ -7,4 +7,4 @@
 several_signs: true
 # confusable_pairs (A1): kb/confusables_48.yaml. Kept only if it raises dev2's accuracy on decided without
 #   dropping dev's overall below 68.4% (owner, 2026-11-18; measured in step 4).
-confusable_pairs: true
+confusable_pairs: false   # owner, 2026-11-18: off; the table failed its keep rule (free estimate: dev overall 67.2% < 68.4%). Code and table kept for the record.

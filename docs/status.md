@@ -1634,6 +1634,20 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Phase 4.8: parser v16 built, confusable table off (owner, 2026-11-18; no API calls)
+
+- **Option 1 (owner):** parser v16 = v15 plus one general wording line on `lanes_for`: "How many lanes a vehicle may use ("mấy / bao nhiêu làn") is `lanes_for` too." Few-shot added: **train_484**, exact text ("Theo biển trong ảnh, ô tô chạy 50 km/h được đi trên bao nhiêu làn?" → `lanes_for` car, 50 km/h); it is in the train working set, not in dev, dev2 or validation, and no earlier version uses it. Nothing else changed. `parser/v16@b296b65cb7cb`.
+- **Stopping rule (owner, set before the run):** v16 passes → step 4 with v16. v16 fails on a row v14 got right → the free side-by-side engine check: identical answer → a recorded owner exception; different answer → step 4 with v14. No v17.
+- **Confusable table off:** `kb/switches_48.yaml` `confusable_pairs: false` (it failed its keep rule on the free estimate, dev overall 67.2% < 68.4%); the code and `kb/confusables_48.yaml` stay for the record. Free replay: dev **73 of 73 decided identical**, dev2 changes only 121, 466, 502, 516.
+- **Recorded for later rounds:**
+  - **Haiku's measured run-to-run spread on set T is about 4 points** of code F1 (three reads of scene v5 + fallback: 73.0%, 77.0%, 73.7%), more than the 2.9 points the keep rule assumes.
+  - **Scene v7 removed the P.131a → P.130 swap** (+3.6 F1, −2.5 recall in one run). A candidate for a later round, judged on repeated runs.
+- Tests: `tests/test_phase48_fixes.py` (v16 is v15 plus one line and train_484; the switch is off).
+
+```zsh
+zsh /private/tmp/claude-501/-Users-leloc--claude-spares-spare-x5gOhA/80adfa26-b1ec-41eb-92d5-9e80078e7ae5/scratchpad/paid3b.sh   # the v16 gate (estimate $0.23, cap $0.45)
+```
+
 ### Phase 4.8 PAID 3: parser v15 gate (owner run, 2026-11-18): fails on one row
 
 - **Run:** `logs/parser_eval/pred_claude-sonnet-5-5_medium_v15_20261118-141806.jsonl`, **$0.222** (runner's expected $0.40, cap $0.45; 47 questions). Phase 4.8: **$1.64 of $5.00.**

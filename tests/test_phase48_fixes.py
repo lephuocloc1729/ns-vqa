@@ -313,3 +313,30 @@ def test_parser_v15_is_v14_plus_its_lines_and_train_working_set_few_shots():
     for f in ("train_validation.json", "train_dev.json", "train_dev2.json"):
         held |= set(_json.loads((splits / f).read_text(encoding="utf-8"))["questions"])
     assert not {r["id"] for r in added} & held
+
+
+def test_parser_v16_is_v15_plus_one_line_and_train_484():
+    import json as _json
+    from pathlib import Path as _P
+    root = _P(__file__).resolve().parents[1] / "prompts" / "parser"
+    v15 = (root / "v15" / "spec.md").read_text(encoding="utf-8").splitlines()
+    v16 = (root / "v16" / "spec.md").read_text(encoding="utf-8").splitlines()
+    changed = [(a, b) for a, b in zip(v15, v16) if a != b]
+    assert len(v15) == len(v16) and len(changed) == 1
+    assert changed[0][1] == changed[0][0] + ' How many lanes a vehicle may use ("mấy / bao nhiêu làn") is `lanes_for` too.'
+    old = (root / "v15" / "fewshot.jsonl").read_text(encoding="utf-8").splitlines()
+    new = (root / "v16" / "fewshot.jsonl").read_text(encoding="utf-8").splitlines()
+    assert new[:-1] == old and _json.loads(new[-1])["id"] == "train_484"
+    splits = _P(__file__).resolve().parents[1] / "data" / "splits"
+    held = set()
+    for f in ("train_validation.json", "train_dev.json", "train_dev2.json"):
+        held |= set(_json.loads((splits / f).read_text(encoding="utf-8"))["questions"])
+    assert "train_484" not in held
+    for v in [f"v{n}" for n in range(1, 16)]:
+        rows = (root / v / "fewshot.jsonl").read_text(encoding="utf-8")
+        assert '"train_484"' not in rows, v
+
+
+def test_the_confusable_switch_is_off_in_the_kb():
+    from vqa.reasoning.engine import switches_from_kb
+    assert switches_from_kb()["confusable_pairs"] is False and Engine().confusables == {}
