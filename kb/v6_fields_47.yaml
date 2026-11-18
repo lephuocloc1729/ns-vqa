@@ -2,4 +2,6 @@
 # a field whose precision on the hand-labelled set-T images is below 70% is switched off, and its
 # rules then give unknown (no light / marking / lane arrow is used). eval/v6_fields.py score prints
 # which fields fall under the rule; the owner's decision is recorded here. All on until measured.
-off: []          # any of: signals, markings, arrows
+# 2026-11-18 (owner): signals off by the 70% rule: set-T precision 66.7% on only 3 predictions
+# (2 right, 1 wrong; 5 missed, recall 28.6%). Markings (100%, 13 tp) and arrows (nothing to judge) stay on.
+"off": [signals]   # quoted: a bare off is YAML 1.1 for false. Any of: signals, markings, arrows

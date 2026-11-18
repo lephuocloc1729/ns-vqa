@@ -1634,6 +1634,22 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Signals switched off (owner, 2026-11-18)
+
+- **Decision:** `kb/v6_fields_47.yaml` now has `"off": [signals]`, by the fixed 70% rule. **Small n:** set-T precision 66.7% rests on 3 predictions (2 right, 1 wrong; 5 missed, recall 28.6%). Markings (100% on 13) and arrows (nothing to judge) stay on.
+  - Light questions now give unknown and go to the fallback, including `at_signal` checks and the v13 green-arrow override; the rules stay in the KB and are tested with every field on.
+- **Latent bug found and fixed:** the file's bare `off:` key is YAML 1.1 for `false`, so `yaml.safe_load` read `{False: [...]}` and the switch was never readable (harmless while the list was empty). The key is now quoted, `"off":`; no code change. The pipeline builds `Engine(reading_policy=...)`, which reads the file, so the dev run applies the switch.
+- **Replay** (dev and D3 cached scenes): 88/88 decided identical, `decided_changed: []`. No decided answer changed: the cached scenes are scene v5 and carry no lights.
+- **Tests (existing ones changed, because the default now has signals off):** the engine fixtures of `tests/test_phase47_scene_v6.py`, `test_phase47_remaining_cells.py` and `test_phase47_v13_rules.py` pin `Engine(v6_fields_off=())`, so they keep testing the light rules; in `test_phase47_v6_fields.py` the "on" cases pin it too, and `test_all_fields_are_on_until_measured` became `test_the_switch_records_the_owners_decision` (signals off, quoted key).
+- **Value accuracy on set T** fell from 100% to 92.9%: one value, on a duplicate image (non-duplicate images stay 100%).
+- **Next (owner runs it):** the judged dev run, scene v6 + parser v14, estimate $0.84 ($0.67–1.10), **cap $1.10** of the $1.16 left:
+
+```zsh
+.venv/bin/python eval/e2e_dev.py run --label phase47 --candidate --scene-version v6 --parser-version v14 --reading-policy higher_confidence --max-spend 1.10
+.venv/bin/python eval/e2e_dev.py summary <dev_run>
+# guardrail: overall >= 69.0% (judged), accuracy on decided >= 70%
+```
+
 ### Scene v6 set-T check (owner run, 2026-11-18): v6 stays; signals below 70% precision
 
 - **Runs:** scene `T_claude-haiku-5-5_v6_b12d72995442.jsonl` ($0.0582), fallback crop_always `T_claude-haiku-5-5_v6+fb_7f0df4bf2f7b.jsonl` ($0.0599); **$0.118** in all, of the two $0.10 guards. (A first fallback attempt from the session shell had no API key and stopped before any call, $0.)

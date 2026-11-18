@@ -3,6 +3,8 @@ Engine.v6_fields_off): a switched-off field's rules give unknown. No API call.""
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from eval import v6_fields as vf
@@ -13,8 +15,11 @@ from vqa.schemas import (LaneSpec, Permitted, Position, Road, RoadMarking, RuleP
 CAR = Vehicle(**{"class": "car"})
 
 
-def test_all_fields_are_on_until_measured():
-    assert v6_fields_off_from_kb() == () and Engine().v6_fields_off == ()
+def test_the_switch_records_the_owners_decision():
+    """All fields were on until measured; after the set-T check (owner, 2026-11-18) signals are off
+    by the 70% rule. The key is quoted in the YAML: a bare `off` is YAML 1.1 for false."""
+    assert v6_fields_off_from_kb() == ("signals",) and Engine().v6_fields_off == ("signals",)
+    assert '"off":' in (Path(__file__).resolve().parents[1] / "kb" / "v6_fields_47.yaml").read_text()
 
 
 def test_unknown_field_name_is_refused():
@@ -25,14 +30,14 @@ def test_unknown_field_name_is_refused():
 def test_switched_off_signals_give_unknown():
     red = SceneGraph(scene_id="x", signals=[TrafficSignal(colour="red")])
     q = RulePermitted(action="go_straight", at_signal=True)
-    assert Engine().answer(red, q).verdict is Verdict.no
+    assert Engine(v6_fields_off=()).answer(red, q).verdict is Verdict.no
     assert Engine(v6_fields_off=("signals",)).answer(red, q).verdict is Verdict.unknown
 
 
 def test_switched_off_markings_give_unknown():
     s = SceneGraph(scene_id="x", road=Road(markings=[RoadMarking(kind="center", pattern="double_solid")]))
     q = RulePermitted(maneuver="cross_center")
-    assert Engine().answer(s, q).verdict is Verdict.no
+    assert Engine(v6_fields_off=()).answer(s, q).verdict is Verdict.no
     assert Engine(v6_fields_off=("markings",)).answer(s, q).verdict is Verdict.unknown
 
 
@@ -42,7 +47,7 @@ def test_switched_off_arrows_leave_r411_unmodelled():
                  lanes=[LaneSpec(lane=1, directions=["left"]), LaneSpec(lane=2, directions=["straight"])])
     s = SceneGraph(scene_id="x", road=Road(lanes=2), signs=[board])
     q = Permitted(action="turn_left", vehicle=CAR, lane=1)
-    assert Engine().answer(s, q).verdict is Verdict.yes
+    assert Engine(v6_fields_off=()).answer(s, q).verdict is Verdict.yes
     assert Engine(v6_fields_off=("arrows",)).answer(s, q).verdict is Verdict.unknown
 
 

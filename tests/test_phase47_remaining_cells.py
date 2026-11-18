@@ -16,7 +16,9 @@ from vqa.schemas import (AppliesTo, ChoiceOption, Choose, ExistsViolation, LaneS
 
 @pytest.fixture(scope="module")
 def engine():
-    return Engine()
+    # every scene v6 field on: these test the rules; the owner's switch (kb/v6_fields_47.yaml,
+    # signals off since 2026-11-18) is tested in test_phase47_v6_fields.py
+    return Engine(v6_fields_off=())
 
 
 def S(sid, code, shape="rectangle", border="none", bg="blue", lanes=()):
