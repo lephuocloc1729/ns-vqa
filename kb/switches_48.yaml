@@ -1,0 +1,7 @@
+# Phase 4.8 (owner, 2026-11-18): engine switches for the phase-4.8 coverage fixes.
+# several_signs (G1): `meaning` (name) with `only` over several readable signs with different codes
+#   lists each sign's meaning instead of answering unknown; `any_of` over `is_sign` claims on one
+#   `only` selector is checked sign by sign (yes when every readable sign meets one of the claims,
+#   no when none does). Selection only: what each sign means still comes from the catalog.
+#   Kept only if its changed dev2 answers judge at >= 70% right (owner, 2026-11-18).
+several_signs: true

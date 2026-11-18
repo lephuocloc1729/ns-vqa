@@ -1634,6 +1634,34 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Phase 4.8 batch 1: rule fixes and G1 (owner, 2026-11-18; no API calls)
+
+- **Step 1, free checks on the stored dev2 scenes and programs:**
+
+| id | cause | fix | before → after |
+|---|---|---|---|
+| 466 | rule gap: `speed_ok` ignored Law 36 art. 25.3 ("xe mô tô, xe gắn máy ... không được đi trên đường cao tốc") | a vehicle surely banned from the expressway fails any speed claim there (`kb/rules/fixes48.pl`, cites art. 25); broader classes and three-wheelers keep the speed signs' answer | yes → **no** |
+| 121 | rule gap: with no lane asked, R.415a's lane rows were not used | D.16 a ("loại xe được phép lưu thông trên từng làn đường"): a motor vehicle on no lane of the board may not travel on its lanes; a non-motor vehicle is unknown (D.16 d, "làn đường cơ giới"); pedestrians are not covered | every vehicle → **car, motorbike, motor tricycle, bicycle** (+ pedestrian, not covered) |
+| 516 | perception (the left board read with cars on every lane), made worse by the engine merging two boards' rows | a lane closed by one board and open on another is unknown (`lane_conflict/4`) | no lane → lane 1 no, **lanes 2–3 conditional** |
+| 502 | perception (no vehicle recorded) answered closed-world | `exists_violation` with no vehicle read is unknown (three-valued logic) | no → **unknown** (undecided) |
+
+- **G1** (switch `several_signs` in `kb/switches_48.yaml`, on): `meaning` with `only` over several readable codes lists one meaning per code; `any_of` over `is_sign` claims on one `only` selector is checked sign by sign. Gains 6 questions (89, 142, 315, 320, 326, 498) on **6 distinct image ids**; 315, 320 and 326 have identical sign sets, so probably one scene.
+- **G2 needs the parser:** v14 marks 151, 168 and 252 out of scope, and no intent returns a limit's value (`meaning` returns the sign's number, but the parser doesn't choose it). A one-line v15 rule would need the parser gate (v14: $0.22, and the runner refuses a cap under about $0.41) plus a pattern re-parse: **about $0.25–0.45 of the $0.97 left**. Not built (no parser change without the owner's OK).
+- **G5, no rule-only fix:** both questions are parsed out of scope. 346's answer is already in the KB (P.125 scope, `kb/sign_info.yaml`, art. 26.8; B.25 c names P.133 / P.135); 378's Y shape is only in C.5's figure, not its text.
+- **Free replay** (`eval/phase48_replay.py`, baseline at `b1f6b80`): dev **73 of 73 decided answers identical**; dev2's changed decided answers are exactly 121, 466, 502, 516, plus the 6 G1 gains. A first version of the 466 rule changed dev 352 and 381 (the default `motor_vehicle` includes motorbikes); it now applies only when the ban is certain.
+- **Rejudge plan** (dry run): dev2 judges 89, 121, 142, 315, 320, 326, 466, 498, 516, estimate **$0.074** (Yes/No 466 and 498 need no judge); dev plans nothing, so the guardrail stays at 68.4% overall and 81.5% on decided.
+
+```zsh
+.venv/bin/python eval/e2e_dev.py rejudge --programs eval/runs/e2e/dev2_baseline_9a403f66bb06.jsonl \
+  --scenes eval/runs/e2e/dev2_baseline_9a403f66bb06.jsonl --max-spend 0.15
+```
+
+- **Known perception limits (no rule fix):** P.130 / P.131a swapped (17, 20, 119, 459); unreadable signs (G3: 37, 164, 224); lane rows not read on R.411, R.415a and P.127c boards (G4: 207, 235, 429).
+- **Intended behaviour changes (owner, 2026-11-18):** 516 and 502 go from "no" to unknown because perception didn't read what the claim needs (which board covers which carriageway; any vehicle). `eval/phase48_replay.py check` lists 121, 466, 502 and 516 as intended (`INTENDED`) and fails on any other changed decided answer.
+- **Hash blocker, option 1** (owner, 2026-11-18; `af8af5e`): the phase-4.7 record's tests check its engine-code hash against freeze commit 4ad9137 read from git (`tests/freeze_at.py`), as for phase 4.6 in `6b014df`. The run-time guards are unchanged, so the private run can't run from this tree with `frozen_phase47.json`; step 5 writes a phase-4.8 record.
+- **G1 tests:** `test_single_sign.py`'s "stays unknown" test runs with the switch off (unchanged expectation); a new test covers it on.
+- **Phase 4.8 budget raised to $5.00** (owner, 2026-11-18). Spent $1.03.
+
 ### Phase 4.8 dev2 baseline (owner run, 2026-11-18): biased, for gap-finding only
 
 - **Run:** `eval/runs/e2e/dev2_baseline_9a403f66bb06.jsonl`, frozen phase47, fallback off, **$1.03** (estimate $1.11, cap $1.55). Phase 4.8: **$1.03 of $2.00; $0.97 left.** (An earlier start with no API key left a header-only file, `dev2_baseline_d5adebf8fc9d.jsonl`.)

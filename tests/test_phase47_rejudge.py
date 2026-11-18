@@ -37,3 +37,23 @@ def test_rejudge_keeps_identical_answers_and_lists_changed_ones(tmp_path):
     rep = ed.rejudge(tmp_path / "new.jsonl", [tmp_path / "old.jsonl"], 0.0, dry_run=True, git=CLEAN, questions=qs)
     assert rep["judge_ids"] == ["q2"] and rep["changed_undecided"] == []
     assert rep["estimate_usd"] == round(ed.REJUDGE_WRITER_USD + ed.REJUDGE_JUDGE_USD, 4)
+
+
+def test_rejudge_reads_a_dev2_run_with_its_profile(tmp_path, monkeypatch):
+    """Phase 4.8: a dev2 run's header names profile phase47; rejudge builds that profile's pipeline
+    and loads dev2's questions (here passed in), and a changed answer is listed."""
+    from eval import freeze
+    seen = {}
+    real = freeze.pipeline_config
+
+    def spy(profile, pm=None, **kw):
+        seen["profile"] = profile
+        return real(profile, pm, **kw)
+    monkeypatch.setattr(freeze, "pipeline_config", spy)
+    scene = {"scene_id": "s", "signs": [{"id": "s1", "code": "P.106b", "value": 2.5}]}
+    ban = {"intent": "forbidden", "action": "enter", "vehicle": {"class": "truck", "load_t": 5}}
+    old = [_row("q1", ban, scene, False)]
+    _write(tmp_path / "dev2.jsonl", {"run_id": "d2", "kind": "dev2", "profile": "phase47"}, old)
+    qs = [{"id": "q1", "question": "?", "answer": "Có"}]
+    rep = ed.rejudge(tmp_path / "dev2.jsonl", [tmp_path / "dev2.jsonl"], 0.0, dry_run=True, git=CLEAN, questions=qs)
+    assert seen["profile"] == "phase47" and rep["judge_ids"] == ["q1"]

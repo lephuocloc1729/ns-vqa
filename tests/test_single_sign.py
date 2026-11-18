@@ -3,6 +3,8 @@
 code decide, with the unreadable ones in uncertain_signs; different readable codes
 stay unknown. Scenes are hand-made, modelled on train questions."""
 
+import pytest
+
 from vqa.schemas import IsSign, Meaning, Selector, Verdict
 
 from conftest import articles, scene, sign
@@ -30,11 +32,28 @@ def test_meaning_with_identical_readable_signs(engine):
     assert a.uncertain_signs == ["s3"]
 
 
-def test_meaning_with_different_readable_codes_stays_unknown(engine):
+@pytest.fixture(scope="module")
+def engine_g1_off():
+    """Phase 4.8 (owner, 2026-11-18): the G1 switch (kb/switches_48.yaml) off: the plan-item-1b rule."""
+    from vqa.reasoning.engine import Engine
+    return Engine(several_signs=False)
+
+
+def test_meaning_with_different_readable_codes_stays_unknown(engine_g1_off):
+    engine = engine_g1_off
     # train_64-like: a no-left-turn and a no-U-turn sign side by side
     a = engine.answer(scene(sign("s1", "P.123a"), sign("s2", "P.124a"), unread("s3")), Meaning(sign=ONLY))
     assert a.verdict == Verdict.unknown and a.value == {"candidates": ["s1", "s2", "s3"]}
     assert a.uncertain_signs == ["s3"]
+
+
+def test_meaning_with_different_readable_codes_lists_each_with_g1_on():
+    """Phase 4.8 G1 switch on: one meaning per readable code, the unreadable sign uncertain."""
+    from vqa.reasoning.engine import Engine
+    a = Engine(several_signs=True).answer(scene(sign("s1", "P.123a"), sign("s2", "P.124a"), unread("s3")),
+                                          Meaning(sign=ONLY))
+    assert a.verdict == Verdict.value and [x["code"] for x in a.value] == ["P.123a", "P.124a"]
+    assert a.uncertain_signs == ["s3"] and a.note == "several signs in the scene: the meaning of each is given"
 
 
 def test_only_unreadable_candidates_stay_unknown(engine):

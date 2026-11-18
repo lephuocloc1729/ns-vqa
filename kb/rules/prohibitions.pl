@@ -41,6 +41,13 @@ forbids(enter, Veh, Ctx, S, T) :-
 forbids(Action, Veh, Ctx, S, T) :-
     zone_forbids(Action, Veh, Ctx, S, T).
 
+% Phase 4.8 (kb/rules/fixes48.pl): with no lane asked about, R.415a closes its lanes to a motor
+% vehicle it shows on no lane (D.16 a).
+forbids(enter, Veh, Ctx, S, T) :-
+    Ctx = ctx(_, _, Lane),
+    \+ integer(Lane),
+    board_forbids(Veh, S, T).
+
 % Phase 4.7 (scene v6, kb/rules/signals47.pl): an R.411 board whose lane arrows were read forbids,
 % on the lane asked about, the directions its arrows don't show there (D.13).
 forbids(Action, _Veh, Ctx, S, T) :-
@@ -52,6 +59,11 @@ forbids(Action, _Veh, Ctx, S, T) :-
 
 clears(Action, Veh, Ctx, S, Why) :-
     zone_clears(Action, Veh, Ctx, S, Why).
+
+clears(enter, Veh, Ctx, S, Why) :-             % phase 4.8: R.415a (D.16 a)
+    Ctx = ctx(_, _, Lane),
+    \+ integer(Lane),
+    board_clears(Veh, S, Why).
 
 clears(Action, Veh, Ctx, S, Why) :-
     scene_sign(S, Code),

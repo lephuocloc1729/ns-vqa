@@ -297,8 +297,18 @@ def rejudge(programs: Path, scenes: list[Path], max_spend: float, *, dry_run: bo
         raise SystemExit("the git working tree is not clean: commit or remove these first:\n  " + "\n  ".join(g["dirty"]))
     phead, prows = ee.load(programs)
     srcs = [ee.load(p) for p in scenes]
-    qs = {q["id"]: q for q in (questions if questions is not None else load_questions())}
-    base = PipelineConfig(**{k: v for k, v in (srcs[0][0].get("candidate") or {}).items()})
+    kind = "dev2" if phead.get("kind") == "dev2" else "dev"      # phase 4.8: a dev2 run (profile record)
+    if questions is None:
+        if kind == "dev2":
+            from eval import e2e_dev2
+            questions = e2e_dev2.load_questions()
+        else:
+            questions = load_questions()
+    qs = {q["id"]: q for q in questions}
+    if srcs[0][0].get("profile"):
+        base = freeze.pipeline_config(srcs[0][0]["profile"], srcs[0][0].get("perception_model"))
+    else:
+        base = PipelineConfig(**{k: v for k, v in (srcs[0][0].get("candidate") or {}).items()})
     base = dataclasses.replace(base, reading_policy="higher_confidence")
     guard = SpendGuard(max_spend if not dry_run else 0.0)
     plan, rows_out, stopped = [], [], None
@@ -352,8 +362,8 @@ def rejudge(programs: Path, scenes: list[Path], max_spend: float, *, dry_run: bo
     if dry_run:
         return report
     run_id = uuid.uuid4().hex[:12]
-    out = out_dir / f"dev_rejudge_{run_id}{'.partial' if stopped else ''}.jsonl"
-    head = {**srcs[0][0], "kind": "dev_rejudge", "label": "rejudge", "run_id": run_id, "programs_from": phead["run_id"],
+    out = out_dir / f"{kind}_rejudge_{run_id}{'.partial' if stopped else ''}.jsonl"
+    head = {**srcs[0][0], "kind": f"{kind}_rejudge", "label": "rejudge", "run_id": run_id, "programs_from": phead["run_id"],
             "scenes_from": [h["run_id"] for h, _ in srcs], "git_commit": g["commit"],
             "started": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}
     with open(out, "w", encoding="utf-8") as f:

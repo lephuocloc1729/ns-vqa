@@ -52,6 +52,10 @@ speed_violation(Veh, Speed, Lane, Ctx, S, T) :-
 speed_violation(Veh, Speed, _Lane, Ctx, S, T) :-
     default_violation(Veh, Speed, Ctx, S, T).
 
+% Phase 4.8 (kb/rules/fixes48.pl): a vehicle Law 36 art. 25.3 bans from the expressway.
+speed_violation(Veh, _Speed, _Lane, _Ctx, S, T) :-
+    expressway_speed_violation(Veh, S, T).
+
 % Lane is the lane in Ctx; assess/6 checks it against the lanes the sign covers.
 max_speed_sign(Veh, Speed, _Lane, Ctx, S, [limit-T0|Checks]) :-
     scene_sign(S, Code),
@@ -145,7 +149,7 @@ lane_clears(Veh, Lane, Ctx, S, Why) :-
     lane_sign_checks(Veh, Lane, Ctx, S, Checks),
     first_false(Checks, Why).
 
-lane_sign_checks(Veh, Lane, Ctx, S, [lane_closed-T0, exception-T1, time-T2, day-T3]) :-
+lane_sign_checks(Veh, Lane, Ctx, S, [lane_closed-T0, exception-T1, time-T2, day-T3, other_board-T4]) :-
     scene_sign(S, Code),
     lane_restricting(Code),
     catalog_sign(Code, _, _, _),
@@ -156,7 +160,8 @@ lane_sign_checks(Veh, Lane, Ctx, S, [lane_closed-T0, exception-T1, time-T2, day-
     not3(M, T0),
     exception_check(S, Code, Veh, T1),
     time_check(S, Ctx, T2),
-    day_check(S, Code, Ctx, T3).
+    day_check(S, Code, Ctx, T3),
+    lane_conflict(S, Lane, Veh, T4).     % phase 4.8, kb/rules/fixes48.pl
 
 % P.127c boards cite their own article (B.27c, via catalog_sign); R.412 signs cite D.14.
 lane_restricting(Code) :- lane_board(Code).

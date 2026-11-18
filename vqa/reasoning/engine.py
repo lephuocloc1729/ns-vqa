@@ -119,6 +119,13 @@ def v6_fields_off_from_kb() -> tuple[str, ...]:
     return tuple((yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("off") or [])
 
 
+def switches_from_kb() -> dict[str, Any]:
+    """Phase 4.8 engine switches (kb/switches_48.yaml)."""
+    import yaml
+    path = Path(__file__).resolve().parents[2] / "kb" / "switches_48.yaml"
+    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+
+
 class Engine:
     """`reading_policy` (phase 4.6, D1): what to do when alternative sign readings disagree.
     "all" (the default, the frozen phase-4.5 behaviour): the verdict is `uncertain`.
@@ -127,7 +134,7 @@ class Engine:
     reading it used in `note`, and carries `basis: ["reading_choice"]`."""
 
     def __init__(self, catalog: Catalog | None = None, reading_policy: str = "all",
-                 v6_fields_off: tuple[str, ...] | None = None) -> None:
+                 v6_fields_off: tuple[str, ...] | None = None, several_signs: bool | None = None) -> None:
         if reading_policy not in READING_POLICIES:
             raise ValueError(f"reading_policy must be one of {READING_POLICIES}")
         # phase 4.7: scene v6 fields switched off (kb/v6_fields_47.yaml unless given); their facts
@@ -136,6 +143,9 @@ class Engine:
         if set(off) - set(V6_FIELDS):
             raise ValueError(f"v6_fields_off must be among {V6_FIELDS}")
         self.v6_fields_off = off
+        # phase 4.8 G1 (kb/switches_48.yaml unless given): several readable signs under `only`
+        self.several_signs = (bool(switches_from_kb().get("several_signs", False))
+                              if several_signs is None else several_signs)
         self.catalog = catalog or load_catalog()
         self.reading_policy = reading_policy
         _load_kb(self.catalog)
@@ -604,10 +614,23 @@ class Engine:
         if p.sign.only:
             chosen, unread_only = self.single_sign(scene, ids)
             if chosen is None:
-                return Answer(verdict=Verdict.unknown, value={"candidates": ids},
-                              uncertain_signs=unread_only,
-                              note="expected exactly one sign in the scene")
-            ids = chosen[:1]               # same code: one meaning
+                readable = [i for i in ids if self.catalog.has(scene.sign(i).code)]
+                if not (self.several_signs and readable):
+                    return Answer(verdict=Verdict.unknown, value={"candidates": ids},
+                                  uncertain_signs=unread_only,
+                                  note="expected exactly one sign in the scene")
+                # phase 4.8 G1: several readable signs with different codes: one meaning each
+                # (one per code), the unreadable ones listed as uncertain
+                by_code: dict[str, str] = {}
+                for i in readable:
+                    by_code.setdefault(self.catalog.get(scene.sign(i).code).code, i)
+                chosen = list(by_code.values())
+                several_note = "several signs in the scene: the meaning of each is given"
+            else:
+                chosen, several_note = chosen[:1], None   # same code: one meaning
+            ids = chosen
+        else:
+            several_note = None
         out, cites = [], []
         for sid in ids:
             s = scene.sign(sid)
@@ -625,7 +648,7 @@ class Engine:
         # value (known: false) and are listed in uncertain_signs
         unread = unread_only + [o["sign_id"] for o in out if not o["known"]]
         verdict = Verdict.value if any(o["known"] for o in out) else Verdict.unknown
-        return Answer(verdict=verdict, value=out, citations=cites, uncertain_signs=unread)
+        return Answer(verdict=verdict, value=out, citations=cites, uncertain_signs=unread, note=several_note)
 
     # ------------------------------------------------------------------ phase 4.5 B1 + B6
     def _meaning_aspect(self, scene: SceneGraph, p: Meaning) -> Answer:
@@ -1333,6 +1356,11 @@ class Engine:
             clears.append(r)
         verdict = (Verdict.yes if "true" in found
                    else Verdict.unknown if "unknown" in found else Verdict.no)
+        if verdict is Verdict.no and not scene.vehicles:
+            # Phase 4.8 (dev2 train_502): with no vehicle read, "no violation" rests on a missing
+            # fact, so it is unknown (three-valued logic), not no.
+            return Answer(verdict=Verdict.unknown, reasons=reasons + clears,
+                          note="no vehicle was read in the photo", value={"violations": []})
         want = {"yes": "true", "unknown": "unknown"}.get(verdict.value)
         support = [r for r in reasons if r.truth == want] if want else clears
         return Answer(verdict=verdict, reasons=reasons + clears, citations=_cites(support),
@@ -1651,6 +1679,8 @@ class Engine:
 
     def _connective(self, scene: SceneGraph, p: AllOf | AnyOf) -> Answer:
         """Three-valued AND / OR over claims. Citations come from the parts that decide."""
+        if self.several_signs and isinstance(p, AnyOf) and (per := self._any_is_sign_per_sign(scene, p)):
+            return per
         parts = [self._run(scene, normalize(c)) for c in p.claims]
         vs = [a.verdict if a.verdict in (Verdict.yes, Verdict.no) else Verdict.unknown
               for a in parts]
@@ -1666,6 +1696,40 @@ class Engine:
                       reasons=[r for a in parts for r in a.reasons],
                       citations=[c for a in support for c in a.citations],
                       basis=sorted({b for a in parts for b in a.basis}))
+
+    def _any_is_sign_per_sign(self, scene: SceneGraph, p: AnyOf) -> Answer | None:
+        """Phase 4.8 G1: "Đây có phải là một trong các biển X, Y, Z không?" over several signs.
+        When every claim is `is_sign` on the same `only` selector and it selects several readable
+        signs, each sign is checked against the claims (OR): yes if every readable sign meets one,
+        no if none does, unknown otherwise or if a selected sign is unreadable. None: not this form."""
+        claims = p.claims
+        if not claims or not all(isinstance(c, IsSign) and c.sign.only for c in claims):
+            return None
+        if any(c.sign != claims[0].sign for c in claims[1:]):
+            return None
+        ids = self.resolve(scene, claims[0].sign)
+        readable = [i for i in ids if self.catalog.has(scene.sign(i).code)]
+        if len(readable) < 2 or len({self.catalog.get(scene.sign(i).code).code for i in readable}) < 2:
+            return None
+        unread = [i for i in ids if i not in readable]
+        one = claims[0].sign.model_copy(update={"only": False})
+        per, reasons, cites = [], [], []
+        for sid in readable:
+            sub = scene.model_copy(update={"signs": [scene.sign(sid)]})
+            parts = [self._is_sign(sub, c.model_copy(update={"sign": one})) for c in claims]
+            vs = {a.verdict for a in parts}
+            v = Verdict.yes if Verdict.yes in vs else Verdict.no if vs == {Verdict.no} else Verdict.unknown
+            per.append({"sign_id": sid, "code": self.catalog.get(scene.sign(sid).code).code, "verdict": v.value})
+            reasons += [r for a in parts for r in a.reasons]
+            cites += [c for a in parts if a.verdict is v for c in a.citations]
+        vs = {x["verdict"] for x in per}
+        verdict = (Verdict.unknown if unread else Verdict.yes if vs == {"yes"}
+                   else Verdict.no if vs == {"no"} else Verdict.unknown)
+        return Answer(verdict=verdict, value={"per_sign": per}, reasons=reasons,
+                      citations=list({(c.law_id, c.article_id): c for c in cites}.values()),
+                      uncertain_signs=unread,
+                      note="each sign checked against the claims" if verdict is not Verdict.unknown
+                      else "the selected signs differ, or one could not be read")
 
     def _choose(self, scene: SceneGraph, p: Choose) -> Answer:
         options, reasons, cites = [], [], []

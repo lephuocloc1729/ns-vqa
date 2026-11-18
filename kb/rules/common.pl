@@ -78,6 +78,8 @@ rule_source(r_l36_yield_roundabout, '36/2024/QH15', '22').   % 22.3
 rule_source(r_priority_road_controlled, 'QCVN 41:2024/BGTVT', 'E.1').   % E.1 b)
 rule_source(r_l36_vehicle_classes, '36/2024/QH15', '34').
 rule_source(r_officer_right_turn_only, interpretation, officer_front_right_turn_only).
+% phase 4.8 step 1 (kb/rules/fixes48.pl)
+rule_source(r_lanes_by_vehicle,    'QCVN 41:2024/BGTVT', 'D.16').   % D.16 a: "loại xe được phép lưu thông trên từng làn đường"
 % The basis of each interpretation (shown with it; never counted as a law citation).
 rule_basis(r_officer_right_turn_only, "Law 36/2024 art. 11.3 c): the driver in front of the officer \"được rẽ phải\"; read as the only move allowed, as the other sides are told \"phải dừng lại\" or \"được đi tất cả các hướng\"").
 rule_basis(r_kb4_expressway_zone, "QCVN 41:2024 P.3 and the IE rows: IE.452 / IE.451b start the expressway, IE.453b/c end it; Law 36/2024 art. 25 sets its rules").
