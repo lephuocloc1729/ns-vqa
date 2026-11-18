@@ -20,6 +20,7 @@ from vqa.reasoning.terms import Term, atom, to_prolog, vehicle_term
 from vqa.parsing.dsl import normalize
 from vqa.schemas import (MustYield, OfficerPermits, OfficerSignal, Precedence, PrecedenceIs,  # parser v13
                          RightOfWay, VehicleClassIs, VehicleClassOf)
+from vqa.schemas import AltReading, Confidence  # noqa: E402  phase 4.8 A1
 from vqa.schemas import (
     AllOf, Answer, AnyOf, AppliesTo, BanTimes, Choose, Count, CountIs, Duties, MarkingIs, MarkingMeaning,
     RulePermitted, SignalMeaning, SignApplies, Citation, ExistsViolation, Explain, Guide, GuideClaim, IsSign,
@@ -126,6 +127,18 @@ def switches_from_kb() -> dict[str, Any]:
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
+def confusables_from_kb(catalog: Catalog) -> dict[str, list[str]]:
+    """Phase 4.8 A1 (kb/confusables_48.yaml): catalog row -> the rows it is swapped with."""
+    import yaml
+    path = Path(__file__).resolve().parents[2] / "kb" / "confusables_48.yaml"
+    out: dict[str, list[str]] = {}
+    for pair in (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("pairs", []):
+        rows = [catalog.get(c).code for c in pair["codes"]]
+        for r in rows:
+            out.setdefault(r, []).extend(x for x in rows if x != r and x not in out.get(r, []))
+    return out
+
+
 class Engine:
     """`reading_policy` (phase 4.6, D1): what to do when alternative sign readings disagree.
     "all" (the default, the frozen phase-4.5 behaviour): the verdict is `uncertain`.
@@ -134,7 +147,8 @@ class Engine:
     reading it used in `note`, and carries `basis: ["reading_choice"]`."""
 
     def __init__(self, catalog: Catalog | None = None, reading_policy: str = "all",
-                 v6_fields_off: tuple[str, ...] | None = None, several_signs: bool | None = None) -> None:
+                 v6_fields_off: tuple[str, ...] | None = None, several_signs: bool | None = None,
+                 confusable_pairs: bool | None = None) -> None:
         if reading_policy not in READING_POLICIES:
             raise ValueError(f"reading_policy must be one of {READING_POLICIES}")
         # phase 4.7: scene v6 fields switched off (kb/v6_fields_47.yaml unless given); their facts
@@ -148,6 +162,11 @@ class Engine:
                               if several_signs is None else several_signs)
         self.catalog = catalog or load_catalog()
         self.reading_policy = reading_policy
+        self._look_note: str | None = None
+        # phase 4.8 A1 (kb/switches_48.yaml unless given): the confusable-sign table
+        on = (bool(switches_from_kb().get("confusable_pairs", False)) if confusable_pairs is None
+              else confusable_pairs)
+        self.confusables = confusables_from_kb(self.catalog) if on else {}
         _load_kb(self.catalog)
 
     def _strip_v6(self, scene: SceneGraph) -> SceneGraph:
@@ -213,6 +232,30 @@ class Engine:
         if sel.relative is not None:                         # parser v13
             out = self._relative(scene, sel, out)
         return [s.id for s in out]
+
+    # Phase 4.8 B6 (owner, 2026-11-18): the look a group word in a question usually names
+    # (QCVN 41 art. 22, 28, 32, 36: the groups' shapes and colours).
+    _CATEGORY_LOOK = {"information": ("board",), "prohibitory": ("red_circle", "red_board"),
+                      "mandatory": ("blue_circle",), "warning": ("warning",)}
+
+    def resolve_value(self, scene: SceneGraph, sel: Selector) -> list[str]:
+        """For value questions only (meaning, applies_to, which_vehicles): when a group word
+        ("biển chỉ dẫn" for an R.4xx board) selects nothing, the readable signs with that group's
+        usual look are used, answered by their real group, and the answer says so. Claims about a
+        group (is_sign, present, count) keep the strict selection."""
+        ids = self.resolve(scene, sel)
+        if ids or not sel.category or sel.category not in self._CATEGORY_LOOK:
+            return ids
+        loose = self.resolve(scene, sel.model_copy(update={"category": None}))
+        looks = self._CATEGORY_LOOK[sel.category]
+        hit = [i for i in loose if self.catalog.has(scene.sign(i).code)
+               and self.visual_category(scene.sign(i)) in looks]
+        if hit:
+            groups = sorted({sign_group_vi(self.catalog.get(scene.sign(i).code).code) or
+                             self.catalog.get(scene.sign(i).code).category for i in hit})
+            self._look_note = (f"no sign of the group the question names ({sel.category}) is in the photo; "
+                               f"answered for the sign(s) that look like one, whose group is {', '.join(groups)}")
+        return hit
 
     def _relative(self, scene: SceneGraph, sel: Selector, cands: list) -> list:
         """Parser v13: the candidates placed `sel.relative` to the anchor. Only the vertical order
@@ -282,6 +325,7 @@ class Engine:
         if program is None:
             return Answer(verdict=Verdict.unknown, note="the question counts lanes from the right "
                           f"({', '.join(map(str, from_right))}), and the scene does not say how many lanes there are")
+        scene, confusable_ids = self._add_confusables(scene)
         variants = reading_variants(scene)
         answers = [(picked, self._run(sc, program)) for sc, picked in variants]
         first = answers[0][1]
@@ -290,6 +334,16 @@ class Engine:
         if all(_same(first, a) for _, a in answers[1:]):
             return first
         uncertain = sorted({sid for picked, _ in answers for sid in picked})
+        differ = {sid for picked, a in answers[1:] if not _same(first, a)
+                  for sid, code in picked.items() if code != answers[0][0].get(sid)}
+        if differ & confusable_ids:
+            # phase 4.8 A1: a sign Haiku is known to swap reads differently under its partner code
+            ids = sorted(differ & confusable_ids)
+            return Answer(verdict=Verdict.unknown, reasons=first.reasons, uncertain_signs=uncertain,
+                          value={"readings": [{"signs": p, "verdict": a.verdict.value, "value": a.value}
+                                              for p, a in answers]},
+                          note="these signs are often confused with another sign, and the other reading "
+                               "gives a different answer: " + ", ".join(ids))
         if self.reading_policy == "higher_confidence":
             return self._higher_confidence(scene, program, answers, uncertain)
         return Answer(
@@ -301,6 +355,22 @@ class Engine:
             uncertain_signs=uncertain,
             note="alternative readings of these signs lead to different answers",
         )
+
+    def _add_confusables(self, scene: SceneGraph) -> tuple[SceneGraph, set[str]]:
+        """Phase 4.8 A1: a low- or medium-confidence sign with no alternative, read as a code in
+        the confusable table, gets the partner code(s) as low-confidence alternatives."""
+        if not self.confusables:
+            return scene, set()
+        signs, ids = [], set()
+        for s in scene.signs:
+            row = self.catalog.get(s.code).code if self.catalog.has(s.code) else None
+            if row in self.confusables and not s.alternatives and s.confidence != Confidence.high:
+                alts = [AltReading(code=c, value=s.value, confidence=Confidence.low) for c in self.confusables[row]]
+                signs.append(s.model_copy(update={"alternatives": alts}))
+                ids.add(s.id)
+            else:
+                signs.append(s)
+        return (scene.model_copy(update={"signs": signs}) if ids else scene), ids
 
     def _higher_confidence(self, scene: SceneGraph, program, answers, uncertain: list[str]) -> Answer:
         """Policy A: the readings disagree; answer with the highest-confidence reading of each sign."""
@@ -425,10 +495,13 @@ class Engine:
         unreadable sign whose visible category could bear on the claim, since that
         sign might say otherwise. Others (e.g. a blue information board for a turn
         question) are ignored."""
+        self._look_note = None
         try:
             ans = self._dispatch(scene, p)
         except UndecidedSelection as e:                     # parser v13: relative selectors
             return Answer(verdict=Verdict.unknown, note=str(e))
+        if self._look_note:                                 # phase 4.8 B6: category word set aside
+            ans = ans.model_copy(update={"note": self._look_note + (f"; {ans.note}" if ans.note else "")})
         cw = self._CLOSED_WORLD.get(type(p))
         unread = [sid for sid in self.unreadable_signs(scene)
                   if self.could_matter(self.visual_category(scene.sign(sid)), p)]
@@ -609,7 +682,7 @@ class Engine:
                       reasons=reasons + clears, citations=_cites(support), basis=_basis(support))
 
     def _meaning(self, scene: SceneGraph, p: Meaning) -> Answer:
-        ids = self.resolve(scene, p.sign)
+        ids = self.resolve_value(scene, p.sign)
         unread_only: list[str] = []
         if p.sign.only:
             chosen, unread_only = self.single_sign(scene, ids)
@@ -657,13 +730,15 @@ class Engine:
         readable candidates are used; the unreadable ones are listed as uncertain."""
         from vqa.reasoning import sign_info as si
 
-        ids = self.resolve(scene, p.sign)
+        ids = self.resolve_value(scene, p.sign)
         readable = [i for i in ids if self.catalog.has(scene.sign(i).code)]
         unread = [i for i in ids if i not in readable]
         if not readable:
             return Answer(verdict=Verdict.unknown, uncertain_signs=unread,
                           note="no readable sign in the scene matches the selector")
         entries = [(i, self.catalog.get(scene.sign(i).code)) for i in readable]
+        if p.aspect == "limit":
+            return self._limit_values(scene, entries, unread)
         if p.aspect == "article":
             # Phase 4.6 I1: the QCVN 41 article listing the sign's group (art. 22.1 prohibitory,
             # 28.1 warning, 32.1 mandatory, 36.1 information, 41 / 42 auxiliary and text signs;
@@ -702,6 +777,31 @@ class Engine:
                           note=f"no {p.aspect} rule for the selected signs")
         cites = list({(c.law_id, c.article_id): c for c in cites}.values())
         return Answer(verdict=Verdict.value, value={p.aspect: out}, citations=cites, uncertain_signs=unread)
+
+    def _limit_values(self, scene: SceneGraph, entries, unread: list[str]) -> Answer:
+        """Phase 4.8 B3: the limit each selected sign sets: the number read on it with the catalog
+        row's attribute, comparison and unit (e.g. P.115: gross_t > 13 t, B.15). Speed signs are
+        left to speed_limit. A limit sign whose number was not read is unknown."""
+        rows, cites, missing = [], [], []
+        for i, e in entries:
+            v = e.effect.value
+            if v is None or v.unit == "km/h":
+                continue
+            s = scene.sign(i)
+            if s.value is None:
+                missing.append(i)
+                continue
+            rows.append({"sign_id": i, "code": e.code, "name_vi": e.name_vi, "attr": v.attr.value,
+                         "op": v.op.value, "value": s.value, "unit": v.unit,
+                         "applies_to": [c.value for c in v.applies_to]})
+            cites.append(e.source)
+        if missing:
+            return Answer(verdict=Verdict.unknown, uncertain_signs=sorted(set(unread) | set(missing)),
+                          note="the number on a limit sign was not read")
+        if not rows:
+            return Answer(verdict=Verdict.unknown, uncertain_signs=unread,
+                          note="no selected sign sets a size or weight limit")
+        return Answer(verdict=Verdict.value, value={"limit": rows}, citations=cites, uncertain_signs=unread)
 
     def _aspect_lines(self, scene: SceneGraph, p: Meaning, entries, extended: bool):
         from vqa.reasoning import sign_info as si
@@ -811,7 +911,7 @@ class Engine:
                       citations=cites, note="a sign that could not be read may be one of them")
 
     def _applies_to(self, scene: SceneGraph, p: AppliesTo | SignApplies) -> Answer:
-        ids = self.resolve(scene, p.sign)
+        ids = self.resolve_value(scene, p.sign) if isinstance(p, AppliesTo) else self.resolve(scene, p.sign)
         if not ids:
             return Answer(verdict=Verdict.unknown, note="no sign in the scene matches the selector")
         unread: list[str] = []
@@ -1549,7 +1649,7 @@ class Engine:
     def _which_vehicles(self, scene: SceneGraph, p: WhichVehicles) -> Answer:
         selection = None
         if p.sign is not None:
-            selection = self.resolve(scene, p.sign)
+            selection = self.resolve_value(scene, p.sign)
             if not selection:
                 return Answer(verdict=Verdict.unknown, note="no sign in the scene matches the selector")
         self.load_scene(scene, selection)

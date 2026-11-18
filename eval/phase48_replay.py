@@ -32,6 +32,9 @@ OUT = ROOT / "eval" / "runs" / "phase48"
 BASELINE = OUT / "baseline.json"
 # Decided answers the phase-4.8 fixes change on purpose (docs/status.md). `check` fails on any other.
 INTENDED = {"dev2:train_121", "dev2:train_466", "dev2:train_502", "dev2:train_516"}
+# A1, the confusable table (switch confusable_pairs): decided -> unknown where the partner reading differs.
+INTENDED |= {"dev:train_222", "dev2:train_119", "dev2:train_131", "dev2:train_135", "dev2:train_347",
+             "dev2:train_410", "dev2:train_448", "dev2:train_495", "dev2:train_527"}
 
 
 def _rows(p: Path) -> list[dict]:
@@ -71,8 +74,11 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["baseline", "check"])
     ap.add_argument("--several-signs", choices=["on", "off"], help="override kb/switches_48.yaml")
+    ap.add_argument("--confusable-pairs", choices=["on", "off"], help="override kb/switches_48.yaml")
     a = ap.parse_args()
     kw = {} if a.several_signs is None else {"several_signs": a.several_signs == "on"}
+    if a.confusable_pairs is not None:
+        kw["confusable_pairs"] = a.confusable_pairs == "on"
     now = replay(**kw)
     OUT.mkdir(parents=True, exist_ok=True)
     if a.cmd == "baseline":

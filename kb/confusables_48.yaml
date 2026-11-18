@@ -1,0 +1,29 @@
+# Phase 4.8 A1 (owner, 2026-11-18): signs Haiku swaps, from train evidence only (set T, gold signs v1;
+# dev2 images, readable per question). Used by the engine when the switch `confusable_pairs` in
+# kb/switches_48.yaml is on: a sign read as one of these codes at low or medium confidence, with no
+# alternative reading, gets the partner as an alternative; if the partner gives a different answer,
+# the answer is unknown (not decided by the higher-confidence reading). Codes are catalog rows.
+reviewed_by: assistant
+pairs:
+  - codes: [P.130, P.131a]
+    # set T: P.131a read as P.130 8 times in 7 stored runs (7 high, 1 medium confidence).
+    # dev2: train_2_44 (train_119) a far P.131a read as P.130 (medium); train_1_11 (train_17, train_20).
+    evidence: {set_t: 8, dev2: [train_119, train_17, train_20]}
+  - codes: [P.101, P.102]
+    # dev2: train_8_25 (train_508) a P.102 read as P.101 (high); train_8_32 (train_509) P.101 low with
+    # P.102 as alternative; train_5_25 (train_298) both codes on one gantry. Set T: none.
+    evidence: {set_t: 0, dev2: [train_508, train_509, train_298]}
+  - codes: [P.103a, P.125]
+    # set T: P.125 read as P.103a 6 times (4 medium, 2 high).
+    evidence: {set_t: 6, dev2: []}
+  - codes: [P.103a, P.107]
+    # dev2: train_8_25 (train_508) a P.107 (truck and coach) read as P.103a (medium).
+    evidence: {set_t: 0, dev2: [train_508]}
+  - codes: [W.202a, W.228a]     # family rows W.202(a,b), W.228(a,b)
+    # dev2: train_2_31 (train_135) a series of bends (W.202) read as W.228 "Đá lở" (medium).
+    # (The brief named W.201 / W.228; the evidence is W.202.)
+    evidence: {set_t: 0, dev2: [train_135]}
+  - codes: [W.201a, W.201b]
+    # dev2: train_2_28 (train_102) a left bend read as W.201b (medium; it already had W.201a as an
+    # alternative, so the table adds nothing there).
+    evidence: {set_t: 0, dev2: [train_102]}

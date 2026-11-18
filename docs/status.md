@@ -1634,6 +1634,19 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Phase 4.8 batch 2 built (2026-11-18; no API calls)
+
+- **A1, the confusable table** (`kb/confusables_48.yaml`, switch `confusable_pairs` in `kb/switches_48.yaml`, on for step 4's measurement): a low- or medium-confidence sign with no alternative, read as a table code, gets the partner as a low-confidence alternative. **Under the frozen policy A an alternative alone changes nothing** (the higher-confidence reading wins), so a disagreement that comes from a table partner answers **unknown** (note "often confused with another sign").
+  - Pairs, with evidence: P.130 / P.131a (set T 8; dev2 119, 17, 20); P.101 / P.102 (dev2 508: a P.102 read as P.101 at high confidence, seen in the photo; 509; 298); P.103a / P.125 (set T 6); P.103a / P.107 (dev2 508); W.202 / W.228 (dev2 135, a series of bends read as "Đá lở"; the brief's W.201 / W.228 has no evidence); W.201a / W.201b (dev2 102).
+  - **Free estimate from stored grades:** dev2 loses 8 decided answers worth 3.0 points (119 0, 131 0, 135 0, 347 0.5, 410 0, 448 1, 495 1, 527 0.5), so accuracy on decided goes from 62.7% to 65.5% and overall from 49.5% to 46.5%. **dev loses train_222 (was right): overall 67.2%, under 68.4%.** As things stand, the table fails its keep rule, and step 4 confirms it. The dev2-based pairs are fitted on dev2 itself.
+- **A2, wire:** a `priority` key on an intent node (dev2 282) is dropped instead of rejecting the parse; the vehicle's own `priority` is kept, and other unknown fields are still rejected.
+- **B3, limit values (engine half):** `meaning` gets `aspect: limit` (schema and wire): each selected sign's number with its catalog attribute, comparison and unit, citing the row's article (P.106b B.6, P.115 B.15, P.117 B.17, ...); speeds are left to `speed_limit`; an unread number is unknown. Template line: "cấm xe có chiều cao (kể cả hàng) trên 4,3 m".
+- **B6, loose group words (engine):** for value questions only (`meaning`, `applies_to`, `which_vehicles`), a `category` that selects nothing falls back to the signs with that group's usual look (information → board, prohibitory → red circle or red board, mandatory → blue circle, warning → triangle), with the note "no sign of the group the question names (...) is in the photo; answered for the sign(s) that look like one, whose group is ...". Claims (`is_sign`, `present`, `count`, `sign_applies`) keep the strict selection. dev2 169 now selects R.403b.
+- **Parser v15** (`prompts/parser/v15`, `parser/v15@dcbda79eba59`): v14 plus three spec lines (B3 `limit`; B4 `scope` covers where a ban ends, "khi nào mới được vượt"; B5 a warning sign's "phía trước có ... phải không" is `is_sign` with the meaning whose catalog name says it, out of scope when no catalog name tells the asked shape apart). Few-shots: v14's plus train_240, train_501 (limit) and train_153 (railway crossing, W.211), from the train working set, exact text, none in dev, dev2 or validation. No few-shot for B4: the working set has none.
+  - **B5 doesn't cover 378:** W.205's variants share one catalog name ("Đường giao nhau"), and C.5's text doesn't name the Y shape, so "giao lộ hình chữ Y" stays out of scope by the rule.
+- **Free replay:** dev's decided answers are identical except train_222 (the table, listed in `INTENDED`); `--confusable-pairs off` gives the batch-1 changes only.
+- Tests: `tests/test_phase48_fixes.py` (27).
+
 ### Phase 4.8 step 2 prepared: set-T perception candidates (2026-11-18; no API calls)
 
 - **Baseline (no new run):** today's frozen perception on set T is run `3861a1816d1a` (scene v5 pass 1 `82fe91ce935e` + fallback, `crop_always`): **recall 90.8% (85–97), code F1 72.9% (65–81)**; non-duplicate (26 images) 91.1% / 73.6%.

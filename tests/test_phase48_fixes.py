@@ -141,7 +141,7 @@ def test_a_read_vehicle_still_decides(engine):
 
 # ---------------------------------------------------------------- G1: several readable signs (switch)
 
-from vqa.schemas import AnyOf, IsSign, Meaning, Selector  # noqa: E402
+from vqa.schemas import AnyOf, Confidence, IsSign, Meaning, Selector  # noqa: E402
 
 SEVERAL = scene(S("s1", "IE.452", shape="rectangle", border="none", background="green"),
                 S("s2", "P.127", value=90, rank=2), S("s3", "R.306", value=60, border="none", background="blue", rank=3))
@@ -189,3 +189,127 @@ def test_one_of_these_signs_is_checked_sign_by_sign(engine):
     assert engine.answer(none, ONE_OF).verdict is Verdict.no
     off = Engine(reading_policy="higher_confidence", several_signs=False).answer(NO_PARKING, ONE_OF)
     assert off.verdict is Verdict.unknown
+
+
+# ---------------------------------------------------------------- A2: a misplaced priority field (wire)
+
+def test_a_priority_field_on_an_intent_node_is_dropped_not_rejected():
+    """dev2 train_282-like: the parser put `priority` on `rule_permitted` itself; the parse was
+    refused. Now that key is dropped and the vehicle's own `priority` is kept."""
+    from vqa.parsing.wire import from_wire, to_query
+    reply = {"program": {"intent": "all_of", "claims": [
+        {"intent": "rule_permitted", "action": "enter", "speed_kmh": 60, "priority": True,
+         "vehicle": {"vehicle_class": "car", "priority": True}},
+        {"intent": "rule_permitted", "action": "enter", "speed_kmh": 60, "priority": True,
+         "vehicle": {"vehicle_class": "truck"}}]}}
+    q = to_query(from_wire(reply), 2025)
+    claims = q.program.claims
+    assert claims[0].vehicle.priority is True and claims[1].vehicle.priority is False
+
+
+def test_other_unknown_fields_are_still_rejected():
+    import pydantic
+    from vqa.parsing.wire import from_wire
+    with pytest.raises(pydantic.ValidationError):
+        from_wire({"program": {"intent": "rule_permitted", "action": "enter", "colour": "red"}})
+
+
+# ---------------------------------------------------------------- A1: the confusable-sign table (switch)
+
+def test_the_table_is_read_from_the_kb_with_family_rows():
+    from vqa.reasoning.engine import confusables_from_kb
+    from vqa.kb import load_catalog
+    t = confusables_from_kb(load_catalog())
+    assert t["P.130"] == ["P.131a"] and t["P.131a"] == ["P.130"]
+    assert set(t["P.103a"]) == {"P.125", "P.107"} and t["W.202(a,b)"] == ["W.228(a,b)"]
+
+
+def test_a_medium_p130_whose_partner_answers_differently_is_unknown():
+    """train_119-like: a far P.131a read as P.130 (medium); "có được dừng xe không?" depends on which."""
+    from vqa.schemas import Permitted
+    sc = scene(S("s1", "P.130", background="blue").model_copy(update={"confidence": Confidence.medium}))
+    on = Engine(reading_policy="higher_confidence", confusable_pairs=True)
+    off = Engine(reading_policy="higher_confidence", confusable_pairs=False)
+    q = Permitted(action="stop", vehicle=V("car"))
+    assert off.answer(sc, q).verdict is Verdict.no
+    a = on.answer(sc, q)
+    assert a.verdict is Verdict.unknown and a.uncertain_signs == ["s1"] and "often confused" in a.note
+
+
+def test_the_partner_that_gives_the_same_answer_keeps_it_decided():
+    from vqa.schemas import Permitted
+    sc = scene(S("s1", "P.130", background="blue").model_copy(update={"confidence": Confidence.medium}))
+    on = Engine(reading_policy="higher_confidence", confusable_pairs=True)
+    assert on.answer(sc, Permitted(action="park", vehicle=V("car"))).verdict is Verdict.no   # both ban parking
+
+
+def test_a_high_confidence_sign_or_one_with_alternatives_is_left_alone():
+    from vqa.schemas import AltReading, Permitted
+    on = Engine(reading_policy="higher_confidence", confusable_pairs=True)
+    q = Permitted(action="stop", vehicle=V("car"))
+    high = scene(S("s1", "P.130", background="blue"))
+    assert on.answer(high, q).verdict is Verdict.no
+    alt = scene(S("s1", "P.130", background="blue").model_copy(update={
+        "confidence": Confidence.medium, "alternatives": [AltReading(code="P.104", confidence="low")]}))
+    assert on.answer(alt, q).verdict is Verdict.no
+
+
+# ---------------------------------------------------------------- B3: limit values; B6: loose group words
+
+def _limit(engine, code, value):
+    sc = scene(S("s1", code, value=value))
+    return engine.answer(sc, Meaning(sign=Selector(only=True), aspect="limit"))
+
+
+def test_the_limit_of_a_size_or_weight_sign_is_its_number_with_its_article(engine):
+    from vqa.answer.template import _value_text
+    a = _limit(engine, "P.117", 4.3)          # train_240-like: "Chiều cao giới hạn ... là bao nhiêu?"
+    assert a.verdict is Verdict.value and a.value["limit"][0]["attr"] == "height_m"
+    assert ("QCVN 41:2024/BGTVT", "B.17") in cites(a)
+    assert "chiều cao (kể cả hàng) trên 4,3 m" in _value_text({"value": a.value})
+    b = _limit(engine, "P.115", 13.0)
+    assert b.value["limit"][0]["attr"] == "gross_t" and ("QCVN 41:2024/BGTVT", "B.15") in cites(b)
+    c = _limit(engine, "P.106b", 1.25)
+    assert c.value["limit"][0]["attr"] == "load_t" and ("QCVN 41:2024/BGTVT", "B.6") in cites(c)
+
+
+def test_an_unread_number_or_a_sign_with_no_limit_is_unknown(engine):
+    assert _limit(engine, "P.117", None).verdict is Verdict.unknown
+    assert _limit(engine, "P.104", None).verdict is Verdict.unknown
+    assert _limit(engine, "P.127", 60.0).verdict is Verdict.unknown          # speeds are speed_limit's
+
+
+def test_a_group_word_that_selects_nothing_falls_back_to_the_look_for_value_questions(engine):
+    """train_169-like: "Biển chỉ dẫn trong ảnh ..." over an R.403b board (a mandatory sign)."""
+    from vqa.schemas import AppliesTo
+    board = S("s1", "R.403b", shape="rectangle", border="none", background="blue")
+    a = engine.answer(scene(board), Meaning(sign=Selector(category="information")))
+    assert a.verdict is Verdict.value and a.value[0]["code"] == "R.403b"
+    assert a.note.startswith("no sign of the group the question names (information)")
+    assert engine.answer(scene(board), AppliesTo(sign=Selector(category="information"))).verdict is Verdict.value
+
+
+def test_claims_about_a_group_keep_the_strict_selection(engine):
+    board = S("s1", "R.403b", shape="rectangle", border="none", background="blue")
+    a = engine.answer(scene(board), IsSign(sign=Selector(only=True), category="information"))
+    assert a.verdict is Verdict.no
+
+
+def test_parser_v15_is_v14_plus_its_lines_and_train_working_set_few_shots():
+    import json as _json
+    from pathlib import Path as _P
+    root = _P(__file__).resolve().parents[1] / "prompts" / "parser"
+    v14 = (root / "v14" / "spec.md").read_text(encoding="utf-8")
+    v15 = (root / "v15" / "spec.md").read_text(encoding="utf-8")
+    assert "`limit`: the number a size or weight limit sign sets" in v15 and "`limit`" not in v14
+    assert "khi nào mới được vượt" in v15 and "giao với đường sắt" in v15
+    old = (root / "v14" / "fewshot.jsonl").read_text(encoding="utf-8").splitlines()
+    new = (root / "v15" / "fewshot.jsonl").read_text(encoding="utf-8").splitlines()
+    assert new[:len(old)] == old
+    added = [_json.loads(x) for x in new[len(old):]]
+    assert [r["id"] for r in added] == ["train_240", "train_501", "train_153"]
+    splits = _P(__file__).resolve().parents[1] / "data" / "splits"
+    held = set()
+    for f in ("train_validation.json", "train_dev.json", "train_dev2.json"):
+        held |= set(_json.loads((splits / f).read_text(encoding="utf-8"))["questions"])
+    assert not {r["id"] for r in added} & held

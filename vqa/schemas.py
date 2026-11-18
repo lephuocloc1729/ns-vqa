@@ -673,7 +673,8 @@ class Meaning(_Model):
     intent: Literal["meaning"] = "meaning"
     sign: Selector
     # phase 4.6 I1: "article" = the QCVN 41 article the sign is set out in ("quy định ở điều nào")
-    aspect: Literal["name", "group", "conduct", "scope", "placement", "article"] = "name"
+    # phase 4.8 B3: "limit" = the number a limit sign sets ("chiều cao tối đa bao nhiêu")
+    aspect: Literal["name", "group", "conduct", "scope", "placement", "article", "limit"] = "name"
 
 
 GuideDirection = Literal["straight", "left", "right", "u_turn"]

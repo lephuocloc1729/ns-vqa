@@ -116,6 +116,13 @@ def _conditions(digest: dict[str, Any]) -> str:
     return "; ".join(texts)
 
 
+# phase 4.8 B3: a limit sign's attribute and comparison in words (QCVN 41 B.6, B.15-B.19)
+LIMIT_ATTR_VI = {"gross_t": "trọng tải toàn bộ (cả xe và hàng)", "load_t": "khối lượng chuyên chở",
+                 "axle_t": "tải trọng trục", "height_m": "chiều cao (kể cả hàng)",
+                 "width_m": "chiều ngang (kể cả hàng)", "length_m": "chiều dài (kể cả hàng)", "seats": "số chỗ"}
+LIMIT_OP_VI = {"gt": "trên", "ge": "từ", "lt": "dưới", "le": "không quá"}
+
+
 def _value_text(digest: dict[str, Any]) -> str:
     v = digest.get("value")
     if isinstance(v, list):                                    # meaning
@@ -138,6 +145,15 @@ def _value_text(digest: dict[str, Any]) -> str:
         if v.get("conditional"):
             text += " Còn tùy điều kiện: làn " + _join([str(x) for x in v["conditional"]]) + "."
         return text
+    if isinstance(v.get("limit"), list):                       # meaning, aspect limit (phase 4.8 B3)
+        rows = []
+        for x in v["limit"]:
+            what = LIMIT_ATTR_VI.get(x["attr"], x["attr"])
+            num = f"{x['value']:g}".replace(".", ",")
+            rows.append(f"{x.get('name_vi')} ({x.get('code')}): cấm xe có {what} {LIMIT_OP_VI.get(x['op'], x['op'])} "
+                        f"{num} {x['unit']}")
+        text = ". ".join(rows)
+        return text + "." if text else "Không có biển phù hợp."
     if "group" in v:                                           # meaning, aspect group (art. 11)
         return f"Thuộc nhóm {v['group']}."
     for aspect in ("conduct", "scope", "placement"):           # meaning, other aspects

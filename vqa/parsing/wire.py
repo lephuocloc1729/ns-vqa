@@ -420,7 +420,7 @@ class WBanTimes(_W):
 class WMeaning(_W):
     intent: Literal["meaning"]
     sign: WSelector
-    aspect: Literal["name", "group", "conduct", "scope", "placement", "article"] = "name"
+    aspect: Literal["name", "group", "conduct", "scope", "placement", "article", "limit"] = "name"
 
 
 class WGuide(_W):
@@ -507,10 +507,23 @@ def _drop_nulls(node: Any) -> Any:
     return node
 
 
+def _drop_misplaced_priority(node: Any) -> Any:
+    """Phase 4.8 (owner, 2026-11-18; dev2 train_282): `priority` belongs on a vehicle, never on an
+    intent node. A `priority` key on a node that has an `intent` is dropped, so the parse isn't
+    rejected for it (the vehicle's own `priority` is kept)."""
+    if isinstance(node, dict):
+        return {k: _drop_misplaced_priority(v) for k, v in node.items()
+                if not (k == "priority" and "intent" in node)}
+    if isinstance(node, list):
+        return [_drop_misplaced_priority(x) for x in node]
+    return node
+
+
 def from_wire(data: dict[str, Any]) -> WParse:
     """A reply object as a typed WParse. Null fields are dropped, so they take the
-    models' defaults. Raises ValidationError on a field the intent does not use."""
-    return WParse.model_validate(_drop_nulls(data))
+    models' defaults. Raises ValidationError on a field the intent does not use (except a
+    misplaced `priority`, which is dropped)."""
+    return WParse.model_validate(_drop_misplaced_priority(_drop_nulls(data)))
 
 
 # --------------------------------------------------------------------------- convert
