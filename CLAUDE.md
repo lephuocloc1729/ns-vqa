@@ -1,6 +1,6 @@
 # Neuro-symbolic traffic sign VQA
 
-DESIGN.md is the full design. Read it before you change architecture. We build it phase by phase, following its roadmap. The scene graph and DSL are at schema 1.2.
+DESIGN.md is the full design. Read it before you change architecture. We build it phase by phase, following its roadmap. The scene graph and DSL are at schema 1.2 in code (`SCHEMA_VERSION` stays "1.2"); DESIGN.md, "Schema 1.3 and 1.4", documents the optional additions since then (1.3 guide boards, 1.4 the scene v6 fields) and the phase-4.5 to 4.7 intents and rules.
 
 - **Where things stand and what's next:** `docs/status.md` (done work with commit hashes, next steps, open items, coverage figures).
 - **The approved plan for each phase:** `docs/plans/` (e.g. `docs/plans/phase-2.md`). Follow the approved plan; ask before changing it.
@@ -85,6 +85,7 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
   - The key comes from `ANTHROPIC_API_KEY` only and is never committed.
 - `vqa/pipeline.py` (phase 4): `answer(image_path, question)`. `vqa/answer/`: the proof digest, the faithfulness guard, template answers, the writer (`prompts/answer/`), the answer-level fallback (`prompts/answer_fallback/`).
 - `eval/e2e_eval.py` (public_dev, warm, run, next; oracles; scores), `eval/judge.py` (`eval/prompts/judge/`), `eval/e2e_holdout.py` (aggregate only).
+- `eval/freeze.py`: freeze profiles and records, each written once. The private test runs with `eval/frozen_phase47.json` only (profile `phase47`: scene v5 + guide reading, parser v14, writer v3, reading policy A, signals off, engine-code hash); `eval/e2e_private.py` refuses any other record.
 - `vqa/reasoning/`:
   - `terms.py`: Python values to Prolog text.
   - `facts.py`: SceneGraph to scene facts, plus the variants for alternative sign readings.
@@ -96,6 +97,8 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
   - `scene.pl`: declarations for the fact predicates.
   - `ontology.pl`: vehicle hierarchy.
   - `rules/*.pl`: one file per rule family: `prohibitions`, `speed` (speed limits, lanes, limit values), `mandatory` (R.301 by placement) and `identity` (`is_sign`). Shared checks are in `common.pl`.
+  - Later rule files: `zones` (phase 4.5: expressway and residential zones), `coverage47` (who a sign addresses), `general47` (Law 36 general rules: places, lanes, priority vehicles, Circular 38 speeds), `signals47` (scene v6 lights, markings, R.411 arrows) and `v13_47` (the officer, signal precedence, right of way, vehicle classes).
+  - `v6_fields_47.yaml`: the scene v6 field switch (signals off, owner 2026-11-18). Its key is quoted, `"off":`, because a bare `off` is YAML 1.1 for false.
   - `query.pl`: the `q_*` entry points.
 - `tests/`: one file per rule family, using hand-written scene graphs and programs.
   - `tests/integration/` runs train questions from `tests/fixtures/train_*.json` (format in `tests/fixtures/README.md`).
@@ -103,7 +106,7 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
 ## Conventions
 
 - **The rule engine owns every legal conclusion.** Python resolves selectors, loops over lanes and reading variants, and packages results. It never decides what is permitted.
-- **Three-valued logic.** Truth values are `true`, `false` and `unknown`. A missing fact (time, weight, lane, exact vehicle subtype) makes the result `unknown`, never `false`. Verdicts: `yes`, `no`, `unknown`, `uncertain` (alternative readings disagree), or `value`.
+- **Three-valued logic.** Truth values are `true`, `false` and `unknown`. A missing fact (time, weight, lane, exact vehicle subtype) makes the result `unknown`, never `false`. Verdicts: `yes`, `no`, `unknown`, `uncertain` (alternative readings disagree), or `value`. Under reading policy A (`higher_confidence`, the frozen phase-4.6 and 4.7 policy) a disagreement is answered with each sign's highest-confidence reading, with the signs in `uncertain_signs` and `basis: ["reading_choice"]`; `uncertain` remains the verdict of the policy `all`.
 - **An unreadable sign makes closed-world answers unknown, but only if it could bear on the claim.** "Unreadable" means the code is UNKNOWN or not in the catalog; a sign on an `effect_unmodelled` row (effect not modelled yet, e.g. R.303) acts like an unreadable sign of its visible category.
   - **Affected verdicts:** a "yes" from `permitted`/`speed_ok`, or a "no" from `required`/`exists_violation`. The answer lists the sign in `uncertain_signs`.
   - **Relevance comes from the sign's visible category** (`Engine.visual_category`, `could_matter`):

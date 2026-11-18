@@ -1634,6 +1634,29 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Phase 4.7 closes: scene v5 + parser v14 + signals off, frozen (owner, 2026-11-18)
+
+- **Owner exception (rule set before the judged result, 2026-11-18):** a drop of at most one question's worth (1.15 points on 87 questions) keeps v14 as a recorded owner exception. **Reason:** judge and writer variation alone moved 1.5 points on unchanged answers (same program, same signs) in the scene-v6 dev run of `c9c55bd` (train_212, train_269, train_58).
+  - The judged drop is **0.6 points** (69.0% → 68.4%), all from train_250, so **v14 is kept**.
+- **Known regression for the next round: train_250.** v14 splits a two-part board question ("rẽ hướng nào ... qua Đường Tránh Vinh", "còn bao xa đến khu công nghiệp") into two `guide` parts; the direction to "Đường Tránh Vinh" is unknown on the board as read, so the question is no longer decided (v11, judged right, asked both parts about VSIP). Also still listed: own_65 (stop line).
+- **Freeze `phase47`** (`eval/freeze.py`, profile `phase47`; `eval/frozen_phase47.json`, written once; a second write is refused): scene v5 (`scene/v5@7a3291ea5dff`, tile `scene/v5-tile@d5269387761f`, crop `scene/v5-crop@cee1140f62d7`, scene fallback crop policy) with the guide call on, parser v14 (`parser/v14@c67e28a10b34`), writer v3 (`answer/v3@7d0f2b8ddf1f`), answer fallback v2, reading policy `higher_confidence`, `v6_fields_off: ["signals"]`, and the engine-code hash (60 files: `vqa/**/*.py`, `kb/**/*.pl`, `kb/**/*.yaml`). `answer_fallback` is left out, as in phase 4.5 and 4.6 (each runner sets it; the private run keeps the default, on). `freeze.py check --profile phase47` matches.
+- **Private runner** (`eval/e2e_private.py`): checks `frozen_phase47.json` by default and accepts profile `phase47` only (`PRIVATE_PROFILES`); an unchanged phase-4.5 or phase-4.6 record is refused by its profile before the sentinel, and any mismatch with the phase-4.7 record (parser, scene, guide, reading policy, field switch, engine hash, scene fallback) is refused. Tests in `tests/test_e2e_private.py` (the phase-4.5 default tests now name phase 4.7) and `tests/test_freeze.py`.
+- **Private estimate, re-based** (`e2e_private.py estimate`, no private file read; 146 questions, 104 images, 76 Natural QA): measured rates of this configuration, parser v14 $0.0046 per question, writer $0.00026 per decided answer, judge $0.00555 per judged answer (dev run `d6790322b0dc`), perception v5 + fallback + guide $0.0021 per image (candidate run `7caed6170de6`), fallback answer $0.008 (phase-4 rate); calibration x1.146 as before.
+
+| decided share | fallback on (the private run) | fallback off (rules only) |
+|---|---|---|
+| 0.839 (the judged phase-4.7 candidate on dev) | $1.76 ($1.40–2.28) | $1.46 ($1.17–1.90) |
+| 0.473 (the phase-4.5 final validation) | $2.23 ($1.78–2.90) | $1.27 ($1.02–1.65) |
+
+  - The private run always runs with the fallback on (the runner never sets `answer_fallback`); its report also gives the rules-only figures. The fallback-off line is the cost of a rules-only run, which the runner does not offer.
+- **Doc update (step 8, D5):** DESIGN.md, new section "Schema 1.3 and 1.4, and the phase-4.5 to 4.7 intents and rules" (1.3 guide boards; 1.4 the scene v6 fields, not in the frozen system; the phase-4.5 to 4.7 intents and rule files; the uncertain verdict under policy A; the phase-4.7 freeze and the owner exception), and the uncertain-readings line. CLAUDE.md: the schema line, the verdicts under policy A, the later rule files and the field switch, the freeze and the private runner. `SCHEMA_VERSION` stays "1.2".
+- **Spend:** $2.41 of $2.60 (round 3). The private run is the owner's decision (D6).
+
+```zsh
+.venv/bin/python eval/e2e_private.py estimate
+.venv/bin/python eval/e2e_private.py run --confirm-frozen --max-spend <cap>
+```
+
 ### Candidate judged: scene v5 + parser v14 + signals off (owner run, 2026-11-18): 0.5 point under the bar
 
 - **Run:** `eval/e2e_dev.py rejudge` → `eval/runs/e2e/dev_rejudge_f1f0ba0d2f8c.jsonl`, **$0.0347** (estimate $0.049, cap $0.15). 79 of 87 rows kept from step 6 (identical engine answers, judged grades); 6 changed decided answers written and judged; 2 now undecided.

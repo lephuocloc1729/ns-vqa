@@ -293,7 +293,7 @@ permitted(Action, Vehicle, Scene) :-
 - Scope: when a restriction starts and ends ("end of restriction" signs, the next intersection).
 - Vehicle-specific limits: the same speed sign can carry different values per vehicle class on a plate.
 - Three-valued answers: `yes`, `no` or `unknown`. If the time of day is unknown and a plate has a time window, the answer is "depends on time" plus the window, never a guess.
-- Uncertain readings: run the query on each alternative reading. If every reading gives the same answer, return it; if they differ, return `uncertain` and name the sign that needs checking.
+- Uncertain readings: run the query on each alternative reading. If every reading gives the same answer, return it; if they differ, return `uncertain` and name the sign that needs checking. Under reading policy A (phase 4.6, the frozen policy), a disagreement is answered with each sign's highest-confidence reading instead, with the signs in `uncertain_signs` and `basis: ["reading_choice"]`.
 
 **Authoring from `law_db`:** the sign catalog comes from the QCVN 41:2024 appendix articles (for example B.1 describes P.101 "Đường cấm"). Behaviour rules (overtaking, lanes, stopping and parking, priority) come from QCVN 41 and Law 36/2024/QH15. Claude (Opus 5.5) drafts rows and clauses from the article text, and a person checks each one. Every rule stores its `source` as `law_id` + `article_id`, the same format as the dataset's `relevant_articles`, so citations can be scored directly on train. The most-cited train articles are a good build order: QCVN 41 articles 22, 32, 47, B.27, 28, 41 and 36.
 
@@ -375,6 +375,38 @@ The proof shows the plate and is marked "not in QCVN 41", and the answer carries
 - `missing_slots` and `out_of_scope` fields; if the vehicle is missing, answer for each relevant class.
 - Model: Haiku 5.5 or Sonnet 5.5, with the DSL spec and reviewed train examples in a cached system prompt.
 - Gold intents come from the annotation step in section 8. Program accuracy is measured on public and private.
+
+## Schema 1.3 and 1.4, and the phase-4.5 to 4.7 intents and rules (doc update D5)
+
+`SCHEMA_VERSION` stays "1.2" in `vqa/schemas.py`: every addition below is optional and left out of a scene dump when empty, so stored scenes and caches still read as 1.2. "1.3" is `GUIDE_SCHEMA_VERSION`; "1.4" is this document's name for the scene v6 fields and has no constant.
+
+**Scene graph**
+- **1.3 (phase 4.5, B6):** `guide_boards`, the text of I / IE boards read by the guide call (`vqa/perception/guide.py`, `scene/v5-guide`): entries with destination, direction, distance and road type, and `BoardSpeed` discs. Made only when the scene lists such a board or an unread non-red board; cached as a region record over the whole image. Board speed discs become P.127 / R.306 signs `g1, g2, ...`. The guide call reads boards only; it draws no legal conclusion.
+- **1.4 (phase 4.7, scene v6):** `signals` (`TrafficSignal`: colour, arrow, flashing, countdown, vehicle or pedestrian light), `road.markings` (`RoadMarking`: kind center / lane_line / edge / hatched / stop_line, pattern, the lanes it lies `between`), and R.411 lane `directions` on `LaneSpec`. Their rules: `kb/rules/signals47.pl` (QCVN 41 art. 6 lights, G.1 markings, D.13 lane arrows).
+  - **Not in the frozen system.** Scene v6 failed the dev guardrail (owner, 2026-11-18), so the phase-4.7 freeze reads scene v5, which has none of these fields. The field switch `kb/v6_fields_47.yaml` turns a field's rules off (they then give unknown); signals are off (set-T precision 66.7% on 3 predictions).
+
+**DSL, phase 4.5 and 4.6**
+- `meaning` with `aspect`: name, group ("biển nhóm nào"), conduct (what the driver must do), scope (where it takes effect / ends), placement, article.
+- `present` (is a sign of this code / meaning / category in the photo), the selector's `category`, `road_divided`, negative lanes (counted from the right, numbered from the scene's lane count), `speed_limit` over several `vehicles` and `kind: range`, `day_parity`.
+- `guide` (ask direction / distance / destinations / route) and `guide_claim` (distance, direction, listed, road type, what lies ahead) over the guide boards.
+- `speed_limit_is`, `multi` (two or three asks; decided only when every part is), `explain` ("vì sao": the claim with its proof reasons).
+- Zones (`kb/rules/zones.pl`): expressway and residential zones from IE.452 / IE.453 and R.420 / R.421 (KB-4 interpretation), conduct places, catalog effects for meaning rows in `kb/sign_catalog_effects.yaml`.
+
+**DSL, phase 4.7 (parser v12 to v14)**
+- Counting: `count`, `count_is` (with `op` eq / ge / gt / le / lt from v13).
+- Who a sign addresses: `applies_to`, `sign_applies` (`kb/rules/coverage47.pl`). From v14, "does this ban cover X" stays `forbidden`; `sign_applies` is for "áp dụng cho / dành cho".
+- General rules of Law 36 (`kb/rules/general47.pl`) through `rule_permitted`: places (art. 14.6 overtaking, 15.4 U-turns, 16.2 reversing, 18.4 stopping and parking, 25 the emergency lane, 26.2 tunnels, with `stop_reason`), lanes (13.3), priority vehicles (27.4), Circular 38 art. 7 speeds by road type (interpretation), lights (`at_signal`, `past_stop_line`) and markings (`maneuver`). `duties` by topic (speed and distance, lane change, overtaking, turning, stopping and parking, priority vehicles, expressway, joining a road).
+- Scene v6 forms: `signal_meaning`, `marking_meaning` (with no kind or pattern, answered only when one marking is read), `marking_is`.
+- Parser v13 (`kb/rules/v13_47.pl`): `officer_signal`, `officer_permits` (Law 36 art. 11.3; stated in the question); `precedence`, `precedence_is` (11.2, 11.12; QCVN 41 art. 4), and in `rule_permitted` a green arrow for the very action overrides a sign's ban; `right_of_way`, `must_yield` (art. 22; QCVN 41 D.1, C.7, C.8, E.1); `vehicle_class`, `vehicle_class_is` (art. 34); relative selectors (`relative`, `anchor`: above / below by the post order, otherwise unknown); size checks with `axle_t` (P.116, B.16) beside height, width and length.
+- Obligations asked yes/no become the permission claim with the negation (`forbidden` for a sign's ban, else `verify(..., expect=false)`). Yielding to pedestrians or anyone the photo can't show is out of scope.
+
+**Readings and the uncertain verdict under policy A (phase 4.6, D1)**
+- The engine runs the question on every combination of alternative sign readings. Under the frozen reading policy `higher_confidence` (policy A), when the readings disagree it answers with each sign's highest-confidence reading (a tie keeps the first); the answer lists those signs in `uncertain_signs`, says which reading it used in `note`, and carries `basis: ["reading_choice"]`. Under the policy `all` (the phase-4.5 behaviour) the verdict is `uncertain`.
+- So in the frozen system `uncertain` no longer reaches the user from a reading disagreement; it remains a verdict of the policy `all`.
+
+**Frozen configuration (phase 4.7)**
+- `eval/frozen_phase47.json`, profile `phase47`: scene v5 with its tile and crop prompts and the guide call, parser v14, writer v3, answer fallback v2, reading policy `higher_confidence`, the field switch (signals off), and the engine-code hash (`vqa/**/*.py`, `kb/**/*.pl`, `kb/**/*.yaml`). `eval/e2e_private.py` accepts this record only.
+- Kept by an owner exception: the judged dev figure is 68.4% against the 69.0% bar, a drop of 0.6 points (train_250), under the rule set before the judged result (a drop of at most one question's worth, 1.15 points, is kept).
 
 ## Answering and the end-to-end pipeline (built in phase 4)
 

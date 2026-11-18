@@ -1,0 +1,109 @@
+{
+  "what": "phase 4.7: the frozen configuration for the private test (scene v5, parser v14, signals off)",
+  "profile": "phase47",
+  "pipeline_config": {
+    "perception_model": "claude-haiku-5-5",
+    "scene_version": "v5",
+    "scene_fallback": true,
+    "parser_model": "claude-sonnet-5-5",
+    "parser_effort": "medium",
+    "parser_version": "v14",
+    "context_year": 2025,
+    "writer_version": "v3",
+    "answer_fallback_version": "v2",
+    "guide_reading": true,
+    "reading_policy": "higher_confidence"
+  },
+  "run_specific_fields": [
+    "cache_dir",
+    "cache_only",
+    "max_spend"
+  ],
+  "scene_fallback": {
+    "policy": "crop_always",
+    "chosen_policy": "crop_always",
+    "drop_own_alt_on_agree": true,
+    "tiles": true,
+    "crops": true,
+    "describe": {
+      "tile": "scene/v5-tile@d5269387761f",
+      "crop": "scene/v5-crop@cee1140f62d7",
+      "policy": "crop_always",
+      "drop_own_alt_on_agree": true
+    }
+  },
+  "prompts": {
+    "scene": {
+      "id": "scene/v5@7a3291ea5dff",
+      "sha256": "7a3291ea5dff2e1c3704fdbe035f33741b3f58f76037874cd18f79ecea21792a",
+      "model": "claude-haiku-5-5",
+      "effort": "medium",
+      "max_tokens": 8000
+    },
+    "scene_tile": {
+      "id": "scene/v5-tile@d5269387761f",
+      "sha256": "d5269387761fa32478358622966022d4ac75fe27c9b9e3be813bed68a009d598",
+      "model": "claude-haiku-5-5",
+      "effort": "medium",
+      "max_tokens": 8000
+    },
+    "scene_crop": {
+      "id": "scene/v5-crop@cee1140f62d7",
+      "sha256": "cee1140f62d7533306c43fd906ed4955b1d3bae790ce06a52fd72d0ed4a91dec",
+      "model": "claude-haiku-5-5",
+      "effort": "medium",
+      "max_tokens": 3000
+    },
+    "parser": {
+      "id": "parser/v14@c67e28a10b34",
+      "sha256": "c67e28a10b34470364c51505244b8ece61f065ddcd5e235e12a00918b38c27f0",
+      "model": "claude-sonnet-5-5",
+      "effort": "medium"
+    },
+    "answer": {
+      "id": "answer/v3@7d0f2b8ddf1f",
+      "sha256": "7d0f2b8ddf1fad80f06b7e56346ebeced17e60616409089c2557b6030a1a810b",
+      "model": "claude-haiku-5-5",
+      "effort": "low",
+      "max_tokens": 1200
+    },
+    "answer_fallback": {
+      "id": "answer_fallback/v2@8678a19681a9",
+      "sha256": "8678a19681a93267548117372239d113225880ff45f937dc694fce358a9828f5",
+      "model": "claude-sonnet-5-5",
+      "effort": "medium",
+      "max_tokens": 1500,
+      "output_schema": "schema.json"
+    },
+    "judge": {
+      "id": "judge/v1@7c500c35df27",
+      "sha256": "7c500c35df277ba23e7f0cf39ab66e6bca81c84f13a4ea6316f52d2ff9426c57",
+      "model": "claude-opus-5-5",
+      "effort": "medium",
+      "max_tokens": 1500
+    },
+    "guide": {
+      "id": "scene/v5-guide@b217c43f3b57",
+      "sha256": "b217c43f3b57e8b7333c91b147a8b60c0302f8c8681432f1981fcf57c24eb31c",
+      "model": "claude-haiku-5-5",
+      "effort": "medium",
+      "max_tokens": 6000,
+      "on": true
+    }
+  },
+  "excluded_switches": [
+    "answer_fallback"
+  ],
+  "engine_code": {
+    "files": 60,
+    "sha256": "37195e685e029756b44b60e7e6f3821388a2344a9dce1fc97072d0eb0102ba98",
+    "covers": [
+      "vqa/**/*.py",
+      "kb/**/*.pl",
+      "kb/**/*.yaml"
+    ]
+  },
+  "v6_fields_off": [
+    "signals"
+  ]
+}
