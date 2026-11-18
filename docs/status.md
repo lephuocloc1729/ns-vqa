@@ -1634,6 +1634,14 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Parser v14 gate (owner run, 2026-11-18): passes the fixed rule
+
+- **Run:** `pred_claude-sonnet-5-5_medium_v14_20261118-090623.jsonl`, $0.2240 of the $0.45 cap (47 questions). Program accuracy 78.7% (37/47); non-duplicate 76.5% (n=17, 95% CI 52.7–90.4%).
+- **Rule:** `regressed_types_without_design: []`, so **v14 passes**. public_natural_0048 is right again (all_of 3/4, as v6's 0.75).
+- **Lost rows:** the same 7 design rows as v12 (0021, 0055, 0063, 0065, 0085, 0086, 0087); the other wrong rows (0005, 0025, 0084) were wrong under v6. Without design rows: forbidden 1.0, meaning 0.9 (v6 0.9), out_of_scope 1.0.
+- **Spend:** $0.74 + $0.224 = **$0.96 of $2.30; $1.34 left.**
+- **Next, in order:** new-types rerun with v14 (estimate $0.40, cap $0.55); scene v6 set-T check ($0.13, cap $0.20); judged dev run with v6 + v14 ($0.84, $0.67–1.10; cap = $1.34 minus the two runs' actual spend). At the estimates the three come to $1.37, $0.03 over what is left; at the estimates step 4 gets about $0.81.
+
 ### Parser v14 built (owner, 2026-11-18: "Build v14"; no API calls)
 
 - **v14 = v13 plus one spec line** (`prompts/parser/v14/spec.md`, last bullet of "New and extended forms"): a ban asked about a vehicle stays `forbidden`, one claim per vehicle (`all_of` for several); `sign_applies` only for "áp dụng cho" / "dành cho" wording. Few-shots are v13's (v12's). P.116 is listed (parser v13 and later).
