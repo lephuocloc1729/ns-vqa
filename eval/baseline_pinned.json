@@ -1,0 +1,8 @@
+{
+  "what": "baseline B1 prompt, fixed on public_dev before any private result (phase 5, item 2)",
+  "version": "v1",
+  "prompt_id": "baseline/v1@e0914f00eb6e",
+  "prompt_sha256": "e0914f00eb6eb6f85d513d22d3db9c2f6fa4b0793db025a1fcb750565ea47bfb",
+  "git_commit": "44759ddd3e038a571e62e1201b1d1473a65a1ab7",
+  "pinned": "2026-11-18T12:40:18+00:00"
+}
