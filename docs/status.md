@@ -1634,6 +1634,28 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Phase 4.8 PAID 4: v16 re-parse of dev2 and dev (owner run, 2026-11-18): kept
+
+- **Runs:** dev2 `eval/runs/e2e/dev2_reparse_v16_c95f3934da5c.jsonl` (from `dev2_rejudge_a240669b19bf`), **$0.463** (cap $0.95); dev `dev_reparse_v16_248e38bd215e.jsonl` (from `dev_rejudge_f1f0ba0d2f8c`), **$0.363** (cap $0.70). Scene v5 (stored scenes), parser v16, policy A, switches several_signs on and confusable_pairs off; unchanged answers keep their grades. Phase 4.8: **$2.69 of $5.00.**
+
+| | decided | accuracy on decided (95% CI) | overall (non-decided wrong) |
+|---|---|---|---|
+| dev2 baseline (frozen phase 4.7) | 74 | 58.8% | 43.5% |
+| dev2 after batch 1 | 79 | 62.7% | 49.5% |
+| **dev2, phase 4.8 (v16 + batch 1 + batch 2)** | **79** | **64.6%** (53.6–74.2) | **51.0%** |
+| dev guardrail (bars: overall ≥ 68.4%, accuracy ≥ 70%) | 74 of 87 | **81.1%** (70.7–88.4) | **69.0%** |
+
+- **Keep rules:** v16 passed its gate and the dev guardrail holds (69.0% ≥ 68.4%; 81.1% ≥ 70%): **v16 is kept.** Perception stays scene v5 (step 2). The confusable table stays off (it failed its rule on the free estimate). G1 stays on (75% on its answers).
+- **dev2 changes against batch 1** (net +1.5):
+  - limit (B3): 151 +1, 252 +1; 196 kept 1.0, 204 stays 0;
+  - wire (A2): 282 +1;
+  - scope (B4): 346 +0.5;
+  - others: 298 +0.5;
+  - newly decided and wrong: 169 0 (B6 picks R.403b; the `applies_to` answer lists who it bans, the gold the vehicles it is for), 207 0, 400 0;
+  - **lost to out of scope:** 433 (was 1.0), 491 (was 1.0), 213 (was 0.5);
+  - lost as unreadable: 9 and 350 (were 0), 11 and 504 out of scope (were 0).
+- **dev changes against phase 4.7** (net +0.5): **train_250 is decided again (+1.0, the known v14 regression)**; train_107 1.0 → 0.5; the other 8 changed answers keep their grades.
+
 ### Phase 4.8 PAID 3b: parser v16 gate (owner run, 2026-11-18): passes
 
 - **Run:** `logs/parser_eval/pred_claude-sonnet-5-5_medium_v16_20261118-142601.jsonl`, **$0.222** (cap $0.45). Phase 4.8: **$1.86 of $5.00.**
