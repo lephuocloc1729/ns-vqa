@@ -12,6 +12,7 @@ import pytest
 import eval.e2e_holdout as eh
 import eval.e2e_private as ep
 import eval.freeze as fz
+from tests.freeze_at import phase47_record_file
 from tests.test_e2e_eval import CLEAN, QS, SCENE_REPLY, _e2e_sdk, fake_set  # noqa: F401
 
 SECRET_QS = [dict(q, id=f"private_secret_{i}", answer=f"{q['answer']} secret-gold-{i}")
@@ -26,6 +27,8 @@ def _run(fake_set, **kw):
     args = dict(confirm_frozen=True, sdk=sdk, questions=SECRET_QS, out_dir=fake_set / "agg",
                 image_path=lambda i: fake_set / f"{i}.jpg", sentinel=fake_set / "private_ran.json",
                 replay_root=fake_set / "private_run", git=CLEAN, ignored=lambda p: True, expected=TWO)
+    # phase 4.8 (owner, option 1): the phase-4.7 record, hash checked at its freeze commit (tests/freeze_at.py)
+    args["frozen"] = phase47_record_file(fake_set / "rec47")
     args.update(kw)
     return ep.run_private(1.0, **args), sdk
 

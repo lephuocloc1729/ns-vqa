@@ -108,8 +108,9 @@ def test_a_dev2_run_uses_the_phase47_profile_with_the_fallback_off(fake_set):
         systems.setdefault(sdk.role(kw), "".join(b["text"] for b in kw["system"]))
         return create(**kw)
     sdk.create = spy
+    from tests.freeze_at import phase47_record_file
     out = e2.run("t", 1.0, sdk=sdk, questions=QS, out_dir=fake_set / "dev2", dev2_file=_split(fake_set),
-                 image_path=lambda i: fake_set / f"{i}.jpg", git=CLEAN)
+                 image_path=lambda i: fake_set / f"{i}.jpg", git=CLEAN, frozen=phase47_record_file(fake_set / "rec47"))
     head, rows = e2.ed.ee.load(out)
     assert out.name.startswith("dev2_t_") and head["kind"] == "dev2" and head["profile"] == "phase47"
     assert head["frozen_record"] == "frozen_phase47.json" and head["answer_fallback"] is False

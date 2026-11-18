@@ -189,8 +189,10 @@ def test_a_freeze_record_is_written_once(tmp_path):
 
 # ---------------------------------------------------------------- phase 4.7 record (owner, 2026-11-18)
 
-def test_the_phase47_record_matches_and_names_its_parts():
-    assert fz.check(fz.FROZEN_PHASE47) == []
+def test_the_phase47_record_matches_and_names_its_parts(tmp_path):
+    # phase 4.8 (owner, option 1): engine hash checked at the freeze commit 4ad9137 (tests/freeze_at.py)
+    from tests.freeze_at import phase47_record_file
+    assert fz.check(phase47_record_file(tmp_path)) == []
     rec = fz.load(fz.FROZEN_PHASE47)
     pc = rec["pipeline_config"]
     assert rec["profile"] == "phase47" and "answer_fallback" not in pc
