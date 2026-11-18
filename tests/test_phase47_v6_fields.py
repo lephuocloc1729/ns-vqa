@@ -66,7 +66,7 @@ def test_the_sheet_lists_every_set_t_image_reviewed():
     rows = yaml.safe_load(vf.SHEET.read_text(encoding="utf-8"))["images"]
     assert [r["image_id"] for r in rows] == gs.set_t_images()
     assert all(r["checked"] for r in rows)
-    assert all(r["reviewed_by"] == "assistant_visual" for r in rows)
+    assert all(r["reviewed_by"] == "owner" for r in rows)
     assert all(set(r) >= {"signals", "markings", "r411"} for r in rows)
 
 
