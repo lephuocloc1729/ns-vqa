@@ -1634,6 +1634,52 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Handoff (2026-11-18): phase 4.8, dev2
+
+#### Phase 4.7: closed and frozen (`4ad9137`)
+
+- **Frozen system:** `eval/frozen_phase47.json`, profile `phase47`: scene v5 (with tile and crop prompts and the guide call), parser v14, writer v3, answer fallback v2, reading policy `higher_confidence`, scene v6 field switch with **signals off** (`kb/v6_fields_47.yaml`), and the engine-code hash.
+- **Owner exception:** the judged dev figure dropped 0.6 points (69.0% → 68.4%), all from train_250, under the rule set before the judged result (a drop of at most one question's worth, 1.15 points, keeps v14). Reason: judge and writer variation alone moved 1.5 points on unchanged answers in `c9c55bd`'s run.
+- **Known regressions:** train_250 (v14 splits a two-part board question; the "Đường Tránh Vinh" part is unknown); own_65 (stop-line question parsed as a different claim).
+
+#### Round 3's figures (judged dev, 87 questions, scene v5 + parser v14 + signals off)
+
+- **83.9% decided** (73), **81.5% accuracy on decided**, **68.4% overall** (non-decided counted wrong).
+- **Scene v6 rejected on dev:** 63.8% overall with v6 against 69.0%; its losses traced to sign readings (and one unread sign with no recorded look), and its set-T gain was within Haiku's run-to-run spread.
+- **The 14 undecided, by cause:** guide boards 4, out of scope 5, selectors 2, choice options 2, lane count 1.
+
+#### The owner's next step: dev2 (phase 4.8)
+
+- **dev2:** 100 questions from the train working set, stratified and seeded, selected by id only. Exclude every parser few-shot and every new-types gold row (`gold_v12_new.yaml`). Mark it **biased** (train is the rules' source); it is used to find and fix coverage gaps, not to report scores.
+- Keep the existing rules: validation and holdout stay aggregate only; private answers are never opened.
+
+#### Must not be forgotten
+
+- `eval/e2e_private.py` checks `frozen_phase47.json` by default and accepts profile `phase47` only (`PRIVATE_PROFILES`). **Any later freeze must be added as a new profile and record, and the private runner pointed at it** (default `frozen` argument, `PRIVATE_PROFILES`, and its tests).
+- The engine-code hash covers `vqa/**/*.py`, `kb/**/*.pl` and `kb/**/*.yaml`: any engine or KB change after a freeze makes its check fail, by design.
+
+#### Spend
+
+- Round 3: **$2.41 of $2.60.** Phase 4.8: **$2.00 new.** The private run has its own budget (estimate $1.76, $1.40–2.28, at the dev decided share; $2.23, $1.78–2.90, at the validation share).
+
+#### Key files and commands
+
+- **Freeze:** `eval/freeze.py` profiles `phase4`, `phase45`, `phase46`, `phase47` (records `eval/frozen_phase4.json` ... `frozen_phase47.json`, each written once).
+
+```zsh
+.venv/bin/python eval/freeze.py check --profile phase47
+.venv/bin/python eval/phase47_replay.py check            # free replay on dev + D3 cached scenes: 88/88 identical
+.venv/bin/python eval/e2e_dev.py rejudge --programs <dev_run> --scenes <stored-scene runs> --dry-run   # free plan
+.venv/bin/python eval/e2e_dev.py rejudge --programs <dev_run> --scenes <stored-scene runs> --max-spend <cap>
+.venv/bin/python eval/e2e_dev.py summary <file>
+.venv/bin/python eval/parser_newtypes.py score <newtypes_run>
+.venv/bin/python eval/e2e_private.py estimate
+```
+
+- **Runs:** judged dev, scene v6 `eval/runs/e2e/dev_phase47_d6790322b0dc.jsonl`; the phase-4.7 candidate, judged, `eval/runs/e2e/dev_rejudge_f1f0ba0d2f8c.jsonl`; step 6 (last kept before) `dev_reparse_v11_f52e160181ca.partial.jsonl`.
+- **Rules and data:** `kb/rules/general47.pl`, `signals47.pl`, `coverage47.pl`, `v13_47.pl`; `kb/general_duties_47.yaml`, `kb/signals_markings_47.yaml`, `kb/v6_fields_47.yaml`; review list `docs/plans/phase-4.7-review.md`.
+- **Parser:** `prompts/parser/v14` (v13 plus one line; few-shots v12's).
+
 ### Phase 4.7 closes: scene v5 + parser v14 + signals off, frozen (owner, 2026-11-18)
 
 - **Owner exception (rule set before the judged result, 2026-11-18):** a drop of at most one question's worth (1.15 points on 87 questions) keeps v14 as a recorded owner exception. **Reason:** judge and writer variation alone moved 1.5 points on unchanged answers (same program, same signs) in the scene-v6 dev run of `c9c55bd` (train_212, train_269, train_58).
