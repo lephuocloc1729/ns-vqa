@@ -311,6 +311,24 @@ signs:
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.15"}
     visual_reviewed_by: human
 
+  # parser v13 (owner, 2026-11-18). B.16: "Để báo đường cấm các xe (cơ giới và thô sơ) kể cả các xe
+  # được ưu tiên theo quy định, có trọng tải toàn bộ xe (cả xe và hàng) phân bổ trên một trục bất kỳ của
+  # xe (tải trọng trục xe) vượt quá trị số ghi trên biển đi qua"
+  - code: P.116
+    key: axle_load_limit
+    tags: [weight_limit]
+    name_vi: Hạn chế tải trọng trên trục xe
+    name_en: Axle load limit
+    category: prohibitory
+    visual: {shape: circle, border: red, background: white}
+    effect:
+      prohibits: [{actions: [enter], vehicles: [{class: vehicle}]}]
+      priority_exempt: false   # "kể cả các xe được ưu tiên theo quy định"
+      value: {attr: axle_t, op: gt, unit: t, applies_to: [vehicle]}
+    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.16"}
+    reviewed_by: assistant
+    listed_from: parser_v13
+
   - code: P.117
     key: height_limit
     name_vi: Hạn chế chiều cao

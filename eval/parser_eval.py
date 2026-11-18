@@ -443,6 +443,11 @@ DESIGN_FEATURES = V7_FEATURES + V10_FEATURES
 V12_FEATURES = ('"intent": "count"', '"intent": "count_is"', '"intent": "applies_to"', '"intent": "sign_applies"',
                 '"intent": "rule_permitted"', '"intent": "duties"', '"intent": "signal_meaning"',
                 '"intent": "marking_meaning"', '"intent": "marking_is"')
+# Parser v13 (owner, 2026-11-18): the same rule for v13's new forms.
+V13_FEATURES = ('"intent": "officer_signal"', '"intent": "officer_permits"', '"intent": "precedence"',
+                '"intent": "precedence_is"', '"intent": "right_of_way"', '"intent": "must_yield"',
+                '"intent": "vehicle_class"', '"intent": "vehicle_class_is"', '"relative":', '"axle_t":',
+                '"topic": "joining_road"')
 
 
 def gold_type(g: dict) -> str:
@@ -486,7 +491,7 @@ def compare_versions(old: list[Path], new: list[Path], gold_path: Path | None = 
         if any(c for c, _ in orow.get(qid, [])) and not all(c for c, _ in runs):
             progs = [json.dumps(q, ensure_ascii=False) for c, q in runs if not c]
             design = any(f in p for p in progs for f in DESIGN_FEATURES) or (
-                qid in gold_oos and any(f in p for p in progs for f in V12_FEATURES))
+                qid in gold_oos and any(f in p for p in progs for f in V12_FEATURES + V13_FEATURES))
             lost.append({"id": qid, "new_wrong_runs": len(progs),
                          "v7_design": design, "new_programs": progs[:1]})
     # The same drop with design-change rows given back: a new miss whose program uses a v7

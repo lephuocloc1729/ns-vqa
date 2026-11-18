@@ -59,6 +59,20 @@ The three YAML files carry file-level `reviewed_by: assistant`. The Prolog files
 
 **Missing-signal issue (fixed, owner 2026-11-17, before the v12 gate):** QCVN art. 6 makes passage depend on the signal, but a light question could return yes from the signs alone when perception read no light. `rule_permitted` now has `at_signal`. With it set and no vehicle light read, the answer is unknown, citing art. 6 with the note "the question is about a traffic light, and none was read in the photo". With a light read, the light decides as before. Without the flag, behaviour is unchanged. Parser v12's spec says to set `at_signal: true` for every light question. Hand-program replay: dev 341 is now unknown, not yes, so decided stays 88 of 107, all 88 identical.
 
+## Parser v13 additions for review (owner, 2026-11-18; reviewed_by: assistant)
+
+Rules in `kb/rules/v13_47.pl`, each quoting its law_db text. One new interpretation, one catalog row, and three readings to check.
+
+| Item | Source | What to check |
+|---|---|---|
+| **r_officer_right_turn_only (interpretation)** | Law 36 art. 11.3 c) "ở phía trước người điều khiển giao thông được rẽ phải" | Read as the only move allowed to the driver in front (straight, left and U-turn give no). |
+| Officer, "được đi" (11.3 b) | Law 36 art. 11.3 b) | Going straight is yes; a turn is unknown, since the text names no direction (11.3 c says "đi tất cả các hướng" when it means every direction). |
+| Who yields: the photo's signs are the driver's approach | QCVN 41 D.1 c), C.7 b), C.8 b), E.1 b); Law 36 art. 22 | R.122 / W.208 mean the driver yields; I.401 / W.207 mean the others do; a read light makes it unknown (E.1 b). With no deciding sign, 22.2 (from the right) or 22.3 (roundabout, from the left), although C.8 a) lets towns leave W.208 out. |
+| Light over sign | Law 36 art. 11.2; QCVN 41 art. 4.1 | In `rule_permitted` with `at_signal`, only a green arrow for the very action overrides a sign's no; a round green never does. **This changes one existing answer form:** a green arrow with a matching ban was no before, and is yes now. |
+| P.116 (new catalog row, `listed_from: parser_v13`) | QCVN 41 B.16 | `axle_t` above the value is banned, every vehicle, priority vehicles included. Listed in parser prompts v13 and later only, so no earlier prompt id changes. P.120 (road train length) is still not in the catalog. |
+| Moped / motorcycle (34.1 g, e) | Law 36 art. 34 | A motorbike with design speed ≤ 50 km/h and ≤ 50 cm3 or ≤ 4 kW is a moped; any fact missing gives unknown. |
+| Joining a road (duties `joining_road`) | Law 36 art. 22, 22.1, 25.1 a) | Three items restating the quoted clauses (`kb/general_duties_47.yaml`). |
+
 ## Not built
 
 - **Painted road arrows (G.4 9.3): the next perception field** (owner, 2026-11-18). Three owner-written questions need them (lines 58, 62, 68 of owner_questions.txt); scene v6 reads no arrows on the road surface.

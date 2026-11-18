@@ -11,6 +11,13 @@ questions. Only train and owner-written rows decide which types stay on; the oth
     .venv/bin/python eval/parser_newtypes.py run --max-spend 0.60          # paid: the owner runs it
     .venv/bin/python eval/parser_newtypes.py run --sources train owner_written --max-spend <estimate's cap>
     .venv/bin/python eval/parser_newtypes.py score logs/parser_eval/newtypes_v12_*.jsonl
+
+Parser v13 (owner, 2026-11-18): `--version v13`, and the group owner2 (the "owner2 |" lines of
+owner_questions.txt at d427da1, the new types 4-11). owner2 decides a new type at >= 80% where it has
+>= 3 questions; the rest are reported.
+
+    .venv/bin/python eval/parser_newtypes.py estimate --version v13 --sources train owner_written owner2
+    .venv/bin/python eval/parser_newtypes.py run --version v13 --sources train owner_written owner2 --max-spend <cap>
 """
 from __future__ import annotations
 
@@ -37,6 +44,9 @@ PASS_RATE, PASS_MIN_N = 0.80, 5
 # measured v11 rates (gate run 2026-11-17): the first call writes the prompt cache, then each call
 # reads it; v12's prompt is about 10% longer
 FIRST_CALL_USD, PER_CALL_USD, PROMPT_GROWTH = 0.052, 0.0029, 1.10
+# parser v13: measured on the v12 run of 2026-11-18 (first call $0.0578, then $0.00419 each), times
+# v13's prompt growth over v12 (48,590 / 44,907 characters)
+V13_FIRST_CALL_USD, V13_PER_CALL_USD, V13_GROWTH = 0.0578, 0.00419, 1.082
 
 
 def load(path: Path = GOLD) -> list[dict]:
@@ -70,9 +80,11 @@ def questions(rows: list[dict], train: Path = TRAIN) -> dict[str, str]:
     return out
 
 
-def estimate(rows: list[dict]) -> dict:
+def estimate(rows: list[dict], version: str = VERSION) -> dict:
     n = len(rows)
     exp = (FIRST_CALL_USD + PER_CALL_USD * (n - 1)) * PROMPT_GROWTH
+    if version == "v13":
+        exp = (V13_FIRST_CALL_USD + V13_PER_CALL_USD * (n - 1)) * V13_GROWTH
     top = exp * 1.3
     # the spend guard keeps one call's worst case (about $0.09) free, so the cap sits that far above
     cap = round(-(-(top + 0.09) // 0.05) * 0.05, 2)
@@ -85,7 +97,7 @@ def select(rows: list[dict], sources: list[str] | None) -> list[dict]:
 
 
 def run(max_spend: float, sdk=None, engine=None, out_dir: Path = OUT_DIR, gold: Path = GOLD,
-        train: Path = TRAIN, sources: list[str] | None = None) -> Path:
+        train: Path = TRAIN, sources: list[str] | None = None, version: str = VERSION) -> Path:
     from vqa.llm.client import LLMClient
     from vqa.llm.spend import SpendGuard, SpendLimitExceeded
     from vqa.parsing.claude_parser import ClaudeParser
@@ -98,10 +110,10 @@ def run(max_spend: float, sdk=None, engine=None, out_dir: Path = OUT_DIR, gold: 
         from vqa.reasoning.engine import Engine
         engine = Engine()
     llm = LLMClient(model=MODEL, guard=SpendGuard(max_spend), sdk=sdk)
-    parser = ClaudeParser(llm=llm, effort=EFFORT, prompt_version=VERSION, context_year=CONTEXT_YEAR,
+    parser = ClaudeParser(llm=llm, effort=EFFORT, prompt_version=version, context_year=CONTEXT_YEAR,
                           engine=engine, max_tokens=MAX_TOKENS)
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / f"newtypes_{VERSION}_{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
+    path = out_dir / f"newtypes_{version}_{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
     with open(path, "w", encoding="utf-8") as f:
         for n, r in enumerate(rows, 1):
             try:
@@ -114,7 +126,7 @@ def run(max_spend: float, sdk=None, engine=None, out_dir: Path = OUT_DIR, gold: 
                 return partial
             f.write(json.dumps({"id": r["id"], "status": p.status,
                                 "query": p.query.model_dump(mode="json") if p.query else None,
-                                "errors": p.errors, "cost_usd": round(p.cost_usd, 6), "prompt_version": VERSION},
+                                "errors": p.errors, "cost_usd": round(p.cost_usd, 6), "prompt_version": version},
                                ensure_ascii=False) + "\n")
             print(f"[{n}/{len(rows)}] {r['id']}: {p.status}  spent ${llm.guard.spent:.4f}")
     print(f"predictions -> {path}  (spent ${llm.guard.spent:.4f})")
@@ -135,7 +147,8 @@ def _subgroup(r: dict) -> str:
 # Per group (owner, 2026-11-17): the minimum questions per type for the 80% rule, and whether the
 # group decides which types stay on (assistant-written rows are a smoke test only).
 GROUPS = {"train": (5, True), "owner_written": (3, True), "ai_drafted_owner_reviewed": (3, False),
-          "assistant_written": (5, False)}
+          "assistant_written": (5, False),
+          "owner2": (3, True)}          # parser v13 (owner, 2026-11-18): the new types 4-11
 
 
 def _rate_rule(c: int, n: int, min_n: int) -> str:
@@ -191,7 +204,9 @@ def main() -> None:
     sp = ap.add_subparsers(dest="cmd", required=True)
     e = sp.add_parser("estimate")
     e.add_argument("--sources", nargs="*", choices=list(GROUPS))
+    e.add_argument("--version", default=VERSION, choices=["v12", "v13"])
     r = sp.add_parser("run")
+    r.add_argument("--version", default=VERSION, choices=["v12", "v13"])
     r.add_argument("--max-spend", type=float, required=True)
     r.add_argument("--sources", nargs="*", choices=list(GROUPS),
                    help="only these groups (default: all); train owner_written = the deciding groups")
@@ -200,12 +215,12 @@ def main() -> None:
     a = ap.parse_args()
     rows = load()
     if a.cmd == "estimate":
-        print(json.dumps(estimate(select(rows, a.sources)), indent=2))
+        print(json.dumps(estimate(select(rows, a.sources), a.version), indent=2))
     elif a.cmd == "run":
-        est = estimate(select(rows, a.sources))
+        est = estimate(select(rows, a.sources), a.version)
         if est["expected_usd"] > a.max_spend:
             raise SystemExit(f"expected ${est['expected_usd']} exceeds --max-spend ${a.max_spend}; nothing sent")
-        run(a.max_spend, sources=a.sources)
+        run(a.max_spend, sources=a.sources, version=a.version)
     else:
         preds = [json.loads(x) for x in a.predictions.read_text(encoding="utf-8").splitlines() if x.strip()]
         print(json.dumps(score(preds, rows), ensure_ascii=False, indent=2))

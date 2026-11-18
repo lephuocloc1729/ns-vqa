@@ -16,21 +16,21 @@ dev failures; dev, D3 and train are checks only (owner, 2026-11-17).
 
 | column | modelled | to build | n/a | out |
 |---|---|---|---|---|
-| identity, meaning, group | 82 | 0 | 7 | 0 |
-| who it applies to, exceptions | 81 | 0 | 7 | 1 |
-| permitted / forbidden / required | 58 | 0 | 31 | 0 |
-| speed | 13 | 0 | 75 | 1 |
-| time | 33 | 0 | 56 | 0 |
-| lane | 41 | 0 | 48 | 0 |
-| where it takes effect / ends | 82 | 0 | 6 | 1 |
-| where it is placed | 80 | 0 | 7 | 2 |
-| driver conduct | 85 | 0 | 0 | 4 |
-| guide-board content | 20 | 0 | 69 | 0 |
-| weight and height limits | 4 | 0 | 85 | 0 |
-| vehicles in the photo | 44 | 0 | 44 | 1 |
-| compound and explain | 89 | 0 | 0 | 0 |
+| identity, meaning, group | 85 | 0 | 9 | 0 |
+| who it applies to, exceptions | 81 | 0 | 12 | 1 |
+| permitted / forbidden / required | 62 | 0 | 32 | 0 |
+| speed | 13 | 0 | 80 | 1 |
+| time | 33 | 0 | 61 | 0 |
+| lane | 41 | 0 | 53 | 0 |
+| where it takes effect / ends | 82 | 0 | 11 | 1 |
+| where it is placed | 80 | 0 | 12 | 2 |
+| driver conduct | 87 | 0 | 3 | 4 |
+| guide-board content | 20 | 0 | 74 | 0 |
+| weight and height limits | 5 | 0 | 89 | 0 |
+| vehicles in the photo | 44 | 0 | 47 | 3 |
+| compound and explain | 94 | 0 | 0 | 0 |
 | counting and presence (one intent for every row) | 1 | 0 | 0 | 0 |
-| **all cells (1158)** | **713** | **0** | **435** | **10** |
+| **all cells (1223)** | **728** | **0** | **483** | **12** |
 
 ## Signs (80 rows)
 
@@ -132,6 +132,11 @@ M = modelled, **B** = to build, – = not applicable, out = out (reason in the n
 | T7 | expressways | Law 36 art. 25 | – | M | M | M | – | M | M | – | M | – | – | – | M |
 | T8 | traffic lights | QCVN 41 art. 4, 6, 8 | M | M | M | – | – | M | out | out | M | – | – | M | M |
 | T9 | road markings | QCVN 41 art. 48-51, G.1-G.4 | M | – | M | – | – | M | M | out | M | – | – | M | M |
+| T10 | officer's signals | Law 36 art. 11.3 | M | – | M | – | – | – | – | – | M | – | – | out | M |
+| T11 | signal precedence | Law 36 art. 11.2, 11.12; QCVN 41 art. 4 | M | – | M | – | – | – | – | – | – | – | – | – | M |
+| T12 | right of way at intersections | Law 36 art. 22; QCVN 41 D.1, C.7, C.8, E.1 | – | – | M | – | – | – | – | – | M | – | – | out | M |
+| T13 | size and axle limits | QCVN 41 B.15-B.19 | – | – | M | – | – | – | – | – | – | – | M | – | M |
+| T14 | vehicle classes | Law 36 art. 34 | M | – | – | – | – | – | – | – | – | – | – | – | M |
 
 ## Cell notes (to build / out)
 
@@ -145,6 +150,8 @@ M = modelled, **B** = to build, – = not applicable, out = out (reason in the n
 - topic traffic lights, scope: art. 8 says where a light takes effect; no question form beyond pfr
 - topic traffic lights, placement: art. 9 heights: no question form
 - topic road markings, placement: dimensions: no question form
+- topic officer's signals, photo: perception reads no officer; the gesture and side come from the question
+- topic right of way at intersections, photo: perception reads no approach of the vehicles in the photo
 
 ## Taxonomy check on train wording
 

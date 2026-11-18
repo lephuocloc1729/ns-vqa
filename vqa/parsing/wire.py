@@ -113,6 +113,10 @@ class WVehicle(_W):
     gross_gt: Optional[float] = None
     gross_lt: Optional[float] = None
     priority: bool = False
+    axle_t: Optional[float] = None              # parser v13
+    design_speed_kmh: Optional[float] = None    # parser v13 (art. 34)
+    engine_cc: Optional[float] = None
+    motor_kw: Optional[float] = None
 
 
 class WWhen(_W):
@@ -137,6 +141,21 @@ class WSelector(_W):
     side: Optional[SideLit] = None
     category: Optional[CategoryLit] = None     # phase 4.5: "biển cấm trong ảnh ..."
     only: bool = False
+    relative: Optional[Literal["above", "below", "next_to", "left_of", "right_of"]] = None   # parser v13
+    anchor: Optional["WAnchor"] = None
+
+
+class WAnchor(_W):                           # parser v13: flat, so the schema is not recursive
+    code: Optional[CodeLit] = None
+    meaning: Optional[MeaningLit] = None
+    shape: Optional[ShapeLit] = None
+    border: Optional[ColourLit] = None
+    background: Optional[ColourLit] = None
+    category: Optional[CategoryLit] = None
+    light: bool = False
+
+
+WSelector.model_rebuild()
 
 
 class WPermitted(_W):
@@ -219,6 +238,7 @@ class WCountIs(_W):                          # phase 4.7
     sign: Optional[WSelector] = None
     n: int
     vehicle: Optional[WVehicle] = None
+    op: Literal["eq", "ge", "gt", "le", "lt"] = "eq"     # parser v13
 
 
 class WSignApplies(_W):                      # phase 4.7
@@ -248,7 +268,7 @@ class WRulePermitted(_W):                    # phase 4.7 step 1c
 class WDuties(_W):                           # phase 4.7 step 1c
     intent: Literal["duties"]
     topic: Literal["speed_and_distance", "lane_change", "overtaking", "turning", "stopping_parking",
-                   "priority_vehicle_signal", "expressway"]
+                   "priority_vehicle_signal", "expressway", "joining_road"]
 
 
 _MKIND = Literal["center", "lane_line", "edge", "hatched", "stop_line"]
@@ -283,8 +303,64 @@ class WAppliesTo(_W):                        # phase 4.7
     sign: Optional[WSelector] = None
 
 
+_GESTURE = Literal["right_arm_up", "arms_sideways", "right_arm_forward"]
+_SIDE = Literal["front", "back", "left", "right"]
+_SIGNALING = Literal["officer", "light", "sign", "marking", "roadside_device", "sound_device",
+                     "temporary_sign", "permanent_sign"]
+_ROAD = Literal["main", "branch"]
+
+
+class WOfficerSignal(_W):                    # parser v13
+    intent: Literal["officer_signal"]
+    gesture: _GESTURE
+    side: Optional[_SIDE] = None
+
+
+class WOfficerPermits(_W):                   # parser v13
+    intent: Literal["officer_permits"]
+    gesture: _GESTURE
+    side: Optional[_SIDE] = None
+    action: ActionLit = "go_straight"
+
+
+class WPrecedence(_W):                       # parser v13
+    intent: Literal["precedence"]
+    between: list[_SIGNALING]
+
+
+class WPrecedenceIs(_W):                     # parser v13
+    intent: Literal["precedence_is"]
+    winner: _SIGNALING
+    over: _SIGNALING
+
+
+class WRightOfWay(_W):                       # parser v13
+    intent: Literal["right_of_way"]
+    my_road: Optional[_ROAD] = None
+    roundabout: Optional[bool] = None
+
+
+class WMustYield(_W):                        # parser v13
+    intent: Literal["must_yield"]
+    other_from: Optional[Literal["right", "left", "main_road", "branch_road", "cross_road"]] = None
+    my_road: Optional[_ROAD] = None
+    roundabout: Optional[bool] = None
+
+
+class WVehicleClassOf(_W):                   # parser v13
+    intent: Literal["vehicle_class"]
+    vehicle: WVehicle
+
+
+class WVehicleClassIs(_W):                   # parser v13
+    intent: Literal["vehicle_class_is"]
+    vehicle: WVehicle
+    of_class: VehicleClassLit
+
+
 _LEAF_MODELS = (WPermitted, WForbidden, WSpeedOk, WRequired, WExistsViolation, WIsSign, WPresent,
-                WGuideClaim, WSpeedLimitIs, WCountIs, WSignApplies, WRulePermitted, WMarkingIs)
+                WGuideClaim, WSpeedLimitIs, WCountIs, WSignApplies, WRulePermitted, WMarkingIs,
+                WOfficerPermits, WPrecedenceIs, WMustYield, WVehicleClassIs)
 LeafClaim = Annotated[Union[_LEAF_MODELS], Field(discriminator="intent")]
 
 
@@ -387,7 +463,8 @@ class WExplain(_W):                          # phase 4.6 I3
 
 _PART_MODELS = _CLAIM_MODELS + (WVerify, WChoose, WLanesFor, WLanesWhere, WBanTimes,
                                 WMeaning, WWhichVehicles, WLaneVehicles, WSpeedLimit, WGuide, WExplain,
-                                WCount, WAppliesTo, WDuties, WSignalMeaning, WMarkingMeaning)
+                                WCount, WAppliesTo, WDuties, WSignalMeaning, WMarkingMeaning,
+                                WOfficerSignal, WPrecedence, WRightOfWay, WVehicleClassOf)
 Part = Annotated[Union[_PART_MODELS], Field(discriminator="intent")]
 
 
@@ -442,7 +519,8 @@ _NEEDS_VEHICLE = {"permitted", "forbidden", "speed_ok", "lanes_for", "lanes_wher
                   "rule_permitted"}
 # speed_limit and speed_limit_is default to motor_vehicle in the schema itself (no default recorded)
 _ATTRS = ("load_t", "gross_t", "seats", "height_m", "width_m", "length_m", "seats_gt",
-          "seats_lt", "load_gt", "load_lt", "gross_gt", "gross_lt")
+          "seats_lt", "load_gt", "load_lt", "gross_gt", "gross_lt",
+          "axle_t", "design_speed_kmh", "engine_cc", "motor_kw")          # parser v13
 
 
 class _Converter:
@@ -482,6 +560,10 @@ class _Converter:
         if s is None:
             return None
         out = {k: v for k, v in s.model_dump().items() if v not in (None, False)}
+        if isinstance(out.get("anchor"), dict):                    # parser v13
+            out["anchor"] = {k: v for k, v in out["anchor"].items() if v not in (None, False)}
+            if s.anchor.light:
+                out["anchor"]["light"] = True
         if s.only:
             out["only"] = True
         return out

@@ -88,6 +88,7 @@ class VehicleAttr(str, Enum):
     height_m = "height_m"
     width_m = "width_m"
     length_m = "length_m"
+    axle_t = "axle_t"        # parser v13 (owner, 2026-11-18): tải trọng trục xe (P.116, B.16), tonnes
 
 
 class CompareOp(str, Enum):
@@ -141,6 +142,12 @@ class Vehicle(_Model):
     gross_gt: float | None = None
     gross_lt: float | None = None
     priority: bool = False  # xe được quyền ưu tiên on an emergency mission
+    # parser v13 (owner, 2026-11-18): the heaviest axle's load (P.116, B.16), and the art. 34
+    # facts that tell a moped from a motorcycle (34.1 g: design speed, cylinder size, motor power)
+    axle_t: float | None = None
+    design_speed_kmh: float | None = None
+    engine_cc: float | None = None
+    motor_kw: float | None = None
 
     @model_validator(mode="after")
     def _bounds(self) -> "Vehicle":
@@ -531,6 +538,28 @@ class Selector(_Model):
     category: Literal["prohibitory", "mandatory", "warning", "information", "auxiliary",
                       "end_of_restriction"] | None = None
     only: bool = False  # "đây là biển gì?" - the single sign in the image
+    # parser v13 (owner, 2026-11-18): a sign placed relative to another sign or to a traffic light
+    # ("biển ngay dưới biển cấm đỗ", "biển bên cạnh đèn"), resolved from scene positions; unknown
+    # when the positions don't decide (Engine.resolve)
+    relative: Literal["above", "below", "next_to", "left_of", "right_of"] | None = None
+    anchor: "Anchor | None" = None
+
+
+class Anchor(_Model):
+    """What a relative selector is placed against: a sign (by code, meaning, look or group) or a
+    traffic light (`light`)."""
+
+    code: str | None = None
+    meaning: str | None = None
+    shape: Shape | None = None
+    border: Colour | None = None
+    background: Colour | None = None
+    category: Literal["prohibitory", "mandatory", "warning", "information", "auxiliary",
+                      "end_of_restriction"] | None = None
+    light: bool = False
+
+
+Selector.model_rebuild()
 
 
 def _question_lane(v: int | None) -> int | None:
@@ -799,7 +828,8 @@ class RulePermitted(_Model):
 
 
 DutyTopic = Literal["speed_and_distance", "lane_change", "overtaking", "turning", "stopping_parking",
-                    "priority_vehicle_signal", "expressway"]
+                    "priority_vehicle_signal", "expressway",
+                    "joining_road"]   # parser v13: Law 36 art. 22.1, 25.1 a
 
 
 class Duties(_Model):
@@ -858,6 +888,90 @@ class CountIs(_Model):
     sign: Selector = Selector()
     n: Annotated[int, Field(ge=0)]
     vehicle: Vehicle | None = None
+    # parser v13: a bound ("ít nhất ba" ge, "nhiều hơn hai" gt, "không quá bốn" le, "ít hơn" lt)
+    op: Literal["eq", "ge", "gt", "le", "lt"] = "eq"
+
+
+# --------------------------------------------------------------------------- parser v13 (owner, 2026-11-18)
+
+OfficerGesture = Literal["right_arm_up", "arms_sideways", "right_arm_forward"]
+OfficerSide = Literal["front", "back", "left", "right"]
+
+
+class OfficerSignal(_Model):
+    """Law 36 art. 11.3: what a traffic officer's gesture means, for every side or the one the
+    driver is on ("đang ở phía trước mặt"). Stated in the question; perception reads no officer."""
+
+    intent: Literal["officer_signal"] = "officer_signal"
+    gesture: OfficerGesture
+    side: OfficerSide | None = None
+
+
+class OfficerPermits(_Model):
+    """Claim: under the officer's gesture, may a driver on `side` do `action`? Unknown when the
+    side is not stated (except the all-directions stop)."""
+
+    intent: Literal["officer_permits"] = "officer_permits"
+    gesture: OfficerGesture
+    side: OfficerSide | None = None
+    action: Action = Action.go_straight
+
+
+SignalingKind = Literal["officer", "light", "sign", "marking", "roadside_device", "sound_device",
+                        "temporary_sign", "permanent_sign"]
+
+
+class Precedence(_Model):
+    """Law 36 art. 11.2 / 11.12, QCVN 41 art. 4: which of two signalling means the driver obeys
+    when they disagree."""
+
+    intent: Literal["precedence"] = "precedence"
+    between: Annotated[list[SignalingKind], Field(min_length=2, max_length=2)]
+
+
+class PrecedenceIs(_Model):
+    """Claim form: `winner` takes precedence over `over`."""
+
+    intent: Literal["precedence_is"] = "precedence_is"
+    winner: SignalingKind
+    over: SignalingKind
+
+
+YieldFrom = Literal["right", "left", "main_road", "branch_road", "cross_road"]
+
+
+class RightOfWay(_Model):
+    """Who yields at this intersection (Law 36 art. 22; QCVN 41 D.1, C.7, C.8, E.1), from the
+    signs on the driver's approach (the photo), else the law's default; `my_road` and
+    `roundabout` when the question states them."""
+
+    intent: Literal["right_of_way"] = "right_of_way"
+    my_road: Literal["main", "branch"] | None = None
+    roundabout: bool | None = None
+
+
+class MustYield(_Model):
+    """Claim: the driver must yield to a vehicle coming from `other_from`."""
+
+    intent: Literal["must_yield"] = "must_yield"
+    other_from: YieldFrom | None = None
+    my_road: Literal["main", "branch"] | None = None
+    roundabout: bool | None = None
+
+
+class VehicleClassOf(_Model):
+    """What class the law puts a vehicle in (Law 36 art. 34; kb/ontology.pl)."""
+
+    intent: Literal["vehicle_class"] = "vehicle_class"
+    vehicle: Vehicle
+
+
+class VehicleClassIs(_Model):
+    """Claim: the vehicle is a `of_class` ("xe máy điện 45 km/h có được tính là xe gắn máy không")."""
+
+    intent: Literal["vehicle_class_is"] = "vehicle_class_is"
+    vehicle: Vehicle
+    of_class: VehicleClass
 
 
 class AppliesTo(_Model):
@@ -894,7 +1008,8 @@ class AnyOf(_Model):
 
 Claim = Annotated[
     Union[Permitted, Forbidden, SpeedOk, Required, ExistsViolation, IsSign, Present, GuideClaim,
-          SpeedLimitIs, AllOf, AnyOf, CountIs, SignApplies, RulePermitted, MarkingIs],
+          SpeedLimitIs, AllOf, AnyOf, CountIs, SignApplies, RulePermitted, MarkingIs,
+          OfficerPermits, PrecedenceIs, MustYield, VehicleClassIs],
     Field(discriminator="intent"),
 ]
 AllOf.model_rebuild()
@@ -942,7 +1057,8 @@ class Explain(_Model):
     intent: Literal["explain"] = "explain"
     program: Annotated[Union[Permitted, Forbidden, SpeedOk, Required, ExistsViolation, IsSign, Present,
                              GuideClaim, SpeedLimitIs, AllOf, AnyOf, Verify, Choose, CountIs, SignApplies,
-                             RulePermitted, MarkingIs],
+                             RulePermitted, MarkingIs, OfficerPermits, PrecedenceIs, MustYield,
+                             VehicleClassIs],
                        Field(discriminator="intent")]
 
 
@@ -950,7 +1066,9 @@ _PART = Annotated[
     Union[Permitted, Forbidden, SpeedOk, LanesFor, LanesWhere, BanTimes, Meaning, Required,
           ExistsViolation, Verify, Choose, IsSign, AllOf, AnyOf, WhichVehicles, LaneVehicles,
           SpeedLimit, Present, Guide, GuideClaim, SpeedLimitIs, Explain, Count, CountIs, AppliesTo,
-          SignApplies, RulePermitted, Duties, SignalMeaning, MarkingMeaning, MarkingIs],
+          SignApplies, RulePermitted, Duties, SignalMeaning, MarkingMeaning, MarkingIs,
+          OfficerSignal, OfficerPermits, Precedence, PrecedenceIs, RightOfWay, MustYield,
+          VehicleClassOf, VehicleClassIs],
     Field(discriminator="intent"),
 ]
 
@@ -967,7 +1085,9 @@ Program = Annotated[
     Union[Permitted, Forbidden, SpeedOk, LanesFor, LanesWhere, BanTimes, Meaning, Required,
           ExistsViolation, Verify, Choose, IsSign, AllOf, AnyOf, WhichVehicles, LaneVehicles,
           SpeedLimit, Present, Guide, GuideClaim, SpeedLimitIs, Explain, Multi, Count, CountIs,
-          AppliesTo, SignApplies, RulePermitted, Duties, SignalMeaning, MarkingMeaning, MarkingIs],
+          AppliesTo, SignApplies, RulePermitted, Duties, SignalMeaning, MarkingMeaning, MarkingIs,
+          OfficerSignal, OfficerPermits, Precedence, PrecedenceIs, RightOfWay, MustYield,
+          VehicleClassOf, VehicleClassIs],
     Field(discriminator="intent"),
 ]
 

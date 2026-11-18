@@ -67,7 +67,19 @@ rule_source(r_light_arrow,         'QCVN 41:2024/BGTVT', '6').
 rule_source(r_marking_center,      'QCVN 41:2024/BGTVT', 'G.1').
 rule_source(r_marking_lane_line,   'QCVN 41:2024/BGTVT', 'G.1').
 rule_source(r_marking_hatched,     'QCVN 41:2024/BGTVT', 'G.1').
+% parser v13 (owner, 2026-11-18; kb/rules/v13_47.pl)
+rule_source(r_l36_officer,         '36/2024/QH15', '11').    % 11.3 the officer's gestures
+rule_source(r_l36_signal_order,    '36/2024/QH15', '11').    % 11.2 (QCVN 41 art. 4.1): officer, light, sign, marking
+rule_source(r_l36_temporary_sign,  '36/2024/QH15', '11').    % 11.12 (QCVN 41 art. 4.2): temporary over fixed sign
+rule_source(r_qcvn_signal_order,   'QCVN 41:2024/BGTVT', '4').
+rule_source(r_l36_yield_main,      '36/2024/QH15', '22').    % 22.1
+rule_source(r_l36_yield_right,     '36/2024/QH15', '22').    % 22.2
+rule_source(r_l36_yield_roundabout, '36/2024/QH15', '22').   % 22.3
+rule_source(r_priority_road_controlled, 'QCVN 41:2024/BGTVT', 'E.1').   % E.1 b)
+rule_source(r_l36_vehicle_classes, '36/2024/QH15', '34').
+rule_source(r_officer_right_turn_only, interpretation, officer_front_right_turn_only).
 % The basis of each interpretation (shown with it; never counted as a law citation).
+rule_basis(r_officer_right_turn_only, "Law 36/2024 art. 11.3 c): the driver in front of the officer \"được rẽ phải\"; read as the only move allowed, as the other sides are told \"phải dừng lại\" or \"được đi tất cả các hướng\"").
 rule_basis(r_kb4_expressway_zone, "QCVN 41:2024 P.3 and the IE rows: IE.452 / IE.451b start the expressway, IE.453b/c end it; Law 36/2024 art. 25 sets its rules").
 rule_basis(r_kb1_pass_side, "QCVN 41:2024 D.2: R.302 orders how to pass the obstacle, not the turns at the next intersection").
 rule_basis(r_kb2_roundabout, "QCVN 41:2024 art. 32 / D.3 and Law 36/2024 art. 22.3: R.303 orders yielding and the way round the island, not which exit is taken").

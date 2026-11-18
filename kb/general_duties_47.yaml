@@ -48,3 +48,16 @@ duties:
             "khi ra khỏi đường cao tốc: quan sát biển chỉ dẫn, chuyển dần sang làn bên phải, dùng làn giảm tốc nếu có",
             "không chạy ở làn dừng xe khẩn cấp và phần lề đường"]
     source: {law_id: "36/2024/QH15", article_id: "25"}
+  # parser v13 (owner, 2026-11-18): joining a main road or merging.
+  # 22 "Khi đến gần đường giao nhau, người điều khiển phương tiện tham gia giao thông đường bộ phải quan sát,
+  # giảm tốc độ và nhường đường"; 22.1 "xe đi từ đường không ưu tiên hoặc đường nhánh phải nhường đường cho xe
+  # đi trên đường ưu tiên hoặc đường chính từ bất kỳ hướng nào tới"; 25.1 a) "Trước khi nhập vào làn đường của
+  # đường cao tốc phải có tín hiệu xin vào và phải nhường đường cho xe đang chạy trên đường, quan sát xe phía
+  # sau bảo đảm khoảng cách an toàn mới cho xe nhập vào làn đường sát bên phải, nếu có làn đường tăng tốc thì
+  # phải cho xe chạy trên làn đường đó trước khi nhập vào làn đường của đường cao tốc"
+  joining_road:
+    items: ["khi đến gần nơi giao nhau: quan sát, giảm tốc độ",
+            "từ đường nhánh hoặc đường không ưu tiên: nhường đường cho xe đi trên đường chính, đường ưu tiên từ bất kỳ hướng nào tới",
+            "khi nhập vào đường cao tốc: có tín hiệu xin vào, nhường đường cho xe đang chạy, quan sát xe phía sau, dùng làn tăng tốc nếu có rồi nhập vào làn sát bên phải"]
+    source: {law_id: "36/2024/QH15", article_id: "22"}
+    also_sources: [{law_id: "36/2024/QH15", article_id: "25"}]

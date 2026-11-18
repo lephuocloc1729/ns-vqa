@@ -104,7 +104,8 @@ def vehicle_term(v: Any) -> Term:
     if v.cls.value == "every_vehicle":
         raise ValueError("every_vehicle is expanded per class by the engine, never sent to Prolog")
     attrs = []
-    for name in ("load_t", "gross_t", "seats", "height_m", "width_m", "length_m"):
+    for name in ("load_t", "gross_t", "seats", "height_m", "width_m", "length_m",
+                 "axle_t", "design_speed_kmh", "engine_cc", "motor_kw"):     # the last four: parser v13
         val = getattr(v, name)
         if val is not None:
             attrs.append(Term("a", atom(name), float(val)))

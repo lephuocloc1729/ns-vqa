@@ -18,6 +18,8 @@ from vqa.reasoning import explain
 from vqa.reasoning.facts import board_read, reading_variants, scene_facts, top_reading
 from vqa.reasoning.terms import Term, atom, to_prolog, vehicle_term
 from vqa.parsing.dsl import normalize
+from vqa.schemas import (MustYield, OfficerPermits, OfficerSignal, Precedence, PrecedenceIs,  # parser v13
+                         RightOfWay, VehicleClassIs, VehicleClassOf)
 from vqa.schemas import (
     AllOf, Answer, AnyOf, AppliesTo, BanTimes, Choose, Count, CountIs, Duties, MarkingIs, MarkingMeaning,
     RulePermitted, SignalMeaning, SignApplies, Citation, ExistsViolation, Explain, Guide, GuideClaim, IsSign,
@@ -40,6 +42,11 @@ _LOADED_CATALOG: str | None = None  # janus has one Prolog per process
 
 class EngineError(RuntimeError):
     pass
+
+
+class UndecidedSelection(Exception):
+    """Parser v13: a relative selector ("biển ngay dưới biển cấm đỗ") the scene's positions can't
+    resolve; the answer is unknown."""
 
 
 def _load_kb(catalog: Catalog) -> None:
@@ -193,7 +200,36 @@ class Engine:
                 pick = min if sel.position == "top" else max
                 r = pick(s.position.rank_top_down for s in ranked)
                 out = [s for s in ranked if s.position.rank_top_down == r]
+        if sel.relative is not None:                         # parser v13
+            out = self._relative(scene, sel, out)
         return [s.id for s in out]
+
+    def _relative(self, scene: SceneGraph, sel: Selector, cands: list) -> list:
+        """Parser v13: the candidates placed `sel.relative` to the anchor. Only the vertical order
+        on a post is recorded (rank_top_down, with the side): "above" / "below" pick the sign one
+        rank up or down from a single ranked anchor on the same side. A light has no recorded
+        position, and left / right / next to are not recorded, so those raise UndecidedSelection."""
+        a = sel.anchor
+        if a is None:
+            raise UndecidedSelection("the question places the sign relative to something it does not name")
+        if a.light:
+            raise UndecidedSelection("the scene records no position for traffic lights, so the sign "
+                                     "next to the light can't be picked")
+        if sel.relative not in ("above", "below"):
+            raise UndecidedSelection("the scene records only the order of signs on a post, not "
+                                     "what is left or right of a sign")
+        anchors = self.resolve(scene, Selector(code=a.code, meaning=a.meaning, shape=a.shape, border=a.border,
+                                               background=a.background, category=a.category))
+        if len(anchors) != 1 or scene.sign(anchors[0]).position.rank_top_down is None:
+            raise UndecidedSelection("the sign the question places it against is not one ranked sign")
+        anc = scene.sign(anchors[0])
+        want = anc.position.rank_top_down + (1 if sel.relative == "below" else -1)
+        hit = [s for s in cands if s.id != anc.id and s.position.rank_top_down == want
+               and (s.position.side == anc.position.side or "unknown" in (s.position.side.value,
+                                                                           anc.position.side.value))]
+        if len(hit) != 1:
+            raise UndecidedSelection("the positions in the scene don't pick out one sign there")
+        return hit
 
     @staticmethod
     def _colours_match(sel: Selector, s) -> bool:
@@ -379,7 +415,10 @@ class Engine:
         unreadable sign whose visible category could bear on the claim, since that
         sign might say otherwise. Others (e.g. a blue information board for a turn
         question) are ignored."""
-        ans = self._dispatch(scene, p)
+        try:
+            ans = self._dispatch(scene, p)
+        except UndecidedSelection as e:                     # parser v13: relative selectors
+            return Answer(verdict=Verdict.unknown, note=str(e))
         cw = self._CLOSED_WORLD.get(type(p))
         unread = [sid for sid in self.unreadable_signs(scene)
                   if self.could_matter(self.visual_category(scene.sign(sid)), p)]
@@ -443,7 +482,11 @@ class Engine:
             from vqa.reasoning import sign_info as si
             row = si.duties(p.topic)
             return Answer(verdict=Verdict.value, value={"topic": p.topic, "duties": row["items"]},
-                          citations=[Citation(**row["source"])])
+                          citations=[Citation(**row["source"])]
+                          + [Citation(**c) for c in row.get("also_sources", [])])      # parser v13
+        if isinstance(p, (OfficerSignal, OfficerPermits, Precedence, PrecedenceIs, RightOfWay, MustYield,
+                          VehicleClassOf, VehicleClassIs)):            # parser v13
+            return self._v13(scene, p)
         if isinstance(p, Guide):
             return self._guide(scene, p)
         if isinstance(p, GuideClaim):
@@ -725,6 +768,17 @@ class Engine:
                 return Answer(verdict=Verdict.value, value=value, reasons=reasons, citations=cites)
             return Answer(verdict=Verdict.unknown, value=value, uncertain_signs=unread, reasons=reasons,
                           citations=cites, note="a sign that could not be read may be one of them")
+        if p.op != "eq":                                     # parser v13: a bound on the count
+            import operator
+            cmp = {"ge": operator.ge, "gt": operator.gt, "le": operator.le, "lt": operator.lt}[p.op]
+            held = {cmp(k, p.n) for k in range(lo, hi + 1)}
+            if held == {True}:
+                return Answer(verdict=Verdict.yes, value=value, reasons=reasons, citations=cites)
+            if held == {False}:
+                return Answer(verdict=Verdict.no, value=value, reasons=reasons, citations=cites,
+                              uncertain_signs=unread)
+            return Answer(verdict=Verdict.unknown, value=value, uncertain_signs=unread, reasons=reasons,
+                          citations=cites, note="a sign that could not be read may be one of them")
         if lo == hi == p.n:
             return Answer(verdict=Verdict.yes, value=value, reasons=reasons, citations=cites)
         if p.n < lo or p.n > hi:
@@ -882,6 +936,13 @@ class Engine:
         elif p.at_signal and p.maneuver is None and p.speed_kmh is None:
             # art. 6: passing a light depends on the light; none was read, so no yes from signs alone
             parts.append(("unknown", [], "art. 6 lights: no light read"))
+        if p.at_signal and any(w == "art. 6 lights" and v == "yes" for v, _, w in parts):
+            # parser v13: QCVN 41 art. 4.1 / Law 36 art. 11.2, the light comes before the sign. Only a
+            # green arrow for this very action overrides a sign's "no"; a round green does not.
+            r = self._goal(Term("light_overrides_sign", atom(p.action.value)))
+            if r is not None:
+                parts = [(("yes", [r], "art. 4.1: the light before the sign") if w == "signs" and v == "no"
+                          else (v, rs, w)) for v, rs, w in parts]
         if p.maneuver in ("cross_center", "change_lane"):                   # scene v6: G.1
             self.load_scene(scene)
             out = self.call(Term("q_v6", Term("marking", atom(p.maneuver), lane if lane is not None else atom("none"))))
@@ -905,6 +966,79 @@ class Engine:
                       reasons=support, citations=cites, basis=_basis(support),
                       note="the question is about a traffic light, and none was read in the photo" if no_light
                       else None)
+
+    # ------------------------------------------------------------------ parser v13 (owner, 2026-11-18)
+    def _truth(self, goal: Term) -> tuple[str, list[Reason]]:
+        out = self.call(Term("q_truth", goal))
+        t = out["truth"]
+        proof = out.get("proof")
+        rs = [Reason(truth=t, proof=explain.to_node(proof))] if isinstance(proof, dict) else []
+        return t, rs
+
+    def _v13(self, scene: SceneGraph, p) -> Answer:
+        """kb/rules/v13_47.pl: the officer's gestures, which signalling means wins, who yields, and
+        vehicle classes. Every verdict comes from Prolog; Python only packages it."""
+        self.load_scene(scene)
+        unk = atom("unknown")
+        verdict_of = {"true": Verdict.yes, "false": Verdict.no, "unknown": Verdict.unknown}
+        if isinstance(p, OfficerPermits):
+            t, rs = self._truth(Term("officer_forbids", atom(p.gesture), atom(p.side) if p.side else unk,
+                                     atom(p.action.value)))
+            v = {"true": Verdict.no, "false": Verdict.yes, "unknown": Verdict.unknown}[t]
+            return Answer(verdict=v, reasons=rs, citations=_cites(rs),
+                          note=None if p.side or t != "unknown" else "the question does not say on which "
+                          "side of the officer the driver is")
+        if isinstance(p, OfficerSignal):
+            out = self.call(Term("q_officer_says", atom(p.gesture)))
+            rows = {r["side"]: r["says"] for r in out["rows"]}
+            rs = [Reason(truth="true", proof=explain.to_node(out["proof"]))]
+            value = {"gesture": p.gesture, "by_side": rows}
+            if p.side:
+                value["your_side"] = {"side": p.side, "says": rows[p.side]}
+            return Answer(verdict=Verdict.value, value=value, reasons=rs, citations=_cites(rs))
+        if isinstance(p, (Precedence, PrecedenceIs)):
+            a, b = (p.between if isinstance(p, Precedence) else (p.winner, p.over))
+            t, rs = self._truth(Term("precedence_truth", atom(a), atom(b)))
+            if isinstance(p, PrecedenceIs):
+                return Answer(verdict=verdict_of[t], reasons=rs, citations=_cites(rs))
+            if t == "unknown":
+                return Answer(verdict=Verdict.unknown, reasons=rs, citations=_cites(rs),
+                              note="the law's order does not rank these two")
+            return Answer(verdict=Verdict.value, value={"follow": a if t == "true" else b, "over": b if t == "true" else a},
+                          reasons=rs, citations=_cites(rs))
+        if isinstance(p, (RightOfWay, MustYield)):
+            my = atom(p.my_road) if p.my_road else unk
+            rnd = atom("unknown" if p.roundabout is None else str(p.roundabout).lower())
+            if isinstance(p, MustYield):
+                t, rs = self._truth(Term("must_yield", atom(p.other_from) if p.other_from else unk, my, rnd))
+                return Answer(verdict=verdict_of[t], reasons=rs, citations=_cites(rs))
+            out = self.call(Term("q_row_basis", my, rnd))
+            rs = [Reason(truth="true", proof=explain.to_node(out["proof"]))]
+            basis = out["basis"].split("(")[0]
+            yields = {"yield_sign": "you_yield_to_the_major_road", "branch": "you_yield_to_the_major_road",
+                      "priority_sign": "others_yield_to_you", "main": "others_yield_to_you",
+                      "roundabout": "yield_to_vehicles_from_the_left", "equal": "yield_to_vehicles_from_the_right",
+                      "signal": "follow_the_traffic_light"}
+            if basis == "conflict":
+                return Answer(verdict=Verdict.unknown, reasons=rs, citations=_cites(rs),
+                              note="the signs and the question's facts point both ways")
+            return Answer(verdict=Verdict.value, value={"rule": yields[basis], "basis": out["basis"]},
+                          reasons=rs, citations=_cites(rs))
+        if isinstance(p, VehicleClassIs):
+            t, rs = self._truth(Term("vehicle_class_truth", vehicle_term(p.vehicle), atom(p.of_class.value)))
+            return Answer(verdict=verdict_of[t], reasons=rs, citations=_cites(rs))
+        # VehicleClassOf: the classes the vehicle belongs to, and moped / motorcycle by art. 34.1 g
+        out = self.call(Term("q_vehicle_ancestors", atom(p.vehicle.cls.value)))
+        classes = list(out["classes"])
+        rs: list[Reason] = []
+        if p.vehicle.cls.value == "motorbike":
+            t, rs = self._truth(Term("vehicle_class_truth", vehicle_term(p.vehicle), atom("moped")))
+            if t == "true":
+                classes.insert(0, "moped")
+            elif t == "false":
+                classes.insert(0, "motorcycle")
+        cites = _cites(rs) or [Citation(law_id="36/2024/QH15", article_id="34")]
+        return Answer(verdict=Verdict.value, value={"classes": classes}, reasons=rs, citations=cites)
 
     def _v6_meaning(self, scene: SceneGraph, p) -> Answer:
         """Scene v6: lights (art. 6) and markings (G.1, G.2) in the photo, from
@@ -1277,7 +1411,8 @@ class Engine:
 
     _INT_ATTRS = {"seats"}
     _ATTR_FIELD = {"seats": "seats", "load_t": "load_t", "gross_t": "gross_t",
-                   "height_m": "height_m", "width_m": "width_m", "length_m": "length_m"}
+                   "height_m": "height_m", "width_m": "width_m", "length_m": "length_m",
+                   "axle_t": "axle_t"}                                        # parser v13
 
     def _witnesses(self, vehicle: Vehicle, thresholds: dict[str, list[float]]) -> list[dict]:
         """Attribute values on both sides of (and at) each threshold, for the attributes

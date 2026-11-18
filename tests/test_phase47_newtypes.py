@@ -26,7 +26,8 @@ def rows(src=None):
 
 def test_groups_and_sizes():
     n = Counter(r["source"] for r in rows())
-    assert n == {"train": 6, "assistant_written": 50, "ai_drafted_owner_reviewed": 50, "owner_written": 50}
+    assert n == {"train": 6, "assistant_written": 50, "ai_drafted_owner_reviewed": 50, "owner_written": 50,
+                 "owner2": 20}                                   # owner2: parser v13 (owner, 2026-11-18)
     smoke = Counter(r["intent"] for r in rows() if r["source"] in ("train", "assistant_written"))
     assert set(smoke) == NEW_INTENTS and min(smoke.values()) >= 5
     aid = Counter(r["intent"] for r in rows("ai_drafted_owner_reviewed") if not r.get("gap"))
@@ -105,9 +106,12 @@ def _right(rs):
 
 def test_all_right_keeps_every_type_on_and_gaps_apart():
     s = pn.score(_right(rows()), rows())
-    assert set(s["groups"]) == {"train", "owner_written", "ai_drafted_owner_reviewed", "assistant_written"}
+    assert set(s["groups"]) == {"train", "owner_written", "ai_drafted_owner_reviewed", "assistant_written", "owner2"}
     assert s["decision"]["marking_is"].startswith("not decided") and not s["weaker_intents"]
-    assert all(v == "stays on" for k, v in s["decision"].items() if k != "marking_is")
+    # parser v13: owner2 types with 2 questions are reported, not decided
+    few = {"marking_is", "joining_road", "relative_selector", "right_of_way", "vehicle_class"}
+    assert all(s["decision"][k].startswith("not decided") for k in few)
+    assert all(v == "stays on" for k, v in s["decision"].items() if k not in few)
     assert len(s["gaps"]) == sum(1 for r in rows() if r.get("gap")) and all(g["parsed_out_of_scope"] for g in s["gaps"])
 
 
@@ -133,6 +137,6 @@ def test_only_deciding_groups_turn_a_type_off():
 def test_estimates_and_caps():
     all_ = pn.estimate(rows())
     deciding = pn.estimate(pn.select(rows(), ["train", "owner_written"]))
-    assert all_["questions"] == 156 and deciding["questions"] == 56
+    assert all_["questions"] == 176 and deciding["questions"] == 56     # 176: with owner2 (parser v13)
     for e in (all_, deciding):
         assert e["range_usd"][1] + 0.09 <= e["cap_usd"]

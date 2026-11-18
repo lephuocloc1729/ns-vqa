@@ -139,7 +139,7 @@ class CatalogSign(_M):
     # A row added after the phase-4 freeze (phase 4.5). Frozen prompt versions (scene v1-v4 with
     # their tiles and crops, parser v1-v6) don't list it, so their ids stay reproducible; scene
     # v5 and parser v7 on do (vqa.kb.FROZEN_PROMPT_VERSIONS).
-    listed_from: Literal["phase45"] | None = None
+    listed_from: Literal["phase45", "parser_v13"] | None = None   # parser_v13: owner, 2026-11-18
 
     @property
     def base(self) -> str:
@@ -341,7 +341,19 @@ FROZEN_PROMPT_VERSIONS = {"scene": {"v1", "v2", "v3", "v4", "v4-tile", "v4-crop"
 def listed_signs(catalog: "Catalog", kind: str, version: str | None) -> list[CatalogSign]:
     """The rows a prompt of `kind` ("scene" or "parser") at `version` lists."""
     frozen = version is None or version in FROZEN_PROMPT_VERSIONS[kind]
-    return [s for s in catalog.signs if not (frozen and s.listed_from)]
+    return [s for s in catalog.signs if not (frozen and s.listed_from)
+            and not (s.listed_from == "parser_v13" and not _from_parser_v13(kind, version))]
+
+
+def _from_parser_v13(kind: str, version: str | None) -> bool:
+    """Rows added with parser v13 (owner, 2026-11-18) are listed in parser prompts v13 and later
+    only, so every earlier parser prompt and every scene prompt keeps its id."""
+    if kind != "parser" or not version or not version.startswith("v"):
+        return False
+    try:
+        return int(version[1:].split("-")[0]) >= 13
+    except ValueError:
+        return False
 
 
 def merge_effects(signs: list[dict], effects: list[dict]) -> None:

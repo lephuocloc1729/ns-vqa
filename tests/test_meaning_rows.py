@@ -68,7 +68,10 @@ def test_review_provenance():
     # rule rows nobody has checked; rows added in phase 4.5 are assistant-checked (owner, 2026-11-17)
     new45 = {s.code for s in cat.signs if s.listed_from == "phase45"}
     assert new45 == {"R.421", "R.122", "S.501"} and all(by[c].reviewed_by == "assistant" for c in new45)
-    assert all(s.reviewed_by in ("none", "human") for s in cat.signs if not s.meaning_only and s.code not in {"P.118", "P.119"} | new45)
+    # parser v13 (owner, 2026-11-18): P.116 is added assistant-checked, listed from parser v13 on
+    new13 = {s.code for s in cat.signs if s.listed_from == "parser_v13"}
+    assert new13 == {"P.116"} and all(by[c].reviewed_by == "assistant" for c in new13)
+    assert all(s.reviewed_by in ("none", "human") for s in cat.signs if not s.meaning_only and s.code not in {"P.118", "P.119"} | new45 | new13)
     visual = sorted(s.code for s in cat.signs if s.visual_reviewed_by == "assistant" and not s.listed_from)
     assert visual == ["IE.451a", "IE.471", "IE.473", "W.242(a,b)", "W.243(a,b,c)"]
     assert all(by[c].visual_reviewed_by == "assistant" for c in new45)

@@ -247,6 +247,24 @@ TOPICS = [
      "lane": (M, "lane lines by `between`"), "scope": (M, "marking_meaning states art. 51 (alone / with lights and signs, art. 4 order)"),
      "placement": (OUTC, "dimensions: no question form"), "conduct": (M, "marking_meaning: 3.1 yield to rudimentary"),
      "photo": (M, "exists_violation: crossing_line against G.1"), "compound": (M, "")}),
+    # parser v13 (owner, 2026-11-18): kb/rules/v13_47.pl
+    ("officer's signals", "Law 36 art. 11.3", {"identity": (M, "officer_signal (a, b, c by side)"),
+     "pfr": (M, "officer_permits; an obligation asked yes/no is verify(..., expect=false)"),
+     "conduct": (M, "officer_signal for the driver's side"),
+     "photo": (OUTC, "perception reads no officer; the gesture and side come from the question"),
+     "compound": (M, "")}),
+    ("signal precedence", "Law 36 art. 11.2, 11.12; QCVN 41 art. 4", {"identity": (M, "precedence, precedence_is"),
+     "pfr": (M, "rule_permitted: a green arrow for the action over a sign's ban; a round green overrides nothing"),
+     "compound": (M, "")}),
+    ("right of way at intersections", "Law 36 art. 22; QCVN 41 D.1, C.7, C.8, E.1",
+     {"pfr": (M, "must_yield from R.122 / W.208 / I.401 / W.207, else 22.2-22.3; unknown under a light (E.1 b)"),
+      "conduct": (M, "right_of_way; duties joining_road (22.1, 25.1 a)"),
+      "photo": (OUTC, "perception reads no approach of the vehicles in the photo"), "compound": (M, "")}),
+    ("size and axle limits", "QCVN 41 B.15-B.19", {"pfr": (M, "permitted / forbidden by the vehicle's stated size"),
+     "values": (M, "P.115 gross_t, P.116 axle_t (new; not a stage-A row), P.117 height_m, P.118 width_m, P.119 length_m"),
+     "compound": (M, "")}),
+    ("vehicle classes", "Law 36 art. 34", {"identity": (M, "vehicle_class, vehicle_class_is (34.1 g moped by design speed, cc, kW)"),
+     "compound": (M, "")}),
 ]
 
 

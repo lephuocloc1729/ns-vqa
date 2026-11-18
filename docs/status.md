@@ -1634,6 +1634,103 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Parser v13 built (owner, 2026-11-18; no API calls): before the one gate
+
+#### Built (branch `phase-5`, not pushed)
+
+- **A. Fixes** (spec wording only, `prompts/parser/v13/spec.md` = v12 plus one section "Parser v13 additions"):
+  1. obligations asked yes/no become the permission claim with the negation (`forbidden` for a sign's ban, else `verify(..., expect=false)`), own_36's class;
+  2. yielding to pedestrians or to anyone the photo can't show is out of scope, own_38's class;
+  3. "vạch chéo" = `kind: hatched`, own_61's class.
+  - No owner or owner2 question text in the section (a test checks four-word runs; only the law's term "người điều khiển giao thông" is shared).
+- **B and C. New forms**, all in `kb/rules/v13_47.pl` with the law_db text quoted, and in `vqa/schemas.py` / `vqa/parsing/wire.py`:
+  - 4 `count_is` with `op` (ge, gt, le, lt; eq is the default and keeps today's path);
+  - 5 duties `joining_road` (Law 36 art. 22, 22.1, 25.1 a), cited 22 and 25;
+  - 6 `officer_signal`, `officer_permits` (Law 36 art. 11.3; side unknown gives unknown except the all-directions stop);
+  - 7 relative selectors (`relative`, `anchor`): above / below from `rank_top_down` on the same side; left / right / next to and lights have no recorded position, so unknown;
+  - 8 `right_of_way`, `must_yield` (R.122, W.208: you yield; I.401, W.207: others yield; a read light: unknown, E.1 b; else 22.2 / 22.3; `my_road`, `roundabout` from the question);
+  - 9 `precedence`, `precedence_is` (Law 36 art. 11.2, 11.12; QCVN 41 art. 4); in `rule_permitted` with `at_signal`, a green arrow for the very action overrides a sign's ban, a round green never does;
+  - 10 `vehicle_class`, `vehicle_class_is` (Law 36 art. 34; moped by design speed, cm3, kW; a broader class gives unknown);
+  - 11 size checks: **P.117 height, P.118 width and P.119 length were already modelled**; **P.116 axle load is new** (`axle_t`, QCVN 41 B.16), `listed_from: parser_v13` so only parser prompts v13+ list it and no earlier prompt id changes. P.120 is still not in the catalog.
+- **Review list:** `docs/plans/phase-4.7-review.md`, "Parser v13 additions for review": one interpretation (`r_officer_right_turn_only`), the "được đi" reading, the approach assumption for right of way, the light-over-sign change, P.116.
+- **No few-shot added:** v13's few-shots are v12's. The train working set was not searched for the new types this round.
+- **Existing tests changed (4), each because of a new row, rule or the owner2 group:**
+  - `tests/test_gold_signs.py:454` used P.116 as its unknown code ("not in the catalog yet"); now P.199;
+  - `tests/test_meaning_rows.py`: the pinned assistant-checked rows add the parser-v13 row P.116;
+  - `tests/test_phase47_law_consistency.py`: the interpretation set adds `r_officer_right_turn_only` with its premise phrase;
+  - `tests/test_phase47_newtypes.py`: the group and row counts add owner2 (20 rows; 176 in all), and owner2 types with 2 questions are "not decided".
+- **One existing answer can change:** `rule_permitted` with `at_signal`, a green arrow for the asked action and a sign banning it was no and is now yes (QCVN 41 art. 4.1). The replay has no such case.
+- **Gate:** `eval/parser_eval.py` gives v13's new forms back as design only on gold out-of-scope rows (`V13_FEATURES`), as for v12.
+- **Matrix:** 1223 cells: 728 modelled, 0 to build, 483 n/a, 12 out (was 1158: 713 / 0 / 435 / 10); five topic rows added (officer, precedence, right of way, size and axle limits, vehicle classes).
+- **Replay:** 88/88 decided identical, `decided_changed: []`.
+
+#### owner2 gold (20 rows, for the owner's check)
+
+`data/annotations/gold_v12_new/gold_v12_new.yaml`, source `owner2`, the "owner2 |" lines of `owner_questions.txt` at `d427da1`, verbatim. The file marks this batch "assistant-authored at user request; not independent owner-written evidence", so its rates come from the same model family as the parser. Decided where a type has ≥ 3 rows: count_bound, officer, precedence, size_check. Reported only: joining_road, relative_selector, right_of_way, vehicle_class (2 each).
+
+| id | line | type | expected program |
+|---|---|---|---|
+| own2_01 | 73 | count_bound | `{intent: count_is, sign: {category: prohibitory}, n: 3, op: ge}` |
+| own2_02 | 74 | count_bound | `{intent: count_is, sign: {category: warning}, n: 4, op: le}` |
+| own2_03 | 75 | count_bound | `{intent: count_is, sign: {meaning: speed_limit}, n: 2, op: gt}` |
+| own2_04 | 76 | joining_road | `{intent: duties, topic: joining_road}` |
+| own2_05 | 77 | joining_road | `{intent: must_yield, other_from: main_road, my_road: branch}` (also: 1) |
+| own2_06 | 78 | officer | `{intent: officer_signal, gesture: right_arm_up}` |
+| own2_07 | 79 | officer | `{intent: verify, claim: {intent: officer_permits, gesture: arms_sideways, side: front, action: go_straight}, expect: false}` |
+| own2_08 | 80 | officer | `{intent: officer_signal, gesture: arms_sideways, side: back}` |
+| own2_09 | 81 | relative_selector | `{intent: meaning, sign: {relative: below, anchor: {meaning: no_parking}}}` (also: 1) |
+| own2_10 | 82 | relative_selector | `{intent: forbidden, action: enter, vehicle: {vehicle_class: coach}, sign: {relative: left_of, anchor: {light: true}}}` |
+| own2_11 | 83 | right_of_way | `{intent: right_of_way}` |
+| own2_12 | 84 | right_of_way | `{intent: must_yield, other_from: cross_road}` |
+| own2_13 | 85 | precedence | `{intent: precedence, between: [light, officer]}` (also: 1) |
+| own2_14 | 86 | precedence | `{intent: rule_permitted, action: turn_left, at_signal: true}` |
+| own2_15 | 87 | precedence | `{intent: precedence_is, winner: temporary_sign, over: permanent_sign}` |
+| own2_16 | 88 | vehicle_class | `{intent: vehicle_class_is, vehicle: {vehicle_class: motorbike, design_speed_kmh: 45, motor_kw: 3}, of_class: moped}` |
+| own2_17 | 89 | vehicle_class | `{intent: vehicle_class, vehicle: {vehicle_class: car, seats: 16}}` |
+| own2_18 | 90 | size_check | `{intent: permitted, action: enter, vehicle: {vehicle_class: truck, width_m: 2.4}, sign: {meaning: width_limit}}` |
+| own2_19 | 91 | size_check | `{intent: forbidden, action: enter, vehicle: {vehicle_class: motor_vehicle, length_m: 14}, sign: {only: true}}` (also: 2) |
+| own2_20 | 92 | size_check | `{intent: permitted, action: enter, vehicle: {vehicle_class: motor_vehicle, axle_t: 8}, sign: {code: P.116}}` (also: 1) |
+
+#### Paid checks, in order (the owner runs them; round 3 is $2.30, $0.52 spent, $1.78 left)
+
+| # | check | estimate | cap |
+|---|---|---|---|
+| 1 | parser v13 gate (no-regression rule against v6) | $0.25 (v12 measured $0.23; prompt +8%) | $0.45 (the runner's own expected is about $0.41 and it refuses a lower cap) |
+| 2 | new-types rerun: train + owner_written + owner2 (76 questions) | $0.40 (from the v12 run's measured costs) | $0.55 |
+| 3 | scene v6 set-T check (label sheet done, `658d4b2`) | $0.13 | $0.20 (two $0.10 guards) |
+| 4 | judged dev run, scene v6 + parser v13 | $0.84 ($0.67–1.10; `e2e_dev.py estimate --candidate`) | $1.78 minus steps 1–3's actual spend, at most $1.00 |
+
+Steps 1–3 cap at $1.20, so step 4 is at least $0.58 even if all three hit their caps; at the estimates, step 4 gets about $1.00. Spend cannot pass $2.30.
+
+```zsh
+# 1. gate
+.venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v13 --max-spend 0.45
+.venv/bin/python eval/parser_eval.py score <gate_run>
+.venv/bin/python eval/parser_eval.py compare --old \
+  logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-140559.jsonl \
+  logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141622.jsonl \
+  logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141902.jsonl --new <gate_run>
+# rule: regressed_types_without_design must be empty
+
+# 2. new-types rerun
+.venv/bin/python eval/parser_newtypes.py run --version v13 --sources train owner_written owner2 --max-spend 0.55
+.venv/bin/python eval/parser_newtypes.py score <newtypes_run>
+# rule: owner2 decides each new type at >= 80% where it has >= 3 questions; owner_written as before
+
+# 3. scene v6 set-T check
+.venv/bin/python eval/perception_eval.py run --set T --model claude-haiku-5-5 --version v6 --max-spend 0.10
+.venv/bin/python eval/perception_eval.py fallback <scene_run> --policy crop_always --max-spend 0.10
+.venv/bin/python eval/perception_eval.py score eval/runs/perception/T_claude-haiku-5-5_v5+fb_3861a1816d1a.jsonl <scene_fb>
+.venv/bin/python eval/v6_fields.py score <scene_fb>
+
+# 4. judged dev run (--scene-version v5 if step 3 failed)
+.venv/bin/python eval/e2e_dev.py run --label phase47 --candidate \
+  --scene-version v6 --parser-version v13 --reading-policy higher_confidence --max-spend <left, at most 1.00>
+.venv/bin/python eval/e2e_dev.py summary <dev_run>
+```
+
+- **Out this round:** following distance, fine amounts, painted road arrows (the next perception field), pedestrians.
+
 ### Phase 4.7: parser v12 gate and new-types test run (owner, 2026-11-18; results accepted)
 
 - **v12 gate** (`pred_claude-sonnet-5-5_medium_v12_20261118-074501.jsonl`, $0.23 of the $0.40 cap): **passes the phase-4.7 rule**, `regressed_types_without_design: []`.
