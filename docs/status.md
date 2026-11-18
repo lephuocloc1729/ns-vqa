@@ -1634,6 +1634,14 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Phase 4.8 PAID 1: dev2 rejudge of batch 1 (owner run, 2026-11-18): G1 kept
+
+- **Run:** `eval/runs/e2e/dev2_rejudge_a240669b19bf.jsonl`, **$0.0595** (estimate $0.074, cap $0.15). Phase 4.8: **$1.09 of $5.00.**
+- **dev2 (100, biased):** 79 decided (was 74), **accuracy on decided 62.7%** (was 58.8%), **overall 49.5%** (was 43.5%).
+- **G1, kept** (rule: its changed answers judge at least 70% right): 4.5 of 6 = **75%**. 89 0.5 (lists all three signs), 142 1.0, 315 0.5, 320 1.0, 326 0.5, 498 1.0. 315, 320 and 326 got near-identical answers but grades of 0.5, 1.0 and 0.5 (judge variation).
+- **Batch-1 rule fixes:** 466 0 → 1.0 (Yes/No), 121 0 → 0.5 (lists pedestrians and the unknown non-motor vehicles), 502 decided → undecided (was 0). 516 stays 0: its "value" answer with two conditional lanes counts as decided, but the text says "chưa xác định".
+- dev is unchanged (the replay plans no dev answer), so the guardrail stays at 68.4% overall and 81.5% on decided.
+
 ### Phase 4.8 batch 1: rule fixes and G1 (owner, 2026-11-18; no API calls)
 
 - **Step 1, free checks on the stored dev2 scenes and programs:**
