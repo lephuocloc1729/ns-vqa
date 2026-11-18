@@ -89,7 +89,11 @@ def check_disjoint(dev_file: Path = DEV_OUT, validation_file: Path = VALIDATION)
 
 def run_dev(label: str, max_spend: float, *, sdk=None, questions: list[dict] | None = None, out_dir: Path = OUT,
             image_path=None, frozen: Path = freeze.FROZEN, git=freeze.git_state, dev_file: Path = DEV_OUT,
-            validation_file: Path = VALIDATION, candidate: dict | None = None) -> Path:
+            validation_file: Path = VALIDATION, candidate: dict | None = None, profile: str | None = None,
+            prefix: str = "dev", head_extra: dict | None = None) -> Path:
+    """One dev run. `profile` (phase 4.8): build the pipeline from that freeze profile
+    (`freeze.pipeline_config`), with the answer fallback off, instead of PipelineConfig's defaults;
+    the record must be the profile's. `prefix` names the run file and cache folder."""
     from eval.judge import Judge
     from vqa.llm.client import LLMClient
     from vqa.llm.spend import SpendGuard
@@ -100,25 +104,34 @@ def run_dev(label: str, max_spend: float, *, sdk=None, questions: list[dict] | N
     g = git()
     if not g["clean"]:
         raise SystemExit("the git working tree is not clean: commit or remove these first:\n  " + "\n  ".join(g["dirty"]))
+    if profile is not None:
+        if candidate:
+            raise SystemExit("a profile run takes no candidate")
+        if (rp := freeze.profile_of(freeze.load(frozen))) != profile:
+            raise SystemExit(f"the freeze record {Path(frozen).name} is profile {rp!r}, not {profile!r}")
     pm = freeze.load(frozen)["pipeline_config"]["perception_model"]
     if d := freeze.check(frozen, pm):
         raise SystemExit("the live configuration differs from the freeze record:\n  " + "\n  ".join(d))
     image_path = image_path or ev.image_file
     qs = questions if questions is not None else load_questions(dev_file)
     run_id = uuid.uuid4().hex[:12]
-    cache_dir = out_dir / f"dev_cache_{run_id}"
+    cache_dir = out_dir / f"{prefix}_cache_{run_id}"
     guard = SpendGuard(max_spend)
-    pipe = Pipeline(PipelineConfig(perception_model=pm, cache_dir=cache_dir, cache_only=False, answer_fallback=False,
-                                   **(candidate or {})), sdk=sdk, guard=guard)
+    if profile is not None:
+        cfg = freeze.pipeline_config(profile, pm, cache_dir=cache_dir, cache_only=False, answer_fallback=False)
+    else:
+        cfg = PipelineConfig(perception_model=pm, cache_dir=cache_dir, cache_only=False, answer_fallback=False,
+                             **(candidate or {}))
+    pipe = Pipeline(cfg, sdk=sdk, guard=guard)
     judge = Judge(llm=LLMClient(model="claude-opus-5-5", guard=guard, sdk=sdk))
-    config = freeze.live(pm)
-    head = {"kind": "dev", "label": label, "run_id": run_id, "git_commit": g["commit"],
+    config = freeze.live(pm, profile or "phase4")
+    head = {"kind": prefix, "label": label, "profile": profile, "run_id": run_id, "git_commit": g["commit"],
             "frozen_record": Path(frozen).name, "prompt_ids": {k: v["id"] for k, v in config["prompts"].items()},
             "cache_dir": cache_dir.name, "answer_fallback": False,
             "candidate": candidate, "candidate_prompt_ids": candidate_prompt_ids(candidate) if candidate else None,
-            "started": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}
+            "started": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), **(head_extra or {})}
     out_dir.mkdir(parents=True, exist_ok=True)
-    out = out_dir / f"dev_{label}_{run_id}.jsonl"
+    out = out_dir / f"{prefix}_{label}_{run_id}.jsonl"
     with open(out, "w", encoding="utf-8") as f:
         f.write(json.dumps(head, ensure_ascii=False) + "\n")
         for n, q in enumerate(qs, 1):

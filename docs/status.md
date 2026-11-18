@@ -1634,6 +1634,22 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Phase 4.8 step 1: dev2 split and runner (owner, 2026-11-18; no API calls)
+
+- **Split:** `eval/make_dev2_split.py` → `data/splits/train_dev2.json` (ids only, `biased: true` with a note), **seed 20261118**. 100 questions on 77 images: **70 Natural QA, 30 Yes/No** (the working set's 232 / 101 of 333, largest-remainder rounding).
+  - Pool: the train working set (train minus dev and validation questions and validation images; 333), minus dev and validation images (0 more), the train few-shots of parser v7–v14 (44), and the train rows of `gold_v12_new.yaml` (6): **283** (198 Natural QA, 85 Yes/No).
+  - Drawn by question id inside each type (seeded sample). It reads the train QA file for id, image id and type only; `duplicates.json` is not read. Questions on one image may fall on either side.
+  - Not excluded (not asked): D3's earlier v9 parse-only diagnosis covered the working set's Yes/No questions, so some of dev2's 30 Yes/No questions were seen there.
+- **Runner:** `eval/e2e_dev2.py` (`estimate`, `run`, `summary`), on `e2e_dev.run_dev` with two new options: `profile` (the pipeline from `freeze.pipeline_config("phase47")`, fallback off; the record must be that profile's) and `prefix` (`dev2_<label>_<run_id>.jsonl`, `dev2_cache_<run_id>/` in the gitignored `eval/runs/e2e/`). Guards: dev2 disjoint from dev and validation (ids and images; checked before any text is loaded), profile `phase47` and the live configuration equal to `frozen_phase47.json` (engine hash included), clean tree. The header records `biased: true`, the split file and its sha256.
+- **Tests:** `tests/test_dev2.py` (14: split equals the builder, counts and strata, disjointness, few-shot and gold exclusions, id-only selection, the seed, runner on phase47 with a fake SDK, wrong profile, mismatch, dirty tree, estimate).
+- **Baseline estimate** (counts only; the private runner's phase-4.7 rates, calibration x1.146, fallback off): **$1.11** ($0.89–1.44) at dev's 83.9% decided share; $1.19 ($0.95–1.54) with every question decided. Suggested cap **$1.55**, of the $2.00 phase-4.8 budget.
+
+```zsh
+.venv/bin/python eval/e2e_dev2.py estimate
+.venv/bin/python eval/e2e_dev2.py run --label baseline --max-spend 1.55
+.venv/bin/python eval/e2e_dev2.py summary eval/runs/e2e/dev2_baseline_<run_id>.jsonl
+```
+
 ### Handoff (2026-11-18): phase 4.8, dev2
 
 #### Phase 4.7: closed and frozen (`4ad9137`)
