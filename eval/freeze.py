@@ -55,6 +55,10 @@ FROZEN_PHASE46 = ROOT / "eval" / "frozen_phase46.json"
 # Phase 4.7 (owner, 2026-11-18): scene v5 + guide reading, parser v14, reading policy A, and the scene v6
 # field switch (kb/v6_fields_47.yaml: signals off), for the private test.
 FROZEN_PHASE47 = ROOT / "eval" / "frozen_phase47.json"
+# Phase 4.8 (owner, 2026-11-18): scene v5 + guide reading (perception unchanged), parser v16, reading
+# policy A, the v6 field switch (signals off) and the phase-4.8 engine switches (kb/switches_48.yaml:
+# several_signs on, confusable_pairs off), for the private test.
+FROZEN_PHASE48 = ROOT / "eval" / "frozen_phase48.json"
 PROFILES: dict[str, dict[str, Any]] = {
     "phase4": {},
     "phase45": {"scene_version": "v5", "parser_version": "v9", "guide_reading": True},
@@ -62,25 +66,33 @@ PROFILES: dict[str, dict[str, Any]] = {
                 "reading_policy": "higher_confidence"},
     "phase47": {"scene_version": "v5", "parser_version": "v14", "guide_reading": True,
                 "reading_policy": "higher_confidence"},
+    "phase48": {"scene_version": "v5", "parser_version": "v16", "guide_reading": True,
+                "reading_policy": "higher_confidence"},
 }
-RECORDS = {"phase4": FROZEN, "phase45": FROZEN_PHASE45, "phase46": FROZEN_PHASE46, "phase47": FROZEN_PHASE47}
+RECORDS = {"phase4": FROZEN, "phase45": FROZEN_PHASE45, "phase46": FROZEN_PHASE46, "phase47": FROZEN_PHASE47,
+           "phase48": FROZEN_PHASE48}
 # Left out of a profile's comparison: phase 4 leaves out both post-freeze switches (their
 # defaults are its behaviour); phase 4.5 freezes guide_reading (on) and still leaves out
 # answer_fallback, which each runner sets (validation: off; private: the default, on).
 EXCLUDED_SWITCHES = {"phase4": tuple(POST_FREEZE_SWITCHES), "phase45": ("answer_fallback",),
-                     "phase46": ("answer_fallback",), "phase47": ("answer_fallback",)}
+                     "phase46": ("answer_fallback",), "phase47": ("answer_fallback",),
+                     "phase48": ("answer_fallback",)}
 # Switches added after a record was written, left out of its comparison without changing the
 # record's own `excluded_switches` list. Their defaults are that record's behaviour.
-LATER_SWITCHES = {"phase4": (), "phase45": ("reading_policy",), "phase46": (), "phase47": ()}
+LATER_SWITCHES = {"phase4": (), "phase45": ("reading_policy",), "phase46": (), "phase47": (), "phase48": ()}
 WHAT = {"phase45": "phase 4.5, B5: the frozen configuration for the final validation run and the private test",
         "phase46": "phase 4.6: the frozen configuration for the final2 validation run and the private test",
-        "phase47": "phase 4.7: the frozen configuration for the private test (scene v5, parser v14, signals off)"}
+        "phase47": "phase 4.7: the frozen configuration for the private test (scene v5, parser v14, signals off)",
+        "phase48": "phase 4.8: the frozen configuration for the private test (scene v5, parser v16, signals off, "
+                   "several_signs on, confusable_pairs off)"}
 # Phase 4.6: from this record on, the rule engine's code and knowledge base are frozen too (the
 # prompts alone don't pin what the engine decides). Hashed: every .py under vqa/, and kb/.
-CODE_HASHED_FROM = {"phase46", "phase47"}
+CODE_HASHED_FROM = {"phase46", "phase47", "phase48"}
 # Phase 4.7: the scene v6 fields the engine switches off (kb/v6_fields_47.yaml), named in the record
 # (the file is also inside the engine-code hash).
-V6_SWITCH_FROM = {"phase47"}
+V6_SWITCH_FROM = {"phase47", "phase48"}
+# Phase 4.8: the engine switches (kb/switches_48.yaml), named in the record (the file is also hashed).
+SWITCHES48_FROM = {"phase48"}
 
 
 def code_hash(root: Path = ROOT) -> dict[str, Any]:
@@ -147,6 +159,9 @@ def live(perception_model: str | None = None, profile: str = "phase4") -> dict[s
     if profile in V6_SWITCH_FROM:
         from vqa.reasoning.engine import v6_fields_off_from_kb
         out["v6_fields_off"] = list(v6_fields_off_from_kb())
+    if profile in SWITCHES48_FROM:
+        from vqa.reasoning.engine import switches_from_kb
+        out["engine_switches"] = dict(sorted(switches_from_kb().items()))
     return out
 
 

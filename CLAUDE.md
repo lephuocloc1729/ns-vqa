@@ -85,7 +85,7 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
   - The key comes from `ANTHROPIC_API_KEY` only and is never committed.
 - `vqa/pipeline.py` (phase 4): `answer(image_path, question)`. `vqa/answer/`: the proof digest, the faithfulness guard, template answers, the writer (`prompts/answer/`), the answer-level fallback (`prompts/answer_fallback/`).
 - `eval/e2e_eval.py` (public_dev, warm, run, next; oracles; scores), `eval/judge.py` (`eval/prompts/judge/`), `eval/e2e_holdout.py` (aggregate only).
-- `eval/freeze.py`: freeze profiles and records, each written once. The private test runs with `eval/frozen_phase47.json` only (profile `phase47`: scene v5 + guide reading, parser v14, writer v3, reading policy A, signals off, engine-code hash); `eval/e2e_private.py` refuses any other record.
+- `eval/freeze.py`: freeze profiles and records, each written once. The private test runs with `eval/frozen_phase48.json` only (profile `phase48`: scene v5 + guide reading, parser v16, writer v3, reading policy A, signals off, the engine switches in `kb/switches_48.yaml` (several_signs on, confusable_pairs off), engine-code hash); `eval/e2e_private.py` refuses any other record. Tests of the phase-4.7 record check its engine hash at 4ad9137 (`tests/freeze_at.py`).
 - `vqa/reasoning/`:
   - `terms.py`: Python values to Prolog text.
   - `facts.py`: SceneGraph to scene facts, plus the variants for alternative sign readings.

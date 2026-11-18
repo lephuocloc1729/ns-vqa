@@ -1634,6 +1634,27 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Phase 4.8 closes: freeze phase48, private runner on it (owner, 2026-11-18; no API calls)
+
+- **Freeze `phase48`** (`eval/freeze.py`; `eval/frozen_phase48.json`, written once, a second write refused; `freeze.py check --profile phase48` matches): scene v5 (`scene/v5@7a3291ea5dff`, tile v5-tile, crop v5-crop, scene fallback `crop_always`) with the guide call on, **parser v16** (`parser/v16@b296b65cb7cb`), writer v3, answer fallback v2, reading policy `higher_confidence`, `v6_fields_off: ["signals"]`, **`engine_switches: {several_signs: true, confusable_pairs: false}`** (`kb/switches_48.yaml`, new in the record), and the engine-code hash (64 files). `answer_fallback` is left out as before (the private run keeps the default, on).
+- **What changed from phase 4.7:** batch 1 (Law 36 art. 25.3 in speed claims, R.415a vehicles D.16 a, conflicting lane boards and no-vehicle violations unknown, G1 several-sign meaning), batch 2 (misplaced `priority` dropped in the wire, `meaning` aspect `limit`, loose group words for value questions; the confusable table built but off), parser v16. Perception is unchanged.
+- **Private runner** (`eval/e2e_private.py`): checks `frozen_phase48.json` by default and accepts profile `phase48` only (`PRIVATE_PROFILES`); the phase-4.5, 4.6 and 4.7 records are refused by their profile before the sentinel, and any mismatch with the phase-4.8 record (parser, scene, guide, reading policy, field switch, engine switches, engine hash, scene fallback) is refused. Tests: `tests/test_e2e_private.py` (defaults now phase 4.8; phase 4.7 added to the refused records; two switch fields added to the mismatch cases) and `tests/test_freeze.py` (the phase-4.8 record matches and is written once). CLAUDE.md's freeze line names phase 4.8.
+- **Private estimate, re-based** (`e2e_private.py estimate`, no private file read; 146 questions, 104 images, 76 Natural QA): the phase-4.7 rates with parser v16 at $0.0047 per question (its gate run), calibration x1.146.
+
+| decided share | fallback on (the private run) | fallback off (rules only) |
+|---|---|---|
+| 0.851 (dev, phase 4.8) | **$1.76** ($1.41–2.28) | $1.49 ($1.19–1.93) |
+| 0.79 (dev2, phase 4.8; biased) | $1.84 ($1.47–2.39) | $1.45 ($1.16–1.89) |
+| 0.473 (the phase-4.5 final validation) | $2.25 ($1.80–2.92) | $1.29 ($1.03–1.67) |
+
+- **Spend: phase 4.8 $2.69 of $5.00.** The private run has its own budget and is the owner's decision.
+
+```zsh
+.venv/bin/python eval/freeze.py check --profile phase48
+.venv/bin/python eval/e2e_private.py estimate
+.venv/bin/python eval/e2e_private.py run --confirm-frozen --max-spend <cap>
+```
+
 ### Phase 4.8 PAID 4: v16 re-parse of dev2 and dev (owner run, 2026-11-18): kept
 
 - **Runs:** dev2 `eval/runs/e2e/dev2_reparse_v16_c95f3934da5c.jsonl` (from `dev2_rejudge_a240669b19bf`), **$0.463** (cap $0.95); dev `dev_reparse_v16_248e38bd215e.jsonl` (from `dev_rejudge_f1f0ba0d2f8c`), **$0.363** (cap $0.70). Scene v5 (stored scenes), parser v16, policy A, switches several_signs on and confusable_pairs off; unchanged answers keep their grades. Phase 4.8: **$2.69 of $5.00.**

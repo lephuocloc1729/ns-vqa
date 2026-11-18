@@ -12,7 +12,7 @@ import pytest
 import eval.e2e_holdout as eh
 import eval.e2e_private as ep
 import eval.freeze as fz
-from tests.freeze_at import phase47_record_file
+from tests.freeze_at import phase47_record_file  # noqa: F401  (phase 4.7 record checked at 4ad9137)
 from tests.test_e2e_eval import CLEAN, QS, SCENE_REPLY, _e2e_sdk, fake_set  # noqa: F401
 
 SECRET_QS = [dict(q, id=f"private_secret_{i}", answer=f"{q['answer']} secret-gold-{i}")
@@ -27,8 +27,7 @@ def _run(fake_set, **kw):
     args = dict(confirm_frozen=True, sdk=sdk, questions=SECRET_QS, out_dir=fake_set / "agg",
                 image_path=lambda i: fake_set / f"{i}.jpg", sentinel=fake_set / "private_ran.json",
                 replay_root=fake_set / "private_run", git=CLEAN, ignored=lambda p: True, expected=TWO)
-    # phase 4.8 (owner, option 1): the phase-4.7 record, hash checked at its freeze commit (tests/freeze_at.py)
-    args["frozen"] = phase47_record_file(fake_set / "rec47")
+    # phase 4.8 (owner, 2026-11-18): the runner's default record, frozen_phase48.json
     args.update(kw)
     return ep.run_private(1.0, **args), sdk
 
@@ -48,7 +47,7 @@ def test_a_dirty_tree_is_refused_before_the_sentinel(fake_set):
 
 
 def test_a_configuration_that_differs_from_the_record_is_refused(fake_set):
-    rec = fz.load(fz.FROZEN_PHASE47)          # phase 4.7 (owner, 2026-11-18): the private run's record
+    rec = fz.load(fz.FROZEN_PHASE48)          # phase 4.8 (owner, 2026-11-18): the private run's record
     rec["prompts"]["answer"]["id"] = "answer/v2@0000000000"
     p = fake_set / "frozen.json"
     p.write_text(json.dumps(rec), encoding="utf-8")
@@ -156,10 +155,10 @@ def test_it_writes_only_an_aggregate_file_and_prints_no_question(fake_set, capsy
 def test_the_report_records_the_commit_config_prompts_and_catalog_review(fake_set):
     out, _ = _run(fake_set)
     rep = json.loads(out.read_text())
-    live47 = fz.live(profile="phase47")       # phase 4.7 (owner, 2026-11-18)
-    assert rep["git_commit"] == "c0ffee" and rep["frozen_config"] == json.loads(json.dumps(live47, default=str))
-    assert rep["prompt_ids"]["answer"] == "answer/v3@7d0f2b8ddf1f" and set(rep["prompt_ids"]) == set(live47["prompts"])
-    assert rep["prompt_ids"]["parser"].startswith("parser/v14@") and "guide" in rep["prompt_ids"]
+    live48 = fz.live(profile="phase48")       # phase 4.8 (owner, 2026-11-18)
+    assert rep["git_commit"] == "c0ffee" and rep["frozen_config"] == json.loads(json.dumps(live48, default=str))
+    assert rep["prompt_ids"]["answer"] == "answer/v3@7d0f2b8ddf1f" and set(rep["prompt_ids"]) == set(live48["prompts"])
+    assert rep["prompt_ids"]["parser"].startswith("parser/v16@") and "guide" in rep["prompt_ids"]
     cat = rep["catalog_review"]
     assert cat["sign_catalog.yaml"]["rows"] == sum(cat["sign_catalog.yaml"]["reviewed_by"].values())
     assert "assistant-reviewed" in cat["note"]
@@ -251,18 +250,18 @@ def test_speed_words_are_not_times():
 
 # ---------------------------------------------------------------- B5: the phase-4.5 record (owner, 2026-11-17)
 
-def test_the_private_run_checks_the_phase47_record_by_default():
-    """Phase 4.7 (owner, 2026-11-18): the default moved from frozen_phase45.json to frozen_phase47.json."""
+def test_the_private_run_checks_the_phase48_record_by_default():
+    """Phase 4.8 (owner, 2026-11-18): the default moved from frozen_phase47.json to frozen_phase48.json."""
     import inspect
     for fn in (ep.run_private, ep.guards, ep.frozen_perception_model):
-        assert inspect.signature(fn).parameters["frozen"].default == fz.FROZEN_PHASE47
-    assert ep.PRIVATE_PROFILES == ("phase47",)
+        assert inspect.signature(fn).parameters["frozen"].default == fz.FROZEN_PHASE48
+    assert ep.PRIVATE_PROFILES == ("phase48",)
 
 
-@pytest.mark.parametrize("record", [fz.FROZEN_PHASE45, fz.FROZEN_PHASE46])
+@pytest.mark.parametrize("record", [fz.FROZEN_PHASE45, fz.FROZEN_PHASE46, fz.FROZEN_PHASE47])
 def test_an_older_record_is_refused_before_the_sentinel(fake_set, record):
-    """An unchanged phase-4.5 or phase-4.6 record is refused by its profile, before any other check."""
-    with pytest.raises(SystemExit, match="phase-4.7 freeze only"):
+    """An unchanged phase-4.5, 4.6 or 4.7 record is refused by its profile, before any other check."""
+    with pytest.raises(SystemExit, match="phase-4.8 freeze only"):
         _run(fake_set, frozen=record)
     assert not (fake_set / "private_ran.json").exists()
 
@@ -271,9 +270,10 @@ def test_an_older_record_is_refused_before_the_sentinel(fake_set, record):
     (("pipeline_config", "parser_version"), "v13"), (("pipeline_config", "guide_reading"), False),
     (("pipeline_config", "reading_policy"), "all"), (("v6_fields_off",), []), (("engine_code", "sha256"), "0" * 64),
     (("pipeline_config", "scene_version"), "v4"), (("prompts", "guide", "sha256"), "0" * 64),
-    (("scene_fallback", "chosen_policy"), "rules")])
-def test_a_phase47_mismatch_is_refused_before_the_sentinel(fake_set, field, value):
-    rec = fz.load(fz.FROZEN_PHASE47)
+    (("scene_fallback", "chosen_policy"), "rules"), (("engine_switches", "several_signs"), False),
+    (("engine_switches", "confusable_pairs"), True), (("pipeline_config", "parser_version"), "v14")])
+def test_a_phase48_mismatch_is_refused_before_the_sentinel(fake_set, field, value):
+    rec = fz.load(fz.FROZEN_PHASE48)
     node = rec
     for k in field[:-1]:
         node = node[k]
@@ -329,7 +329,7 @@ def test_the_estimate_reads_no_private_file_by_default(monkeypatch):
     assert (e["questions"], e["images"], e["natural_qa"]) == (146, 104, 76)
     assert e["total_fallback_off_usd"] < e["total_usd"]
     assert ep.estimate(decided_share=0.9)["total_usd"] < e["total_usd"]    # fewer fallback answers
-    assert e["decided_share_assumed"] == ep.DECIDED_SHARE_47 and e["rates_usd"] == ep.RATES_47   # phase 4.7
+    assert e["decided_share_assumed"] == ep.DECIDED_SHARE_48 and e["rates_usd"] == ep.RATES_48   # phase 4.8
 
 
 def test_the_estimate_is_calibrated_to_the_final_validation():

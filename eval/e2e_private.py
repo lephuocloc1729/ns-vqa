@@ -249,16 +249,18 @@ def git_ignores(path: Path) -> bool:
     return r.returncode == 0
 
 
-# Phase 4.7 (owner, 2026-11-18): the private test runs with frozen_phase47.json only; an older record
+# Phase 4.7 (owner, 2026-11-18): the private runner requires frozen_phase47.json; an older record
 # (phase 4.5, phase 4.6) is refused even when it matches its own profile.
-PRIVATE_PROFILES = ("phase47",)
+# Phase 4.8 (owner, 2026-11-18): the private test runs with frozen_phase48.json only; phase 4.7 and older
+# records are refused by their profile.
+PRIVATE_PROFILES = ("phase48",)
 
 
-def frozen_perception_model(frozen: Path = freeze.FROZEN_PHASE47) -> str:
+def frozen_perception_model(frozen: Path = freeze.FROZEN_PHASE48) -> str:
     return freeze.load(frozen)["pipeline_config"]["perception_model"]
 
 
-def guards(*, out_dir: Path = OUT, sentinel: Path = SENTINEL, frozen: Path = freeze.FROZEN_PHASE47,
+def guards(*, out_dir: Path = OUT, sentinel: Path = SENTINEL, frozen: Path = freeze.FROZEN_PHASE48,
            replay_root: Path = REPLAY, git=freeze.git_state, ignored=git_ignores) -> dict:
     """Refuses (SystemExit) unless the tree is clean, the configuration is the frozen
     one, the private test has never run and git ignores the replay folder."""
@@ -267,7 +269,7 @@ def guards(*, out_dir: Path = OUT, sentinel: Path = SENTINEL, frozen: Path = fre
         raise SystemExit("the git working tree is not clean: commit or remove these first:\n  "
                          + "\n  ".join(g["dirty"]))
     if (prof := freeze.profile_of(freeze.load(frozen))) not in PRIVATE_PROFILES:
-        raise SystemExit(f"the private test runs with the phase-4.7 freeze only; {Path(frozen).name} is {prof}")
+        raise SystemExit(f"the private test runs with the phase-4.8 freeze only; {Path(frozen).name} is {prof}")
     if d := freeze.check(frozen, frozen_perception_model(frozen)):
         raise SystemExit("the live configuration differs from the freeze record:\n  " + "\n  ".join(d))
     if Path(sentinel).exists():
@@ -282,7 +284,7 @@ def guards(*, out_dir: Path = OUT, sentinel: Path = SENTINEL, frozen: Path = fre
 # ---------------------------------------------------------------- the run
 
 def run_private(max_spend: float, *, confirm_frozen: bool = False, sdk=None, questions: list[dict] | None = None,
-                out_dir: Path = OUT, image_path=None, sentinel: Path = SENTINEL, frozen: Path = freeze.FROZEN_PHASE47,
+                out_dir: Path = OUT, image_path=None, sentinel: Path = SENTINEL, frozen: Path = freeze.FROZEN_PHASE48,
                 replay_root: Path = REPLAY, git=freeze.git_state, ignored=git_ignores,
                 expected: dict | None = EXPECTED) -> Path:
     if not confirm_frozen:
@@ -374,9 +376,15 @@ DECIDED_SHARE = 0.473          # final validation (7a3dbec997f7); dev after phas
 RATES_47 = {"perception_per_image": 0.0021, "parser_per_question": 0.0046, "writer_per_decided": 0.00026,
             "judge_per_answer": 0.00555, "fallback_per_question": ee.COST["fallback"]}
 DECIDED_SHARE_47 = 0.839
+# Phase 4.8 (owner, 2026-11-18): the frozen phase-4.8 system. Perception, writer and judge as RATES_47
+# (perception unchanged); parser v16 per question from its gate run ($0.2216 / 47). Decided shares:
+# dev 74 / 87 (dev_reparse_v16_248e38bd215e) and dev2 79 / 100 (dev2_reparse_v16_c95f3934da5c, biased).
+RATES_48 = {**RATES_47, "parser_per_question": 0.0047}
+DECIDED_SHARE_48 = 0.851
+DECIDED_SHARE_48_DEV2 = 0.79
 
 
-def estimate(qs: list[dict] | None = None, decided_share: float = DECIDED_SHARE_47,
+def estimate(qs: list[dict] | None = None, decided_share: float = DECIDED_SHARE_48,
              rates: dict[str, float] | None = None) -> dict[str, Any]:
     """Counts only. With no questions given it uses EXPECTED and EXPECTED_TYPES (DESIGN.md), so
     the private file is not read. Two figures: with the fallback off (rules only) and with it on
@@ -387,7 +395,7 @@ def estimate(qs: list[dict] | None = None, decided_share: float = DECIDED_SHARE_
         nqa = sum(q["question_type"] != "Yes/No" for q in qs)
     else:
         n, images, nqa = EXPECTED["questions"], EXPECTED["images"], EXPECTED_TYPES["Natural QA"]
-    r = rates or RATES_47
+    r = rates or RATES_48
     off = {"perception, per image": images * r["perception_per_image"],
            "parser, per question": n * r["parser_per_question"],
            "writer, decided share": n * decided_share * r["writer_per_decided"],
@@ -414,8 +422,9 @@ def main() -> None:
     r.add_argument("--max-spend", type=float, required=True)
     a = ap.parse_args()
     if a.cmd == "estimate":
-        print(json.dumps({"phase47_at_dev_decided_share": estimate(),
-                          "phase47_at_validation_decided_share": estimate(decided_share=DECIDED_SHARE)},
+        print(json.dumps({"phase48_at_dev_decided_share": estimate(),
+                          "phase48_at_dev2_decided_share": estimate(decided_share=DECIDED_SHARE_48_DEV2),
+                          "phase48_at_validation_decided_share": estimate(decided_share=DECIDED_SHARE)},
                          indent=2, ensure_ascii=False))
     else:
         run_private(a.max_spend, confirm_frozen=a.confirm_frozen)

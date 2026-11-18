@@ -210,3 +210,24 @@ def test_the_phase47_record_is_written_once(tmp_path):
     fz.write(p, "phase47")
     with pytest.raises(SystemExit, match="written once"):
         fz.write(p, "phase47")
+
+
+def test_the_phase48_record_matches_and_names_its_parts():
+    """Phase 4.8 (owner, 2026-11-18): scene v5 + guide reading, parser v16, policy A, signals off, the
+    engine switches (several_signs on, confusable_pairs off), and the engine-code hash."""
+    assert fz.check(fz.FROZEN_PHASE48) == []
+    rec = fz.load(fz.FROZEN_PHASE48)
+    pc = rec["pipeline_config"]
+    assert rec["profile"] == "phase48" and "answer_fallback" not in pc
+    assert (pc["scene_version"], pc["parser_version"], pc["guide_reading"], pc["reading_policy"]) == \
+        ("v5", "v16", True, "higher_confidence")
+    assert rec["prompts"]["parser"]["id"] == "parser/v16@b296b65cb7cb"
+    assert rec["v6_fields_off"] == ["signals"] and rec["engine_code"]["sha256"]
+    assert rec["engine_switches"] == {"confusable_pairs": False, "several_signs": True}
+
+
+def test_the_phase48_record_is_written_once(tmp_path):
+    p = tmp_path / "frozen.json"
+    fz.write(p, "phase48")
+    with pytest.raises(SystemExit, match="written once"):
+        fz.write(p, "phase48")
