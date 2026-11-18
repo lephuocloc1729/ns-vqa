@@ -59,7 +59,7 @@ def _file_at(commit):
 
 def test_owner_file_rows_are_verbatim_and_complete():
     """Each row matches its line in the file version it came from; owner_written is the whole file
-    at 2c31cd6 (which is also the working copy)."""
+    at 2c31cd6; later owner2 batches are kept separate."""
     for src, commit in (("ai_drafted_owner_reviewed", "41291ef"), ("owner_written", "2c31cd6")):
         lines = _file_at(commit)
         for r in rows(src):
@@ -67,7 +67,17 @@ def test_owner_file_rows_are_verbatim_and_complete():
             t, q = [x.strip() for x in lines[r["line"] - 1].split("|", 1)]
             assert (t, q) == (r["intent"], r["question"]), r["id"]
     listed = [l for l in OWNER_FILE.read_text(encoding="utf-8").splitlines() if l.strip() and not l.lstrip().startswith("#")]
-    assert len(listed) == len(rows("owner_written"))
+    original = [l for l in listed if not l.startswith("owner2 |")]
+    baseline = [l for l in _file_at("2c31cd6") if l.strip() and not l.lstrip().startswith("#")]
+    assert original == baseline
+    fresh = [l.split("|") for l in listed if l.startswith("owner2 |")]
+    assert len(fresh) == 20
+    counts = Counter()
+    for parts in fresh:
+        assert len(parts) == 3 and parts[2].strip()
+        counts[parts[1].strip()] += 1
+    assert set(counts) == set(map(str, range(4, 12)))
+    assert all(2 <= n <= 3 for n in counts.values())
 
 
 def test_train_rows_keep_ids_only_and_are_outside_dev_validation_and_fewshots():

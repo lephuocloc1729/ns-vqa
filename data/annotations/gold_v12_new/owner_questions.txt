@@ -67,3 +67,26 @@ marking_is | Mấy sọc trắng ngang đường này có phải vạch cho ngư
 marking_is | Vạch vàng đứt kia chia hai chiều xe chạy phải không?
 marking_is | Mũi tên dưới làn bên phải chỉ cho rẽ phải thôi đúng chứ?
 marking_is | Phần kẻ vạch chéo kia có phải khu vực không được đi xe vào không?
+
+# owner2 batch: assistant-authored at user request; not independent owner-written evidence.
+# format: owner2 | type_number | question
+owner2 | 4 | Trong hình có từ ba biển cấm trở lên không vậy?
+owner2 | 4 | Tôi đếm số biển báo nguy hiểm ở đây không quá bốn cái, đúng không?
+owner2 | 4 | Có phải đoạn đường trong ảnh có nhiều hơn hai biển giới hạn tốc độ không?
+owner2 | 5 | Tôi đang từ đường nhánh chạy ra đường chính như trong ảnh thì phải làm những gì?
+owner2 | 5 | Từ làn nhập vào cao tốc, tôi có phải nhường xe đang chạy trên cao tốc trước không?
+owner2 | 6 | Người điều khiển giao thông đang giơ một tay thẳng lên như hình là ra hiệu gì vậy?
+owner2 | 6 | Chú cảnh sát dang hai tay ngang, tôi đang ở phía trước mặt chú thì có phải dừng lại không?
+owner2 | 6 | Tôi đi tới từ phía sau lưng người điều khiển giao thông đang dang hai tay ngang như ảnh thì phải làm gì?
+owner2 | 7 | Biển nằm ngay dưới biển cấm đỗ trong ảnh có ý nghĩa gì?
+owner2 | 7 | Biển sát bên trái cụm đèn giao thông có cấm xe khách đi vào không?
+owner2 | 8 | Tôi tới ngã tư cùng lúc với xe bên phải, ở đây không có đèn hay biển ưu tiên thì ai phải nhường ai?
+owner2 | 8 | Đường tôi có biển STOP như hình thì tôi phải nhường xe trên đường cắt ngang đúng không?
+owner2 | 9 | Đèn vẫn đỏ nhưng cảnh sát đang ra hiệu cho hướng của tôi đi thì tôi làm theo bên nào?
+owner2 | 9 | Đèn xanh tròn đang sáng nhưng có biển cấm rẽ trái thì tôi được rẽ trái không?
+owner2 | 9 | Biển tạm yêu cầu đi sang phải còn biển cố định chỉ đi thẳng, tôi phải theo biển tạm đúng chứ?
+owner2 | 10 | Xe máy điện có tốc độ thiết kế 45 km/h và công suất động cơ 3 kW có được tính là xe gắn máy không?
+owner2 | 10 | Ô tô chở người 16 chỗ kể cả ghế lái được xếp vào loại phương tiện nào theo luật?
+owner2 | 11 | Xe tải của tôi rộng 2,4 mét thì có được đi qua chỗ đặt biển hạn chế chiều rộng trong ảnh không?
+owner2 | 11 | Cả xe lẫn rơ moóc dài tổng cộng 14 mét, vậy có vượt giới hạn chiều dài ghi trên biển này không?
+owner2 | 11 | Trục chịu tải lớn nhất của xe tôi là 8 tấn, với biển P.116 trong hình thì xe được qua đúng không?
