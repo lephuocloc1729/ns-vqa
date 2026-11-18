@@ -1634,6 +1634,24 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### New-types run with parser v14 (owner run, 2026-11-18)
+
+- **Run:** `newtypes_v14_20261118-091655.jsonl`, 76 questions (train 6, owner_written 50, owner2 20), **$0.3627** of the $0.55 cap.
+- **owner_written:** applies_to 4/4, count 4/5, count_is 4/4, marking_meaning 3/3, rule_permitted 9/9, sign_applies 4/5, signal_meaning 4/5 pass; **duties 2/3 below 80%** (owner's yes needed); marking_is 1/1 not decided.
+  - Fixed since v12: own_36 (obligation, now negated), own_41, own_61 (hatched).
+- **owner2 (assistant-authored batch):** count_bound 3/3, officer 3/3, precedence 3/3, size_check 3/3 pass; joining_road 2/2, relative_selector 2/2, right_of_way 2/2, vehicle_class 2/2 reported (fewer than 3).
+- **Misses (4):**
+  - own_05 (count): a W.207 variant for "ngã tư" instead of duong_giao_nhau (as under v12);
+  - own_26 (sign_applies, "có tính cả xe máy điện không"): parsed `forbidden` motorbike. Right under v12; v14's new line ("does this sign ban X" stays forbidden) now catches it. Same answer on a ban sign; on a non-ban sign it asks about a ban, not who the sign covers;
+  - own_47 (duties, U-turn duties): out of scope, goes to the fallback (as under v12);
+  - own_55 (signal_meaning, a red X lane-control light): out of scope, goes to the fallback.
+- **Gap rows (gold out of scope; reported apart, gold unchanged):**
+  - own_38 (pedestrians on green) is now out of scope, the A2 fix;
+  - own_14 (`count_is` ge 2), own_20 (`applies_to`, the sign next to the light: unknown) and own_46 (`right_of_way`, my_road branch) get v13's forms, which fit them;
+  - own_48 (an officer, no gesture) and own_68 (painted arrow) fail validation, so they go to the fallback;
+  - **risky:** own_58 and own_62 (painted arrows) parse as `marking_meaning` with no kind, so the answer describes the other markings read; own_65 (is this the stop line) parses as `verify(rule_permitted past_stop_line, at_signal)`, a different claim.
+- **Spend:** $0.96 + $0.36 = **$1.32 of $2.30; $0.98 left.** Next: scene v6 set-T check ($0.13, cap $0.20), then the judged dev run with v6 + v14 ($0.84, $0.67–1.10; cap = $0.98 minus the set-T spend, so about $0.85 at the estimate, $0.78 if set-T hits its cap).
+
 ### Parser v14 gate (owner run, 2026-11-18): passes the fixed rule
 
 - **Run:** `pred_claude-sonnet-5-5_medium_v14_20261118-090623.jsonl`, $0.2240 of the $0.45 cap (47 questions). Program accuracy 78.7% (37/47); non-duplicate 76.5% (n=17, 95% CI 52.7–90.4%).
