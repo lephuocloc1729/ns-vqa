@@ -57,3 +57,28 @@ def test_rejudge_reads_a_dev2_run_with_its_profile(tmp_path, monkeypatch):
     qs = [{"id": "q1", "question": "?", "answer": "Có"}]
     rep = ed.rejudge(tmp_path / "dev2.jsonl", [tmp_path / "dev2.jsonl"], 0.0, dry_run=True, git=CLEAN, questions=qs)
     assert seen["profile"] == "phase47" and rep["judge_ids"] == ["q1"]
+
+
+def test_reparse_reads_a_dev2_run_with_its_profile(tmp_path):
+    """Phase 4.8: a re-parse of a dev2 run uses the run's profile, the given parser version, and writes
+    a dev2_reparse file; an unchanged parse keeps its row."""
+    from tests.test_e2e_eval import RoutedSDK
+    scene = {"scene_id": "s", "signs": [{"id": "s1", "code": "P.104", "shape": "circle", "border": "red",
+                                         "background": "white"}]}
+    prog = {"intent": "forbidden", "action": "enter", "vehicle": {"class": "motorbike"}}
+    from vqa.reasoning.engine import Engine
+    from vqa.schemas import QueryProgram, SceneGraph
+    a = Engine(reading_policy="higher_confidence").answer(SceneGraph.model_validate(scene),
+                                                          QueryProgram.model_validate({"program": prog}))
+    row = {**_row("q1", prog, scene, True, a.verdict.value, a.value), "question_type": "Yes/No"}
+    row["trace"]["parser"]["status"] = "ok"
+    src = tmp_path / "dev2.jsonl"
+    _write(src, {"run_id": "d2", "kind": "dev2_rejudge", "profile": "phase47"}, [row])
+    sdk = RoutedSDK(parser=[{"program": {"intent": "forbidden", "action": "enter",
+                                         "vehicle": {"vehicle_class": "motorbike"}}}])
+    qs = [{"id": "q1", "question": "Xe máy có bị cấm đi vào không?", "answer": "Có", "question_type": "Yes/No"}]
+    out = ed.reparse(src, "v16", 0.5, select="all", sdk=sdk, out_dir=tmp_path, git=CLEAN, questions=qs,
+                     reading_policy="higher_confidence")
+    head, rows = ed.ee.load(out)
+    assert out.name.startswith("dev2_reparse_v16_") and head["kind"] == "dev2_reparse"
+    assert head["parser_version"] == "v16" and sdk.created == ["parser"] and rows[0]["changed"] is False

@@ -1634,6 +1634,18 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Phase 4.8 PAID 3b: parser v16 gate (owner run, 2026-11-18): passes
+
+- **Run:** `logs/parser_eval/pred_claude-sonnet-5-5_medium_v16_20261118-142601.jsonl`, **$0.222** (cap $0.45). Phase 4.8: **$1.86 of $5.00.**
+- **Rule: `regressed_types_without_design: []`, so v16 passes** (stopping rule: step 4 with v16). Program accuracy 78.7% (37/47; non-duplicate 76.5%, n=17), as v14. **public_natural_0049 is right again** (`lanes_for`).
+- **Lost rows are all design rows:** 0021, 0055, 0063, 0065, 0085, 0086, 0087 (as in v14), plus **0043**, a design row v14 had right: v16 parses it as `meaning` `aspect: scope` on P.107 where the gold is `ban_times`, so B4's scope wording reaches a "when" question. 0070 moved from a wrong `guide_claim` to out of scope (still lost). Without design rows: ban_times 1.0, meaning 0.9, out_of_scope 1.0, lanes_for 1.0.
+- **Step 4 prepared (free):** `e2e_dev.py reparse` reads a dev2 run (profile pipeline, dev2 questions, `dev2_reparse_*` file). Perception is unchanged (scene v5), so step 4 re-parses both sets with v16 on their stored scenes; with `--reading-policy higher_confidence` the engine also re-runs on unchanged parses, so batch-2 engine changes are judged too. Unchanged answers keep their grades.
+
+| | source | estimate | cap |
+|---|---|---|---|
+| PAID 4a, dev2 v16 re-parse | `dev2_rejudge_a240669b19bf` (batch 1 judged) | $0.70 ($0.56–0.91): parser 100 × $0.0047 × 1.146, ~20 changed answers written and judged | $0.95 |
+| PAID 4b, dev guardrail v16 re-parse | `dev_rejudge_f1f0ba0d2f8c` (the phase-4.7 judged dev) | $0.53 ($0.42–0.69): parser 87 questions, ~8 changed | $0.70 |
+
 ### Phase 4.8: parser v16 built, confusable table off (owner, 2026-11-18; no API calls)
 
 - **Option 1 (owner):** parser v16 = v15 plus one general wording line on `lanes_for`: "How many lanes a vehicle may use ("mấy / bao nhiêu làn") is `lanes_for` too." Few-shot added: **train_484**, exact text ("Theo biển trong ảnh, ô tô chạy 50 km/h được đi trên bao nhiêu làn?" → `lanes_for` car, 50 km/h); it is in the train working set, not in dev, dev2 or validation, and no earlier version uses it. Nothing else changed. `parser/v16@b296b65cb7cb`.

@@ -189,9 +189,19 @@ def reparse(src: Path, version: str, max_spend: float, *, select: str = "yesno",
     if not g["clean"]:
         raise SystemExit("the git working tree is not clean: commit or remove these first:\n  " + "\n  ".join(g["dirty"]))
     head, rows = ee.load(src)
-    qs = {q["id"]: q for q in (questions if questions is not None else load_questions())}
+    kind = "dev2" if str(head.get("kind", "")).startswith("dev2") else "dev"   # phase 4.8: a dev2 run
+    if questions is None:
+        if kind == "dev2":
+            from eval import e2e_dev2
+            questions = e2e_dev2.load_questions()
+        else:
+            questions = load_questions()
+    qs = {q["id"]: q for q in questions}
     guard = SpendGuard(max_spend)
-    base = PipelineConfig(**{k: v for k, v in (head.get("candidate") or {}).items()})
+    if head.get("profile"):
+        base = freeze.pipeline_config(head["profile"], head.get("perception_model"))
+    else:
+        base = PipelineConfig(**{k: v for k, v in (head.get("candidate") or {}).items()})
     if reading_policy:
         base = dataclasses.replace(base, reading_policy=reading_policy)
     with tempfile.TemporaryDirectory() as tmp:
@@ -199,8 +209,8 @@ def reparse(src: Path, version: str, max_spend: float, *, select: str = "yesno",
                                             answer_fallback=False), sdk=sdk, guard=guard)
         judge = Judge(llm=LLMClient(model="claude-opus-5-5", guard=guard, sdk=sdk))
         run_id = uuid.uuid4().hex[:12]
-        out = out_dir / f"dev_reparse_{version}_{run_id}.jsonl"
-        new_head = {**head, "kind": "dev_reparse", "label": f"reparse_{version}", "run_id": run_id,
+        out = out_dir / f"{kind}_reparse_{version}_{run_id}.jsonl"
+        new_head = {**head, "kind": f"{kind}_reparse", "label": f"reparse_{version}", "run_id": run_id,
                     "from_run": head["run_id"], "parser_version": version, "select": select,
                     "reading_policy": reading_policy or base.reading_policy,
                     "git_commit": g["commit"], "started": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}
