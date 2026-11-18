@@ -325,7 +325,7 @@ def rejudge(programs: Path, scenes: list[Path], max_spend: float, *, dry_run: bo
         raise SystemExit("the git working tree is not clean: commit or remove these first:\n  " + "\n  ".join(g["dirty"]))
     phead, prows = ee.load(programs)
     srcs = [ee.load(p) for p in scenes]
-    kind = "dev2" if phead.get("kind") == "dev2" else "dev"      # phase 4.8: a dev2 run (profile record)
+    kind = "dev2" if str(phead.get("kind", "")).startswith("dev2") else "dev"   # phase 4.8 (4.8c: dev2_reparse too)
     if questions is None:
         if kind == "dev2":
             from eval import e2e_dev2

@@ -1692,6 +1692,27 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### Phase 4.8c PAID 2: v17 re-parse of dev2 and dev, B switches all on (owner runs, 2026-11-18)
+
+- **Runs:** dev2 `eval/runs/e2e/dev2_reparse_v17_4083af459b9b.jsonl`, **$0.448** (cap $0.60); dev `dev_reparse_v17_d589c26e853c.partial.jsonl` stopped by the spend guard after 75 of 87 ($0.347, cap $0.45), resumed with the new `--resume` into `dev_reparse_v17_39c2d86ba1c1.jsonl` (**$0.043**, cap $0.25). Phase 4.8: **$3.76 of $5.00, $1.24 left.**
+
+| | decided | accuracy on decided | overall |
+|---|---|---|---|
+| dev2, phase 4.8 (v16) | 79 | 64.6% | 51.0% |
+| **dev2, v17 + all switches** | **79** | **71.5%** | **56.5%** (net +5.5 over 23 changed answers) |
+| dev, phase 4.8 (v16) | 74 | 81.1% | 69.0% |
+| **dev, v17 + all switches** | 73 | **81.5%** | **68.39%**: under the 68.4% bar by 0.01 point (59.5 of 87; the bar needs 59.51) |
+
+- **dev2 by cause (keep rule: its changed answers judge better):**
+  - **v17: +2.5, kept.** 433, 491 and 502 recovered (+1 each; 502's wording equals few-shot train_468's); 347 0.5 → out of scope; 400 and 447 wrong → undecided; 17, 350, 504 stay 0.
+  - **one_sign_g1: +1.5, kept.** 89, 315, 326 0.5 → 1.0; 320 stays 1.0.
+  - **asked_only: +0.5 to +1.5, kept.** 195 0.5 → 1.0; 169 0 → 1.0 (shared with v17); 121, 163, 165, 356, 527 unchanged.
+  - **sign_charts: kept** (the assistant's reading of the rule, flagged for the owner). Its one change, 131, goes from wrong and decided to undecided: accuracy on decided rises, overall is unchanged.
+  - **stated_exceptions: 0, not kept** (switched off). 342 and 356 stay 0.5; the writer did not use the exception.
+- **dev:** 107 0.5 → 1.0 and 159 0.5 → undecided (v17); **212 1.0 → 0.5** (asked_only and stated_exceptions; the v17 text is a near-paraphrase of v16's, "là căn cứ" against "quy định việc này", so probably judge variation); 515 and 518 unchanged; the rest keep their grades.
+- **The configuration to freeze differs from the one measured** (stated_exceptions off). With it off, dev 212, 280, 428 and dev2 342, 356 get new answers (the switch's value keys go; their banned lists equal v16's). Measuring that configuration: `rejudge` (dry runs: dev $0.025, dev2 $0.016).
+- **Fix:** `rejudge` took a `dev2_reparse` file for a dev run (it compared the kind to "dev2" exactly); it now matches `dev2*`, as `reparse` does.
+
 ### Phase 4.8c PAID 1: parser v17 gate (owner run, 2026-11-18): passes, v17 kept
 
 - **Run:** `logs/parser_eval/pred_claude-sonnet-5-5_medium_v17_20261118-152942.jsonl`, **$0.234** (estimate $0.23, cap $0.45). Phase 4.8: **$2.92 of $5.00, $2.08 left** (about $1.00 kept for dev3).

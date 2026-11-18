@@ -26,4 +26,4 @@ one_sign_g1: true
 asked_only: true
 # stated_exceptions (B3): which_vehicles bans name the priority-vehicle exception their articles
 #   state (kb/stated_exceptions_48.yaml); a guide direction answer carries the board's other text.
-stated_exceptions: true
+stated_exceptions: false   # owner rule, 2026-11-18: not kept (dev2 342 and 356 judged no better; PAID 2)
