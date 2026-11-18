@@ -1634,6 +1634,20 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Judged dev run, scene v6 + parser v14 (owner run, 2026-11-18): fails the guardrail
+
+- **Run:** `eval/runs/e2e/dev_phase47_d6790322b0dc.jsonl`, 87 of 87 questions, **$0.9351** of the $1.10 cap. Signals off.
+- **Summary:** 73 decided (83.9%, CI 74.8–90.2), **accuracy on decided 76.0%** (CI 65.1–84.4; ≥ 70% holds), **overall 63.8%** with non-decided counted wrong. Not decided: 9 unknown, 4 out of scope, 1 program cannot run.
+- **Guardrail:** overall must not drop below the last kept 69.0% (step 6, `dev_reparse_v11_f52e160181ca`: 73 decided, 81–82% on decided). **63.8% < 69.0%: the candidate is not kept.**
+- **Per question against step 6** (dev may be read question by question): net −4.5 points over 15 changed grades.
+  - **No loss comes from parser v14:** all 11 losses keep the step-6 program.
+  - **Scene v6 readings, −5.5:** train_446 (−1; P.102, R.302a read as R.301d), train_520 (−1; a W.221b read where v5 had UNKNOWN, so the selected signs are not one group: unknown), train_381 (−1; same codes, three markings read, the speed options undecided), train_138, train_14, train_219, train_222, train_268 (−0.5 each; an extra or different sign: P.130, R.403a, W.245a, P.131a).
+  - **Same program and signs, answer text graded lower, −1.5:** train_212, train_269, train_58 (−0.5 each; writer or judge variation).
+  - **Gains, +2.5:** train_159 (+1) and train_80 (+0.5) from v14's programs; train_414 (+0.5, program and scene); train_450 (+0.5, P.124c read where v5 had P.124a).
+- **Reading:** scene v6 improved set T (code F1 72.9% to 75.6%) but loses on dev; parser v14 alone gains here.
+- **Spend:** $1.44 + $0.94 = **$2.38 of $2.60; $0.22 left.** A judged rerun with scene v5 + parser v14 (cached v5 scenes; step 6 cost $0.41) does not fit.
+- **Free option (no API call):** run each v14 program from this run on step 6's cached v5 scene; a question whose engine answer is identical to step 6 keeps its judged grade, a changed one is graded provisionally. That estimates scene v5 + parser v14 without spending.
+
 ### Signals switched off (owner, 2026-11-18)
 
 - **Decision:** `kb/v6_fields_47.yaml` now has `"off": [signals]`, by the fixed 70% rule. **Small n:** set-T precision 66.7% rests on 3 predictions (2 right, 1 wrong; 5 missed, recall 28.6%). Markings (100% on 13) and arrows (nothing to judge) stay on.
