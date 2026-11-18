@@ -1429,6 +1429,12 @@ rows:
       intent: rule_permitted
       action: stop
       place: bridge
+  also_accept:
+  - program:
+      intent: rule_permitted
+      action: stop
+      place: bridge
+      stop_reason: other
 - id: own_33
   source: owner_written
   intent: rule_permitted
@@ -1436,9 +1442,12 @@ rows:
   line: 33
   file_commit: 2c31cd6
   program:
-    out_of_scope: true
-    out_of_scope_reason: reversing (Law 36 art. 16) is not an action in the DSL
-  gap: true
+    program:
+      intent: rule_permitted
+      vehicle:
+        vehicle_class: car
+      place: intersection
+      maneuver: reverse
 - id: own_34
   source: owner_written
   intent: rule_permitted
@@ -1450,6 +1459,7 @@ rows:
       intent: rule_permitted
       action: park
       place: tunnel
+      stop_reason: other
 - id: own_35
   source: owner_written
   intent: rule_permitted

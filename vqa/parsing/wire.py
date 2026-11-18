@@ -240,7 +240,7 @@ class WRulePermitted(_W):                    # phase 4.7 step 1c
     area: Optional[Literal["outside_residential"]] = None
     road_divided: Optional[bool] = None
     stop_reason: Optional[Literal["breakdown", "other"]] = None
-    maneuver: Optional[Literal["cross_center", "change_lane"]] = None
+    maneuver: Optional[Literal["cross_center", "change_lane", "reverse"]] = None
     past_stop_line: Optional[bool] = None
     at_signal: Optional[bool] = None
 

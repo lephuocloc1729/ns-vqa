@@ -33,7 +33,8 @@ def test_groups_and_sizes():
     assert set(aid) == NEW_INTENTS
     own = Counter(r["intent"] for r in rows("owner_written") if not r.get("gap"))
     assert set(own) == NEW_INTENTS
-    # 12 owner questions are DSL gaps; marking_is keeps only 1 expressible question
+    # 11 owner questions are DSL gaps (line 33, reversing, is expressible since 2026-11-18); marking_is
+    # keeps only 1 expressible question
     assert {k for k, v in own.items() if v < 3} == {"marking_is"}
 
 

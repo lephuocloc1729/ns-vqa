@@ -803,8 +803,26 @@ class Engine:
             lane = n + 1 + lane
         parts: list[tuple[str, list[Reason], str]] = []          # (yes|no|unknown, reasons, what)
         self.load_scene(scene)
-        if p.place is not None:
-            if p.place.value == "emergency_lane" and p.action.value in ("stop", "park"):
+        if p.maneuver == "reverse":
+            # Law 36 art. 16.2: reversing is banned at the listed places; no sign regulates it, and
+            # without a place the answer is unknown
+            if p.place is None:
+                parts.append(("unknown", [], "art. 16.2: no place given"))
+            else:
+                out = self.call(Term("q_general", atom("reverse"), veh, atom(p.place.value)))
+                rs = [_reason(r) for r in out["reasons"]]
+                parts.append(("yes" if out["verdict"] == "none" else out["verdict"], rs, "art. 16.2"))
+        elif p.place is not None:
+            if p.place.value == "tunnel" and p.action.value in ("stop", "park"):
+                # Law 36 art. 26.2, the emergency-lane pattern: only a breakdown allows it
+                reason = atom(p.stop_reason or "unknown")
+                for t in ("true", "false", "unknown"):
+                    r = self._goal(Term("tunnel_stop", reason, atom(t)))
+                    if r is not None:
+                        parts.append(({"true": "no", "false": "yes", "unknown": "unknown"}[t],
+                                      [r.model_copy(update={"truth": t})], "art. 26.2"))
+                        break
+            elif p.place.value == "emergency_lane" and p.action.value in ("stop", "park"):
                 reason = atom(p.stop_reason or "unknown")
                 rs = []
                 for t in ("true", "false", "unknown"):
@@ -864,7 +882,7 @@ class Engine:
         elif p.at_signal and p.maneuver is None and p.speed_kmh is None:
             # art. 6: passing a light depends on the light; none was read, so no yes from signs alone
             parts.append(("unknown", [], "art. 6 lights: no light read"))
-        if p.maneuver is not None:                                           # scene v6: G.1
+        if p.maneuver in ("cross_center", "change_lane"):                   # scene v6: G.1
             self.load_scene(scene)
             out = self.call(Term("q_v6", Term("marking", atom(p.maneuver), lane if lane is not None else atom("none"))))
             parts.append(("unknown" if out["verdict"] == "none" else out["verdict"],
@@ -876,7 +894,8 @@ class Engine:
         support = [r for v, rs, _ in parts if v == want or verdict is Verdict.yes for r in rs]
         cites = _cites(support)
         if verdict is Verdict.yes and p.place is not None and not cites:
-            art = {"overtake": "14", "u_turn": "15", "stop": "18", "park": "18"}.get(p.action.value)
+            art = "16" if p.maneuver == "reverse" else {"overtake": "14", "u_turn": "15", "stop": "18",
+                                                        "park": "18"}.get(p.action.value)
             if art:
                 cites = [Citation(law_id="36/2024/QH15", article_id=art)]
         no_light = verdict is Verdict.unknown and any(w.startswith("art. 6 lights: no") for _, _, w in parts)

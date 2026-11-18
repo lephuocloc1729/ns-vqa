@@ -1667,33 +1667,26 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 | ai_drafted_owner_reviewed | 50, pinned to `owner_questions.txt` at `41291ef` | smoke test, reported apart |
 | assistant_written | 50, written by the assistant | smoke test, reported apart |
 
-- **DSL gaps among the owner rows:** 12 at `17ac8bf`, reported apart from the type rates:
+- **DSL gaps among the owner rows:** 12 at `17ac8bf`, 11 after the reversing fix, reported apart from the type rates:
   - a count compared with a number (line 14);
   - a sign placed next to a light (line 20);
-  - reversing (line 33; open fix below);
+  - reversing (line 33; fixed 2026-11-18, now expressible);
   - pedestrians crossing on green (line 38);
   - yielding when joining a main road (line 46);
   - a traffic officer's signals (line 48);
   - painted road arrows (lines 58, 62, 68);
   - marking-kind claims (lines 65, 66);
   - the effect of a hatched area (line 69).
-- **Expressible owner rows per type:** count 5, count_is 4, applies_to 4, sign_applies 5, rule_permitted 8, duties 3, signal_meaning 5, marking_meaning 3, marking_is 1. marking_is is reported, not decided.
+- **Expressible owner rows per type:** count 5, count_is 4, applies_to 4, sign_applies 5, rule_permitted 9 (8 at `17ac8bf`, plus line 33), duties 3, signal_meaning 5, marking_meaning 3, marking_is 1. marking_is is reported, not decided.
 
-#### Open: two additive fixes the owner asked for before the gate
+#### Done (2026-11-18): two additive fixes before the gate (owner lines 33, 34)
 
-1. **Stopping and parking in a tunnel** (owner line 34).
-   - Add them to the place bans, citing Law 36 art. 26.2 ("Không dừng xe, đỗ xe trong hầm đường bộ"), with its breakdown exception, using the emergency-lane pattern.
-   - Tests on hand-made scenes.
-   - Line 34's expected program then carries `stop_reason: other`.
-2. **Reversing** (owner line 33).
-   - Law 36 art. 16.2 lists the places: one-way road, no-stopping zone, pedestrian crossing, intersection, railway crossing, a place where the view is blocked, tunnel, expressway.
-   - Add `maneuver: reverse` to `rule_permitted`, with places `no_stopping_zone` and `limited_view`, and the same line in parser v12's spec (same version, before the gate).
-   - No train question mentions "lùi", so there is no few-shot.
-   - Tests; line 33's program becomes reverse + intersection, no longer a gap.
-- **State:** a draft of both is in the working tree, **uncommitted and unverified**.
-  - The session was stopped mid-run, so the full suite and the replay have not run on it.
-  - Files: `kb/rules/general47.pl`, `kb/rules/common.pl`, `vqa/schemas.py`, `vqa/parsing/wire.py`, `vqa/reasoning/engine.py`, `prompts/parser/v12/spec.md`, `tests/test_phase47_general_rules.py`, `tests/test_phase47_newtypes.py`, `data/annotations/gold_v12_new/gold_v12_new.yaml`, `eval/coverage_matrix.py`, `docs/plans/phase-4.7-coverage-matrix.md`, `docs/plans/phase-4.7-review.md`.
-  - Check it with `git diff`, run the suite and the replay, then commit by name.
+1. **Stopping and parking in a tunnel** (line 34). `tunnel_stop/2` in `kb/rules/general47.pl`, citing Law 36 art. 26.2 ("Không dừng xe, đỗ xe trong hầm đường bộ", quoted from law_db with its breakdown exception), using the emergency-lane pattern: `stop_reason: other` gives no, `breakdown` gives yes, no reason gives unknown. Line 34's program carries `stop_reason: other`.
+2. **Reversing** (line 33). `maneuver: reverse` in `RulePermitted` and the wire schema; `general_ban(reverse, ...)` for every place art. 16.2 lists (quoted from law_db), with two new places `no_stopping_zone` and `limited_view`. Our reading: `curve_limited_view` and `hill_crest_limited_view` also count as "nơi tầm nhìn bị che khuất" (in the review list). Reversing elsewhere gives yes citing art. 16; no place gives unknown; markings, lights and signs do not decide it. Parser v12's spec gains the two places, the tunnel `stop_reason` and the reverse line (same version, before the gate). Line 33 is now reverse + intersection + car, no longer a gap: **11 DSL gaps** among the owner rows.
+- **No few-shot.** The only train question about reversing is in the phase-4.5 validation set, so it cannot be used.
+- **Validation exposure (2026-11-18, assistant):** while searching the train file for "lùi", the assistant saw the text and cited article of one validation question (citing art. 16; id not written here, since the validation tests treat ids named in the repo as used) before checking the validation id list. Nothing was built from it: the rule comes from law_db art. 16.2 and owner line 33, and it is not a few-shot, fixture or gold row. The owner decides whether to keep it in the validation aggregate.
+- **Spec wording:** example phrases taken from owner lines 32–34 ("để xem bản đồ", "để thả người xuống", "ngã ba") were removed from the draft spec, since those lines decide the type rates.
+- **Checks:** full suite passed; replay 88/88 identical, `decided_changed: []`; matrix regenerated, totals unchanged (713 modelled, 0 to build, 435 n/a, 10 out).
 
 #### Next perception field
 
@@ -1716,7 +1709,7 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 | 3 | scene v6 set-T check, with the v6 fields | $0.13 | $0.20 (two $0.10 guards) |
 | 4 | judged dev run, scene v6 + parser v12 | $0.85 | what is left, at most $1.00 |
 
-Steps 1–3 cap at $1.00, so step 4 is capped at $1.00 and the total cannot pass $2.00. Run the two open fixes first: they change parser v12's prompt.
+Steps 1–3 cap at $1.00, so step 4 is capped at $1.00 and the total cannot pass $2.00. The two fixes above changed parser v12's prompt before any gate ran.
 
 ```zsh
 # 1. gate

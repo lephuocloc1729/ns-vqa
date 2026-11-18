@@ -57,6 +57,8 @@ rule_source(r_l36_u_turn,          '36/2024/QH15', '15').
 rule_source(r_l36_stopping,        '36/2024/QH15', '18').
 rule_source(r_l36_expressway,      '36/2024/QH15', '25').
 rule_source(r_l36_priority,        '36/2024/QH15', '27').
+rule_source(r_l36_reversing,       '36/2024/QH15', '16').   % phase 4.7 (owner, 2026-11-18)
+rule_source(r_l36_tunnel,          '36/2024/QH15', '26').
 rule_source(r_c38_outside,         interpretation, circular_38_2024_outside_residential_speeds).
 % phase 4.7 step 1d (kb/rules/signals47.pl): scene v6
 rule_source(r_r411_lane_arrows,    'QCVN 41:2024/BGTVT', 'D.13').

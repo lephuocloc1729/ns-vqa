@@ -50,7 +50,7 @@ The three YAML files carry file-level `reviewed_by: assistant`. The Prolog files
 | `kb/general_duties_47.yaml:7` | Speed and distance (12), lane change (13), overtaking (14), turning (15), stopping/parking (18), yielding to a priority vehicle (27), expressway entry/exit/lanes (25), all Law 36. Review the conditions attached to each individual duty. |
 | `kb/signals_markings_47.yaml:7` signals | QCVN art. 6: green, yellow, flashing yellow, red, green arrow, red arrow. Check stopping position, priority and arrow direction. |
 | Same file, markings and separation | G.1 centre lines 1.1–1.4 (both orientations of the mixed line); same-direction lane lines 2.1, 2.2, 2.4; solid edge line 3.1; hatched 4.1; G.2 stop line 7.1. Centre and lane lines separate opposing and same-direction traffic respectively. |
-| `kb/rules/general47.pl:16` | Law 36 art. 14.6 overtaking places, 15.4 U-turn places, 18.4 stop/park places and exceptions, 25.1c emergency-lane entry and 25.2 forced stops, 13.3 rightmost lane for rudimentary vehicles, 27.4 on-duty priority speed exemption. Also review all three Circular 38 speed groups above. |
+| `kb/rules/general47.pl:16` | Law 36 art. 14.6 overtaking places, 15.4 U-turn places, 18.4 stop/park places and exceptions, 25.1c emergency-lane entry and 25.2 forced stops, 26.2 tunnel stops and parking (breakdown or force majeure only; added 2026-11-18), 16.2 reversing places (added 2026-11-18; our reading: `curve_limited_view` and `hill_crest_limited_view` count as "nơi tầm nhìn bị che khuất"), 13.3 rightmost lane for rudimentary vehicles, 27.4 on-duty priority speed exemption. Also review all three Circular 38 speed groups above. |
 | `kb/rules/signals47.pl:17` | R.411 lane arrows and permitted/excluded directions (D.13); vehicle lights and directional arrows, priority exemption and yellow at the line (6, Law 36 art. 27.4); crossing centre lines, changing across lane lines and hatched markings (G.1). Review how multiple, missing and side-dependent observations are combined. |
 
 ## Existing rows that look wrong
@@ -60,6 +60,8 @@ The three YAML files carry file-level `reviewed_by: assistant`. The Prolog files
 **Missing-signal issue (fixed, owner 2026-11-17, before the v12 gate):** QCVN art. 6 makes passage depend on the signal, but a light question could return yes from the signs alone when perception read no light. `rule_permitted` now has `at_signal`. With it set and no vehicle light read, the answer is unknown, citing art. 6 with the note "the question is about a traffic light, and none was read in the photo". With a light read, the light decides as before. Without the flag, behaviour is unchanged. Parser v12's spec says to set `at_signal: true` for every light question. Hand-program replay: dev 341 is now unknown, not yes, so decided stays 88 of 107, all 88 identical.
 
 ## Not built
+
+- **Painted road arrows (G.4 9.3): the next perception field** (owner, 2026-11-18). Three owner-written questions need them (lines 58, 62, 68 of owner_questions.txt); scene v6 reads no arrows on the road surface.
 
 - Lane-set claims with a set and an any/all or subset relation.
 - R.411 applicability by vehicle class. Lane arrows support directions on a specified lane.

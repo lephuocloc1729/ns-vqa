@@ -126,8 +126,8 @@ M = modelled, **B** = to build, – = not applicable, out = out (reason in the n
 | T1 | speed by road type | Circular 38/2024 art. 6-9 (interpretation, r_c38_*); Law 36 art. 12 | – | M | – | M | – | – | – | – | M | – | – | – | M |
 | T2 | lane use | Law 36 art. 13 | – | M | M | out | – | M | – | – | M | – | – | M | M |
 | T3 | overtaking | Law 36 art. 14; QCVN 41 B.25 (P.125) | – | – | M | – | – | – | – | – | M | – | – | – | M |
-| T4 | turning and U-turns | Law 36 art. 15; QCVN 41 6.2.2 | – | – | M | – | – | M | – | – | M | – | – | – | M |
-| T5 | stopping and parking | Law 36 art. 18 | – | – | M | – | – | – | – | – | M | – | – | out | M |
+| T4 | turning, U-turns, reversing | Law 36 art. 15, 16; QCVN 41 6.2.2 | – | – | M | – | – | M | – | – | M | – | – | – | M |
+| T5 | stopping and parking | Law 36 art. 18, 25.2, 26.2 | – | – | M | – | – | – | – | – | M | – | – | out | M |
 | T6 | priority vehicles | Law 36 art. 27; QCVN 41 art. 7 | – | out | M | M | – | – | – | – | M | – | – | – | M |
 | T7 | expressways | Law 36 art. 25 | – | M | M | M | – | M | M | – | M | – | – | – | M |
 | T8 | traffic lights | QCVN 41 art. 4, 6, 8 | M | M | M | – | – | M | out | out | M | – | – | M | M |

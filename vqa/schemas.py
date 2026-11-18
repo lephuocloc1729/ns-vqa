@@ -764,6 +764,9 @@ class Place(str, Enum):
     emergency_lane = "emergency_lane"                     # "làn dừng xe khẩn cấp"
     pickup_point = "pickup_point"                         # "điểm đón, trả khách"
     bus_lane = "bus_lane"                                 # "đường dành riêng cho xe buýt"
+    # phase 4.7 (owner, 2026-11-18), Law 36 art. 16.2 (reversing)
+    no_stopping_zone = "no_stopping_zone"                 # "khu vực cấm dừng"
+    limited_view = "limited_view"                         # "nơi tầm nhìn bị che khuất"
 
 
 class RulePermitted(_Model):
@@ -787,7 +790,8 @@ class RulePermitted(_Model):
     # scene v6 (phase 4.7 step 1d): crossing the centre line ("lấn sang làn ngược chiều, đè vạch")
     # or changing lanes across a lane line (G.1); and, for a yellow light, whether the vehicle is
     # already on or past the stop line (art. 6.3.2)
-    maneuver: Literal["cross_center", "change_lane"] | None = None
+    # "reverse" (lùi xe, Law 36 art. 16; owner, 2026-11-18): decided by the place, never by markings
+    maneuver: Literal["cross_center", "change_lane", "reverse"] | None = None
     past_stop_line: bool | None = None
     # the question asks about passing a traffic light ("gặp đèn tín hiệu ... có được đi tiếp không"):
     # with no light read in the photo the answer is unknown, never a yes from the signs alone (art. 6)

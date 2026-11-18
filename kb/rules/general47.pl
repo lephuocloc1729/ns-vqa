@@ -57,6 +57,20 @@ stop_ban_place(bus_lane).                 % o) "Trên đường dành riêng cho
 % ---- Law 36 art. 25.1 c) "Không được cho xe chạy ở làn dừng xe khẩn cấp và phần lề đường"
 general_ban(enter, emergency_lane, r_l36_expressway).
 
+% ---- Law 36 art. 16.2 (owner, 2026-11-18): "Không được lùi xe ở đường một chiều, khu vực cấm dừng, trên
+% phần đường dành cho người đi bộ qua đường, nơi đường bộ giao nhau, đường bộ giao nhau cùng mức với đường
+% sắt, nơi tầm nhìn bị che khuất, trong hầm đường bộ, trên đường cao tốc."
+general_ban(reverse, one_way_road,        r_l36_reversing).
+general_ban(reverse, no_stopping_zone,    r_l36_reversing).   % "khu vực cấm dừng"
+general_ban(reverse, pedestrian_crossing, r_l36_reversing).
+general_ban(reverse, intersection,        r_l36_reversing).
+general_ban(reverse, railway_crossing,    r_l36_reversing).
+general_ban(reverse, limited_view,        r_l36_reversing).   % "nơi tầm nhìn bị che khuất"
+general_ban(reverse, curve_limited_view,  r_l36_reversing).   % a curve with its view blocked is such a place
+general_ban(reverse, hill_crest_limited_view, r_l36_reversing).
+general_ban(reverse, tunnel,              r_l36_reversing).
+general_ban(reverse, expressway,          r_l36_reversing).
+
 %!  general_forbids(+Action, +Veh, +Place, -T) is nondet.
 %   T = true, or unknown when a scene sign permits the action at this place (the law's own
 %   exceptions; see the header).
@@ -67,6 +81,16 @@ general_forbids(Action, _Veh, Place, T) :-
 
 leaf(lifted_by_sign(_)).
 lifted_by_sign(Action) :- scene_sign(_, Code), permits_here(Code, Action), !.
+
+% ---- Law 36 art. 26.2 (owner, 2026-11-18): "Không dừng xe, đỗ xe trong hầm đường bộ; trường hợp gặp sự cố
+% kỹ thuật hoặc bất khả kháng khác buộc phải dừng xe, đỗ xe, người lái xe ... phải đưa xe vào vị trí dừng xe,
+% đỗ xe khẩn cấp". Same pattern as the emergency lane (25.2): Reason = breakdown | other | unknown.
+tunnel_stop(Reason, T) :-
+    cite(r_l36_tunnel),
+    (   Reason == breakdown -> T = false
+    ;   Reason == other -> T = true
+    ;   T = unknown
+    ).
 
 % ---- Law 36 art. 25.2: stopping in the emergency lane only on a breakdown or force majeure
 % ("trường hợp gặp sự cố kỹ thuật hoặc bất khả kháng khác buộc phải dừng xe, đỗ xe thì được dừng

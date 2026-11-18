@@ -170,3 +170,45 @@ def test_circular38_ambiguous_classes_stay_unknown(engine):
     assert _c38(engine, V("bus"), 65) is Verdict.unknown
     assert _c38(engine, V("city_bus"), 75) is Verdict.no                 # group 3, 70
     assert _c38(engine, V("motorbike"), 65, divided=False) is Verdict.no  # group 3 undivided, 60
+
+
+# ---------------------------------------------------------------- tunnel stops, reversing (owner, 2026-11-18)
+
+@pytest.mark.parametrize("action", ["stop", "park"])
+def test_no_stopping_or_parking_in_a_tunnel(engine, action):
+    """Law 36 art. 26.2 "Không dừng xe, đỗ xe trong hầm đường bộ", unless a breakdown or force majeure
+    forces it (the emergency-lane pattern: no reason stated gives unknown)."""
+    other = engine.answer(EMPTY, RulePermitted(action=action, place="tunnel", stop_reason="other"))
+    assert other.verdict is Verdict.no and (L36, "26") in arts(other)
+    breakdown = engine.answer(EMPTY, RulePermitted(action=action, place="tunnel", stop_reason="breakdown"))
+    assert breakdown.verdict is Verdict.yes and (L36, "26") in arts(breakdown)
+    assert engine.answer(EMPTY, RulePermitted(action=action, place="tunnel")).verdict is Verdict.unknown
+
+
+@pytest.mark.parametrize("place", ["one_way_road", "no_stopping_zone", "pedestrian_crossing", "intersection",
+                                   "railway_crossing", "limited_view", "tunnel", "expressway",
+                                   "curve_limited_view", "hill_crest_limited_view"])
+def test_reversing_is_banned_where_art16_lists(engine, place):
+    """Art. 16.2 "Không được lùi xe ở đường một chiều, khu vực cấm dừng, ... trong hầm đường bộ, trên đường
+    cao tốc"."""
+    a = engine.answer(EMPTY, RulePermitted(maneuver="reverse", place=place, vehicle=V("car")))
+    assert a.verdict is Verdict.no and (L36, "16") in arts(a)
+
+
+def test_reversing_elsewhere_is_allowed_and_needs_a_place(engine):
+    a = engine.answer(EMPTY, RulePermitted(maneuver="reverse", place="bridge"))
+    assert a.verdict is Verdict.yes and (L36, "16") in arts(a)
+    assert engine.answer(EMPTY, RulePermitted(maneuver="reverse")).verdict is Verdict.unknown
+
+
+def test_reverse_ignores_markings_and_lights(engine):
+    from vqa.schemas import RoadMarking, TrafficSignal
+    scene = SceneGraph(scene_id="x", road=Road(markings=[RoadMarking(kind="center", pattern="double_solid")]),
+                       signals=[TrafficSignal(colour="red")], signs=[])
+    assert engine.answer(scene, RulePermitted(maneuver="reverse", place="bridge")).verdict is Verdict.yes
+
+
+def test_wire_reverse():
+    q = to_query(from_wire({"program": {"intent": "rule_permitted", "maneuver": "reverse", "place": "intersection",
+                                        "vehicle": {"vehicle_class": "car"}}}), 2025)
+    assert q.program.maneuver == "reverse" and q.program.place.value == "intersection"
