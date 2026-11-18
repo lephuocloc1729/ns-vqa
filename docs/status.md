@@ -1634,6 +1634,16 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Phase 4.8 PAID 3: parser v15 gate (owner run, 2026-11-18): fails on one row
+
+- **Run:** `logs/parser_eval/pred_claude-sonnet-5-5_medium_v15_20261118-141806.jsonl`, **$0.222** (runner's expected $0.40, cap $0.45; 47 questions). Phase 4.8: **$1.64 of $5.00.**
+- **Rule:** `regressed_types_without_design` must be empty. **It is `["lanes_for"]`: v15 fails.**
+  - The row: **public_natural_0049** ("... xe ô tô được phép đi vào mấy làn đường ...?", gold "2 làn đường"). v6 (three runs) and v14 parsed `lanes_for` (car), the gold program; v15 answered out of scope ("asks for a count of lanes a car may enter, which no intent expresses").
+  - Other lost rows are the 7 design rows v12 and v14 also lost (0021, 0055, 0063, 0065, 0070, 0085, 0087); without design rows forbidden 1.0, meaning 0.9, out_of_scope 1.0, is_sign 1.0 (5/5).
+- **Side-by-side engine check (free; public_dev gold scene `public_test_5_4`, R.415a with lanes 1–2 for cars):** the v14 program answers **lanes 1 and 2 (lane_count 4)**, the gold, and oracle A judged that answer correct; v15's out of scope gives unknown. **The regression is real for this row:** a decided right answer becomes undecided.
+- **Likely cause:** "mấy làn" reads as a count, and v15's new out-of-scope wording ("when no catalog name tells the asked shape apart") or the `limit` line ("the number ...") makes a count look unanswerable. One run; Sonnet's run-to-run spread is about two questions.
+- **The working set has the same wording:** train_484 ("ô tô chạy 50 km/h được đi trên bao nhiêu làn?"), not in dev, dev2 or validation, and not a few-shot in any version.
+
 ### Phase 4.8 PAID 2 (c): scene v7, set T (owner run, 2026-11-18): not kept (recall)
 
 - **Run:** `T_claude-haiku-5-5_v7+fb_1073eec9742b.jsonl` (pass 1 + fallback with v7-tile / v7-crop), **$0.093**. Phase 4.8: **$1.42 of $5.00.**
