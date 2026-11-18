@@ -1692,6 +1692,13 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### Phase 4.8c PAID 1: parser v17 gate (owner run, 2026-11-18): passes, v17 kept
+
+- **Run:** `logs/parser_eval/pred_claude-sonnet-5-5_medium_v17_20261118-152942.jsonl`, **$0.234** (estimate $0.23, cap $0.45). Phase 4.8: **$2.92 of $5.00, $2.08 left** (about $1.00 kept for dev3).
+- **Rule: `regressed_types_without_design: []`, so v17 passes.** Program accuracy **80.9%** (38/47; non-duplicate 76.5%, n=17); v16 78.7%. Out-of-scope precision 100%.
+- **Against v16, row by row:** v17's 9 wrong rows (0005, 0021, 0025, 0055, 0063, 0065, 0085, 0086, 0087) are a subset of v16's 10; **0043 is right again** (v16's one lost design row). No row v16 had right is lost, so no side-by-side check was needed. The lost rows against v6 are the same design rows as before.
+- **Step 2 next:** the dev2 and dev re-parse with v17 on stored scenes, B switches as in `kb/switches_48.yaml` (all on); the re-parse header now records the switches (`switches_48`).
+
 ### Phase 4.8c built: parser v17 and the free batch (owner, 2026-11-18; no API calls)
 
 #### A1. Out-of-scope groups (dev2's 13 under v16, plus the train working set by wording)

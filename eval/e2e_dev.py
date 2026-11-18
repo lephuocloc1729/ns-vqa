@@ -215,6 +215,8 @@ def reparse(src: Path, version: str, max_spend: float, *, select: str = "yesno",
                     "from_run": head["run_id"], "parser_version": version, "select": select,
                     "reading_policy": reading_policy or base.reading_policy,
                     "git_commit": g["commit"], "started": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}
+        from vqa.reasoning.engine import switches_from_kb
+        new_head["switches_48"] = switches_from_kb()      # phase 4.8c: the B switches this run used
         changed = []
         stopped = None
         with open(out, "w", encoding="utf-8") as f:
