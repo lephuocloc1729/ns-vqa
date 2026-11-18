@@ -83,7 +83,7 @@ def questions(rows: list[dict], train: Path = TRAIN) -> dict[str, str]:
 def estimate(rows: list[dict], version: str = VERSION) -> dict:
     n = len(rows)
     exp = (FIRST_CALL_USD + PER_CALL_USD * (n - 1)) * PROMPT_GROWTH
-    if version == "v13":
+    if version in ("v13", "v14"):                 # v14 = v13 plus one spec line
         exp = (V13_FIRST_CALL_USD + V13_PER_CALL_USD * (n - 1)) * V13_GROWTH
     top = exp * 1.3
     # the spend guard keeps one call's worst case (about $0.09) free, so the cap sits that far above
@@ -204,9 +204,9 @@ def main() -> None:
     sp = ap.add_subparsers(dest="cmd", required=True)
     e = sp.add_parser("estimate")
     e.add_argument("--sources", nargs="*", choices=list(GROUPS))
-    e.add_argument("--version", default=VERSION, choices=["v12", "v13"])
+    e.add_argument("--version", default=VERSION, choices=["v12", "v13", "v14"])
     r = sp.add_parser("run")
-    r.add_argument("--version", default=VERSION, choices=["v12", "v13"])
+    r.add_argument("--version", default=VERSION, choices=["v12", "v13", "v14"])
     r.add_argument("--max-spend", type=float, required=True)
     r.add_argument("--sources", nargs="*", choices=list(GROUPS),
                    help="only these groups (default: all); train owner_written = the deciding groups")

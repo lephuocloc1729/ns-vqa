@@ -1634,6 +1634,35 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Parser v14 built (owner, 2026-11-18: "Build v14"; no API calls)
+
+- **v14 = v13 plus one spec line** (`prompts/parser/v14/spec.md`, last bullet of "New and extended forms"): a ban asked about a vehicle stays `forbidden`, one claim per vehicle (`all_of` for several); `sign_applies` only for "áp dụng cho" / "dành cho" wording. Few-shots are v13's (v12's). P.116 is listed (parser v13 and later).
+- Nothing else changed: no rule, catalog row, engine path or gold. `eval/parser_newtypes.py` takes `--version v14` (same estimate as v13). Tests: `tests/test_phase47_parser_v14.py` (exactly one added line, no owner text, the runner).
+- The owner's uncommitted edits to `owner_questions.txt` and `labels_v6_fields.yaml` are not part of this commit.
+
+#### Paid checks for v14, in order ($0.74 spent; $1.56 left of $2.30)
+
+| # | check | estimate | cap |
+|---|---|---|---|
+| 1 | parser v14 gate (no-regression rule against v6) | $0.23 (v13 measured $0.2243) | $0.45 (the runner refuses below its expected, about $0.41) |
+| 2 | new-types rerun: train + owner_written + owner2 (76) | $0.40 | $0.55 |
+| 3 | scene v6 set-T check | $0.13 | $0.20 (two $0.10 guards) |
+| 4 | judged dev run, scene v6 + parser v14 | $0.84 ($0.67–1.10) | $1.56 minus steps 1–3's actual spend |
+
+- **Does not fit at the estimates:** $1.60 against $1.56. At the estimates step 4 gets about $0.80, below its own estimate, so its guard may stop it partway; if steps 1–3 hit their caps, step 4 gets $0.36. A full sequence needs about $0.30 more, or one step left out (the owner decides).
+
+```zsh
+.venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v14 --max-spend 0.45
+.venv/bin/python eval/parser_eval.py score <gate_run>
+.venv/bin/python eval/parser_eval.py compare --old \
+  logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-140559.jsonl \
+  logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141622.jsonl \
+  logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141902.jsonl --new <gate_run>
+.venv/bin/python eval/parser_newtypes.py run --version v14 --sources train owner_written owner2 --max-spend 0.55
+.venv/bin/python eval/parser_newtypes.py score <newtypes_run>
+# steps 3 and 4 as in the v13 handoff below, with --parser-version v14
+```
+
 ### Parser v13 gate (owner run, 2026-11-18): fails the fixed rule
 
 - **Run:** `pred_claude-sonnet-5-5_medium_v13_20261118-085146.jsonl`, $0.2243 of the $0.45 cap. Program accuracy 76.6%.
