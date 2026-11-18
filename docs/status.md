@@ -1634,6 +1634,20 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Phase 4.8 PAID 2 (a): three Haiku reads voted, set T (owner run, 2026-11-18): not kept
+
+- **Runs:** reads 2 and 3 are `82d929851fad` (pass 1 `fa685c76eb6c`) and `a25c2e6e55a4` (pass 1 `2a8b8f23e4e6`), each scene v5 + fallback `crop_always`, **$0.111 + $0.112**. Read 1 is the stored baseline `3861a1816d1a`. Vote: `T_claude-haiku-5-5_v5+fb+vote3_9cda0c31f6c2.jsonl` (free). A first start was stopped by the owner after 11 images (`01cc158e12a8.stopped`, $0.022). Phase 4.8: **$1.33 of $5.00.**
+
+| set T (36 images, 120 gold signs) | recall | code F1 (95% CI) | strict F1 | non-dup recall / F1 |
+|---|---|---|---|---|
+| read 1 = baseline `3861a1816d1a` | 90.8% | 73.0% (64.8–80.6) | 71.3% | 91.1% / 73.6% |
+| read 2 `82d929851fad` | 92.5% | 77.0% (68.4–85.6) | 74.6% | 91.1% / 77.5% |
+| read 3 `a25c2e6e55a4` | 92.5% | 73.7% (63.6–83.7) | 71.3% | 90.0% / 73.9% |
+| **vote of the three** | **93.3%** | **74.8%** (67.4–82.4) | 73.2% | 92.2% / 74.7% |
+
+- **Rule: F1 at least 75.9% with recall not lower. The vote gives 74.8% (+1.9): (a) is not kept.** Recall holds (93.3%).
+- The single reads of one configuration span 73.0–77.0% F1 (4 points), above the 2.9-point spread the rule assumes. The vote lands at their mean (74.6%), so voting removes run-to-run noise but adds no reading skill. A one-run comparison of v7 against the baseline is just as exposed to this spread.
+
 ### Phase 4.8 batch 2 built (2026-11-18; no API calls)
 
 - **A1, the confusable table** (`kb/confusables_48.yaml`, switch `confusable_pairs` in `kb/switches_48.yaml`, on for step 4's measurement): a low- or medium-confidence sign with no alternative, read as a table code, gets the partner as a low-confidence alternative. **Under the frozen policy A an alternative alone changes nothing** (the higher-confidence reading wins), so a disagreement that comes from a table partner answers **unknown** (note "often confused with another sign").
