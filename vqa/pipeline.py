@@ -44,6 +44,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from vqa.answer.asked import prune_unasked
 from vqa.answer.digest import build as build_digest
 from vqa.answer.fallback import AnswerFallback, trigger
 from vqa.answer.template import template_answer
@@ -199,7 +200,7 @@ class Pipeline:
                 trace["parser"]["program"] = program
             if pr.status == "ok":
                 try:
-                    engine_answer = self.engine.answer(scene, pr.query)
+                    engine_answer = prune_unasked(self.engine.answer(scene, pr.query), question)  # 4.8c B2
                 except EngineError as e:
                     engine_error = str(e)
                 trace["engine"] = {"verdict": engine_answer.verdict.value if engine_answer else None,

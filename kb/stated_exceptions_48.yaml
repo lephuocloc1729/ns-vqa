@@ -1,0 +1,25 @@
+# Phase 4.8c B3 (owner, 2026-11-18): QCVN 41:2024/BGTVT articles whose own text excepts priority
+# vehicles from the sign's ban or order. Built from law_db (authoring only; inference reads this
+# file). With the engine switch `stated_exceptions` on, a which_vehicles answer names the
+# exception when every banning sign's article is listed here. reviewed_by: assistant.
+reviewed_by: assistant
+articles:
+  - {article_id: B.1, quote: "trừ các xe được ưu tiên theo quy định"}          # P.101
+  - {article_id: B.2, quote: "trừ các xe được ưu tiên theo quy định"}          # P.102
+  - {article_id: B.3, quote: "trừ xe máy 2 bánh, xe gắn máy và các xe được ưu tiên theo quy định"}  # P.103a/b/c
+  - {article_id: B.4, quote: "trừ các xe được ưu tiên theo quy định"}          # P.104
+  - {article_id: B.5, quote: "trừ các xe được ưu tiên theo quy định"}          # P.105
+  - {article_id: B.6, quote: "trừ các xe được ưu tiên theo quy định"}          # P.106a/b
+  - {article_id: B.7, quote: "trừ các xe được ưu tiên theo quy định"}          # P.107
+  - {article_id: B.7a, quote: "trừ các xe ưu tiên theo quy định"}              # P.107a
+  - {article_id: B.23, quote: "trừ các xe được ưu tiên theo quy định"}         # P.123a/b
+  - {article_id: B.24, quote: "trừ các xe được ưu tiên theo quy định"}         # P.124a-f
+  - {article_id: B.27, quote: "trừ các xe được ưu tiên theo quy định"}         # P.127
+  - {article_id: B.30, quote: "trừ các xe được ưu tiên theo quy định"}         # P.130
+  - {article_id: B.31, quote: "trừ các xe được ưu tiên theo quy định"}         # P.131a/b/c
+  - {article_id: B.36, quote: "trừ xe ưu tiên theo qui định"}                  # P.136
+  - {article_id: B.37, quote: "trừ xe ưu tiên theo qui định"}                  # P.137
+  - {article_id: B.38, quote: "trừ xe ưu tiên theo qui định"}                  # P.138
+  - {article_id: B.39, quote: "trừ xe ưu tiên theo qui định"}                  # P.139
+  - {article_id: D.1a, quote: "trừ xe được quyền ưu tiên theo quy định"}       # R.301
+  - {article_id: D.14, quote: "trừ các xe được quyền ưu tiên theo quy định"}   # R.412

@@ -45,3 +45,28 @@ def phase47_record_file(folder: Path) -> Path:
     p = folder / "frozen_phase47.json"
     p.write_text(json.dumps(phase47_record_for_this_tree()), encoding="utf-8")
     return p
+
+
+# Owner, 2026-11-18 (phase 4.8c, the same option as above): phase 4.8c adds engine files and engine
+# switches, so the phase-4.8 record no longer matches the working tree. Its engine-code hash is
+# checked against freeze commit f8bcb67; its engine switches must keep their recorded values in the
+# tree (the new switches are added beside them). The copy carries the tree's engine_code and switches.
+PHASE48_FREEZE_COMMIT = "f8bcb67"
+
+
+def phase48_record_for_this_tree() -> dict:
+    rec = fz.load(fz.FROZEN_PHASE48)
+    assert json.dumps(rec["engine_code"], sort_keys=True) == code_hash_at(PHASE48_FREEZE_COMMIT)
+    from vqa.reasoning.engine import switches_from_kb
+    live = dict(sorted(switches_from_kb().items()))
+    assert all(live.get(k) == v for k, v in rec["engine_switches"].items())
+    return {**rec, "engine_code": fz.code_hash(), "engine_switches": live}
+
+
+def phase48_record_file(folder: Path) -> Path:
+    """That record written as `frozen_phase48.json` in `folder`."""
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    p = folder / "frozen_phase48.json"
+    p.write_text(json.dumps(phase48_record_for_this_tree()), encoding="utf-8")
+    return p

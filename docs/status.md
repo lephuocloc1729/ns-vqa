@@ -1692,6 +1692,78 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### Phase 4.8c built: parser v17 and the free batch (owner, 2026-11-18; no API calls)
+
+#### A1. Out-of-scope groups (dev2's 13 under v16, plus the train working set by wording)
+
+The working set is train minus dev and validation (validation ids dropped before any text was read). Train wordings are matched by pattern, not parsed, so their scope under v16 is a guess. **Bold** = dev2.
+
+| group | questions | n | law_db | built? |
+|---|---|---|---|---|
+| a vehicle kept to a set of lanes ("phải đi ở một trong hai làn") | **433**, 438 (which vehicle is in the wrong lane) | 2 | D.14, D.16, B.27c | **yes: `lanes_only`** |
+| which rule a named vehicle in the photo breaks ("vi phạm lỗi gì") | **502**, 468 | 2 | each sign's article (B.2, B.3) | **yes: `violation_kind`** |
+| an absence claim ("không có giới hạn tốc độ", "không có biển nào chỉ hướng rẽ") | **491**, **276** | 2 | (existing `present`) | **a v17 wording line** (no new type; both are dev2, so no few-shot) |
+| directions from lane arrows ("được đi theo những hướng nào") | **11** | 1 | D.13 | no: one question; R.411 rows are not read (perception) |
+| every vehicle except a class / a weight range minus a subtype | **256**; **213** | 1 + 1 | B.27, B.6 | no: two different asks; "xe bán tải" is no law class |
+| a board's symbols (a direction; a count of services) | **198**; **363** | 1 + 1 | none for the symbols | no: two different asks; perception reads no symbols |
+| seasonal change of ban hours | **3** | 1 | none | no |
+| what happens to an offender ("bị xử lý thế nào") | **224** | 1 | none (Decree 168 is not in law_db) | no |
+| the shape of a junction ("chữ Y") | **378** | 1 | C.5's figure only | no |
+| numbered sign clusters | **470** | 1 | — | no: perception numbers no clusters |
+| a ride-hailing car picking up at midday | **504** | 1 | — | no: one wording, no exact time |
+
+- **433 and 491 (lost in v16):** v14 parsed 433 as `any_of` of two lane permissions and 491 as `verify(present speed_limit, expect=false)`. v16's spec line "a set of lanes ... is out of scope" took 433; 491 went out of scope on its second attempt. v17 narrows that sentence and adds `lanes_only` (433) and the absence line (491).
+- **Interpretations:** none. Both types package existing rule answers (`q_lane`, `q_permitted`); no new rule, no knowledge-based row.
+
+#### A2–A4. Parser v17 (`prompts/parser/v17/`)
+
+- **spec:** v16 with one sentence narrowed (the yes/no paragraph no longer lists "a set of lanes" as out of scope) and a "Parser v17 additions" section of three lines: `lanes_only`, `violation_kind`, the absence wording. The examples in those lines are written fresh; a test checks they share no 4-word run with the owner questions and no 5-word run with any dev or dev2 question.
+- **few-shots:** v16 plus **train_438** (`choose` of four `lanes_only` options, `expect: false`) and **train_468** (`violation_kind` car), exact text, both in the train working set, in no dev, dev2 or validation set and in no earlier version. **Note:** train_468's wording is identical to dev2 502's ("Ô tô trong ảnh vi phạm lỗi gì?"), so 502's v17 parse leans on a train example with the same words.
+- **Engine** (`vqa/reasoning/engine.py`): `lanes_only` decides from the per-lane `q_lane` answers (no when a lane outside the set is open or every lane inside is closed; yes when every lane outside is closed and one inside is open); a verdict that rests on an open lane is unknown when an unreadable or unmodelled sign could bear on lanes. `violation_kind` asks `q_permitted` for each action and lists the actions the rules ban, with their signs (unknown when none is surely banned). Lane sets count from the right like `lane`.
+- **Additive:** with every new switch off, the free replay changes **0** stored dev or dev2 answers.
+
+#### B. The free batch (each switch in `kb/switches_48.yaml`, on pending the keep rule)
+
+| switch | what | dev / dev2 answers it changes (free replay) |
+|---|---|---|
+| `sign_charts` (B1), N = 20 | more than 20 signs = a sign chart: claims one sign decides (permitted, forbidden, speed_ok, required, exists_violation, is_sign, present, sign_applies, speed_limit_is, rule_permitted, lanes_only) are unknown, with a note. N from the stored scenes: road photos read at most 16 signs (dev2 282, 400), the two charts 25 and 26 (dev2 131, 298) | dev2 131 (0, decided → unknown). 298 is a value question and stays |
+| `one_sign_g1` (B2) | under G1, a question pointing at one sign names one: board discs the guide call added (g1, g2) are dropped when a sign remains, then a sign read with strictly higher confidence | dev2 89 (0.5), 315 (0.5), 320 (1.0), 326 (0.5) |
+| `asked_only` (B2) | `vqa/answer/asked.py`, before the writer and template: pedestrians dropped from vehicle lists unless the question names them; per-lane rows dropped when no lane was asked and the overall limit is decided | dev2 121, 163, 165, 169, 195, 356, 527; dev 212, 280, 428; undecided dev2 164, dev 341 |
+| `stated_exceptions` (B3) | which_vehicles bans name "trừ các xe được ưu tiên theo quy định" when every banning sign's article says so (`kb/stated_exceptions_48.yaml`, 19 articles quoted from law_db, `reviewed_by: assistant`); a guide direction answer carries the board's other text (e.g. "30M" on a route diagram) | dev2 342, 356; dev 212, 280, 428 |
+| all on | | **18 changed: 16 were decided (dev2 13, dev 3), of which dev2 131 becomes undecided; dev2 164 and dev 341 stay undecided** |
+
+- **Not built in B2:** time windows. No stored answer adds a window the question didn't ask (dev2 170's two windows are what perception read on the plate).
+- **B3, route steps:** the scene schema keeps one arrow per board line, so only the board's other text can be carried; dev2 342's "đi thẳng thêm 30 m rồi rẽ trái" needs perception.
+
+#### B4. Checks against law_db (no change)
+
+- **73** (R.415a's group, gold "biển chỉ dẫn"): QCVN 41 art. 32.1 lists "Biển số R.415: Biển gộp làn đường theo phương tiện" among the mandatory signs (biển hiệu lệnh, art. 31–32). The rule is right; **gold disagreement recorded**, nothing changed.
+- **204** (P.115 against axle load, gold "trên 13 tấn"): the photo shows a plain "13t" disc, P.115. B.15 bans "trọng tải toàn bộ xe ... vượt quá trị số ghi trên biển" (gross mass); axle load is P.116 (B.16, "tải trọng trục xe"). The answer is right to say P.115 sets no axle load; **gold disagreement recorded** (the question's premise names the wrong quantity), nothing changed.
+
+#### Tests and tools
+
+- `tests/test_phase48c.py` (23): both types on hand scenes (R.415a four-lane board, P.103a, P.104), the wire, v17's spec and few-shot checks, each switch on and off. `eval/phase48c_replay.py check` (free; per switch and all on; ids and verdicts only).
+- **Freeze tests:** the engine changed again, so the phase-4.8 record's tests check its engine hash at freeze commit `f8bcb67` (`tests/freeze_at.py`, as for phase 4.7 at `4ad9137`) and require its two recorded switches to keep their values. The run-time guards are unchanged: the private run refuses this tree with `frozen_phase48.json` until the phase-49 freeze.
+
+#### Paid steps (owner runs; nothing spent yet; phase 4.8: $2.69 of $5.00, $2.31 left, about $1.00 kept for dev3)
+
+| # | step | estimate | cap |
+|---|---|---|---|
+| 1 | parser v17 gate (public_dev gold, Sonnet 5.5 medium, no-regression against v6) | $0.23 ($0.20–0.27; v16's gate was $0.222, the v17 prompt is about 2% longer) | $0.45 |
+| 2 | dev2 and dev re-parse on stored scenes (v17 if kept, else v16), changed answers judged | after step 1 | set then, at most what is left above $1.00 |
+
+```zsh
+.venv/bin/python eval/parser_eval.py run --model claude-sonnet-5-5 --effort medium --version v17 --max-spend 0.45
+read -r 'gate_run?Path of completed v17 predictions: '
+.venv/bin/python eval/parser_eval.py score "$gate_run"
+.venv/bin/python eval/parser_eval.py compare --old \
+  logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-140559.jsonl \
+  logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141622.jsonl \
+  logs/parser_eval/pred_claude-sonnet-5-5_medium_v6_20261115-141902.jsonl --new "$gate_run"
+```
+
+- **Gate rule:** `regressed_types_without_design` empty. If it fails on a row v16 got right: the free side-by-side check (that row's v16 and v17 programs on its stored scene); an identical answer is a recorded exception, a different one keeps v16 (B still applies). No v18.
+
 ### Phase 4.8 closes: freeze phase48, private runner on it (owner, 2026-11-18; no API calls)
 
 - **Freeze `phase48`** (`eval/freeze.py`; `eval/frozen_phase48.json`, written once, a second write refused; `freeze.py check --profile phase48` matches): scene v5 (`scene/v5@7a3291ea5dff`, tile v5-tile, crop v5-crop, scene fallback `crop_always`) with the guide call on, **parser v16** (`parser/v16@b296b65cb7cb`), writer v3, answer fallback v2, reading policy `higher_confidence`, `v6_fields_off: ["signals"]`, **`engine_switches: {several_signs: true, confusable_pairs: false}`** (`kb/switches_48.yaml`, new in the record), and the engine-code hash (64 files). `answer_fallback` is left out as before (the private run keeps the default, on).

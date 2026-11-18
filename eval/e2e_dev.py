@@ -179,6 +179,7 @@ def reparse(src: Path, version: str, max_spend: float, *, select: str = "yesno",
     from vqa.answer.digest import build as build_digest
     from vqa.answer.fallback import trigger
     from vqa.answer.template import template_answer
+    from vqa.answer.asked import prune_unasked
     from vqa.llm.client import LLMClient
     from vqa.llm.spend import SpendGuard, SpendLimitExceeded
     from vqa.pipeline import Pipeline, PipelineConfig
@@ -233,7 +234,7 @@ def reparse(src: Path, version: str, max_spend: float, *, select: str = "yesno",
                       same = True
                       if reading_policy and scene is not None and pr.status == "ok":
                           try:
-                              a0 = pipe.engine.answer(scene, pr.query)
+                              a0 = prune_unasked(pipe.engine.answer(scene, pr.query), q["question"])
                               ea = r.get("engine_answer") or {}
                               same = _decision_key(a0.verdict.value, json.loads(json.dumps(a0.value, default=str))) \
                                   == _decision_key(ea.get("verdict"), ea.get("value"))
@@ -245,7 +246,7 @@ def reparse(src: Path, version: str, max_spend: float, *, select: str = "yesno",
                   ans, err = None, None
                   if scene is not None and pr.status == "ok":
                       try:
-                          ans = pipe.engine.answer(scene, pr.query)
+                          ans = prune_unasked(pipe.engine.answer(scene, pr.query), q["question"])
                       except EngineError as e:
                           err = str(e)
                   why = trigger(scene_ok=scene is not None, parse_status=pr.status, answer=ans, engine_error=err is not None)
@@ -301,6 +302,7 @@ def rejudge(programs: Path, scenes: list[Path], max_spend: float, *, dry_run: bo
     from vqa.pipeline import Pipeline, PipelineConfig
     from vqa.reasoning.engine import EngineError
     from vqa.schemas import QueryProgram, SceneGraph
+    from vqa.answer.asked import prune_unasked
 
     g = git()
     if not dry_run and not g["clean"]:
@@ -337,7 +339,7 @@ def rejudge(programs: Path, scenes: list[Path], max_spend: float, *, dry_run: bo
             ans, err = None, False
             if q is not None and not q.out_of_scope:
                 try:
-                    ans = pipe.engine.answer(scene, q)
+                    ans = prune_unasked(pipe.engine.answer(scene, q), qs[pr["id"]]["question"])
                 except EngineError:
                     err = True
             status = "out_of_scope" if q is not None and q.out_of_scope else (pt.get("status") or "failed")

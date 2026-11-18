@@ -13,6 +13,7 @@ import eval.e2e_holdout as eh
 import eval.e2e_private as ep
 import eval.freeze as fz
 from tests.freeze_at import phase47_record_file  # noqa: F401  (phase 4.7 record checked at 4ad9137)
+from tests.freeze_at import phase48_record_file, phase48_record_for_this_tree  # phase 4.8c: checked at f8bcb67
 from tests.test_e2e_eval import CLEAN, QS, SCENE_REPLY, _e2e_sdk, fake_set  # noqa: F401
 
 SECRET_QS = [dict(q, id=f"private_secret_{i}", answer=f"{q['answer']} secret-gold-{i}")
@@ -27,7 +28,9 @@ def _run(fake_set, **kw):
     args = dict(confirm_frozen=True, sdk=sdk, questions=SECRET_QS, out_dir=fake_set / "agg",
                 image_path=lambda i: fake_set / f"{i}.jpg", sentinel=fake_set / "private_ran.json",
                 replay_root=fake_set / "private_run", git=CLEAN, ignored=lambda p: True, expected=TWO)
-    # phase 4.8 (owner, 2026-11-18): the runner's default record, frozen_phase48.json
+    # phase 4.8 (owner, 2026-11-18): the runner's default record, frozen_phase48.json; phase 4.8c: the
+    # record checked at its freeze commit, with the tree's engine code and switches (tests/freeze_at.py)
+    args["frozen"] = phase48_record_file(fake_set / "rec48")
     args.update(kw)
     return ep.run_private(1.0, **args), sdk
 
@@ -47,7 +50,7 @@ def test_a_dirty_tree_is_refused_before_the_sentinel(fake_set):
 
 
 def test_a_configuration_that_differs_from_the_record_is_refused(fake_set):
-    rec = fz.load(fz.FROZEN_PHASE48)          # phase 4.8 (owner, 2026-11-18): the private run's record
+    rec = phase48_record_for_this_tree()      # phase 4.8 (owner, 2026-11-18): the private run's record
     rec["prompts"]["answer"]["id"] = "answer/v2@0000000000"
     p = fake_set / "frozen.json"
     p.write_text(json.dumps(rec), encoding="utf-8")
@@ -273,7 +276,7 @@ def test_an_older_record_is_refused_before_the_sentinel(fake_set, record):
     (("scene_fallback", "chosen_policy"), "rules"), (("engine_switches", "several_signs"), False),
     (("engine_switches", "confusable_pairs"), True), (("pipeline_config", "parser_version"), "v14")])
 def test_a_phase48_mismatch_is_refused_before_the_sentinel(fake_set, field, value):
-    rec = fz.load(fz.FROZEN_PHASE48)
+    rec = phase48_record_for_this_tree()
     node = rec
     for k in field[:-1]:
         node = node[k]

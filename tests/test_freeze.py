@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import json
 
+from pathlib import Path
+
 import pytest
 
 import eval.e2e_holdout as eh
@@ -214,8 +216,11 @@ def test_the_phase47_record_is_written_once(tmp_path):
 
 def test_the_phase48_record_matches_and_names_its_parts():
     """Phase 4.8 (owner, 2026-11-18): scene v5 + guide reading, parser v16, policy A, signals off, the
-    engine switches (several_signs on, confusable_pairs off), and the engine-code hash."""
-    assert fz.check(fz.FROZEN_PHASE48) == []
+    engine switches (several_signs on, confusable_pairs off), and the engine-code hash. Phase 4.8c: the
+    hash is checked at freeze commit f8bcb67 (tests/freeze_at.py)."""
+    from tests.freeze_at import phase48_record_file
+    import tempfile
+    assert fz.check(phase48_record_file(Path(tempfile.mkdtemp()))) == []
     rec = fz.load(fz.FROZEN_PHASE48)
     pc = rec["pipeline_config"]
     assert rec["profile"] == "phase48" and "answer_fallback" not in pc

@@ -123,8 +123,25 @@ LIMIT_ATTR_VI = {"gross_t": "trọng tải toàn bộ (cả xe và hàng)", "loa
 LIMIT_OP_VI = {"gt": "trên", "ge": "từ", "lt": "dưới", "le": "không quá"}
 
 
+# parser v17 (phase 4.8c): the banned actions a `violation_kind` answer names
+ACTION_VI = {"enter": "đi vào đoạn đường này", "go_straight": "đi thẳng", "turn_left": "rẽ trái",
+             "turn_right": "rẽ phải", "u_turn": "quay đầu xe", "overtake": "vượt xe", "stop": "dừng xe",
+             "park": "đỗ xe", "honk": "bấm còi"}
+
+
 def _value_text(digest: dict[str, Any]) -> str:
     v = digest.get("value")
+    if isinstance(v, dict) and "violations" in v:              # violation_kind (parser v17)
+        codes = {s["id"]: s.get("code") for s in digest.get("signs", [])}
+        rows = []
+        for x in v["violations"]:
+            on = _join([f"biển {codes[i]}" for i in x.get("sign_ids", []) if codes.get(i)])
+            rows.append(ACTION_VI.get(x["action"], x["action"]) + (f" ({on})" if on else ""))
+        who = VEHICLE_VI.get(v.get("vehicle", ""), "xe")
+        text = (f"{who[:1].upper() + who[1:]} vi phạm nếu " + _join(rows) + ".") if rows else "Không thấy vi phạm."
+        if v.get("conditional_actions"):
+            text += " Còn tùy điều kiện: " + _join([ACTION_VI.get(a, a) for a in v["conditional_actions"]]) + "."
+        return text
     if isinstance(v, list):                                    # meaning
         names = [f"{x.get('name_vi')} ({x.get('code')})" if x.get("known") else
                  f"biển {x.get('sign_id')} chưa đọc được" for x in v if isinstance(x, dict)]
@@ -169,6 +186,8 @@ def _value_text(digest: dict[str, Any]) -> str:
         parts = [f"{d} để đến {v['destination']}" if d else f"Đến {v['destination']}"]
         if v.get("distance"):
             parts.append(f"còn {v['distance']}")
+        if v.get("board_notes"):                               # phase 4.8c B3: the board's other text
+            parts.append("biển còn ghi: " + "; ".join(v["board_notes"]))
         return ", ".join(parts) + "."
     if "destinations" in v:                                    # guide: the board's lines
         rows = [x["text"] + (f" {x['distance']}" if x.get("distance") else "")
@@ -235,6 +254,9 @@ def _value_text(digest: dict[str, Any]) -> str:
         if v.get("unknown"):
             text += " Chưa xác định được: " + _join(v["unknown"]) + "."
         return text[:1].upper() + text[1:]
+    if v.get("except_priority"):                               # phase 4.8c B3: the stated exception
+        rest = _value_text({**digest, "value": {k: x for k, x in v.items() if k != "except_priority"}})
+        return rest.rstrip(".") + " (trừ các xe được ưu tiên theo quy định)."
     if v.get("conditional") and "banned" in v:                # which_vehicles, a conditional ban (T3)
         cond = _conditions(digest)
         text = (_vehicles(v["conditional"]) + " bị cấm khi đúng điều kiện trên biển"

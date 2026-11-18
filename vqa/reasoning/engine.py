@@ -21,6 +21,7 @@ from vqa.parsing.dsl import normalize
 from vqa.schemas import (MustYield, OfficerPermits, OfficerSignal, Precedence, PrecedenceIs,  # parser v13
                          RightOfWay, VehicleClassIs, VehicleClassOf)
 from vqa.schemas import AltReading, Confidence  # noqa: E402  phase 4.8 A1
+from vqa.schemas import Action, LanesOnly, ViolationKind  # noqa: E402  parser v17 (phase 4.8c)
 from vqa.schemas import (
     AllOf, Answer, AnyOf, AppliesTo, BanTimes, Choose, Count, CountIs, Duties, MarkingIs, MarkingMeaning,
     RulePermitted, SignalMeaning, SignApplies, Citation, ExistsViolation, Explain, Guide, GuideClaim, IsSign,
@@ -127,6 +128,14 @@ def switches_from_kb() -> dict[str, Any]:
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
+def stated_exceptions_from_kb() -> set[str]:
+    """Phase 4.8c B3 (kb/stated_exceptions_48.yaml): QCVN 41 articles whose text excepts priority
+    vehicles ("trừ các xe được ưu tiên theo quy định")."""
+    import yaml
+    path = Path(__file__).resolve().parents[2] / "kb" / "stated_exceptions_48.yaml"
+    return {r["article_id"] for r in (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("articles", [])}
+
+
 def confusables_from_kb(catalog: Catalog) -> dict[str, list[str]]:
     """Phase 4.8 A1 (kb/confusables_48.yaml): catalog row -> the rows it is swapped with."""
     import yaml
@@ -148,7 +157,8 @@ class Engine:
 
     def __init__(self, catalog: Catalog | None = None, reading_policy: str = "all",
                  v6_fields_off: tuple[str, ...] | None = None, several_signs: bool | None = None,
-                 confusable_pairs: bool | None = None) -> None:
+                 confusable_pairs: bool | None = None, sign_charts: int | bool | None = None,
+                 one_sign_g1: bool | None = None, stated_exceptions: bool | None = None) -> None:
         if reading_policy not in READING_POLICIES:
             raise ValueError(f"reading_policy must be one of {READING_POLICIES}")
         # phase 4.7: scene v6 fields switched off (kb/v6_fields_47.yaml unless given); their facts
@@ -167,6 +177,17 @@ class Engine:
         on = (bool(switches_from_kb().get("confusable_pairs", False)) if confusable_pairs is None
               else confusable_pairs)
         self.confusables = confusables_from_kb(self.catalog) if on else {}
+        # phase 4.8c B (kb/switches_48.yaml unless given): sign charts (B1), one sign under G1
+        # (B2), the signs' stated priority exceptions and board notes (B3)
+        sw = switches_from_kb()
+        if sign_charts is None:
+            sign_charts = int(sw.get("sign_chart_signs", 20)) if sw.get("sign_charts", False) else False
+        elif sign_charts is True:
+            sign_charts = int(sw.get("sign_chart_signs", 20))
+        self.sign_chart_n: int | None = int(sign_charts) if sign_charts else None
+        self.one_sign_g1 = bool(sw.get("one_sign_g1", False)) if one_sign_g1 is None else one_sign_g1
+        self.stated_exceptions = (bool(sw.get("stated_exceptions", False)) if stated_exceptions is None
+                                  else stated_exceptions)
         _load_kb(self.catalog)
 
     def _strip_v6(self, scene: SceneGraph) -> SceneGraph:
@@ -388,6 +409,10 @@ class Engine:
     # ------------------------------------------------------------------ per program
     # Claims whose verdict rests on "no visible sign says otherwise" (closed world):
     # the verdict that an unreadable sign could overturn.
+    # phase 4.8c B1: claims a single sign decides (Forbidden arrives as Verify(Permitted))
+    _CHART_CLAIMS = (Permitted, SpeedOk, Required, ExistsViolation, IsSign, Present, SignApplies,
+                     SpeedLimitIs, RulePermitted, LanesOnly)
+
     _CLOSED_WORLD = {Permitted: Verdict.yes, SpeedOk: Verdict.yes,
                      Required: Verdict.no, ExistsViolation: Verdict.no}
 
@@ -502,6 +527,14 @@ class Engine:
             return Answer(verdict=Verdict.unknown, note=str(e))
         if self._look_note:                                 # phase 4.8 B6: category word set aside
             ans = ans.model_copy(update={"note": self._look_note + (f"; {ans.note}" if ans.note else "")})
+        if (self.sign_chart_n and len(scene.signs) > self.sign_chart_n
+                and isinstance(p, self._CHART_CLAIMS) and ans.verdict in (Verdict.yes, Verdict.no)):
+            # phase 4.8c B1: a photo of a sign chart (more signs than any road scene in the train
+            # evidence) is not a road: a claim one sign would decide is not answered from it
+            return ans.model_copy(update={
+                "verdict": Verdict.unknown,
+                "note": f"the photo shows {len(scene.signs)} signs, like a sign chart; a claim one sign "
+                        "would decide is not answered from it"})
         cw = self._CLOSED_WORLD.get(type(p))
         unread = [sid for sid in self.unreadable_signs(scene)
                   if self.could_matter(self.visual_category(scene.sign(sid)), p)]
@@ -584,7 +617,88 @@ class Engine:
             return self._violations(scene, p)
         if isinstance(p, Required):
             return self._required(scene, p)
+        if isinstance(p, LanesOnly):                   # parser v17 (phase 4.8c)
+            return self._lanes_only(scene, p)
+        if isinstance(p, ViolationKind):               # parser v17 (phase 4.8c)
+            return self._violation_kind(scene, p)
         raise EngineError(f"unsupported program {type(p).__name__}")
+
+    _RANK = {"high": 0, "medium": 1, "low": 2}
+
+    def _the_pointed_sign(self, scene: SceneGraph, ids: list[str]) -> list[str]:
+        """Phase 4.8c B2 (switch one_sign_g1): the question points at one sign ("biển trong ảnh"),
+        and several readable signs with different codes match. Speed discs printed on a guide
+        board (ids g1, g2 ... added by the board call) are part of that board, not signs of their
+        own, so they are dropped when a sign remains; then a sign read with strictly higher
+        confidence than every other is the one named. Otherwise every sign stays (G1).
+        Selection only: what the sign means still comes from the catalog."""
+        own = [i for i in ids if not (scene.guide_boards and i.startswith("g"))] or ids
+        rank = {i: self._RANK[scene.sign(i).confidence.value] for i in own}
+        top = [i for i in own if rank[i] == min(rank.values())]
+        codes = {self.catalog.get(scene.sign(i).code).code for i in top}
+        return top if len(codes) == 1 else own
+
+    # ------------------------------------------------------------------ parser v17 (phase 4.8c)
+    _LANE_RISK = ("unknown", "red_circle", "red_board", "blue_circle", "board")
+
+    def _lanes_only(self, scene: SceneGraph, p: LanesOnly) -> Answer:
+        """The vehicle may use only the lanes in `lanes` (and one of them). Python packages the
+        per-lane answers of `q_lane` (the same rules as `lanes_for`); the rules decide each lane.
+        A verdict that rests on a lane being open is a closed-world conclusion, so an unreadable
+        or unmodelled sign that could bear on lanes makes it unknown."""
+        n = scene_lane_count(scene)
+        if not n:
+            return Answer(verdict=Verdict.unknown, note="the scene does not say how many lanes there are")
+        lanes = sorted(set(p.lanes))
+        if any(l < 1 or l > n for l in lanes):
+            return Answer(verdict=Verdict.unknown, note=f"the scene shows {n} lanes")
+        base = self._lanes(scene, LanesFor(vehicle=p.vehicle, speed_kmh=p.speed_kmh, when=p.when))
+        per = {x["lane"]: x["verdict"] for x in base.value["per_lane"]}
+        inside = [per[l] for l in lanes]
+        outside = [per[l] for l in range(1, n + 1) if l not in lanes]
+        if any(v == "yes" for v in outside):
+            verdict, on_open = Verdict.no, True
+        elif all(v == "no" for v in inside):
+            verdict, on_open = Verdict.no, False
+        elif all(v == "no" for v in outside) and any(v == "yes" for v in inside):
+            verdict, on_open = Verdict.yes, True
+        else:
+            verdict, on_open = Verdict.unknown, False
+        value = {"lanes": lanes, "open_lanes": base.value["lanes"], "conditional": base.value["conditional"],
+                 "per_lane": base.value["per_lane"], "lane_count": n}
+        ans = Answer(verdict=verdict, value=value, reasons=base.reasons, citations=base.citations,
+                     basis=base.basis)
+        risky = [sid for sid in self.unreadable_signs(scene) + self.unmodelled_signs(scene)
+                 if self.visual_category(scene.sign(sid)) in self._LANE_RISK]
+        if on_open and risky:
+            ans = ans.model_copy(update={
+                "verdict": Verdict.unknown, "uncertain_signs": sorted(set(risky)),
+                "note": "a sign in the scene could not be read or has an effect the rules don't model; "
+                        "it may change which lanes are open"})
+        return ans
+
+    _VIOLATION_ACTIONS = (Action.enter, Action.go_straight, Action.turn_left, Action.turn_right,
+                          Action.u_turn, Action.overtake, Action.stop, Action.park, Action.honk)
+
+    def _violation_kind(self, scene: SceneGraph, p: ViolationKind) -> Answer:
+        """What the signs ban the named vehicle from doing: each action asked of the rules as a
+        permission (`q_permitted`, closed world as for `permitted`). Banned = the rules answer no;
+        the answer is unknown when no action is surely banned."""
+        banned, conditional, reasons = [], [], []
+        for act in self._VIOLATION_ACTIONS:
+            a = self._run(scene, Permitted(action=act, vehicle=p.vehicle, when=p.when))
+            if a.verdict is Verdict.no:
+                ids = sorted({r.sign_id for r in a.reasons if r.sign_id and r.truth == "true"})
+                banned.append({"action": act.value, "sign_ids": ids})
+                reasons += [r for r in a.reasons if r.truth == "true"]
+            elif a.verdict is Verdict.unknown and any(r.truth == "unknown" and r.sign_id for r in a.reasons):
+                conditional.append(act.value)
+        value = {"vehicle": p.vehicle.cls.value, "violations": banned, "conditional_actions": conditional}
+        if not banned:
+            return Answer(verdict=Verdict.unknown, value=value,
+                          note="no sign in the photo surely bans this vehicle from any action")
+        return Answer(verdict=Verdict.value, value=value, reasons=reasons, citations=_cites(reasons),
+                      basis=_basis(reasons))
 
     def _permitted(self, scene: SceneGraph, p: Permitted) -> Answer:
         selection = None
@@ -694,6 +808,8 @@ class Engine:
                                   note="expected exactly one sign in the scene")
                 # phase 4.8 G1: several readable signs with different codes: one meaning each
                 # (one per code), the unreadable ones listed as uncertain
+                if self.one_sign_g1:
+                    readable = self._the_pointed_sign(scene, readable)
                 by_code: dict[str, str] = {}
                 for i in readable:
                     by_code.setdefault(self.catalog.get(scene.sign(i).code).code, i)
@@ -1286,9 +1402,15 @@ class Engine:
         if p.ask == "direction" and hit.direction == "none":
             return Answer(verdict=Verdict.unknown, value={"destination": hit.text},
                           note="the board shows no arrow for that destination")
-        return Answer(verdict=Verdict.value, citations=cites, value={
-            "destination": hit.text, "direction": hit.direction, "distance_m": hit.distance_m,
-            "distance": distance_text(hit.distance_m)})
+        value = {"destination": hit.text, "direction": hit.direction, "distance_m": hit.distance_m,
+                 "distance": distance_text(hit.distance_m)}
+        if self.stated_exceptions and p.ask == "direction":
+            # phase 4.8c B3: the rest of what the board holding this line gives (e.g. "30M" on a
+            # route diagram), so every step it shows reaches the answer; board text only
+            notes = [t for b in boards if any(e is hit for e in b.entries) for t in b.other if t.strip()]
+            if notes:
+                value["board_notes"] = notes
+        return Answer(verdict=Verdict.value, citations=cites, value=value)
 
     # ------------------------------------------------------------------ phase 4.6 I1-I4
     def road_kind(self, scene: SceneGraph) -> tuple[str | None, list[Citation]]:
@@ -1661,10 +1783,28 @@ class Engine:
         want = "no" if p.status == "banned" else "yes"
         hits, conditional = self.report_classes(results, want)
         support = [r for c in hits + conditional for r in _supporting(results[c][1])]
-        return Answer(verdict=Verdict.value,
-                      value={p.status: hits, "conditional": conditional,
-                             "per_class": {c: v for c, (v, _) in results.items()}},
+        value = {p.status: hits, "conditional": conditional,
+                 "per_class": {c: v for c, (v, _) in results.items()}}
+        if self.stated_exceptions and p.status == "banned" and hits:
+            value.update(self._stated_priority_exception(scene, support))
+        return Answer(verdict=Verdict.value, value=value,
                       reasons=support, citations=_cites(support), basis=_basis(support))
+
+    def _stated_priority_exception(self, scene: SceneGraph, support: list[Reason]) -> dict[str, Any]:
+        """Phase 4.8c B3 (switch stated_exceptions): the bans' own articles say "trừ các xe được ưu
+        tiên theo quy định" (kb/stated_exceptions_48.yaml, quoting QCVN 41): the answer names
+        that exception. Only when every banning sign's article states it."""
+        ids = {r.sign_id for r in support if r.sign_id and r.truth == "true"}
+        arts = []
+        for sid in sorted(ids):
+            sg = scene.sign(sid)
+            if not self.catalog.has(sg.code):
+                return {}
+            arts.append(self.catalog.get(sg.code).source.article_id)
+        stated = stated_exceptions_from_kb()
+        if not arts or not all(a in stated for a in arts):
+            return {}
+        return {"except_priority": True, "exception_articles": sorted(set(arts))}
 
     def _lane_vehicles(self, scene: SceneGraph, p: LaneVehicles) -> Answer:
         n = scene_lane_count(scene)
@@ -1899,6 +2039,14 @@ def resolve_lanes(p, n: int | None):
                 if n is None or -v > n:
                     return None
                 upd[name] = n + v + 1
+            elif name == "lanes" and isinstance(v, list) and all(isinstance(i, int) for i in v):
+                # parser v17 lanes_only: a set of lanes, each counted from the left or the right
+                if any(i < 0 for i in v):
+                    neg = [i for i in v if i < 0]
+                    seen.extend(neg)
+                    if n is None or any(-i > n for i in neg):
+                        return None
+                    upd[name] = [n + i + 1 if i < 0 else i for i in v]
             elif isinstance(v, (BaseModel, list)):
                 w = walk(v)
                 if w is None:

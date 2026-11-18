@@ -8,3 +8,22 @@ several_signs: true
 # confusable_pairs (A1): kb/confusables_48.yaml. Kept only if it raises dev2's accuracy on decided without
 #   dropping dev's overall below 68.4% (owner, 2026-11-18; measured in step 4).
 confusable_pairs: false   # owner, 2026-11-18: off; the table failed its keep rule (free estimate: dev overall 67.2% < 68.4%). Code and table kept for the record.
+# Phase 4.8c B (owner, 2026-11-18): free batch, each kept only if its changed dev2 answers judge
+# better than before and the dev guardrail holds (measured in the paid re-parse).
+# sign_charts (B1): a scene with more than `sign_chart_signs` signs is a sign chart, not a road; a
+#   claim one sign would decide (permitted, forbidden, speed_ok, required, exists_violation, is_sign,
+#   present, sign_applies, speed_limit_is, rule_permitted, lanes_only) is unknown, with a note.
+#   N = 20 from the stored dev and dev2 scenes: road photos read at most 16 signs (dev2 282, 400),
+#   the two sign charts 25 and 26 (dev2 131, 298).
+sign_charts: true
+sign_chart_signs: 20
+# one_sign_g1 (B2): under G1, a question that points at one sign names one: speed discs printed on a
+#   guide board are dropped when a sign remains, then a sign read with strictly higher confidence.
+one_sign_g1: true
+# asked_only (B2): the writer's input and the template keep only what the question asked: no
+#   pedestrians in vehicle lists unless asked, no per-lane rows when no lane was asked and the
+#   overall limit is decided (vqa/answer/digest.py prune_unasked).
+asked_only: true
+# stated_exceptions (B3): which_vehicles bans name the priority-vehicle exception their articles
+#   state (kb/stated_exceptions_48.yaml); a guide direction answer carries the board's other text.
+stated_exceptions: true
