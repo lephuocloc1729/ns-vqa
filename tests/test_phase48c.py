@@ -267,25 +267,32 @@ def test_stated_exception_articles_name_catalog_sources_and_quote_law_db():
             assert " ".join(r["quote"].split()) in " ".join(arts[r["article_id"]].split()), r["article_id"]
 
 
-def test_a_turn_ban_answer_names_the_priority_exception(engine):
+@pytest.fixture(scope="module")
+def stated():
+    """The switch on explicitly: the KB has it off since PAID 2 (dev2 342 and 356 judged no better)."""
+    assert switches_from_kb()["stated_exceptions"] is False
+    return Engine(reading_policy="higher_confidence", stated_exceptions=True)
+
+
+def test_a_turn_ban_answer_names_the_priority_exception(stated):
     sc = scene(S("s1", "P.123a"))
-    a = engine.answer(sc, WhichVehicles(action="turn_left"))
+    a = stated.answer(sc, WhichVehicles(action="turn_left"))
     assert a.value["except_priority"] is True and a.value["exception_articles"] == ["B.23"]
     assert "trừ các xe được ưu tiên" in template_answer(build(a, sc), "Những xe nào không được rẽ trái ở đây?")
     off = Engine(reading_policy="higher_confidence", stated_exceptions=False).answer(sc, WhichVehicles(action="turn_left"))
     assert "except_priority" not in off.value
 
 
-def test_no_exception_for_a_ban_that_covers_priority_vehicles(engine):
-    a = engine.answer(scene(S("s1", "P.115", 10)), WhichVehicles(action="enter"))
+def test_no_exception_for_a_ban_that_covers_priority_vehicles(stated):
+    a = stated.answer(scene(S("s1", "P.115", 10)), WhichVehicles(action="enter"))
     assert "except_priority" not in (a.value or {})
 
 
-def test_a_guide_direction_carries_the_boards_other_steps(engine):
+def test_a_guide_direction_carries_the_boards_other_steps(stated):
     """train_342-like: a route diagram with "30M" beside the arrows."""
     sc = scene(S("s1", "I.414a", shape="rectangle", border="none", background="blue"),
                guide_boards=[GuideBoard(entries=[GuideEntry(text="ĐƯỜNG MAI HOA", direction="right")], other=["30M"])])
-    a = engine.answer(sc, Guide(ask="direction", destination="đường Mai Hoa"))
+    a = stated.answer(sc, Guide(ask="direction", destination="đường Mai Hoa"))
     assert a.value["board_notes"] == ["30M"]
     assert "30M" in template_answer(build(a, sc), "Muốn vào đường Mai Hoa thì đi thế nào?")
     off = Engine(reading_policy="higher_confidence", stated_exceptions=False)
