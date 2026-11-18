@@ -1634,6 +1634,20 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Phase 4.7: parser v12 gate and new-types test run (owner, 2026-11-18; results accepted)
+
+- **v12 gate** (`pred_claude-sonnet-5-5_medium_v12_20261118-074501.jsonl`, $0.23 of the $0.40 cap): **passes the phase-4.7 rule**, `regressed_types_without_design: []`.
+  - Program accuracy 78.7% (37/47; the old ≥ 90% point-estimate gate does not apply to v12, which gives programs on gold out-of-scope rows). Non-duplicate 76.5% (n=17, 95% CI 52.7–90.4%).
+  - All 7 lost rows are v7 design rows (0021, 0055, 0063, 0065, 0085, 0086, 0087): v12 gives a new-form program where v6's gold is out of scope. The other 3 wrong rows (0005, 0025, 0084) were already wrong under v6.
+  - Without design rows: forbidden 1.0, meaning 0.9 (v6 0.9), out_of_scope 1.0.
+- **New-types test, train + owner_written** (`newtypes_v12_20261118-075435.jsonl`, $0.29 of the $0.40 cap):
+  - owner_written passes: applies_to 4/4, count 4/5, count_is 4/4, sign_applies 5/5, signal_meaning 5/5.
+  - Below 80%, **kept on with the owner's yes**: rule_permitted 7/9, duties 2/3, marking_meaning 2/3. marking_is 1/1 is not decided (too few).
+  - Misses: own_36 (an obligation asked yes/no, parsed without the negation: the verdict is inverted); own_41 (extra `action: overtake`, same verdict, citations and reasons on an empty and a double-solid scene; gold unchanged); own_47 (out of scope, goes to the fallback); own_61 (no `kind: hatched`); own_05 (a W.207 variant for "ngã tư"); train_243 (the selector without `category`).
+  - Gap rows given a program: own_38 (yielding to pedestrians on green parsed as `rule_permitted` at `pedestrian_crossing`, which can give a wrong yes), own_20 (taken as the only sign). own_62, 66, 68 fail validation and go to the fallback.
+- **Spend:** $0.52 of round 3. The owner raised round 3 to $2.30 (2026-11-18).
+- **Next:** parser v13 (owner, 2026-11-18): the fixes for the own_36, own_38 and own_61 classes, plus new types (count bounds, joining roads, an officer's signals, relative selectors, right_of_way, precedence, vehicle_class, size checks), then one gate.
+
 ### Handoff (2026-11-18): phase 4.7, before the paid checks
 
 #### Built (committed up to `17ac8bf`, branch `phase-5`, not pushed)
