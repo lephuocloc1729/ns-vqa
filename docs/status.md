@@ -1634,6 +1634,24 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Phase 4.8 dev2 baseline (owner run, 2026-11-18): biased, for gap-finding only
+
+- **Run:** `eval/runs/e2e/dev2_baseline_9a403f66bb06.jsonl`, frozen phase47, fallback off, **$1.03** (estimate $1.11, cap $1.55). Phase 4.8: **$1.03 of $2.00; $0.97 left.** (An earlier start with no API key left a header-only file, `dev2_baseline_d5adebf8fc9d.jsonl`.)
+- **Figures (100 questions):** 74 decided (CI 65–82), **accuracy on decided 58.8%** (CI 47–69), **overall 43.5%**. Natural QA 52/70 decided, 56.7% on decided; Yes/No 22/30, 63.6%.
+- **Wrong decided answers lose more than undecided ones:** 30.5 points against 26. Most of the loss comes from sign readings (P.130 / P.131a swapped; P.101 or P.103a read where absent; W.201a/b, W.228), and a few look like engine paths to check (R.415a lanes: 121, 516; motorbike on an expressway: 466; `exists_violation` with P.103a: 502).
+- **The 26 undecided, by cause:**
+
+| group | ids | n | fix kind |
+|---|---|---|---|
+| G1 several readable signs under `only` (`meaning`, `is_sign`) | 89, 142, 315, 320, 326, 498 | 6 | engine (H3, decision O3 reopened) |
+| G2 a limit's value asked (height, load, gross mass) | 151, 168, 252 (and decided-wrong 204, partial 195) | 3 | parser + engine, catalog values (B.6, B.15, B.17) |
+| G3 unreadable sign | 37, 164, 224 | 3 | perception; no rule-only fix |
+| G4 lane rows not read (R.411, R.415a, P.127c boards) | 207, 235, 429 | 3 | perception; no safe fix |
+| G5 single wordings out of scope | 3, 198, 256, 346, 363, 378, 400, 470 | 8 | mostly none; 378 and 346 possible |
+| G6 other | 167 (one option unknown), 169 ("biển chỉ dẫn" for R.403b), 282 (`priority` inside `rule_permitted`, wire refused) | 3 | each its own |
+
+  - 315, 320 and 326 have the same three signs (IE.452, P.127, R.306), so G1's count may be inflated by one scene.
+
 ### Phase 4.8 step 1: dev2 split and runner (owner, 2026-11-18; no API calls)
 
 - **Split:** `eval/make_dev2_split.py` → `data/splits/train_dev2.json` (ids only, `biased: true` with a note), **seed 20261118**. 100 questions on 77 images: **70 Natural QA, 30 Yes/No** (the working set's 232 / 101 of 333, largest-remainder rounding).
