@@ -1634,6 +1634,34 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Phase 4.7 candidate: scene v5 + parser v14 + signals off (owner, 2026-11-18; no API calls)
+
+- **Owner's decision:** scene v6 is not kept (it fails the dev guardrail, and its set-T gain is within Haiku's run-to-run spread). The candidate is **scene v5 + parser v14 + signals off**.
+- **Free estimate:** each v14 program from `dev_phase47_d6790322b0dc` run on step 6's stored v5 scene (`dev_reparse_v11_f52e160181ca`; train_526's from `dev_reparse_v9_8bbb5eb01cff`, as step 6 carried it over), engine with reading policy higher_confidence and signals off. An answer identical to step 6's keeps its judged grade.
+  - 74 identical, 12 changed (train_526 identical to its v9 row).
+  - Changed and still decided, **provisional grades** (assistant against the dev answer): train_80 0.5 (was 0; names the green boards, gold "Hướng ra"), train_81 1.0 (was 1.0; `all_of` "no" for the three classes), train_159 0.5 (was undecided; I.409 "Chỗ quay xe" plus an extra board), train_231 0.0 (as before; "yes" where the gold is "Không"), train_272 1.0 (as before; same choice, label wording), train_295 1.0 (as before; R.301b conduct "chỉ được rẽ phải").
+  - Changed to not decided: train_250 (was 1.0; one `guide` part for "Đường Tránh Vinh" is unknown), train_514 (was 0.0; now out of scope).
+  - Changed but undecided both times: train_15, train_341, train_361, train_414.
+- **Figures (87 questions):**
+
+| | decided | accuracy on decided | overall (non-decided wrong) |
+|---|---|---|---|
+| step 6 (last kept) | 74 (85.1%) | 81.1% | 69.0% |
+| scene v5 + parser v14, provisional | 73 (83.9%) | 82.2% (CI 71.9–89.3) | **69.0%** |
+
+  - At the 69.0% bar, not below it. The two judgement calls (train_80, train_159) move overall between 67.8% and 70.1%, so judged grades decide it.
+- **Judging the changed answers:** `eval/e2e_dev.py rejudge` (new; writer + judge only, no perception or parser call). Its dry run lists the 6 changed decided answers above; estimate **$0.05**, cap $0.15, of the $0.22 left. Tests: `tests/test_phase47_rejudge.py` (hand-made run files, dry run).
+
+```zsh
+.venv/bin/python eval/e2e_dev.py rejudge --programs eval/runs/e2e/dev_phase47_d6790322b0dc.jsonl \
+  --scenes eval/runs/e2e/dev_reparse_v11_f52e160181ca.partial.jsonl eval/runs/e2e/dev_reparse_v9_8bbb5eb01cff.jsonl \
+  --max-spend 0.15
+.venv/bin/python eval/e2e_dev.py summary <dev_rejudge_file>
+```
+
+- **train_381 checked (free): no marking rule leaks into speed answers.** Removing the three markings from its v6 scene leaves the 70 and 110 km/h options unknown. The cause is an unread sign (s7) that scene v6 recorded with no shape or colour: its visual category is "unknown", which by the documented rule ("nothing recorded: always") could bear on any claim, so `speed_ok`'s closed-world yes becomes unknown. In the v5 scene the same sign is a rectangle board read by the guide call, so it does not count. No rule-only fix proposed. (With scene v5 the question is decided again.)
+- **Still a known risk:** own_65 (stop line).
+
 ### Judged dev run, scene v6 + parser v14 (owner run, 2026-11-18): fails the guardrail
 
 - **Run:** `eval/runs/e2e/dev_phase47_d6790322b0dc.jsonl`, 87 of 87 questions, **$0.9351** of the $1.10 cap. Signals off.

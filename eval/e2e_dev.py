@@ -259,6 +259,98 @@ def reparse(src: Path, version: str, max_spend: float, *, select: str = "yesno",
     return out
 
 
+# Phase 4.7 (owner, 2026-11-18): scene v5 + parser v14, judged where the answer changed. Each
+# question takes its program from a dev run (`programs`) and its stored scene from earlier runs
+# (`scenes`, the first that has it). An engine answer identical to that scene run's keeps its row
+# and judged grade; a changed decided answer is written and judged (writer + judge only, no
+# perception or parser call). --dry-run makes no call and lists what would be judged.
+REJUDGE_WRITER_USD, REJUDGE_JUDGE_USD = 0.0015, 0.0067   # per answer: Haiku writer; Opus judge (frozen-run means)
+
+
+def rejudge(programs: Path, scenes: list[Path], max_spend: float, *, dry_run: bool = False, sdk=None,
+            out_dir: Path = OUT, git=freeze.git_state, questions: list[dict] | None = None) -> dict[str, Any]:
+    import dataclasses
+    import tempfile
+    from eval.judge import Judge
+    from vqa.answer.fallback import trigger
+    from vqa.llm.client import LLMClient
+    from vqa.llm.spend import SpendGuard, SpendLimitExceeded
+    from vqa.pipeline import Pipeline, PipelineConfig
+    from vqa.reasoning.engine import EngineError
+    from vqa.schemas import QueryProgram, SceneGraph
+
+    g = git()
+    if not dry_run and not g["clean"]:
+        raise SystemExit("the git working tree is not clean: commit or remove these first:\n  " + "\n  ".join(g["dirty"]))
+    phead, prows = ee.load(programs)
+    srcs = [ee.load(p) for p in scenes]
+    qs = {q["id"]: q for q in (questions if questions is not None else load_questions())}
+    base = PipelineConfig(**{k: v for k, v in (srcs[0][0].get("candidate") or {}).items()})
+    base = dataclasses.replace(base, reading_policy="higher_confidence")
+    guard = SpendGuard(max_spend if not dry_run else 0.0)
+    plan, rows_out, stopped = [], [], None
+    with tempfile.TemporaryDirectory() as tmp:
+        pipe = Pipeline(dataclasses.replace(base, cache_only=True, cache_dir=Path(tmp), answer_fallback=False),
+                        sdk=sdk, guard=guard)
+        judge = Judge(llm=LLMClient(model="claude-opus-5-5", guard=guard, sdk=sdk))
+        for pr in prows:
+            old = next((r for _, rs in srcs for r in rs if r["id"] == pr["id"]), None)
+            if old is None or not old.get("scene"):
+                rows_out.append({**pr, "rejudge": "no stored scene"})
+                continue
+            scene = SceneGraph.model_validate(old["scene"])
+            pt = pr["trace"].get("parser") or {}
+            q = QueryProgram.model_validate(pt["program"]) if pt.get("program") else None
+            ans, err = None, False
+            if q is not None and not q.out_of_scope:
+                try:
+                    ans = pipe.engine.answer(scene, q)
+                except EngineError:
+                    err = True
+            status = "out_of_scope" if q is not None and q.out_of_scope else (pt.get("status") or "failed")
+            why = trigger(scene_ok=True, parse_status=status if q is not None else "failed", answer=ans,
+                          engine_error=err)
+            decided = why is None and ans is not None and ans.verdict.value in DECIDED
+            ea = old.get("engine_answer") or {}
+            same = ans is not None and _decision_key(ans.verdict.value, json.loads(json.dumps(ans.value, default=str))) \
+                == _decision_key(ea.get("verdict"), ea.get("value")) and decided == bool(old.get("decided"))
+            if same or (not decided and not old.get("decided")):
+                rows_out.append({**old, "rejudge": "kept", "program_from": phead["run_id"]})
+                continue
+            rec = {**old, "rejudge": "changed", "decided": decided, "trigger": why,
+                   "engine_verdict": ans.verdict.value if ans else None,
+                   "engine_answer": ans.model_dump(mode="json") if ans else None, "correct": None, "strict": None,
+                   "was": {"decided": old.get("decided"), "correct": old.get("correct")}}
+            rec["trace"] = {**old["trace"], "parser": pt}
+            if decided:
+                plan.append(pr["id"])
+                if not dry_run:
+                    try:
+                        w = pipe.writer.write(qs[pr["id"]]["question"], ans, scene)
+                        rec["text"] = w.text
+                        rec.update(ee.grade(qs[pr["id"]], w.text, judge))
+                    except SpendLimitExceeded as e:
+                        stopped = e
+                        break
+            rows_out.append(rec)
+    est = round(len(plan) * (REJUDGE_WRITER_USD + REJUDGE_JUDGE_USD), 4)
+    report = {"judge_ids": plan, "estimate_usd": est, "changed_undecided": [r["id"] for r in rows_out
+              if r.get("rejudge") == "changed" and not r["decided"]]}
+    if dry_run:
+        return report
+    run_id = uuid.uuid4().hex[:12]
+    out = out_dir / f"dev_rejudge_{run_id}{'.partial' if stopped else ''}.jsonl"
+    head = {**srcs[0][0], "kind": "dev_rejudge", "label": "rejudge", "run_id": run_id, "programs_from": phead["run_id"],
+            "scenes_from": [h["run_id"] for h, _ in srcs], "git_commit": g["commit"],
+            "started": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}
+    with open(out, "w", encoding="utf-8") as f:
+        f.write(json.dumps(head, ensure_ascii=False) + "\n")
+        for r in rows_out:
+            f.write(json.dumps(r, ensure_ascii=False, default=str) + "\n")
+    print(f"rejudge {run_id} -> {out}  judged: {plan}  (spent ${guard.spent:.4f})")
+    return {**report, "file": str(out), "spent_usd": round(guard.spent, 4)}
+
+
 def _with_boards(pipe, img, scene):
     """The scene with the boards the guide call read, from the run's cache (no call)."""
     if scene is None or not pipe.config.guide_reading:
@@ -353,6 +445,11 @@ def main() -> None:
     rp.add_argument("--select", choices=["yesno", "all"], default="yesno")
     rp.add_argument("--reading-policy", choices=["all", "higher_confidence"], default=None,
                     help="phase 4.6: the engine's reading policy; also re-runs the engine on unchanged parses")
+    rj = sub.add_parser("rejudge", help="phase 4.7: programs from one run on stored scenes; judge changed answers only")
+    rj.add_argument("--programs", type=Path, required=True)
+    rj.add_argument("--scenes", type=Path, nargs="+", required=True)
+    rj.add_argument("--max-spend", type=float, default=0.0)
+    rj.add_argument("--dry-run", action="store_true")
     s = sub.add_parser("summary")
     s.add_argument("file", type=Path)
     a = ap.parse_args()
@@ -360,6 +457,8 @@ def main() -> None:
         print(json.dumps(estimate(candidate=a.candidate), indent=2, ensure_ascii=False))
     elif a.cmd == "reparse":
         reparse(a.src, a.version, a.max_spend, select=a.select, reading_policy=a.reading_policy)
+    elif a.cmd == "rejudge":
+        print(json.dumps(rejudge(a.programs, a.scenes, a.max_spend, dry_run=a.dry_run), indent=2, ensure_ascii=False))
     elif a.cmd == "summary":
         print(json.dumps(summary(a.file), indent=2))
     else:
