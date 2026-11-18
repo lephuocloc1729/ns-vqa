@@ -44,6 +44,11 @@ from eval.make_validation_split import DEV_OUT, OUT as VALIDATION  # noqa: E402
 
 PROFILE = "phase47"
 FROZEN = freeze.FROZEN_PHASE47
+# Phase 4.8 step 4: a candidate run is the phase-4.7 profile with these fields changed (the KB switches
+# in kb/switches_48.yaml apply as committed). The engine has changed since the phase-4.7 record, so a
+# candidate run checks the phase-4 record's frozen prompt files instead (as e2e_dev.py --candidate does).
+PHASE47_FIELDS = {"scene_version": "v5", "parser_version": "v14", "guide_reading": True,
+                  "reading_policy": "higher_confidence"}
 # Decided shares for the estimate: the judged phase-4.7 dev run (73 of 87), and every question.
 DECIDED_SHARES = {"dev_phase47": 0.839, "all_decided": 1.0}
 
@@ -69,16 +74,30 @@ def load_questions(dev2_file: Path = DEV2_OUT, qa_file: Path | None = None, *, w
     return ev.load_questions(dev2_file, qa_file, with_answers=with_answers)
 
 
+def candidate(scene_version: str | None = None, parser_version: str | None = None) -> dict:
+    out = dict(PHASE47_FIELDS)
+    if scene_version:
+        out["scene_version"] = scene_version
+    if parser_version:
+        out["parser_version"] = parser_version
+    return out
+
+
 def run(label: str, max_spend: float, *, dev2_file: Path = DEV2_OUT, dev_file: Path = DEV_OUT,
-        validation_file: Path = VALIDATION, frozen: Path = FROZEN, questions: list[dict] | None = None,
-        **kw: Any) -> Path:
+        validation_file: Path = VALIDATION, frozen: Path | None = None, questions: list[dict] | None = None,
+        cand: dict | None = None, **kw: Any) -> Path:
     check_disjoint(dev2_file, dev_file, validation_file)
     qs = questions if questions is not None else load_questions(dev2_file, dev_file=dev_file,
                                                                 validation_file=validation_file)
     split = json.loads(Path(dev2_file).read_text(encoding="utf-8"))
     extra = {"biased": True, "biased_note": split.get("biased_note"), "split_file": Path(dev2_file).name,
              "split_sha256": hashlib.sha256(Path(dev2_file).read_bytes()).hexdigest()}
-    return ed.run_dev(label, max_spend, questions=qs, frozen=frozen, dev_file=dev2_file,
+    if cand is not None:
+        from vqa.reasoning.engine import switches_from_kb
+        extra["switches_48"] = switches_from_kb()
+        return ed.run_dev(label, max_spend, questions=qs, frozen=frozen or freeze.FROZEN, dev_file=dev2_file,
+                          validation_file=validation_file, candidate=cand, prefix="dev2", head_extra=extra, **kw)
+    return ed.run_dev(label, max_spend, questions=qs, frozen=frozen or FROZEN, dev_file=dev2_file,
                       validation_file=validation_file, profile=PROFILE, prefix="dev2", head_extra=extra, **kw)
 
 
@@ -127,6 +146,8 @@ def main() -> None:
     r = sub.add_parser("run")
     r.add_argument("--label", required=True)
     r.add_argument("--max-spend", type=float, required=True)
+    r.add_argument("--scene-version", help="phase 4.8 candidate: scene prompt version (default v5)")
+    r.add_argument("--parser-version", help="phase 4.8 candidate: parser prompt version (default v14)")
     s = sub.add_parser("summary")
     s.add_argument("file", type=Path)
     a = ap.parse_args()
@@ -135,7 +156,8 @@ def main() -> None:
     elif a.cmd == "summary":
         print(json.dumps(summary(a.file), indent=2, ensure_ascii=False))
     else:
-        run(a.label, a.max_spend)
+        cand = candidate(a.scene_version, a.parser_version) if (a.scene_version or a.parser_version) else None
+        run(a.label, a.max_spend, cand=cand)
 
 
 if __name__ == "__main__":

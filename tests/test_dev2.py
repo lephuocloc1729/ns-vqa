@@ -95,7 +95,8 @@ def _split(tmp_path) -> Path:
 
 def test_the_runner_defaults_to_the_phase47_record():
     assert e2.FROZEN == fz.FROZEN_PHASE47 and e2.PROFILE == "phase47"
-    assert inspect.signature(e2.run).parameters["frozen"].default == fz.FROZEN_PHASE47
+    # phase 4.8: `frozen` defaults to None, which means this record for a non-candidate run
+    assert inspect.signature(e2.run).parameters["frozen"].default is None
 
 
 def test_a_dev2_run_uses_the_phase47_profile_with_the_fallback_off(fake_set):
@@ -154,3 +155,17 @@ def test_the_estimate_uses_counts_only():
     assert e["question_types"] == {"Natural QA": 70, "Yes/No": 30}
     lo, hi = e["estimates"]["dev_phase47"]["total_usd"], e["estimates"]["all_decided"]["total_usd"]
     assert 0 < lo <= hi and e["suggested_max_spend"] >= e["estimates"]["all_decided"]["range_usd"][1]
+
+
+def test_a_candidate_run_is_phase47_with_its_changes_and_records_the_switches(fake_set):
+    """Phase 4.8 step 4: scene and parser versions changed; the KB switches are recorded."""
+    assert e2.candidate(parser_version="v15") == {**e2.PHASE47_FIELDS, "parser_version": "v15"}
+    assert e2.candidate("v7")["scene_version"] == "v7"
+    sdk = _e2e_sdk()
+    sdk.replies["perception"] = [SCENE_REPLY] * 6
+    out = e2.run("c", 1.0, sdk=sdk, questions=QS, out_dir=fake_set / "dev2", dev2_file=_split(fake_set),
+                 image_path=lambda i: fake_set / f"{i}.jpg", git=CLEAN, cand=e2.candidate(parser_version="v15"))
+    head, rows = e2.ed.ee.load(out)
+    assert head["candidate"]["parser_version"] == "v15" and head["frozen_record"] == "frozen_phase4.json"
+    assert head["candidate_prompt_ids"]["parser"].startswith("parser/v15@")
+    assert head["switches_48"]["several_signs"] is True and head["kind"] == "dev2"
