@@ -1634,6 +1634,26 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Parser v13 gate (owner run, 2026-11-18): fails the fixed rule
+
+- **Run:** `pred_claude-sonnet-5-5_medium_v13_20261118-085146.jsonl`, $0.2243 of the $0.45 cap. Program accuracy 76.6%.
+- **Rule:** `regressed_types_without_design = ['all_of']`, so v13 fails. The one row is public_natural_0048:
+  - v12: `all_of` of two `forbidden` claims (enter; tractor, then special_machine; sign meaning no_trucks_over_load), matching the gold;
+  - v13: `sign_applies` with both vehicles and the same sign.
+- **Free check (no API call):** both programs on 0048's cached scene (image public_test_5_10; cache-only; the only cached scene is under the phase4 profile: s1 P.106b 2.5, s2 P.130 with a 06:00-22:00 time plate), engine reading policy higher_confidence.
+
+| | v12 program | v13 program |
+|---|---|---|
+| verdict | yes | yes |
+| value | `{"parts": ["yes", "yes"]}` | `{"per_vehicle": {"tractor": "yes", "special_machine": "yes"}}` |
+| citations | QCVN 41 B.6, 22 | QCVN 41 B.6, 22 |
+| reasons | s1 true, s1 true | s1 true, s1 true |
+| uncertain signs, note, basis | none | none |
+
+- **Result:** verdict, citations and reasons are identical; the value differs in shape (a list of two parts against a dict by vehicle), with the same yes for each vehicle. By the owner's instruction (verdict, value and citations compared), the programs differ, so **v13 fails**. The owner decides whether to treat 0048 as an exception ("equivalent program, same answer"); the gold and the rule are unchanged.
+- **Proposed v14:** v13 plus one spec line: "does this ban cover X?" stays `forbidden`; `sign_applies` only for "áp dụng cho / dành cho" wording.
+- **Spend:** $0.52 + $0.2243 = **$0.74 of $2.30; $1.56 left.**
+
 ### Parser v13 built (owner, 2026-11-18; no API calls): before the one gate
 
 #### Built (branch `phase-5`, not pushed)
