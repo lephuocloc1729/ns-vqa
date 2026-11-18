@@ -1634,6 +1634,19 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Phase 4.8 PAID 2 (c): scene v7, set T (owner run, 2026-11-18): not kept (recall)
+
+- **Run:** `T_claude-haiku-5-5_v7+fb_1073eec9742b.jsonl` (pass 1 + fallback with v7-tile / v7-crop), **$0.093**. Phase 4.8: **$1.42 of $5.00.**
+
+| set T | recall | code F1 (95% CI) | strict F1 | rule-bearing F1 | predicted | non-dup recall / F1 |
+|---|---|---|---|---|---|---|
+| baseline v5 `3861a1816d1a` | 90.8% | 73.0% (64.8–80.6) | 71.3% | 74.8% | 124 | 91.1% / 73.6% |
+| **v7** `1073eec9742b` | **88.3%** | **76.6%** (69.0–85.3) | 73.2% | 74.3% | 115 | 85.6% / 75.9% |
+
+- **Rule:** F1 +3.6 points clears the +2.9 bar, but **recall fell 2.5 points** (non-duplicate −5.5), and the rule requires it not to be lower. **v7 is not kept.** It lists fewer signs (115 against 124), which raises precision and costs recall.
+- **The targeted swaps:** P.131a read as P.130 went to **0** (v5 reads: 3, 1, 2); P.125 as P.103a stays at 1 in every read. The notes work for the pair they name; the loss is elsewhere (fewer signs listed).
+- **Step 2 outcome:** neither (a) nor (c) passed alone, so no combination is tried. The perception for step 4 stays **scene v5 + fallback** (the frozen one); (b) was not run (cost).
+
 ### Phase 4.8 PAID 2 (a): three Haiku reads voted, set T (owner run, 2026-11-18): not kept
 
 - **Runs:** reads 2 and 3 are `82d929851fad` (pass 1 `fa685c76eb6c`) and `a25c2e6e55a4` (pass 1 `2a8b8f23e4e6`), each scene v5 + fallback `crop_always`, **$0.111 + $0.112**. Read 1 is the stored baseline `3861a1816d1a`. Vote: `T_claude-haiku-5-5_v5+fb+vote3_9cda0c31f6c2.jsonl` (free). A first start was stopped by the owner after 11 images (`01cc158e12a8.stopped`, $0.022). Phase 4.8: **$1.33 of $5.00.**
