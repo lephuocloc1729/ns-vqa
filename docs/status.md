@@ -1634,6 +1634,18 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Phase 4.8 step 2 prepared: set-T perception candidates (2026-11-18; no API calls)
+
+- **Baseline (no new run):** today's frozen perception on set T is run `3861a1816d1a` (scene v5 pass 1 `82fe91ce935e` + fallback, `crop_always`): **recall 90.8% (85–97), code F1 72.9% (65–81)**; non-duplicate (26 images) 91.1% / 73.6%.
+- **Keep rule (owner, fixed before any run):** code F1 above 72.9% by more than 2.9 points (so **≥ 75.9%**), recall not below 90.8%. Non-duplicate figures reported. Parts combine only if each passed alone.
+- **Swap evidence** (7 stored Haiku set-T runs with the fallback, v4 / v5 / v6; gold signs v1): P.131a read as P.130 **8 times (7 at high confidence)**; P.127b as IE.452 8 (low / medium); IE.464 as IE.454 6; P.125 as P.103a 6; P.117 as P.101 5; P.124c as P.118 5 (all high); P.111a as P.104 4 (all high).
+  - So the A1 table as worded (low or medium confidence, no alternative) would catch **1 of the 8** P.130 / P.131a swaps on set T. Set T shows no P.101 / P.102 swap (P.101 appears as a misreading of P.117) and no W.201 / W.228 swap; those come from dev2 answers only (102, 135).
+  - (d) adds alternatives without changing a sign's first code, so set-T code F1 can't measure it; step 4's judged runs decide it.
+- **(a) voting:** `vqa/perception/vote.py` (signs clustered across reads with `matching.match(relate=True)`; kept if seen in at least half the reads; the most frequent catalog row wins, ties go to the earliest read; the other codes become low-confidence alternatives, and a high reading the reads disagree on drops to medium). `eval/perception_vote.py` combines run files of one configuration and refuses mixed ones. The four stored v4 runs share one pass 1, so there's no free trial: two new v5 runs are needed (the stored v5 run is the third read).
+- **(b) Opus 5.5:** $4.00 / $20.00 per MTok (`vqa/llm/pricing.py`), 40 times Haiku. The rough set-T estimate is **$1.21–2.34 for pass 1 alone**; with the tile and crop fallback, about $2.5–4.5 of the $3.91 left. Not proposed.
+- **(c) scene v7** (`prompts/scene/v7`, `v7-tile`, `v7-crop`): v5 plus three visual notes read off the law_db figures: P.130 two red lines crossing, P.131a one slash, P.131b/c plus white bars (B.30, B.31); P.125 two cars side by side, P.103a one car under a slash (B.25, B.3); P.117 a number between two triangles, P.101 an empty disc (B.17, B.1). Pictograms and catalog listing unchanged.
+- Tests: `tests/test_phase48_perception.py` (7).
+
 ### Phase 4.8 PAID 1: dev2 rejudge of batch 1 (owner run, 2026-11-18): G1 kept
 
 - **Run:** `eval/runs/e2e/dev2_rejudge_a240669b19bf.jsonl`, **$0.0595** (estimate $0.074, cap $0.15). Phase 4.8: **$1.09 of $5.00.**

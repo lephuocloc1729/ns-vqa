@@ -1,0 +1,16 @@
+# Scene prompt v7 (phase 4.8 step 2 (c); owner, 2026-11-18): v5 plus visual notes for the pairs
+# Haiku swaps on set T (stored runs: P.131a as P.130 8 times, 7 at high confidence; P.125 as P.103a 6;
+# P.117 as P.101 5), each read off the QCVN 41 figures in law_db (B.30, B.31, B.25, B.3, B.17, B.1).
+# Catalog listing, examples and pictograms unchanged. Part of the prompt hash.
+max_tokens: 8000          # dense scenes ran to ~4,100 output tokens in the Haiku pre-fill
+image:                    # vqa/perception/image.py
+  prep_version: img1
+  long_edge: 1568
+  max_pixels: 1150000
+  jpeg_quality: 90
+effort:                   # per model (plan D3: Haiku at its default, medium)
+  claude-haiku-5-5: medium
+  claude-sonnet-5-5: medium
+  claude-opus-5-5: medium
+retry: 1                  # one retry that sends only the error
+pictograms: pictograms.yaml   # reference figures before the photo (CLAUDE.md exception)
