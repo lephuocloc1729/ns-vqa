@@ -155,3 +155,31 @@ def test_a_reparse_stopped_by_the_spend_guard_is_kept_as_partial(fake_set):
     out = ed.reparse(src, "v11", 0.0001, sdk=sdk2, out_dir=fake_set / "dev", git=CLEAN, questions=QS, select="all")
     assert out.name.endswith(".partial.jsonl") and out.exists()
     assert not out.with_name(out.name.replace(".partial", "")).exists()
+
+
+def test_a_partial_reparse_resumes_with_only_the_missing_questions(fake_set):
+    """Phase 4.8c: `resume` copies the partial file's rows and re-parses only the rest; a partial
+    from another source, version or switch set is refused."""
+    from tests.test_e2e_eval import RoutedSDK
+    sdk = _e2e_sdk()
+    sdk.replies["perception"] = [SCENE_REPLY, SCENE_REPLY]
+    src = ed.run_dev("c", 1.0, sdk=sdk, questions=QS, out_dir=fake_set / "dev",
+                     image_path=lambda i: fake_set / f"{i}.jpg", git=CLEAN, candidate=ed.CANDIDATE)
+    unchanged = {"program": {"intent": "forbidden", "action": "enter", "vehicle": {"vehicle_class": "motorbike"}}}
+    w = {"verdict": "no", "answer": "Không.", "cited_signs": ["s1"], "cited_rules": []}
+    j = {"label": "correct", "reason": "x"}
+    full = ed.reparse(src, "v11", 0.5, sdk=RoutedSDK(default={"writer": w, "judge": j}, parser=[unchanged, unchanged]),
+                      out_dir=fake_set / "dev",
+                      git=CLEAN, questions=QS, select="all")
+    head, rows = ed.ee.load(full)
+    partial = fake_set / "dev" / "p.partial.jsonl"
+    partial.write_text(json.dumps(head) + "\n" + json.dumps(rows[0], ensure_ascii=False) + "\n", encoding="utf-8")
+    sdk3 = RoutedSDK(default={"writer": w, "judge": j}, parser=[unchanged])
+    out = ed.reparse(src, "v11", 0.5, sdk=sdk3, out_dir=fake_set / "dev", git=CLEAN, questions=QS, select="all",
+                     resume=partial)
+    h2, rows2 = ed.ee.load(out)
+    assert sdk3.created[0] == "parser" and sdk3.created.count("parser") == 1 and h2["resumed_from"] == head["run_id"]
+    assert [r["id"] for r in rows2] == [r["id"] for r in rows] and rows2[0] == rows[0]
+    with pytest.raises(SystemExit, match="not this source"):
+        ed.reparse(src, "v9", 0.5, sdk=RoutedSDK(), out_dir=fake_set / "dev", git=CLEAN, questions=QS,
+                   select="all", resume=partial)

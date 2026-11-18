@@ -168,8 +168,11 @@ def _decision_key(verdict: str | None, value) -> str:
 
 
 def reparse(src: Path, version: str, max_spend: float, *, select: str = "yesno", sdk=None, out_dir: Path = OUT,
-            git=freeze.git_state, questions: list[dict] | None = None, reading_policy: str | None = None) -> Path:
-    """`reading_policy` (phase 4.6 step 6): run the engine with this reading policy, and re-run it
+            git=freeze.git_state, questions: list[dict] | None = None, reading_policy: str | None = None,
+            resume: Path | None = None) -> Path:
+    """`resume` (phase 4.8c): a partial re-parse of the same source and version; its rows are copied
+    as they are and only the questions it lacks are re-parsed (`resumed_from` in the header).
+    `reading_policy` (phase 4.6 step 6): run the engine with this reading policy, and re-run it
     on unchanged parses too; an answer whose decision changes is written and judged as a changed
     one (policy A, F1, F2 change answers without a new parse)."""
     import dataclasses
@@ -217,11 +220,22 @@ def reparse(src: Path, version: str, max_spend: float, *, select: str = "yesno",
                     "git_commit": g["commit"], "started": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}
         from vqa.reasoning.engine import switches_from_kb
         new_head["switches_48"] = switches_from_kb()      # phase 4.8c: the B switches this run used
-        changed = []
+        done: dict[str, dict] = {}
+        if resume is not None:
+            rhead, rrows = ee.load(resume)
+            if rhead.get("from_run") != head["run_id"] or rhead.get("parser_version") != version \
+                    or rhead.get("switches_48") != new_head["switches_48"]:
+                raise SystemExit("the partial run is not this source, parser version and switches")
+            done = {x["id"]: x for x in rrows}
+            new_head["resumed_from"] = rhead["run_id"]
+        changed = [i for i, x in done.items() if x.get("changed")]
         stopped = None
         with open(out, "w", encoding="utf-8") as f:
             f.write(json.dumps(new_head, ensure_ascii=False) + "\n")
             for r in rows:
+              if r["id"] in done:
+                  f.write(json.dumps(done[r["id"]], ensure_ascii=False, default=str) + "\n")
+                  continue
               try:
                   q = qs[r["id"]]
                   if select != "all" and not YESNO.search(q["question"]):
@@ -480,6 +494,7 @@ def main() -> None:
     rp.add_argument("--version", required=True)
     rp.add_argument("--max-spend", type=float, required=True)
     rp.add_argument("--select", choices=["yesno", "all"], default="yesno")
+    rp.add_argument("--resume", type=Path, default=None, help="phase 4.8c: continue a partial re-parse")
     rp.add_argument("--reading-policy", choices=["all", "higher_confidence"], default=None,
                     help="phase 4.6: the engine's reading policy; also re-runs the engine on unchanged parses")
     rj = sub.add_parser("rejudge", help="phase 4.7: programs from one run on stored scenes; judge changed answers only")
@@ -493,7 +508,7 @@ def main() -> None:
     if a.cmd == "estimate":
         print(json.dumps(estimate(candidate=a.candidate), indent=2, ensure_ascii=False))
     elif a.cmd == "reparse":
-        reparse(a.src, a.version, a.max_spend, select=a.select, reading_policy=a.reading_policy)
+        reparse(a.src, a.version, a.max_spend, select=a.select, reading_policy=a.reading_policy, resume=a.resume)
     elif a.cmd == "rejudge":
         print(json.dumps(rejudge(a.programs, a.scenes, a.max_spend, dry_run=a.dry_run), indent=2, ensure_ascii=False))
     elif a.cmd == "summary":
