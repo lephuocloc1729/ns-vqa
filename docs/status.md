@@ -1634,6 +1634,33 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Owner decisions and one rule-only fix (2026-11-18, no API calls)
+
+- **Duties stays on at 2/3** (owner): its miss (own_47) is an abstention that goes to the fallback, not a wrong answer.
+- **Round 3 raised to $2.60** (owner). Spent $1.32; **$1.28 left.**
+- **Fix, rule-only (owner):** `marking_meaning` that names no marking (no `kind` and no `pattern`) answers only when the photo shows exactly one marking; with more than one it is unknown, with the note "the question did not say which marking, and more than one was read in the photo". Covers the own_58 / own_62 class (painted arrows parsed with no kind). A question with a kind or a pattern is unchanged. No parser change, no new version. Tests on hand-made scenes in `tests/test_phase47_v13_rules.py`; replay 88/88 decided identical.
+- **Known risk for the next round:** own_65 (is this the stop line) parses as `verify(rule_permitted past_stop_line, at_signal)`, a different claim.
+- **Next, the owner runs them:**
+
+| # | check | estimate | cap |
+|---|---|---|---|
+| 3 | scene v6 set-T check | $0.13 | $0.20 (two $0.10 guards) |
+| 4 | judged dev run, scene v6 + parser v14 | $0.84 ($0.67–1.10) | $1.08 ($1.28 minus set-T's $0.20 cap) |
+
+```zsh
+.venv/bin/python eval/perception_eval.py run --set T --model claude-haiku-5-5 --version v6 --max-spend 0.10
+.venv/bin/python eval/perception_eval.py fallback <scene_run> --policy crop_always --max-spend 0.10
+.venv/bin/python eval/perception_eval.py score eval/runs/perception/T_claude-haiku-5-5_v5+fb_3861a1816d1a.jsonl <scene_fb>
+.venv/bin/python eval/v6_fields.py score <scene_fb>
+# keep v6 if recall holds and code F1 is within 2.9 points of v5 + fallback (90.8% / 72.9%);
+# a field below 70% precision goes into kb/v6_fields_47.yaml off:
+.venv/bin/python eval/e2e_dev.py run --label phase47 --candidate \
+  --scene-version v6 --parser-version v14 --reading-policy higher_confidence --max-spend 1.08
+# --scene-version v5 if set-T fails
+.venv/bin/python eval/e2e_dev.py summary <dev_run>
+# guardrail: overall >= 69.0% (judged), accuracy on decided >= 70%
+```
+
 ### New-types run with parser v14 (owner run, 2026-11-18)
 
 - **Run:** `newtypes_v14_20261118-091655.jsonl`, 76 questions (train 6, owner_written 50, owner2 20), **$0.3627** of the $0.55 cap.

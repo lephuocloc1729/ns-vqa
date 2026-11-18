@@ -247,3 +247,30 @@ def test_joining_road_duties(engine):
     a = engine.answer(EMPTY, Duties(topic="joining_road"))
     assert a.verdict is Verdict.value and len(a.value["duties"]) == 3
     assert arts(a) == {(L36, "22"), (L36, "25")}
+
+
+# ---------------------------------------------------------------- marking_meaning with no marking named
+# (owner, 2026-11-18, rule-only after the v14 new-types run: the own_58 / own_62 class, painted arrows
+# parsed with no kind)
+
+def _marked(*marks):
+    from vqa.schemas import Road, RoadMarking
+    return SceneGraph(scene_id="m", signs=[], road=Road(markings=[RoadMarking(kind=k, pattern=p) for k, p in marks]))
+
+
+def test_marking_meaning_without_kind_answers_only_for_one_marking(engine):
+    from vqa.schemas import MarkingMeaning
+    one = engine.answer(_marked(("center", "double_solid")), MarkingMeaning())
+    assert one.verdict is Verdict.value and [m["kind"] for m in one.value["markings"]] == ["center"]
+    two = engine.answer(_marked(("center", "double_solid"), ("lane_line", "dashed")), MarkingMeaning())
+    assert two.verdict is Verdict.unknown and "did not say which marking" in two.note
+    assert engine.answer(_marked(), MarkingMeaning()).verdict is Verdict.unknown
+
+
+def test_marking_meaning_naming_a_marking_is_unchanged(engine):
+    from vqa.schemas import MarkingMeaning
+    sc = _marked(("center", "double_solid"), ("lane_line", "dashed"), ("hatched", "solid"))
+    by_kind = engine.answer(sc, MarkingMeaning(kind="hatched"))
+    assert by_kind.verdict is Verdict.value and [m["kind"] for m in by_kind.value["markings"]] == ["hatched"]
+    by_pattern = engine.answer(sc, MarkingMeaning(pattern="dashed"))
+    assert by_pattern.verdict is Verdict.value and [m["kind"] for m in by_pattern.value["markings"]] == ["lane_line"]

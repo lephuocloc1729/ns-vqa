@@ -1068,6 +1068,12 @@ class Engine:
                        Verdict.no if p.separates not in seps and None not in seps else Verdict.unknown)
             return Answer(verdict=verdict, value={"markings": [m.kind for m in marks]},
                           citations=[Citation(law_id="QCVN 41:2024/BGTVT", article_id="G.1")])
+        if p.kind is None and p.pattern is None and len(scene.road.markings) > 1:
+            # owner, 2026-11-18 (rule-only, after the v14 new-types run): a question that names no
+            # marking is answered only when the photo shows exactly one; otherwise it may be about a
+            # marking perception does not read (painted arrows), so unknown
+            return Answer(verdict=Verdict.unknown, value={"markings_read": len(scene.road.markings)},
+                          note="the question did not say which marking, and more than one was read in the photo")
         rows, arts = [], set()
         for m in marks:
             key = f"{m.kind}/{m.pattern}" if f"{m.kind}/{m.pattern}" in data["markings"] else m.kind
