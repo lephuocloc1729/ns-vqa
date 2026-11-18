@@ -1634,6 +1634,24 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 ## Next steps, in order
 
+### Scene v6 set-T check (owner run, 2026-11-18): v6 stays; signals below 70% precision
+
+- **Runs:** scene `T_claude-haiku-5-5_v6_b12d72995442.jsonl` ($0.0582), fallback crop_always `T_claude-haiku-5-5_v6+fb_7f0df4bf2f7b.jsonl` ($0.0599); **$0.118** in all, of the two $0.10 guards. (A first fallback attempt from the session shell had no API key and stopped before any call, $0.)
+- **Signs, against v5 + fallback (`T_claude-haiku-5-5_v5+fb_3861a1816d1a`), 36 images, 120 gold signs:**
+
+| | v5 + fallback | v6 + fallback |
+|---|---|---|
+| sign recall | 90.8% (CI 85.4–96.8) | 91.7% (CI 86.5–97.1) |
+| sign code F1 | 72.9% (CI 64.8–80.6) | 75.6% (CI 69.0–82.4) |
+| code F1, rule-bearing | 74.8% | 77.1% |
+| value accuracy | 100% | 92.9% |
+| non-duplicate (26 images): recall / code F1 | 91.1% / 73.6% | 91.1% / 76.8% |
+
+  - Rule: keep v6 if recall holds and code F1 is within 2.9 points of v5 + fallback. Both hold: **v6 stays.** Value accuracy fell on all images (100% to 92.9%; non-duplicate stays 100%).
+- **v6 fields (`eval/v6_fields.py score`):** signals precision 66.7% (2 tp, 1 fp, 5 fn; recall 28.6%): **below 70%, switch off by the rule**; markings precision 100% (13 tp, 0 fp, 25 fn; recall 34.2%): keep on; arrows: nothing to judge (1 board skipped as incomplete), stays on.
+  - `kb/v6_fields_47.yaml` records the owner's decision; it is not changed yet (`off: []`).
+- **Spend:** $1.32 + $0.118 = **$1.44 of $2.60; $1.16 left** for the judged dev run (estimate $0.84, $0.67–1.10).
+
 ### Owner decisions and one rule-only fix (2026-11-18, no API calls)
 
 - **Duties stays on at 2/3** (owner): its miss (own_47) is an abstention that goes to the fallback, not a wrong answer.
