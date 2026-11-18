@@ -1692,6 +1692,35 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### Phase 5 baseline B1 "Claude alone" built (2026-11-18; no API calls)
+
+- **What:** `eval/baseline_b1.py` with prompt `eval/prompts/baseline/v1` (`baseline/v1@e0914f00eb6e`): the photo (prepared as the scene call sends it, `img1`) and the question go to Haiku, Sonnet or Opus 5.5, effort medium, max_tokens 4000, one plain prompt (no rules, no scene graph, no law_db, no few-shots). The requests go through the Message Batches API (P5). Grading is the system's: Yes/No by the first word, Natural QA by the Opus judge `judge/v1`.
+- **public_dev** (for fixing the prompt, readable): `submit --split dev` then `collect <state>`. This writes graded per-question lines to `eval/runs/e2e/b1_dev_<model>_<run_id>.jsonl`.
+- **Pin:** `pin --version vN` writes the write-once `eval/baseline_pinned.json`. The private submit refuses any other prompt.
+- **Private, once per model, aggregate only:**
+  - `submit --split private --confirm-pinned` checks, before anything is written: a clean tree, the pinned prompt, no sentinel `eval/baseline_ran_b1_<model>.json`, no aggregate for that model, git ignoring the answers folder, and counts and image files.
+  - The sentinel is written before the batch is created. Request ids are indexes (`q0001`); the sentinel keeps only a hash of the question order.
+  - `collect-private` grades in memory and writes `b1_private_aggregate_<model>_<run_id>.json` (no ids). It keeps the model's answers for the owner's P6 scoring in `cache/private_run/b1_<model>_<run_id>/answers.jsonl` (gitignored, model outputs only).
+  - The submit checks the batch's worst case (every request at max_tokens) against `--max-spend`.
+- **Estimates (counts only, rough):**
+
+| B1 Sonnet | batch expected | batch range | batch worst case | judge | total expected |
+|---|---|---|---|---|---|
+| public_dev, 51 q | $0.27 | $0.16–0.44 | $1.14 | $0.14 | **$0.42** |
+| private, 146 q | $0.78 | $0.47–1.25 | $3.25 | $0.42 | **$1.20** |
+
+- **Not yet:** no public_dev run, no pin, no private run. The approved order (P1) puts the system benchmark first; running B1 on private before it needs the owner's decision.
+- Tests: `tests/test_baseline_b1.py` (26). Full suite 2327 passed.
+
+```
+.venv/bin/python eval/baseline_b1.py estimate --split dev --model sonnet
+.venv/bin/python eval/baseline_b1.py submit --split dev --model sonnet --max-spend 1.2
+.venv/bin/python eval/baseline_b1.py collect eval/runs/e2e/b1_dev_sonnet_<run_id>.state.json --max-spend 0.3
+.venv/bin/python eval/baseline_b1.py pin --version v1
+.venv/bin/python eval/baseline_b1.py submit --split private --model sonnet --max-spend 3.3 --confirm-pinned
+.venv/bin/python eval/baseline_b1.py collect-private --model sonnet --max-spend 0.6
+```
+
 ### dev3 estimate (2026-11-18; no API calls, no question text read)
 
 - **Pool (ids and types only):** the train working set minus every dev and dev2 question **and image**, the train few-shots of parser v7–v17 and the train rows of `gold_v12_new`: **118 questions on 95 images** (82 Natural QA, 36 Yes/No). dev3 is not built yet (split builder and runner: aggregate only, runs once, fallback off, like the validation set).

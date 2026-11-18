@@ -1,0 +1,7 @@
+# Baseline B1 "Claude alone", prompt v1 (docs/plans/phase-5.md, item 2; P2, P5).
+# Image + question to one model, one plain prompt, no rules, no scene graph, no law_db.
+# Eval only: inference never reads it. Sent through the Message Batches API at half price.
+# The model is chosen per run (haiku, sonnet or opus 5.5); everything else is fixed here.
+effort: medium
+max_tokens: 4000      # a short answer plus adaptive thinking at medium effort
+image_prep: img1      # vqa.perception.image.prepare, as the scene call sends the photo
