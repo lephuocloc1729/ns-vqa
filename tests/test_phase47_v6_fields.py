@@ -60,9 +60,21 @@ def test_score_applies_the_70_percent_rule():
     assert r["fields"]["arrows"]["precision"] is None
 
 
-def test_the_sheet_lists_every_set_t_image_unlabelled():
+def test_the_sheet_lists_every_set_t_image_reviewed():
     import yaml
     from eval import gold_signs as gs
     rows = yaml.safe_load(vf.SHEET.read_text(encoding="utf-8"))["images"]
     assert [r["image_id"] for r in rows] == gs.set_t_images()
-    assert not any(r["checked"] for r in rows)
+    assert all(r["checked"] for r in rows)
+    assert all(r["reviewed_by"] == "assistant_visual" for r in rows)
+    assert all(set(r) >= {"signals", "markings", "r411"} for r in rows)
+
+
+def test_incomplete_arrows_do_not_count_as_false_positives():
+    labels = [{"image_id": "a", "checked": True, "r411_complete": False, "r411": []}]
+    run = [{"image_id": "a", "scene": {"signs": [{"code": "R.411", "lanes": [
+        {"lane": 1, "directions": ["straight"]}]}]}}]
+    result = vf.score(run, labels)
+    assert result["fields"]["arrows"]["fp"] == 0
+    assert result["fields"]["arrows"]["precision"] is None
+    assert result["fields"]["arrows"]["skipped_incomplete"] == 1

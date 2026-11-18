@@ -1,222 +1,411 @@
-# Scene v6 field labels for set T (owner fills by hand; image ids only, no model output).
-# signals: [{colour: red|yellow|green|off, arrow: none|left|straight|right}] for lamps lit and facing the road
-# markings: [{kind: center|lane_line|edge|hatched|stop_line, pattern: solid|dashed|double_solid|solid_dashed|dashed_solid}]
-# r411: [{lane: 1, directions: [straight, left, right, u_turn, slight_left, slight_right]}] for an R.411 board
-# Leave a list empty when the photo shows none; set checked: true when the row is done.
+# Scene v6 field labels for set T; assistant visual review of all 36 source images.
+# checked means visually inspected by the reviewer below, not owner validation.
+# Unique visible field values; empty lists mean none identifiable in this photo.
+# Occluded details are not inferred; review_notes record uncertainty.
+# train_1_6 has incomplete R.411 labels: resolve occlusion before using arrow scores as a gate.
 images:
 - image_id: train_1_6
-  checked: false
+  checked: true
   r411_in_gold: true
-  signals: []
-  markings: []
-  r411: []
+  signals:
+  - colour: green
+    arrow: none
+  - colour: green
+    arrow: right
+  markings:
+  - kind: lane_line
+    pattern: dashed
+  - kind: edge
+    pattern: solid
+  r411:
+  - lane: 1
+    directions:
+    - u_turn
+  - lane: 2
+    directions:
+    - straight
+  - lane: 4
+    directions:
+    - straight
+    - u_turn
+  - lane: 5
+    directions:
+    - straight
+    - right
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
+  review_notes: 'Collage. R.411 board partly hidden by vehicle board: lane 3 is unreadable
+    and omitted; lane 2 straight arrow is visible but other branches may be hidden.
+    Distant green round/right lamps are low resolution. Human review recommended before
+    scoring arrows.'
+  r411_complete: false
 - image_id: train_1_8
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
-  markings: []
+  markings:
+  - kind: lane_line
+    pattern: dashed
+  - kind: edge
+    pattern: solid
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_1_19
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
-  markings: []
+  markings:
+  - kind: lane_line
+    pattern: dashed
+  - kind: edge
+    pattern: solid
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_2_8
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
   markings: []
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_2_10
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
   markings: []
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_2_11
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
-  markings: []
+  markings:
+  - kind: lane_line
+    pattern: dashed
+  - kind: edge
+    pattern: solid
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_2_41
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
   markings: []
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_3_1
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
   markings: []
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_3_19
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
   markings: []
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_3_25
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
-  markings: []
+  markings:
+  - kind: lane_line
+    pattern: dashed
+  - kind: edge
+    pattern: solid
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_5_29
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
   markings: []
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_5_36
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
-  markings: []
+  markings:
+  - kind: lane_line
+    pattern: dashed
+  - kind: edge
+    pattern: solid
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_6_7
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
-  markings: []
+  markings:
+  - kind: lane_line
+    pattern: dashed
+  - kind: edge
+    pattern: solid
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_6_8
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
-  markings: []
+  markings:
+  - kind: lane_line
+    pattern: dashed
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_6_10
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
   markings: []
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_6_28
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
-  markings: []
+  markings:
+  - kind: lane_line
+    pattern: dashed
+  - kind: edge
+    pattern: solid
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_6_29
-  checked: false
+  checked: true
   r411_in_gold: false
-  signals: []
-  markings: []
+  signals:
+  - colour: yellow
+    arrow: none
+  markings:
+  - kind: lane_line
+    pattern: dashed
+  - kind: edge
+    pattern: solid
+  - kind: hatched
+    pattern: solid
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
+  review_notes: Yellow lamp visible; flashing cannot be determined from a still image.
 - image_id: train_6_36
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
-  markings: []
+  markings:
+  - kind: edge
+    pattern: solid
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_6_37
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
-  markings: []
+  markings:
+  - kind: lane_line
+    pattern: dashed
+  - kind: edge
+    pattern: solid
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_6_38
-  checked: false
+  checked: true
   r411_in_gold: false
-  signals: []
-  markings: []
+  signals:
+  - colour: red
+    arrow: straight
+  - colour: red
+    arrow: right
+  markings:
+  - kind: lane_line
+    pattern: solid
+  - kind: lane_line
+    pattern: dashed
+  - kind: edge
+    pattern: solid
+  - kind: stop_line
+    pattern: solid
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_6_39
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
   markings: []
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_6_40
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
-  markings: []
+  markings:
+  - kind: lane_line
+    pattern: dashed
+  - kind: edge
+    pattern: solid
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_6_41
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
-  markings: []
+  markings:
+  - kind: lane_line
+    pattern: dashed
+  - kind: edge
+    pattern: solid
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_7_8
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
   markings: []
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_7_18
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
   markings: []
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_7_23
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
-  markings: []
+  markings:
+  - kind: lane_line
+    pattern: dashed
+  - kind: edge
+    pattern: solid
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_7_25
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
   markings: []
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
+  review_notes: Signal heads seen from the side; no illuminated road-facing lamp can
+    be identified.
 - image_id: train_7_37
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
-  markings: []
+  markings:
+  - kind: center
+    pattern: dashed
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
+  review_notes: Faint dashed centre line visible near foreground; low contrast.
 - image_id: train_7_39
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
   markings: []
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_7_44
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
-  markings: []
+  markings:
+  - kind: center
+    pattern: dashed
+  - kind: edge
+    pattern: solid
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_7_46
-  checked: false
+  checked: true
   r411_in_gold: false
-  signals: []
+  signals:
+  - colour: yellow
+    arrow: none
+  - colour: yellow
+    arrow: straight
   markings: []
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
+  review_notes: Round yellow and distant straight yellow arrows are illuminated; the
+    red lens on the foreground head is not visibly illuminated.
 - image_id: train_7_51
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
   markings: []
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_8_8
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
-  markings: []
+  markings:
+  - kind: center
+    pattern: solid
+  - kind: edge
+    pattern: solid
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
+  review_notes: One continuous yellow centre line visible; do not infer a second line
+    from distant blur.
 - image_id: train_8_28
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
   markings: []
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_8_32
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
   markings: []
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'
 - image_id: train_8_37
-  checked: false
+  checked: true
   r411_in_gold: false
   signals: []
   markings: []
   r411: []
+  reviewed_by: assistant_visual
+  reviewed_on: '2026-11-18'

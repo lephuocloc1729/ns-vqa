@@ -68,10 +68,13 @@ def score(run_rows: list[dict], labels: list[dict]) -> dict:
     checked = {r["image_id"]: r for r in labels if r.get("checked")}
     out = {}
     for f in FIELDS:
-        tp = fp = fn = 0
+        tp = fp = fn = skipped_incomplete = 0
         for row in run_rows:
             lab = checked.get(row["image_id"])
             if lab is None:
+                continue
+            if f == "arrows" and lab.get("r411_complete") is False:
+                skipped_incomplete += 1
                 continue
             pred, gold = _items(f, row.get("scene"), None), _items(f, None, lab)
             tp, fp, fn = tp + len(pred & gold), fp + len(pred - gold), fn + len(gold - pred)
@@ -79,7 +82,7 @@ def score(run_rows: list[dict], labels: list[dict]) -> dict:
         rec = tp / (tp + fn) if tp + fn else None
         decision = ("no prediction to judge: keep on, too few to measure" if prec is None
                     else "switch off (below 70% precision)" if prec < PRECISION_FLOOR else "keep on")
-        out[f] = {"tp": tp, "fp": fp, "fn": fn, "precision": prec and round(prec, 3),
+        out[f] = {"tp": tp, "fp": fp, "fn": fn, "skipped_incomplete": skipped_incomplete, "precision": prec and round(prec, 3),
                   "recall": rec and round(rec, 3), "decision": decision}
     return {"checked_images": len(checked), "fields": out,
             "switch_off": [f for f, v in out.items() if v["decision"].startswith("switch off")]}
