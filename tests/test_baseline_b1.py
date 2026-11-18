@@ -144,6 +144,14 @@ def test_the_estimate_uses_counts_only_and_the_worst_case_bounds_it():
     assert e["total_expected_usd"] == round(e["batch_expected_usd"] + e["judge_expected_usd"], 2)
 
 
+def test_the_estimate_reports_the_worst_case_the_submit_checks():
+    # the private run's first submit was refused: the estimate said $3.25, the guard checked $3.36
+    e = b1.estimate("claude-sonnet-5-5", 146, 76)
+    checked = b1.worst_case("claude-sonnet-5-5", [{}] * 146)
+    assert e["batch_worst_case_usd"] == round(checked, 2)
+    assert e["min_max_spend_usd"] >= checked
+
+
 # ---------------------------------------------------------------- public_dev
 
 DEV = [dict(q, id=f"public_natural_{i}", image_id=f"public_test_{i}_{i}") for i, q in enumerate(QS, 1)]

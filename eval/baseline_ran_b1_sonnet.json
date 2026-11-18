@@ -1,0 +1,23 @@
+{
+  "what": "baseline B1 (sonnet) on private, once (phase 5, item 2); its existence blocks a second run",
+  "run_id": "e4e251bb8aee",
+  "model": "claude-sonnet-5-5",
+  "prompt_id": "baseline/v1@e0914f00eb6e",
+  "version": "v1",
+  "git_commit": "ca7d6659fd193c27b7f1e32e643ced4cbb694406",
+  "questions_order_sha256": "a25143a11950240998fda1bdf1f1bd3d074ba10da25bfab805f9703012573e30",
+  "questions": 146,
+  "images": 104,
+  "question_types": {
+    "Natural QA": 76,
+    "Yes/No": 70
+  },
+  "max_spend_usd": 3.4,
+  "batch_worst_case_usd": 3.36,
+  "status": "finished",
+  "started": "2026-11-18T12:40:50+00:00",
+  "batch_id": "msgbatch_01AfoTyFa793Mr5CZPCpVE4y",
+  "finished": "2026-11-18T12:49:38+00:00",
+  "report": "b1_private_aggregate_sonnet_e4e251bb8aee.json",
+  "spent_usd": 0.6732
+}

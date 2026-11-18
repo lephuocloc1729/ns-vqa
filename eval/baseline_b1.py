@@ -47,6 +47,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import math
 import sys
 import time
 import uuid
@@ -143,25 +144,32 @@ def estimate(model: str, n: int, nqa: int, version: str = DEFAULT_VERSION) -> di
     cfg = config(version)
     prompt = rough_tokens(system_prompt(version)) + QUESTION_TOKENS + IMAGE_TOKENS_MAX
     expected = n * cost_usd(model, input_tokens=prompt, output_tokens=EXPECTED_OUTPUT_TOKENS, batch=True)
-    worst = n * worst_case_usd(model, prompt, int(cfg["max_tokens"]), batch=True)
+    worst = batch_worst_case(model, n, version)
     judge = nqa * JUDGE_PER_ANSWER
     return {"model": model, "prompt_id": prompt_id(version), "requests": n, "natural_qa": nqa,
             "prompt_tokens_per_request": prompt, "expected_output_tokens_per_request": EXPECTED_OUTPUT_TOKENS,
             "batch_expected_usd": round(expected, 3), "batch_range_usd": [round(0.6 * expected, 3),
                                                                           round(1.6 * expected, 3)],
             "batch_worst_case_usd": round(worst, 2),
+            "min_max_spend_usd": math.ceil(worst * 10) / 10,
             "judge_expected_usd": round(judge, 3),
             "total_expected_usd": round(expected + judge, 2),
-            "note": "rough: image tokens at the 1.15 MP cap, output a guess; submit checks the batch's "
-                    "worst case (every request at max_tokens) against --max-spend"}
+            "note": "rough: image tokens at the 1.15 MP cap, output a guess; submit checks "
+                    "batch_worst_case_usd against --max-spend, so pass at least min_max_spend_usd"}
 
 
 # ---------------------------------------------------------------- the batch
 
-def worst_case(model: str, reqs: list[dict], version: str = DEFAULT_VERSION) -> float:
+def batch_worst_case(model: str, n: int, version: str = DEFAULT_VERSION) -> float:
+    """Every request at max_tokens, with the rough prompt count padded by 30%. The
+    estimate and the submit's spend check both use this, so they agree."""
     cfg = config(version)
     prompt = rough_tokens(system_prompt(version)) + QUESTION_TOKENS + IMAGE_TOKENS_MAX
-    return len(reqs) * worst_case_usd(model, int(prompt * 1.3), int(cfg["max_tokens"]), batch=True)
+    return n * worst_case_usd(model, int(prompt * 1.3), int(cfg["max_tokens"]), batch=True)
+
+
+def worst_case(model: str, reqs: list[dict], version: str = DEFAULT_VERSION) -> float:
+    return batch_worst_case(model, len(reqs), version)
 
 
 def build_requests(qs: list[dict], image_path: Callable[[str], Path], model: str,

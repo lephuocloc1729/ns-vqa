@@ -1692,6 +1692,24 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### Phase 5 baseline B1 Sonnet on private, once (owner run, 2026-11-18): 85.3% overall
+
+- **Owner decision:** run B1 Sonnet on private now, without the public_dev prompt check and before the system benchmark. This departs from P1 (benchmark first) and from item 2 ("prompts fixed on train and public_dev"). Prompt v1 was pinned unchanged (`ca7d665`).
+- **Run:** `e4e251bb8aee`, batch `msgbatch_01AfoTyFa793Mr5CZPCpVE4y`, 12:40–12:49 UTC, at `ca7d665`. 146 requests, all succeeded (no refusal, truncation, error or expiry). Sentinel `eval/baseline_ran_b1_sonnet.json` (committed with this entry). **Aggregate only:** `eval/runs/e2e/b1_private_aggregate_sonnet_e4e251bb8aee.json` (local, no ids). Answers for P6 are kept in `cache/private_run/b1_sonnet_e4e251bb8aee/` (gitignored).
+- **Spend $0.673:** batch $0.275, judge $0.398 (estimate $1.20). A first submit was refused by the spend guard ($3.36 worst case > $3.30 cap; nothing written or sent). The estimate now reports the guard's worst case.
+- **Public_dev batch canceled:** `msgbatch_011ahBy58nJAgisW33wijPtb` (51 requests) was submitted, then canceled before collect. Requests already processed are billed, not logged; the cost is in the Console only.
+
+| B1 Sonnet, private | score | n |
+|---|---|---|
+| **overall** | **85.3%** (strict 83.6%) | 146 |
+| Yes/No | 78.6% (1 answer with no yes/no first word, graded wrong) | 70 |
+| Natural QA | 91.4% (strict 88.2%); judge 67 correct, 5 partial, 4 wrong | 76 |
+| non-duplicate images | 86.4% (95% CI 71–94) | 33 |
+| duplicate images | 85.0% | 113 |
+
+- **By feature (score, n):** claim 78.6% (70), vehicle class 82.1% (95), turn / stop / park / overtake 83.8% (40), speed 86.1% (36), lanes 73.9% (23), time 83.9% (31), meaning 100% (8), weight or seats 84.6% (13), violation 77.8% (9), no feature 95.0% (10).
+- **Not run yet:** B1 Haiku and Opus, B2, and the system benchmark (`eval/e2e_private.py`).
+
 ### Phase 5 baseline B1 "Claude alone" built (2026-11-18; no API calls)
 
 - **What:** `eval/baseline_b1.py` with prompt `eval/prompts/baseline/v1` (`baseline/v1@e0914f00eb6e`): the photo (prepared as the scene call sends it, `img1`) and the question go to Haiku, Sonnet or Opus 5.5, effort medium, max_tokens 4000, one plain prompt (no rules, no scene graph, no law_db, no few-shots). The requests go through the Message Batches API (P5). Grading is the system's: Yes/No by the first word, Natural QA by the Opus judge `judge/v1`.
@@ -1706,18 +1724,18 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 
 | B1 Sonnet | batch expected | batch range | batch worst case | judge | total expected |
 |---|---|---|---|---|---|
-| public_dev, 51 q | $0.27 | $0.16–0.44 | $1.14 | $0.14 | **$0.42** |
-| private, 146 q | $0.78 | $0.47–1.25 | $3.25 | $0.42 | **$1.20** |
+| public_dev, 51 q | $0.27 | $0.16–0.44 | $1.17 | $0.15 | **$0.42** |
+| private, 146 q | $0.78 | $0.47–1.25 | $3.36 | $0.42 | **$1.20** |
 
-- **Not yet:** no public_dev run, no pin, no private run. The approved order (P1) puts the system benchmark first; running B1 on private before it needs the owner's decision.
-- Tests: `tests/test_baseline_b1.py` (26). Full suite 2327 passed.
+- The worst-case column is what the submit checks (the rough prompt count padded by 30%); `estimate` prints it with `min_max_spend_usd` (fixed after the private run, which first used the unpadded $3.25).
+- Tests: `tests/test_baseline_b1.py` (27).
 
 ```
 .venv/bin/python eval/baseline_b1.py estimate --split dev --model sonnet
 .venv/bin/python eval/baseline_b1.py submit --split dev --model sonnet --max-spend 1.2
 .venv/bin/python eval/baseline_b1.py collect eval/runs/e2e/b1_dev_sonnet_<run_id>.state.json --max-spend 0.3
 .venv/bin/python eval/baseline_b1.py pin --version v1
-.venv/bin/python eval/baseline_b1.py submit --split private --model sonnet --max-spend 3.3 --confirm-pinned
+.venv/bin/python eval/baseline_b1.py submit --split private --model sonnet --max-spend 3.4 --confirm-pinned
 .venv/bin/python eval/baseline_b1.py collect-private --model sonnet --max-spend 0.6
 ```
 
