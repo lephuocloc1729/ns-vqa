@@ -186,7 +186,7 @@ def reparse(src: Path, version: str, max_spend: float, *, select: str = "yesno",
     from vqa.llm.client import LLMClient
     from vqa.llm.spend import SpendGuard, SpendLimitExceeded
     from vqa.pipeline import Pipeline, PipelineConfig
-    from vqa.reasoning.engine import EngineError
+    from vqa.reasoning.engine import EngineError, switches_from_kb
     from vqa.schemas import Answer, QueryProgram, SceneGraph, Verdict
 
     g = git()
@@ -316,7 +316,7 @@ def rejudge(programs: Path, scenes: list[Path], max_spend: float, *, dry_run: bo
     from vqa.llm.client import LLMClient
     from vqa.llm.spend import SpendGuard, SpendLimitExceeded
     from vqa.pipeline import Pipeline, PipelineConfig
-    from vqa.reasoning.engine import EngineError
+    from vqa.reasoning.engine import EngineError, switches_from_kb
     from vqa.schemas import QueryProgram, SceneGraph
     from vqa.answer.asked import prune_unasked
 
@@ -393,6 +393,7 @@ def rejudge(programs: Path, scenes: list[Path], max_spend: float, *, dry_run: bo
     out = out_dir / f"{kind}_rejudge_{run_id}{'.partial' if stopped else ''}.jsonl"
     head = {**srcs[0][0], "kind": f"{kind}_rejudge", "label": "rejudge", "run_id": run_id, "programs_from": phead["run_id"],
             "scenes_from": [h["run_id"] for h, _ in srcs], "git_commit": g["commit"],
+            "switches_48": switches_from_kb(),
             "started": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}
     with open(out, "w", encoding="utf-8") as f:
         f.write(json.dumps(head, ensure_ascii=False) + "\n")

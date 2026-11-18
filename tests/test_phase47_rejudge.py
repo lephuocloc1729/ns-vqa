@@ -82,3 +82,15 @@ def test_reparse_reads_a_dev2_run_with_its_profile(tmp_path):
     head, rows = ed.ee.load(out)
     assert out.name.startswith("dev2_reparse_v16_") and head["kind"] == "dev2_reparse"
     assert head["parser_version"] == "v16" and sdk.created == ["parser"] and rows[0]["changed"] is False
+
+
+def test_rejudge_records_current_switches_instead_of_inheriting_source(tmp_path):
+    from tests.test_e2e_eval import RoutedSDK
+    from vqa.reasoning.engine import switches_from_kb
+    src = tmp_path / "source.jsonl"
+    _write(src, {"run_id": "old", "kind": "dev", "switches_48": {"stated_exceptions": True}}, [])
+    report = ed.rejudge(src, [src], 0, sdk=RoutedSDK(), out_dir=tmp_path,
+                        git=CLEAN, questions=[])
+    head, rows = ed.ee.load(report["file"])
+    assert head["switches_48"] == switches_from_kb()
+    assert rows == []

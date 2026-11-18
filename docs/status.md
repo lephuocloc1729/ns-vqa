@@ -1692,6 +1692,17 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### Phase49 freeze: v17 accepted by owner (2026-11-18)
+
+- **Owner decision:** “frozen v17 because 0.01% is fine”. Freeze v17 with the retained switches. This is an explicit exception to the dev overall guardrail, not a claim that the original threshold passed.
+- **Final measured configuration:** scene v5 + guide reading, parser v17, writer v3, reading policy higher_confidence, signals off; several_signs, sign_charts (N=20), one_sign_g1 and asked_only on; confusable_pairs and stated_exceptions off.
+- **Completed rejudges:** dev `dev_rejudge_ce47ca5037a7` (87 rows, 73 decided, 59.5 points; overall **68.3908046%**, decided **81.5068493%**); dev2 `dev2_rejudge_32f3582f8b1c` (100 rows, 79 decided, 56.5 points; overall **56.5%**, decided **71.5189873%**). All five rejudged grades stayed unchanged. These are development figures, not independent benchmark results.
+- **Guardrail:** overall misses 68.4% by **0.0091954 percentage points**; the owner accepts this shortfall. Decided accuracy passes 70%. The original bar remains documented unchanged.
+- **Rejudge provenance correction:** both raw headers inherited `stated_exceptions: true` from their source. Their recorded commit `7efaccc` has it off. Raw files are preserved; this entry records the correction. Future rejudges now record current switches explicitly.
+- **Cost:** $0.0294 + $0.0134 = **$0.0428**; phase spend approximately **$3.80/$5.00**, about **$1.20 remaining** (prior totals rounded). No API calls made to freeze.
+- **Freeze:** `eval/frozen_phase49.json`; private runner requires profile phase49 and rejects earlier records. Previous freeze files are preserved. No private or dev3 run is started by this decision.
+- **Validation:** freeze check matches the live configuration; full suite **2301 passed**. Private runner tests verify phase49 defaults and reject older records and altered configuration.
+
 ### Phase 4.8c PAID 2: v17 re-parse of dev2 and dev, B switches all on (owner runs, 2026-11-18)
 
 - **Runs:** dev2 `eval/runs/e2e/dev2_reparse_v17_4083af459b9b.jsonl`, **$0.448** (cap $0.60); dev `dev_reparse_v17_d589c26e853c.partial.jsonl` stopped by the spend guard after 75 of 87 ($0.347, cap $0.45), resumed with the new `--resume` into `dev_reparse_v17_39c2d86ba1c1.jsonl` (**$0.043**, cap $0.25). Phase 4.8: **$3.76 of $5.00, $1.24 left.**

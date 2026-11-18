@@ -59,6 +59,7 @@ FROZEN_PHASE47 = ROOT / "eval" / "frozen_phase47.json"
 # policy A, the v6 field switch (signals off) and the phase-4.8 engine switches (kb/switches_48.yaml:
 # several_signs on, confusable_pairs off), for the private test.
 FROZEN_PHASE48 = ROOT / "eval" / "frozen_phase48.json"
+FROZEN_PHASE49 = ROOT / "eval" / "frozen_phase49.json"
 PROFILES: dict[str, dict[str, Any]] = {
     "phase4": {},
     "phase45": {"scene_version": "v5", "parser_version": "v9", "guide_reading": True},
@@ -69,8 +70,9 @@ PROFILES: dict[str, dict[str, Any]] = {
     "phase48": {"scene_version": "v5", "parser_version": "v16", "guide_reading": True,
                 "reading_policy": "higher_confidence"},
 }
+PROFILES["phase49"] = {**PROFILES["phase48"], "parser_version": "v17"}
 RECORDS = {"phase4": FROZEN, "phase45": FROZEN_PHASE45, "phase46": FROZEN_PHASE46, "phase47": FROZEN_PHASE47,
-           "phase48": FROZEN_PHASE48}
+           "phase48": FROZEN_PHASE48, "phase49": FROZEN_PHASE49}
 # Left out of a profile's comparison: phase 4 leaves out both post-freeze switches (their
 # defaults are its behaviour); phase 4.5 freezes guide_reading (on) and still leaves out
 # answer_fallback, which each runner sets (validation: off; private: the default, on).
@@ -94,6 +96,14 @@ V6_SWITCH_FROM = {"phase47", "phase48"}
 # Phase 4.8: the engine switches (kb/switches_48.yaml), named in the record (the file is also hashed).
 SWITCHES48_FROM = {"phase48"}
 
+
+# Owner, 2026-11-18: v17 accepted with the measured dev guardrail shortfall.
+EXCLUDED_SWITCHES["phase49"] = ("answer_fallback",)
+LATER_SWITCHES["phase49"] = ()
+WHAT["phase49"] = "phase 4.9: owner-approved v17 configuration; dev guardrail exception recorded in docs/status.md"
+CODE_HASHED_FROM.add("phase49")
+V6_SWITCH_FROM.add("phase49")
+SWITCHES48_FROM.add("phase49")
 
 def code_hash(root: Path = ROOT) -> dict[str, Any]:
     files = sorted([*(root / "vqa").rglob("*.py"), *(root / "kb").rglob("*.pl"), *(root / "kb").rglob("*.yaml")])

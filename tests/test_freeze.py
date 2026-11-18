@@ -236,3 +236,17 @@ def test_the_phase48_record_is_written_once(tmp_path):
     fz.write(p, "phase48")
     with pytest.raises(SystemExit, match="written once"):
         fz.write(p, "phase48")
+
+
+def test_phase49_pins_the_owner_approved_v17_configuration():
+    assert fz.check(fz.FROZEN_PHASE49) == []
+    rec = fz.load(fz.FROZEN_PHASE49)
+    assert rec["pipeline_config"]["parser_version"] == "v17"
+    assert rec["pipeline_config"]["reading_policy"] == "higher_confidence"
+    assert rec["v6_fields_off"] == ["signals"]
+    assert rec["engine_switches"] == {
+        "several_signs": True, "confusable_pairs": False,
+        "sign_charts": True, "sign_chart_signs": 20,
+        "one_sign_g1": True, "asked_only": True, "stated_exceptions": False,
+    }
+    assert rec["engine_code"] == fz.code_hash()
