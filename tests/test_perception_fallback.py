@@ -20,6 +20,13 @@ from vqa.schemas import AltReading, Confidence, Position, SceneGraph, Side, Sign
 SHA = "a" * 64
 
 
+@pytest.fixture(autouse=True)
+def one_region_at_a_time(monkeypatch):
+    """The fake clients below pick replies by call order, so these tests run the region calls
+    one at a time; the parallel path is checked against it in the tests at the end."""
+    monkeypatch.setattr(fb, "REGION_WORKERS", 1)
+
+
 def sign(sid, code="P.104", rank=None, side="right", box=None, conf="high", value=None, alts=()):
     return Sign(id=sid, code=code, value=value, confidence=conf,
                 position=Position(rank_top_down=rank, side=side, box=box),
@@ -689,3 +696,79 @@ def test_perceive_passes_pass_1s_messages_to_the_fallback(monkeypatch):
                               issues=["s1 P.131c: the re-run read P.131a; kept as an alternative"])
     sc.apply_fallback(res, data, fb.FallbackConfig())
     assert seen["issues"] == ["s1 P.131c: the re-run read P.131a; kept as an alternative"]
+
+
+# ---------------------------------------------------------------- parallel region calls
+
+
+def _routed_region_reply(calls, active, peak):
+    """A stand-in for _region_reply keyed by (kind, box), not by call order, with a random delay
+    so parallel calls finish out of order. Tile 1 finds a new sign; every crop reads P.104 high,
+    except the first box, which pays a failed attempt first."""
+    import random
+    import threading
+    import time
+    lock = threading.Lock()
+
+    def reply(kind, box, im, scale, version, *, img, model, client, cache, use_cache, replay, res):
+        with lock:
+            calls.append((kind, box))
+            active[0] += 1
+            peak[0] = max(peak[0], active[0])
+        time.sleep(random.uniform(0.005, 0.03))
+        with lock:
+            active[0] -= 1
+        res.issues.append(f"{kind} {list(box)}: fetched")
+        res.replies.append({"kind": kind, "box": list(box)})
+        if kind == "tile":
+            res.cost_usd += 0.001
+            if box == fb.tile_boxes(W, H)[0]:
+                sc = scale
+                to_tile = lambda b: [round(v * sc) for v in b]  # noqa: E731
+                return json.dumps({"signs": [{"code": "P.123a", "confidence": "medium", "rank": 1,
+                                              "side": "left", "box": to_tile((300, 250, 340, 290))}]})
+            return json.dumps({"signs": []})
+        res.cost_usd += 0.0007
+        res.cost_usd += 0.0003
+        return json.dumps({"code": "P.104", "confidence": "high"})
+    return reply
+
+
+def _many_unsure() -> SceneGraph:
+    return SceneGraph(scene_id="x", signs=[
+        *dense_scene().signs[:2],
+        *[sign(f"s{k}", code="UNKNOWN", conf="low", rank=k, side="left",
+               box=(100 + 60 * k, 110, 130 + 60 * k, 140)) for k in range(3, 8)]])
+
+
+def test_parallel_region_calls_give_exactly_the_sequential_result(tmp_path, monkeypatch):
+    data = image_bytes()
+    out = {}
+    for workers in (1, 4):
+        calls, active, peak = [], [0], [0]
+        monkeypatch.setattr(fb, "_region_reply", _routed_region_reply(calls, active, peak))
+        res = fb.run_fallback(_many_unsure(), data, prepare(data), model="claude-haiku-5-5", client=object(),
+                              cache=SceneCache(tmp_path / f"c{workers}"), use_cache=True, workers=workers)
+        out[workers] = (res, sorted(calls), peak[0])
+    seq, par = out[1][0], out[4][0]
+    assert par.scene == seq.scene and par.issues == seq.issues and par.replies == seq.replies
+    assert par.cost_usd == seq.cost_usd and (par.tiled, par.tiles_added, par.crops) == (seq.tiled, seq.tiles_added, seq.crops)
+    assert out[1][1] == out[4][1]                     # the same regions were asked for, each once
+    assert out[1][2] == 1 and out[4][2] > 1           # and the parallel run really overlapped them
+    assert par.tiles_added == 1 and par.crops == 6
+
+
+def test_parallel_fetch_skips_cached_regions_and_replay(tmp_path, monkeypatch):
+    data = image_bytes()
+    calls, active, peak = [], [0], [0]
+    monkeypatch.setattr(fb, "_region_reply", _routed_region_reply(calls, active, peak))
+    pre = fb._Prefetch("crop", "v4-crop", img=prepare(data), model="claude-haiku-5-5", client=object(),
+                       cache=SceneCache(tmp_path), use_cache=True, replay=lambda k, b: None,
+                       res=fb.FallbackResult(scene=dense_scene()))
+    pre.fetch([((0, 0, 10, 10), 1.0), ((5, 5, 20, 20), 1.0)], None, 4)
+    assert calls == [] and pre.done == {}             # replay mode: nothing is fetched ahead
+    pre = fb._Prefetch("crop", "v4-crop", img=prepare(data), model="claude-haiku-5-5", client=object(),
+                       cache=SceneCache(tmp_path), use_cache=True, replay=None,
+                       res=fb.FallbackResult(scene=dense_scene()))
+    pre.fetch([((0, 0, 10, 10), 1.0), ((0, 0, 10, 10), 1.0)], None, 4)
+    assert calls == [] and pre.done == {}             # one distinct box: no thread is worth it

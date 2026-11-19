@@ -34,12 +34,21 @@ fallback is not decided. No fallback or writer call is made; the answer is the
 deterministic template of the engine's answer (or of an `unknown` that says why), and
 `answered_by` is `not_decided`. Decided answers are exactly as with the fallback on, so
 rules-only figures are the same either way; the switch only saves the calls.
+
+**Parallel calls (latency only; answers unchanged).** The parser sees the question only (D7),
+so it runs on the calling thread while perception runs in a worker thread; Prolog (the
+parser's dry run, the engine) stays on the calling thread. Inside perception the uncached
+tile and crop replies are fetched in parallel (`vqa/perception/fallback.py`, `REGION_WORKERS`).
+When perception fails, the parse it no longer needs was already paid: its cost is counted
+and its trace is kept with `"used": false`, and the answer is the same as before.
 """
 
 from __future__ import annotations
 
 import hashlib
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -113,9 +122,11 @@ class _RefuseCalls:
 
     def __init__(self, model: str):
         self.model, self.last_usage, self.refused = model, None, 0
+        self._lock = threading.Lock()
 
     def json_reply(self, **kw):
-        self.refused += 1
+        with self._lock:
+            self.refused += 1
         raise LLMRefusal("cache-only mode: no perception call is made")
 
 
@@ -143,16 +154,21 @@ class Pipeline:
         """The scene fallback for this run's scene version (v4: the frozen FallbackConfig())."""
         return fallback_config_for(self.config.scene_version) if self.config.scene_fallback else None
 
+    def _require_pass1(self, image_path: Path) -> None:
+        """Cache-only mode: raise CacheMissError when the image has no pass-1 record."""
+        c = self.config
+        sha = hashlib.sha256(image_path.read_bytes()).hexdigest()
+        pid = scene_prompt.prompt_id(c.scene_version)
+        if self.cache.get(sha, c.perception_model, scene_prompt.effort_for(c.perception_model,
+                                                                          c.scene_version), pid) is None:
+            raise CacheMissError(f"no pass-1 record for {image_path.name} in {self.cache.root}")
+
     def _perceive(self, image_path: Path) -> tuple[Any, dict[str, Any]]:
         c = self.config
         client = self._perception_client
         info: dict[str, Any] = {}
         if c.cache_only:
-            sha = hashlib.sha256(image_path.read_bytes()).hexdigest()
-            pid = scene_prompt.prompt_id(c.scene_version)
-            if self.cache.get(sha, c.perception_model, scene_prompt.effort_for(c.perception_model,
-                                                                              c.scene_version), pid) is None:
-                raise CacheMissError(f"no pass-1 record for {image_path.name} in {self.cache.root}")
+            self._require_pass1(image_path)
             client = _RefuseCalls(c.perception_model)
         res = perceive(image_path, model=c.perception_model, version=c.scene_version, client=client,
                        cache=self.cache, use_cache=True,
@@ -184,13 +200,21 @@ class Pipeline:
         trace: dict[str, Any] = {}
         cost = 0.0
 
-        res, trace["perception"] = self._perceive(image_path)
+        if self.config.cache_only:
+            self._require_pass1(image_path)            # before the parser spends anything
+        with ThreadPoolExecutor(max_workers=1) as ex:  # perception beside the parser (latency only)
+            seen = ex.submit(self._perceive, image_path)
+            pr = self.parser.parse(question)
+            res, trace["perception"] = seen.result()
         cost += res.cost_usd
         scene = res.scene if res.ok else None
 
         parse_status, program, engine_answer, engine_error = None, None, None, None
-        if scene is not None:
-            pr = self.parser.parse(question)
+        if scene is None:
+            cost += pr.cost_usd
+            trace["parser"] = {"status": pr.status, "attempts": pr.attempts, "errors": pr.errors,
+                               "cost_usd": pr.cost_usd, "used": False}
+        else:
             cost += pr.cost_usd
             parse_status = pr.status
             trace["parser"] = {"status": pr.status, "attempts": pr.attempts, "errors": pr.errors,

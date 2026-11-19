@@ -433,7 +433,8 @@ def _region_reply(kind: str, box: Box, im, scale: float, version: str, *, img: P
         res.replies.append({"kind": kind, "box": list(box), "prompt_id": pid, "raw_text": raw,
                             "cost_usd": cost, "failed": True, "attempt": attempt, "error": str(e)})
         stored.append({"pass": f"{kind} failed", "raw_text": raw, "stop_reason": "end_turn",
-                       "usage": getattr(client, "last_usage", None) or {}, "cost_usd": cost,
+                       "usage": getattr(e, "usage", None) or getattr(client, "last_usage", None) or {},
+                       "cost_usd": cost,
                        "request_id": None})
 
     attempt = 1
@@ -470,6 +471,78 @@ def _region_reply(kind: str, box: Box, im, scale: float, version: str, *, img: P
     return reply.raw_text
 
 
+REGION_WORKERS = 4      # parallel tile / crop calls per image (latency only; 1 = one at a time)
+
+
+class _Costs:
+    """`res.cost_usd += x` on a _RegionLog records each x, to be re-added in the same order."""
+
+    def __init__(self) -> None:
+        self.parts: list[float] = []
+
+    def __iadd__(self, x: float) -> "_Costs":
+        self.parts.append(x)
+        return self
+
+
+@dataclass
+class _RegionLog:
+    """What one region call adds to a FallbackResult, held until its turn in the loop."""
+    issues: list[str] = field(default_factory=list)
+    replies: list[dict[str, Any]] = field(default_factory=list)
+    cost_usd: _Costs = field(default_factory=_Costs)
+
+
+class _Prefetch:
+    """Tile or crop replies fetched in parallel before the loop that uses them (latency only).
+
+    Only regions with no cached reply are fetched, each box once, in worker threads, each into
+    its own _RegionLog. `reply` hands a region's text to the loop in the loop's own order and
+    merges its log into `res` at that point, so issues, replies, costs and the scene come out
+    exactly as when the calls ran one after another. A region that was not prefetched (a cache
+    hit, a box asked for twice, replay mode, fewer than two misses, workers <= 1) goes through
+    `_region_reply` in the loop, as before."""
+
+    def __init__(self, kind: str, version: str, *, img: PreparedImage, model: str, client,
+                 cache: SceneCache, use_cache: bool, replay: Lookup | None, res: FallbackResult) -> None:
+        self.kind, self.version, self.res = kind, version, res
+        self.common = dict(img=img, model=model, client=client, cache=cache, use_cache=use_cache, replay=replay)
+        self.done: dict[Box, tuple[str | None, _RegionLog]] = {}
+
+    def fetch(self, jobs: list[tuple[Box, float]], im, workers: int) -> None:
+        c = self.common
+        if c["replay"] is not None or c["client"] is None or workers <= 1:
+            return
+        pid, effort = scene_prompt.prompt_id(self.version), scene_prompt.effort_for(c["model"], self.version)
+        todo: dict[Box, float] = {}
+        for box, scale in jobs:
+            if box not in todo and not (c["use_cache"] and c["cache"].get_region(
+                    c["img"].sha256, c["model"], effort, pid, box) is not None):
+                todo[box] = scale
+        if len(todo) < 2:
+            return
+
+        def one(item: tuple[Box, float]) -> tuple[Box, str | None, _RegionLog]:
+            box, scale = item
+            log = _RegionLog()
+            return box, _region_reply(self.kind, box, im, scale, self.version, res=log, **c), log  # type: ignore[arg-type]
+
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=min(workers, len(todo))) as ex:
+            for box, text, log in ex.map(one, list(todo.items())):
+                self.done[box] = (text, log)
+
+    def reply(self, box: Box, im, scale: float) -> str | None:
+        if box not in self.done:
+            return _region_reply(self.kind, box, im, scale, self.version, res=self.res, **self.common)
+        text, log = self.done.pop(box)
+        self.res.issues += log.issues
+        self.res.replies += log.replies
+        for x in log.cost_usd.parts:
+            self.res.cost_usd += x
+        return text
+
+
 def _box_on_original(s: Sign, img: PreparedImage) -> Box | None:
     b = s.position.box
     if b is None:
@@ -492,12 +565,14 @@ def run_fallback(scene: SceneGraph, image_bytes: bytes, img: PreparedImage, *, m
                  client=None, cfg: FallbackConfig = FallbackConfig(),
                  cache: SceneCache | None = None, use_cache: bool = True,
                  replay: Lookup | None = None, catalog: Catalog | None = None,
-                 pass1_issues: list[str] | None = None) -> FallbackResult:
+                 pass1_issues: list[str] | None = None, workers: int | None = None) -> FallbackResult:
     """A1 then A2 on a pass-1 scene (see the module docstring). With `replay`, replies
     come from it and no call is made. `pass1_issues` (pass 1's verification messages)
-    tell pass 1's own alternatives from the re-run's (T4)."""
+    tell pass 1's own alternatives from the re-run's (T4). `workers` > 1 fetches the
+    uncached tile (and then crop) replies in parallel; the result is the same either way."""
     catalog = catalog or load_catalog()
     cache = cache if cache is not None else SceneCache()
+    workers = REGION_WORKERS if workers is None else workers
     res = FallbackResult(scene=scene)
     im = original_image(image_bytes)
     W, H = img.original_size
@@ -510,10 +585,12 @@ def run_fallback(scene: SceneGraph, image_bytes: bytes, img: PreparedImage, *, m
     if cfg.tiles and needs_tiles(scene):
         res.tiled = True
         found: list[tuple[Sign, Box]] = []
+        tiles = _Prefetch("tile", cfg.tile_version, **common)
+        tiles.fetch([(tb, tile_scale(tb[2] - tb[0], tb[3] - tb[1])) for tb in tile_boxes(W, H)], im, workers)
         for t, tb in enumerate(tile_boxes(W, H)):
             tw, th = tb[2] - tb[0], tb[3] - tb[1]
             sc = tile_scale(tw, th)
-            text = _region_reply("tile", tb, im, sc, cfg.tile_version, **common)
+            text = tiles.reply(tb, im, sc)
             if text is None:
                 continue
             try:
@@ -554,6 +631,10 @@ def run_fallback(scene: SceneGraph, image_bytes: bytes, img: PreparedImage, *, m
     # A2: box crops
     changed: set[str] = set()
     if cfg.crops:
+        crops = _Prefetch("crop", cfg.crop_version, **common)
+        jobs = [(cb, crop_scale(cb[2] - cb[0], cb[3] - cb[1])) for s in signs if needs_crop(s)
+                and (ob := _box_on_original(s, img)) is not None for cb in [crop_box(ob, W, H)]]
+        crops.fetch(jobs, im, workers)
         out = []
         for s in signs:
             if not needs_crop(s):
@@ -566,8 +647,7 @@ def run_fallback(scene: SceneGraph, image_bytes: bytes, img: PreparedImage, *, m
                 continue
             cb = crop_box(ob, W, H)
             res.crops += 1
-            text = _region_reply("crop", cb, im, crop_scale(cb[2] - cb[0], cb[3] - cb[1]),
-                                 cfg.crop_version, **common)
+            text = crops.reply(cb, im, crop_scale(cb[2] - cb[0], cb[3] - cb[1]))
             if text is None:
                 out.append(s)
                 continue

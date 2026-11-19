@@ -157,8 +157,19 @@ def test_cache_only_refuses_an_image_with_no_pass1_record(tmp_path, photo):
 def test_without_cache_only_perception_calls_the_model(tmp_path, photo):
     sdk = RoutedSDK(perception=[SCENE_REPLY], parser=[PROG_YES], writer=[WRITER_YES])
     a = pipeline(tmp_path, sdk, tmp_path / "fresh", cache_only=False).answer(photo, Q_YES)
-    assert sdk.roles() == ["perception", "parser", "writer"] and a.verdict == "yes"
+    roles = sdk.roles()           # perception runs beside the parser, so their order may vary
+    assert sorted(roles[:2]) == ["parser", "perception"] and roles[2:] == ["writer"] and a.verdict == "yes"
     assert not a.trace["perception"]["cache_hit"]
+    assert list(a.trace)[:2] == ["perception", "parser"]
+
+
+def test_a_failed_perception_keeps_the_answer_and_counts_the_parse_already_paid(tmp_path, photo):
+    sdk = RoutedSDK(perception=["not json", "still not json"], parser=[PROG_YES],
+                    fallback=[{"verdict": "no", "answer": "Không."}])
+    a = pipeline(tmp_path, sdk, tmp_path / "fresh", cache_only=False).answer(photo, Q_YES)
+    assert a.answered_by == "fallback" and a.trace["fallback"]["trigger"] == "perception_failed"
+    assert a.trace["parser"]["used"] is False and "program" not in a.trace["parser"]
+    assert a.cost_usd >= a.trace["parser"]["cost_usd"] > 0
 
 
 def test_the_spend_guard_is_shared_across_stages(tmp_path, photo):

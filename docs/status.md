@@ -1692,6 +1692,19 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### Latency: parallel API calls (branch `perf/parallel-calls`, 2026-11-19): 32.9 s → 22.7 s per question, same answers
+
+- **Where the time went** (stage gaps in `logs/api_calls.jsonl`, holdout and validation runs): perception accounts for about 80% of an estimated ~31 s per question. Pass 1 takes ~11 s; the re-run ~15 s on ~48% of images; four tiles ~14 s each, one after another, on ~15%; crops ~7 s each, one after another; the guide-board call ~5 s. The parser (~2 s), engine (<1 s) and writer (~2.4 s) are small.
+- **Change (latency only):**
+  - `vqa/perception/fallback.py`: the uncached tile and crop replies are fetched in parallel (`REGION_WORKERS = 4`) and then used in the loop's own order. Issues, replies, costs and the scene are the same as when the calls run one at a time.
+  - `vqa/pipeline.py`: perception runs in a worker thread beside the parser, which sees the question only (D7). Prolog stays on the calling thread. When perception fails, the parse is already paid: its cost is counted and its trace is kept with `"used": false`, and the answer is unchanged.
+  - `vqa/llm/spend.py`, `vqa/llm/client.py`: the spend guard reserves each request's worst case under a lock (`reserve` / `settle`), so parallel requests can't jointly pass the limit. The usage log is locked, and a bad-JSON error carries its own usage.
+- **Same outputs:** tests check that parallel and one-at-a-time runs give identical results, with replies finishing out of order. The cached dev and dev2 scene rebuild (137 images, 187 questions, no API call) is byte-identical before and after the change.
+- **Timing run (owner, 2026-11-19), $0.138:** 10 dev questions on 10 distinct images, fresh scene cache, phase49 with fallback off. Mean 22.7 s against 32.9 s for the same calls one at a time; the two tiled images went from 66.7 s to 33.8 s and from 88.0 s to 47.5 s. Answers were not judged.
+- **Cost:** the same calls and tokens. Parallel calls on a cold prompt cache each write the prompt: about +2% in batch runs, up to ~15–20% when requests are more than 5 minutes apart. The owner chose to leave this as is.
+- **Freeze:** `vqa/` changed, so `engine_code.sha256` no longer matches `frozen_phase49.json`. The 12 freeze-record tests (`test_e2e_private.py`, `test_freeze.py`) fail for that reason only. A future frozen run on this code needs a new freeze record.
+- **Re-run ablation (free, cached dev and dev2):** without the scene re-run, the same number of questions is decided (dev 73, dev2 79). Grades are unchanged except dev2 train_142 (graded by hand, −1.0), and alternative readings fall by about 40%. It would save ~15 s on about half of images. **Not applied:** it changes outputs and needs the owner's decision and a new freeze record.
+
 ### Phase 5 baseline B1 Sonnet on private, once (owner run, 2026-11-18): 85.3% overall
 
 - **Owner decision:** run B1 Sonnet on private now, without the public_dev prompt check and before the system benchmark. This departs from P1 (benchmark first) and from item 2 ("prompts fixed on train and public_dev"). Prompt v1 was pinned unchanged (`ca7d665`).

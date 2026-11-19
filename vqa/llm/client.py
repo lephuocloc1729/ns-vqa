@@ -136,11 +136,13 @@ class LLMClient:
             self._log(purpose, effort, "http_error", call="count_tokens", cost_usd=0.0,
                       http_status=getattr(e, "status_code", None), error=str(e)[:500])
             raise
-        self.guard.check(worst_case_usd(self.model, counted.input_tokens, max_tokens), purpose)
+        worst = worst_case_usd(self.model, counted.input_tokens, max_tokens)
+        self.guard.reserve(worst, purpose)
         try:
             resp = self.sdk.messages.create(model=self.model, max_tokens=max_tokens,
                                             system=sys_blocks, messages=messages, **kw)
         except Exception as e:
+            self.guard.settle(worst)
             self.last_usage = None
             self._log(purpose, effort, "http_error", call="create", cost_usd=0.0,
                       http_status=getattr(e, "status_code", None),
@@ -155,7 +157,7 @@ class LLMClient:
         }
         self.last_usage = usage
         cost = cost_usd(self.model, **usage)
-        self.guard.add(cost)
+        self.guard.settle(worst, cost)
         rid = getattr(resp, "_request_id", None)
         text = next((b.text for b in resp.content if b.type == "text"), "")
         status, err, data = "ok", None, None
@@ -175,5 +177,6 @@ class LLMClient:
         if err is not None:
             err.raw_text = text            # type: ignore[attr-defined]
             err.cost_usd = cost            # type: ignore[attr-defined]
+            err.usage = usage              # type: ignore[attr-defined]  (last_usage is shared across threads)
             raise err
         return CallResult(data=data, cost_usd=cost, usage=usage, request_id=rid, raw_text=text)

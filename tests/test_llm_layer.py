@@ -181,3 +181,45 @@ def test_bad_content_is_rejected_before_any_request(bad):
     with pytest.raises(TypeError):
         LLMClient(model="claude-haiku-5-5", sdk=sdk).json_reply(system="S", user=bad)
     assert sdk.created == []
+
+
+def test_parallel_requests_cannot_jointly_pass_the_limit():
+    import threading
+    g = SpendGuard(1.0)
+    g.reserve(0.6, "first")                       # in flight: 0.6 of 1.0 held
+    with pytest.raises(SpendLimitExceeded, match="reserved"):
+        g.reserve(0.6, "second")                  # alone it would fit; together they would not
+    g.settle(0.6, 0.1)                            # the first cost 0.1 in the end
+    assert g.spent == pytest.approx(0.1) and g.reserved == 0.0
+    g.reserve(0.6, "second")
+    g.settle(0.6)                                 # an HTTP error: nothing billed
+    assert g.spent == pytest.approx(0.1) and g.reserved == 0.0
+
+    g, ok, refused = SpendGuard(1.0), [], []
+    def one():
+        try:
+            g.reserve(0.3)
+            ok.append(1)
+        except SpendLimitExceeded:
+            refused.append(1)
+    ts = [threading.Thread(target=one) for _ in range(10)]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    assert len(ok) == 3 and len(refused) == 7 and g.reserved == pytest.approx(0.9)
+
+
+def test_a_bad_json_error_carries_its_own_usage():
+    class SDK:
+        messages = None
+        def count_tokens(self, **kw):
+            return SimpleNamespace(input_tokens=100)
+        def create(self, **kw):
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text="prose")], stop_reason="end_turn",
+                                   _request_id="r", usage=SimpleNamespace(input_tokens=100, output_tokens=7,
+                                   cache_read_input_tokens=0, cache_creation_input_tokens=0))
+    sdk = SDK()
+    sdk.messages = sdk
+    c = LLMClient(model="claude-haiku-5-5", guard=SpendGuard(1.0), sdk=sdk)
+    with pytest.raises(LLMBadJSON) as e:
+        c.json_reply(system="s", user="u", max_tokens=10)
+    assert e.value.usage["output_tokens"] == 7 and c.guard.reserved == 0.0 and c.guard.spent > 0
