@@ -238,8 +238,10 @@ def test_the_phase48_record_is_written_once(tmp_path):
         fz.write(p, "phase48")
 
 
-def test_phase49_pins_the_owner_approved_v17_configuration():
-    assert fz.check(fz.FROZEN_PHASE49) == []
+def test_phase49_pins_the_owner_approved_v17_configuration(tmp_path):
+    # engine hash checked at the freeze commit e8f9134 (tests/freeze_at.py): vqa/ changed after it
+    from tests.freeze_at import PHASE49_FREEZE_COMMIT, code_hash_at, phase49_record_file
+    assert fz.check(phase49_record_file(tmp_path)) == []
     rec = fz.load(fz.FROZEN_PHASE49)
     assert rec["pipeline_config"]["parser_version"] == "v17"
     assert rec["pipeline_config"]["reading_policy"] == "higher_confidence"
@@ -249,7 +251,8 @@ def test_phase49_pins_the_owner_approved_v17_configuration():
         "sign_charts": True, "sign_chart_signs": 20,
         "one_sign_g1": True, "asked_only": True, "stated_exceptions": False,
     }
-    assert rec["engine_code"] == fz.code_hash()
+    assert json.dumps(rec["engine_code"], sort_keys=True) == code_hash_at(PHASE49_FREEZE_COMMIT)
+    assert fz.check(fz.FROZEN_PHASE49) != []          # a run from this tree with the real record is refused
 
 
 def test_phase50_is_phase49_without_the_scene_rerun():

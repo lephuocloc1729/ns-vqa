@@ -1708,7 +1708,7 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 - **Latency:** 20 re-run calls on 45 images (44%), 11.5 s each. That is **5.1 s per image** and 21.7% of perception time; the re-run sits alone on the critical path, so this is the time removed. On private's mix (1.4 questions per image) that is about −3.7 s per question, so roughly **22.7 s → ~19 s** after the parallel calls. Re-run cost: $0.017 over 45 images.
 - **Note:** these are the first rules-only phase49 figures on public_holdout. They are not comparable to phase 4's holdout result (83.7%, with fallback, scene v4). The holdout has now been used a second time; it is no longer clean for later decisions.
 - **R5 applied:** `eval/frozen_phase50.json` is phase49 plus `scene_rerun: False`, code hashed at this commit's `vqa/` (parallel calls and the switch). Profile `phase50` in `eval/freeze.py`. `PipelineConfig()` defaults are unchanged; only the `phase50` profile turns the re-run off.
-- **Still failing (known):** the 12 tests that check `frozen_phase49.json` against the live code (`test_e2e_private.py`, `test_freeze.py::test_phase49_…`). The phase49 record pins the code before `bd897a6`.
+- **Tests:** the phase49 record pins the code before `bd897a6`. As for phase 4.7 and 4.8, the tests now check its hash at the freeze commit `e8f9134` (`tests/freeze_at.py`, `phase49_record_file`). The run-time guards are unchanged, so a private run from this tree with the real record is still refused. Suite: 2,342 passed.
 
 ### Latency: parallel API calls (branch `perf/parallel-calls`, 2026-11-19): 32.9 s → 22.7 s per question, same answers
 

@@ -70,3 +70,28 @@ def phase48_record_file(folder: Path) -> Path:
     p = folder / "frozen_phase48.json"
     p.write_text(json.dumps(phase48_record_for_this_tree()), encoding="utf-8")
     return p
+
+
+# 2026-11-19 (docs/plans/rerun-removal.md, the same option as above): the parallel API calls (bd897a6) and
+# the scene_rerun switch change vqa/, so the phase-4.9 record no longer matches the working tree. Its
+# engine-code hash is checked against freeze commit e8f9134, and its engine switches must keep their
+# recorded values. The run-time guards are unchanged.
+PHASE49_FREEZE_COMMIT = "e8f9134"
+
+
+def phase49_record_for_this_tree() -> dict:
+    rec = fz.load(fz.FROZEN_PHASE49)
+    assert json.dumps(rec["engine_code"], sort_keys=True) == code_hash_at(PHASE49_FREEZE_COMMIT)
+    from vqa.reasoning.engine import switches_from_kb
+    live = dict(sorted(switches_from_kb().items()))
+    assert all(live.get(k) == v for k, v in rec["engine_switches"].items())
+    return {**rec, "engine_code": fz.code_hash(), "engine_switches": live}
+
+
+def phase49_record_file(folder: Path) -> Path:
+    """That record written as `frozen_phase49.json` in `folder`."""
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    p = folder / "frozen_phase49.json"
+    p.write_text(json.dumps(phase49_record_for_this_tree()), encoding="utf-8")
+    return p
