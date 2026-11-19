@@ -285,3 +285,21 @@ def test_guide_reading_skips_images_without_a_guide_board(tmp_path, photo):
     sdk = RoutedSDK()
     res, info = pipeline_guide(warm(tmp_path, photo), sdk)._perceive(photo)
     assert "guide" not in info and sdk.roles() == []
+
+
+def test_scene_rerun_switch_reaches_perception(tmp_path, photo, monkeypatch):
+    seen = []
+    real = pl.perceive
+
+    def spy(*a, **kw):
+        seen.append(kw["rerun"])
+        return real(*a, **kw)
+
+    monkeypatch.setattr(pl, "perceive", spy)
+    assert pl.PipelineConfig().scene_rerun is True                       # the frozen behaviour
+    d = warm(tmp_path, photo)
+    sdk = RoutedSDK(parser=[PROG_YES], writer=[WRITER_YES])
+    pipe = pl.Pipeline(pl.PipelineConfig(cache_dir=d, cache_only=True, scene_rerun=False), sdk=sdk)
+    pipe.answer(photo, Q_YES)
+    pipe._perceive(photo, rerun=True)
+    assert seen == [False, True]

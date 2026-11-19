@@ -105,6 +105,11 @@ CODE_HASHED_FROM.add("phase49")
 V6_SWITCH_FROM.add("phase49")
 SWITCHES48_FROM.add("phase49")
 
+# docs/plans/rerun-removal.md (owner, 2026-11-19): `scene_rerun` came after every record so far.
+# Its default (True) is their behaviour, so it is left out of their comparison.
+for _p in LATER_SWITCHES:
+    LATER_SWITCHES[_p] = (*LATER_SWITCHES[_p], "scene_rerun")
+
 def code_hash(root: Path = ROOT) -> dict[str, Any]:
     files = sorted([*(root / "vqa").rglob("*.py"), *(root / "kb").rglob("*.pl"), *(root / "kb").rglob("*.yaml")])
     files = [f for f in files if "__pycache__" not in f.parts]

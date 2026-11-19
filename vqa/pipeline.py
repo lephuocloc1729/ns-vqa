@@ -97,6 +97,7 @@ class PipelineConfig:
     answer_fallback: bool = True                # False: non-decided questions get no fallback (phase 4.5)
     guide_reading: bool = False                 # phase 4.5 B6: the guide-board call (vqa/perception/guide.py)
     reading_policy: str = "all"                 # phase 4.6 D1: "higher_confidence" = policy A (Engine)
+    scene_rerun: bool = True                    # the low-confidence re-run (docs/plans/rerun-removal.md)
     max_spend: float | None = None              # None: the spend guard's default
 
 
@@ -163,7 +164,8 @@ class Pipeline:
                                                                           c.scene_version), pid) is None:
             raise CacheMissError(f"no pass-1 record for {image_path.name} in {self.cache.root}")
 
-    def _perceive(self, image_path: Path) -> tuple[Any, dict[str, Any]]:
+    def _perceive(self, image_path: Path, *, rerun: bool | None = None) -> tuple[Any, dict[str, Any]]:
+        """Perception for one image. `rerun` overrides `config.scene_rerun` (the paired holdout check)."""
         c = self.config
         client = self._perception_client
         info: dict[str, Any] = {}
@@ -171,7 +173,7 @@ class Pipeline:
             self._require_pass1(image_path)
             client = _RefuseCalls(c.perception_model)
         res = perceive(image_path, model=c.perception_model, version=c.scene_version, client=client,
-                       cache=self.cache, use_cache=True,
+                       cache=self.cache, use_cache=True, rerun=c.scene_rerun if rerun is None else rerun,
                        fallback=self.fallback_config())
         info = {"ok": res.ok, "error": res.error, "cache_hit": res.cache_hit,
                 "image_sha256": res.image_sha256, "prompt_id": res.prompt_id,
