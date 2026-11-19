@@ -6,7 +6,7 @@ A multimodal retrieval-augmented QA project for Vietnamese traffic-law questions
 
 Run all commands from the project root (the folder containing `pyproject.toml`). You may place this folder anywhere; no `/Users/...` or `/root/...` path is required. The example below reuses transferred embedding artifacts and runs Qwen3.5-9B Q4 through llama.cpp.
 
-**Current source blocker:** this checkout is missing `src/text_based_rag/inference.py`, which `natural_qa_runner` imports when running an experiment. Obtain the matching module from the project maintainer before running Natural QA; installing a third-party package named `inference` will not fix it. `--help` works without this module and is not an end-to-end check. The instructions below describe the required setup, but this checkout cannot currently complete Natural QA on a new machine.
+**About `inference.py`:** `src/text_based_rag/inference.py`, which `natural_qa_runner` imports for prompts and law lookup, was missing from an earlier checkout. It was restored from its compiled bytecode and compiles to the same bytecode as the original; the original comments could not be recovered. Installing a third-party package named `inference` is not a substitute for this module.
 
 ### Supported machines and execution modes
 
@@ -87,7 +87,14 @@ models/huggingface/Qwen3.5-9B-GGUF/mmproj-F16.gguf
 .venv/tools/llama.cpp-b11624/llama-server
 ```
 
-The runner's answer-model choice is `qwen3.5-9b-gguf`. Obtain the exact GGUF and its matching projector from the project maintainer or the model publisher; the runner does not download them automatically. Install a llama.cpp b11624 executable built for the destination OS, CPU architecture and CUDA runtime at the path above. On Windows the filename is `llama-server.exe`; retain the required runtime DLLs beside it. On Linux the file must be executable. Do not copy a Linux executable to Windows/macOS.
+The runner's answer-model choice is `qwen3.5-9b-gguf`. The runner does not download the model files automatically. The files used for the saved results are published in the Hugging Face repository `unsloth/Qwen3.5-9B-GGUF`; check their SHA-256 after downloading, because a different file is a different experiment:
+
+| File | SHA-256 |
+| --- | --- |
+| `Qwen3.5-9B-Q4_K_M.gguf` | `03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8` |
+| `mmproj-F16.gguf` | `f70dc3509053962b0d0d3ee8a7eacebf5d60aa560cad78254ae8698516ae029f` |
+
+Install a llama.cpp b11624 executable built for the destination OS, CPU architecture and CUDA runtime at the path above. On Linux x64, the official ggml-org release assets `llama-b11624-bin-ubuntu-cuda-12.8-x64.tar.gz` and `cudart-llama-b11624-bin-ubuntu-cuda-12.8-x64.tar.gz` match the runtime recorded by the saved runs; extract both into `.venv/tools/llama.cpp-b11624/` so the CUDA libraries sit beside `llama-server`. On Windows the filename is `llama-server.exe`; retain the required runtime DLLs beside it. On Linux the file must be executable. Do not copy a Linux executable to Windows/macOS.
 
 The three embedding directories above are only part of the required assets. Transfer the matching corpus preparation/index directories under `artifacts/experiments/text_based_rag/corpus/`, Natural QA caption directories, and any tokenizer snapshots used by the selected workflow. Keep directory structure, manifests, JSONL records and NumPy arrays together; copying only `run_config.json` is insufficient. The runner also checks the TSR law source at `data/raw/VLSP2025-MLQA-TSR/dataset/law_db/vlsp2025_law.json` against the Natural law corpus. Obtain datasets and image files from their authorized provider or project maintainer; they are not installed by `pip`.
 
@@ -101,11 +108,11 @@ python -c "import numpy, requests; from PIL import Image; from text_based_rag im
 python -m text_based_rag.natural_qa_runner --help
 ```
 
-On Windows use `.\.venv\tools\llama.cpp-b11624\llama-server.exe --version`. The import check currently fails until the missing `inference.py` is restored.
+On Windows use `.\.venv\tools\llama.cpp-b11624\llama-server.exe --version`.
 
 ### 3. Run
 
-After resolving the source blocker and preparing the assets, use a new output directory for each run. This example uses five image few-shot examples and retrieval configuration C. The multiline examples use Bash syntax: in PowerShell replace each trailing `\` with a backtick, or put the entire command on one line.
+After preparing the assets, use a new output directory for each run. This example uses five image few-shot examples and retrieval configuration C. The multiline examples use Bash syntax: in PowerShell replace each trailing `\` with a backtick, or put the entire command on one line.
 
 ```bash
 python -m text_based_rag.natural_qa_runner \
@@ -215,11 +222,11 @@ python -m text_based_rag.corpus_embedding --help
 | Symptom | Action |
 | --- | --- |
 | `No module named text_based_rag` | Use the newly created environment and run `python -m pip install -e .` from the project root. Keep the source tree in place for this editable installation. |
-| Cannot import `inference` from `text_based_rag` | Restore the project's missing `src/text_based_rag/inference.py` from the matching source version. |
+| Cannot import `inference` from `text_based_rag` | Check that `src/text_based_rag/inference.py` exists in your copy and that `python -m pip install -e .` was run from the project root. If the error names another module, such as `requests`, install that package. |
 | CUDA unavailable / BF16 unsupported | Check the NVIDIA driver and installed PyTorch build. CPU/MPS fallback is not implemented; BGE-M3 always enforces BF16 even if `--embedding-dtype fp16` is supplied. |
 | Missing model, tokenizer, DLL or executable | Check the expected relative path and install assets built for the destination OS. `pip install -e .` does not install llama.cpp or model weights. |
 | Missing data, captions, law index or embeddings | Obtain the complete matching asset bundle, or prepare the required artifacts with the appropriate commands. The corpus commands alone do not recreate every Natural QA cache. |
 | Cache hash or configuration mismatch | Use matching source/data/model versions or rebuild intentionally into a new directory. Do not edit hashes or manifests to bypass validation. Moving assets may expose saved absolute paths; inspect the reported mismatch. |
 | Out of memory / context overflow | Free GPU memory; for embedding lower batch size where supported. For generation reduce context, few-shot count or image use and use a new output directory. Record changed settings because this is a different experiment. |
 
-Verification scope: the README commands and paths were checked against the local source and CLI help. A clean installation and full inference have not been verified across Linux, Windows and macOS; the missing module currently blocks full Natural QA validation.
+Verification scope: the README commands and paths were checked against the source and CLI help.
