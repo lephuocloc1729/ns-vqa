@@ -1,0 +1,11 @@
+{
+  "what": "the one paired re-run check on public_holdout (docs/plans/rerun-removal.md); blocks a second run",
+  "run_id": "aa10b2294ae7",
+  "started": "2026-11-19T13:54:47+00:00",
+  "git_commit": "b7a6254c6a00b0a0afc1cfc14e2755c657bf0cde",
+  "status": "finished",
+  "frozen_record_sha256": "a1dbdfb548622faa10f4bc8677f5d557a583dd3662b1d1d74313a784dafcd176",
+  "finished": "2026-11-19T14:19:35+00:00",
+  "report": "holdout_rerun_aggregate_aa10b2294ae7.json",
+  "spent_usd": 0.5484
+}

@@ -1692,6 +1692,24 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### Re-run removal: paired public_holdout check (owner run `aa10b2294ae7`, 2026-11-19): no change, adopted as phase50
+
+- **Plan:** `docs/plans/rerun-removal.md`, approved by the owner. **H0:** "public_holdout is never touched again" was lifted for this one paired run. **R3** was fixed before the run. Runner: `eval/e2e_holdout_rerun.py`. Its sentinel `eval/holdout_rerun_ran.json` is committed; the aggregate is in the gitignored runs folder. Spend **$0.548** (estimate $0.69, cap $1.00).
+- **Design:** 49 questions on 45 images, phase49, fallback off, fresh perception. Arm A is the frozen pipeline with the re-run. Arm B is the same pass 1, tiles and guide board, without the re-run, plus new crops where its boxes differ. Both arms use the same v17 program per question.
+
+| public_holdout, rules only (49 q) | A: with re-run | B: without | 95% CI (both) |
+|---|---|---|---|
+| decided | 38 (77.6%) | 38 (77.6%) | 64–87 |
+| accuracy on decided | 92.1% (strict 86.8%) | 92.1% (strict 86.8%) | 79–97 |
+| overall, non-decided wrong | 71.4% | 71.4% | 58–82 |
+| non-duplicate images (24 q) | 19 decided, 94.7%, overall 75.0% | the same | 55–88 |
+
+- **Paired:** 2 of 49 answers changed, with the same grades; net correct 0.0. No question was fully right in one arm only, so McNemar's p is undefined. **R3: adopt arm B** (net ≥ −1 and decided ≥ A − 1).
+- **Latency:** 20 re-run calls on 45 images (44%), 11.5 s each. That is **5.1 s per image** and 21.7% of perception time; the re-run sits alone on the critical path, so this is the time removed. On private's mix (1.4 questions per image) that is about −3.7 s per question, so roughly **22.7 s → ~19 s** after the parallel calls. Re-run cost: $0.017 over 45 images.
+- **Note:** these are the first rules-only phase49 figures on public_holdout. They are not comparable to phase 4's holdout result (83.7%, with fallback, scene v4). The holdout has now been used a second time; it is no longer clean for later decisions.
+- **R5 applied:** `eval/frozen_phase50.json` is phase49 plus `scene_rerun: False`, code hashed at this commit's `vqa/` (parallel calls and the switch). Profile `phase50` in `eval/freeze.py`. `PipelineConfig()` defaults are unchanged; only the `phase50` profile turns the re-run off.
+- **Still failing (known):** the 12 tests that check `frozen_phase49.json` against the live code (`test_e2e_private.py`, `test_freeze.py::test_phase49_…`). The phase49 record pins the code before `bd897a6`.
+
 ### Latency: parallel API calls (branch `perf/parallel-calls`, 2026-11-19): 32.9 s → 22.7 s per question, same answers
 
 - **Where the time went** (stage gaps in `logs/api_calls.jsonl`, holdout and validation runs): perception accounts for about 80% of an estimated ~31 s per question. Pass 1 takes ~11 s; the re-run ~15 s on ~48% of images; four tiles ~14 s each, one after another, on ~15%; crops ~7 s each, one after another; the guide-board call ~5 s. The parser (~2 s), engine (<1 s) and writer (~2.4 s) are small.

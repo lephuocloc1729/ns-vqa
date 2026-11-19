@@ -1,6 +1,6 @@
 # Plan: remove the scene re-run, tested once on public_holdout (paired, aggregate only)
 
-**Status: approved (owner, 2026-11-19)**, with H0 lifted for one paired run and R3's thresholds accepted as written. No API call is made until the owner gives the go-ahead on the estimate in R4.
+**Status: approved (owner, 2026-11-19)**, with H0 lifted for one paired run and R3's thresholds accepted as written. **Done (2026-11-19):** the paired holdout run `aa10b2294ae7` ($0.548) gave identical figures in both arms, so R3 adopts arm B, and R5's `eval/frozen_phase50.json` is written. See `docs/status.md`, "Re-run removal".
 
 ## Why
 

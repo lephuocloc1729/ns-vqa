@@ -250,3 +250,12 @@ def test_phase49_pins_the_owner_approved_v17_configuration():
         "one_sign_g1": True, "asked_only": True, "stated_exceptions": False,
     }
     assert rec["engine_code"] == fz.code_hash()
+
+
+def test_phase50_is_phase49_without_the_scene_rerun():
+    assert fz.check(fz.FROZEN_PHASE50) == []
+    rec, old = fz.load(fz.FROZEN_PHASE50), fz.load(fz.FROZEN_PHASE49)
+    assert rec["pipeline_config"] == {**old["pipeline_config"], "scene_rerun": False}
+    assert rec["prompts"] == old["prompts"] and rec["engine_switches"] == old["engine_switches"]
+    assert rec["engine_code"] == fz.code_hash()
+    assert fz.pipeline_config("phase50").scene_rerun is False and fz.pipeline_config("phase49").scene_rerun is True

@@ -110,6 +110,20 @@ SWITCHES48_FROM.add("phase49")
 for _p in LATER_SWITCHES:
     LATER_SWITCHES[_p] = (*LATER_SWITCHES[_p], "scene_rerun")
 
+# docs/plans/rerun-removal.md, R5 (owner-approved plan; R3 applied 2026-11-19 on the paired holdout
+# check aa10b2294ae7): phase49 without the low-confidence scene re-run. Code hashed at the parallel
+# calls (bd897a6) and the switch. Not for the private test: the benchmark stays phase49's one run.
+FROZEN_PHASE50 = ROOT / "eval" / "frozen_phase50.json"
+PROFILES["phase50"] = {**PROFILES["phase49"], "scene_rerun": False}
+RECORDS["phase50"] = FROZEN_PHASE50
+EXCLUDED_SWITCHES["phase50"] = ("answer_fallback",)
+LATER_SWITCHES["phase50"] = ()
+WHAT["phase50"] = ("phase 5.0: phase49 without the scene re-run (docs/plans/rerun-removal.md), with the parallel "
+                   "API calls; not for the private test")
+CODE_HASHED_FROM.add("phase50")
+V6_SWITCH_FROM.add("phase50")
+SWITCHES48_FROM.add("phase50")
+
 def code_hash(root: Path = ROOT) -> dict[str, Any]:
     files = sorted([*(root / "vqa").rglob("*.py"), *(root / "kb").rglob("*.pl"), *(root / "kb").rglob("*.yaml")])
     files = [f for f in files if "__pycache__" not in f.parts]
