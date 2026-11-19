@@ -112,7 +112,7 @@ for _p in LATER_SWITCHES:
 
 # docs/plans/rerun-removal.md, R5 (owner-approved plan; R3 applied 2026-11-19 on the paired holdout
 # check aa10b2294ae7): phase49 without the low-confidence scene re-run. Code hashed at the parallel
-# calls (bd897a6) and the switch. Not for the private test: the benchmark stays phase49's one run.
+# calls (a16d32c) and the switch. Not for the private test: the benchmark stays phase49's one run.
 FROZEN_PHASE50 = ROOT / "eval" / "frozen_phase50.json"
 PROFILES["phase50"] = {**PROFILES["phase49"], "scene_rerun": False}
 RECORDS["phase50"] = FROZEN_PHASE50

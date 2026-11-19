@@ -4,7 +4,7 @@
 
 ## Why
 
-- **Latency.** On about half of images the re-run is a second full-scene Haiku call (~15 s, ~1,600 output tokens) that waits for pass 1. Dropping it saves about 7 s per image on average. After the parallel calls (`bd897a6`, 32.9 s → 22.7 s on 10 dev questions), the private mix would go to roughly 17–19 s per question.
+- **Latency.** On about half of images the re-run is a second full-scene Haiku call (~15 s, ~1,600 output tokens) that waits for pass 1. Dropping it saves about 7 s per image on average. After the parallel calls (`a16d32c`, 32.9 s → 22.7 s on 10 dev questions), the private mix would go to roughly 17–19 s per question.
 - **It overlaps the crops.** Both are triggered by a sign that is `low` or `UNKNOWN`, and under `crop_always` the crop's reading wins for those signs. The re-run dates from phase 3, before the crops existed, and has never been measured on top of them.
 - **Free evidence so far** (cached dev and dev2, no API call; `docs/status.md`, "Latency: parallel API calls"): the same number of questions is decided (dev 73, dev2 79). Grades are unchanged except dev2 train_142 (graded by hand, −1.0, right partly by luck before). Alternative readings fall by about 40%. Both sets were tuned on, so this is not enough on its own.
 
@@ -27,7 +27,7 @@ Built on `eval/e2e_holdout.py`, with the same leakage and aggregate-only rules.
 - **Guards:**
   - `--confirm` is required;
   - the git tree is clean;
-  - the live configuration equals `frozen_phase49.json`, apart from `engine_code` (recorded, since `bd897a6` changed it);
+  - the live configuration equals `frozen_phase49.json`, apart from `engine_code` (recorded, since `a16d32c` changed it);
   - the runner's own sentinel `eval/holdout_rerun_ran.json` does not exist, and it is written before the first call;
   - the answer fallback is off (rules only).
 - **Paired design**, all in memory, with a fresh temporary scene cache deleted afterwards:

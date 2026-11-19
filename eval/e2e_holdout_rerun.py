@@ -13,7 +13,7 @@ It refuses to start unless:
 - `--confirm` is given;
 - the git working tree is clean;
 - the live configuration equals `eval/frozen_phase49.json`, apart from `engine_code` (the code
-  changed after the freeze: the parallel calls, `bd897a6`, and the `scene_rerun` switch; the
+  changed after the freeze: the parallel calls, `a16d32c`, and the `scene_rerun` switch; the
   hash is recorded in the report);
 - it has never run: no sentinel `eval/holdout_rerun_ran.json` (written before the first call)
   and no `holdout_rerun_aggregate_*.json` in the runs folder.

@@ -72,7 +72,7 @@ def phase48_record_file(folder: Path) -> Path:
     return p
 
 
-# 2026-11-19 (docs/plans/rerun-removal.md, the same option as above): the parallel API calls (bd897a6) and
+# 2026-11-19 (docs/plans/rerun-removal.md, the same option as above): the parallel API calls (a16d32c) and
 # the scene_rerun switch change vqa/, so the phase-4.9 record no longer matches the working tree. Its
 # engine-code hash is checked against freeze commit e8f9134, and its engine switches must keep their
 # recorded values. The run-time guards are unchanged.
