@@ -1213,8 +1213,45 @@ def fit_answer_context(server, question, visual_description, laws, hits, context
     }
 
 
+def load_kb_articles(path):
+    """Option C (experiment): per question id, the law articles a knowledge base names for
+    its photo, in priority order. JSONL lines {"id", "articles": [{"law_id", "article_id", ...}]}."""
+    out = {}
+    for line in Path(path).read_text(encoding='utf-8').splitlines():
+        if line.strip():
+            record = json.loads(line)
+            out[str(record['id'])] = [{'law_id': str(a['law_id']), 'article_id': str(a['article_id'])}
+                                      for a in record.get('articles', [])]
+    return out
+
+
+def with_kb_hits(hits, articles, registry, limit=1):
+    """Append up to `limit` knowledge-base articles that retrieval did not already return, after
+    the retrieved hits (so context packing drops them first). Articles the law registry cannot
+    resolve are skipped. Returns (hits, added)."""
+    from text_based_rag import inference as kb_qa
+
+    present = {(str(h['law_id']), str(h['article_id'])) for h in hits}
+    out, added = list(hits), []
+    for article in articles:
+        if len(added) >= limit:
+            break
+        key = (article['law_id'], article['article_id'])
+        if key in present:
+            continue
+        try:
+            kb_qa.resolve_citation(article, registry)
+        except (KeyError, ValueError):
+            continue
+        present.add(key)
+        hit = {'law_id': key[0], 'article_id': key[1], 'rank': len(out) + 1, 'score': 0.0, 'sources': ['kb']}
+        out.append(hit)
+        added.append(hit)
+    return out, added
+
+
 def answer_rows(run, rows, representations, retrievals, registry, server, progress, context, answer_max_tokens,
-                fewshot_data, current_context_budget, answer_with_images=False):
+                fewshot_data, current_context_budget, answer_with_images=False, kb=None, kb_limit=1):
     answers = run.read('predictions.jsonl', rows)
     progress.set('answer', len(answers), len(rows))
     if len(answers) == len(rows):
@@ -1234,6 +1271,9 @@ def answer_rows(run, rows, representations, retrievals, registry, server, progre
         ]
         hits, laws = sorted(retrieval['results'], key=lambda hit: hit['rank']), []
         retrieved_hits = list(hits)
+        kb_added = []
+        if kb is not None:
+            hits, kb_added = with_kb_hits(hits, kb.get(str(row['id']), []), registry, kb_limit)
         for hit in hits:
             text, _ = qa.resolve_citation(hit, registry)
             laws.append(f"[Hạng {hit['rank']}; điểm {hit['score']:.4f}]\n{text}")
@@ -1302,6 +1342,7 @@ def answer_rows(run, rows, representations, retrievals, registry, server, progre
             'fewshot_used_ids': truncation.get('fewshot_used_ids', []),
             'fewshot_dropped_ids': truncation.get('fewshot_dropped_ids', []),
             'current_query_tokens': truncation.get('current_query_tokens', 0),
+            **({'kb_added_citations': kb_added} if kb is not None else {}),
         })
         progress.advance(len(answers))
     server.close()
@@ -1351,6 +1392,9 @@ def main():
     parser.add_argument('--weight-high', type=float, default=0.9)
     parser.add_argument('--weight-middle', type=float, default=0.6)
     parser.add_argument('--weight-low', type=float, default=0.3)
+    parser.add_argument('--kb-articles', type=Path, default=None,
+                        help='Experiment (option C): JSONL of knowledge-base articles per question id, appended after retrieval.')
+    parser.add_argument('--kb-limit', type=int, default=1, help='At most this many knowledge-base articles per question.')
     args = parser.parse_args()
     if args.answer_max_tokens < 1:
         parser.error('--answer-max-tokens must be positive.')
@@ -1611,6 +1655,9 @@ def main():
                            'answer_max_tokens': args.answer_max_tokens, 'test_source_sha256': file_hash(test_source),
                            'test_image_sha256': {r['image_id']: file_hash(Path(r['image'])) for r in rows},
                            'example_bank_fingerprint': digest(train_config)}
+            if args.kb_articles:
+                test_config['kb_articles'] = {'sha256': file_hash(args.kb_articles), 'limit': args.kb_limit,
+                                              'policy': 'append_after_retrieval_skip_present_v1'}
             targets.append((output / args.split, test_config))
         for folder, config in targets:
             manifest = folder / 'run_config.json'
@@ -1727,7 +1774,9 @@ def main():
         else:
             answers = answer_rows(test_run, rows, representations, retrievals, registry, server, progress,
                                   args.context_size, args.answer_max_tokens, fewshot_data,
-                                  args.current_context_budget, args.answer_with_images)
+                                  args.current_context_budget, args.answer_with_images,
+                                  kb=load_kb_articles(args.kb_articles) if args.kb_articles else None,
+                                  kb_limit=args.kb_limit)
             skipped_oom = [qid for qid, answer in answers.items() if answer.get('status') == 'SKIPPED_OOM']
             fewshot_distribution = {
                 str(count): sum(len(answer.get('fewshot_used_ids', [])) == count for answer in answers.values())
