@@ -9,7 +9,7 @@
   - give fallback answers **cited law passages** (file, article, chunk), which the Sonnet fallback lacks (checklist 1.3 and 1.6);
   - run **locally**, with no per-question API cost for the fallback;
   - bring its **Q4 vs BF16** comparison for checklist items 1.4 and 1.5 (quantization, latency, VRAM, accuracy).
-- It also gives Chapter 4 its second baseline: RAG alone next to B1 "Claude alone".
+- RAG alone is also an ablation row in Chapter 4 (F5).
 
 ## The RAG is used as it is (owner, 2026-11-20)
 
@@ -68,10 +68,14 @@ The demo and the final repository use the RAG service (F2) and client (F3); a fr
 
 | Row | System |
 |---|---|
-| Baseline 1 | Claude alone, B1 Sonnet (done on private: 85.3%) |
-| Baseline 2 | RAG alone, its existing configuration (F1) |
+| Baseline 1 | LowCost (VLSP 2025, Anh et al., paper 1.53), adapted to free-response Natural QA with Gemma 3 12B |
+| Baseline 2 | LexiSignVQA (VLSP 2025, paper 1.52), adapted to free-response Natural QA with Gemma 3 12B |
 | Proposed V1 | neuro-symbolic, rules only (the headline, as in the phase-5 plan) |
 | Proposed V2 | neuro-symbolic + RAG fallback |
+| Ablation | RAG alone, its existing configuration (F1; "B2" in F4.3) |
+
+- **Baselines (owner, 2026-11-20):** the two published VLSP 2025 systems, cited, described as adapted re-implementations (the papers solved the multiple-choice TSR task; their reported numbers are not comparable). Claude alone (B1 Sonnet, 85.3% on private) is not reported at this time.
+- **Same judge for every row:** the baselines' saved private answers are graded by this project's judge, through the same merge-style scoring as B2 (a predictions file in, aggregate out), not by their own graders. It is to be checked first that each baseline has saved free-response answers for all 146 private questions; a missing one needs a GPU run.
 
 - Decided coverage and accuracy on decided stay the rules-only figures.
 - The RAG's own score on the triggered questions is reported per trigger.
