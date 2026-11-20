@@ -24,6 +24,9 @@ or written (CLAUDE.md, "Dataset rules").
   deleted at the end of phase 5: the scene cache (`scenes/`) and `records.jsonl`, one
   line per question with model outputs and the pipeline's trace only (`RECORD_FIELDS`:
   no gold answer, no grade). Only replay code reads them, and it writes aggregates only.
+- **The owner's grading sheet** (`owner_grading.csv` in the same gitignored folder; owner, 2026-11-20, P6):
+  one row per question with the question, gold answer, the system's answer and the judge's grade, for
+  the owner's hand grading only. The assistant never reads it; nothing from it is printed.
 - **No per-question line is printed.** Each grade is kept in memory only long enough
   to sum it; the report (no question or image ids) is the only file in the runs folder.
 - **The by-feature breakdown** uses `FEATURES`, keyword rules over the question text
@@ -44,6 +47,7 @@ or written (CLAUDE.md, "Dataset rules").
 from __future__ import annotations
 
 import argparse
+import csv
 import datetime as dt
 import glob
 import hashlib
@@ -78,6 +82,33 @@ OUT = ROOT / "eval" / "runs" / "e2e"
 SENTINEL = ROOT / "eval" / "private_ran.json"
 REPLAY = ROOT / "cache" / "private_run"
 CATALOGS = (ROOT / "kb" / "sign_catalog.yaml", ROOT / "kb" / "sign_catalog_meaning.yaml")
+
+# The owner's grading sheet (owner, 2026-11-20; phase-5 P6): one row per question, written during the
+# run into the gitignored replay folder, for the owner's hand grading only. The assistant never reads it
+# and nothing from it is printed. It holds the question, the gold answer, the system's answer and the
+# judge's grade, so it is kept apart from records.jsonl, which stays free of gold and grades.
+OWNER_SHEET = "owner_grading.csv"
+OWNER_SHEET_FIELDS = ("id", "question_type", "question", "gold_answer", "system", "system_answer",
+                      "answered_by", "trigger", "auto_correct", "auto_strict", "judge_label", "judge_reason",
+                      "human_score", "human_note")
+
+
+def owner_sheet_row(q: dict, system: str, text: str, answered_by: str | None, trigger: str | None,
+                    g: dict) -> dict:
+    return {"id": q["id"], "question_type": q["question_type"], "question": q["question"],
+            "gold_answer": q["answer"], "system": system, "system_answer": text, "answered_by": answered_by,
+            "trigger": trigger, "auto_correct": g.get("correct"), "auto_strict": g.get("strict"),
+            "judge_label": g.get("judge_label"), "judge_reason": g.get("judge_reason"),
+            "human_score": "", "human_note": ""}
+
+
+def open_owner_sheet(path: Path):
+    """utf-8-sig so a spreadsheet opens the Vietnamese text correctly."""
+    f = open(path, "w", encoding="utf-8-sig", newline="")
+    w = csv.DictWriter(f, fieldnames=OWNER_SHEET_FIELDS)
+    w.writeheader()
+    return f, w
+
 
 # Fields of a question kept from the file. The answer is read for grading only.
 QUESTION_FIELDS = ("id", "question", "image_id", "question_type", "answer")
@@ -330,7 +361,8 @@ def run_private(max_spend: float, *, confirm_frozen: bool = False, sdk=None, que
     pipe = Pipeline(freeze.pipeline_config(profile, perception_model, cache_dir=replay / "scenes", cache_only=False,
                                            answer_fallback=ANSWER_FALLBACK), sdk=sdk, guard=guard)
     judge = Judge(llm=LLMClient(model="claude-opus-5-5", guard=guard, sdk=sdk))
-    with open(replay / "records.jsonl", "w", encoding="utf-8") as f:
+    sheet_f, sheet = open_owner_sheet(replay / OWNER_SHEET)
+    with sheet_f, open(replay / "records.jsonl", "w", encoding="utf-8") as f:
         for n, q in enumerate(qs, 1):
             a = pipe.answer(image_path(q["image_id"]), q["question"])
             t = a.trace
@@ -345,7 +377,10 @@ def run_private(max_spend: float, *, confirm_frozen: bool = False, sdk=None, que
             f.flush()
             rec["features"] = features(q["question"])
             rec["decided"] = rec["trigger"] is None and rec["engine_verdict"] in DECIDED
-            rec.update(ee.grade(q, a.text, judge))
+            grade = ee.grade(q, a.text, judge)
+            rec.update(grade)
+            sheet.writerow(owner_sheet_row(q, "v1_rules_only", a.text, rec["answered_by"], rec["trigger"], grade))
+            sheet_f.flush()
             records.append({k: rec.get(k) for k in _KEEP})
             del a, t, rec
             print(f"[{n}/{len(qs)}]  spent ${guard.spent:.4f}")        # a counter only

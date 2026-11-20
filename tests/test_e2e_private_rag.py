@@ -51,7 +51,8 @@ def _run(setup, **kw):
     tmp, preds, priv = setup
     sdk = kw.pop("sdk", None) or RoutedSDK(judge=[{"label": "correct", "reason": "same meaning"}])
     args = dict(confirm=True, rag_predictions=preds, questions=QS, sdk=sdk, out_dir=tmp / "agg",
-                sentinel=tmp / "private_rag_ran.json", private_sentinel=priv, replay_root=tmp / "private_run")
+                sentinel=tmp / "private_rag_ran.json", private_sentinel=priv, replay_root=tmp / "private_run",
+                ignored=lambda p: True)
     args.update(kw)
     return er.run_merge(1.0, **args), sdk
 
@@ -127,3 +128,22 @@ def test_the_merge_prints_only_counters():
     prints = [ast.unparse(n) for n in ast.walk(ast.parse(src))
               if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "print"]
     assert prints and all("spent" in p or "aggregate report" in p for p in prints), prints
+
+
+def test_the_owner_sheet_has_v2_and_b2_rows_in_the_replay_folder(setup):
+    import csv
+    tmp, _, _ = setup
+    _run(setup)
+    rows = list(csv.DictReader(open(tmp / "private_run" / "run1" / er.OWNER_SHEET, encoding="utf-8-sig")))
+    assert len(rows) == 6 and {r["system"] for r in rows} == {"v2_rules_plus_rag", "b2_rag_alone"}
+    v2 = {r["id"]: r for r in rows if r["system"] == "v2_rules_plus_rag"}
+    assert v2["p1"]["answered_by"] == "rules" and v2["p2"]["answered_by"] == "rag"
+    assert v2["p3"]["judge_label"] == "correct" and rows[0]["human_score"] == ""
+    assert not list((tmp / "agg").glob("*.csv"))                      # the runs folder gets the aggregate only
+
+
+def test_a_replay_folder_git_does_not_ignore_is_refused(setup):
+    tmp, _, _ = setup
+    with pytest.raises(SystemExit, match="does not ignore"):
+        _run(setup, ignored=lambda p: False)
+    assert not (tmp / "private_rag_ran.json").exists()

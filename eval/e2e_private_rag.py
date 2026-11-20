@@ -10,8 +10,11 @@ memory:
 - **B2:** the RAG's answer for every question.
 
 It is scoring code, like `eval/e2e_private.py`, whose question loader it uses: the private
-answers are read here in memory, graded and summed, never printed or written. No per-question
-line is printed; the report holds no question or image id.
+answers are read here in memory, graded and summed. No per-question line is printed; the report
+holds no question or image id. **The owner's grading sheet** (owner, 2026-11-20; phase-5 P6):
+`owner_grading_rag.csv` in the private run's gitignored replay folder, one row per question for
+V2 and one for B2, with the question, gold answer, answer and the judge's grade, for the owner's
+hand grading only. The assistant never reads it; nothing from it is printed.
 
 It refuses to start unless:
 - `--confirm` is given;
@@ -45,6 +48,7 @@ from eval import e2e_private as ep  # noqa: E402
 from eval.report import wilson_ci  # noqa: E402
 
 SENTINEL = ROOT / "eval" / "private_rag_ran.json"
+OWNER_SHEET = "owner_grading_rag.csv"
 OUT = ep.OUT
 # The RAG run flags kept in the report, from the predictions' run_config.json (plan F1).
 RAG_CONFIG_KEYS = ("embedding_model", "answer_model", "fewshot_k", "answer_with_images", "retrieval")
@@ -129,7 +133,8 @@ def aggregate(v2: list[dict], b2: list[dict]) -> dict[str, Any]:
 
 def run_merge(max_spend: float, *, confirm: bool = False, records: Path | None = None, rag_predictions: Path,
               questions: list[dict] | None = None, sdk=None, out_dir: Path = OUT, sentinel: Path = SENTINEL,
-              private_sentinel: Path = ep.SENTINEL, replay_root: Path = ep.REPLAY) -> Path:
+              private_sentinel: Path = ep.SENTINEL, replay_root: Path = ep.REPLAY,
+              ignored=ep.git_ignores) -> Path:
     if not confirm:
         raise SystemExit("the RAG merge runs once: pass --confirm")
     if records is None:
@@ -138,6 +143,9 @@ def run_merge(max_spend: float, *, confirm: bool = False, records: Path | None =
         run_id = json.loads(Path(private_sentinel).read_text(encoding="utf-8")).get("run_id", "")
         records = Path(replay_root) / run_id / "records.jsonl"
     mark = guards(records=records, private_sentinel=private_sentinel, sentinel=sentinel)
+    sheet_path = Path(records).parent / OWNER_SHEET
+    if not ignored(sheet_path):
+        raise SystemExit("git does not ignore the replay folder: the grading sheet must stay local")
     recs, rag = load_records(records), load_rag(rag_predictions)
     qs = questions if questions is not None else ep.load_questions()
     ids = {q["id"] for q in qs}
@@ -166,21 +174,27 @@ def run_merge(max_spend: float, *, confirm: bool = False, records: Path | None =
         return graded[key]
 
     v2, b2 = [], []
+    sheet_f, sheet = ep.open_owner_sheet(sheet_path)
     for n, q in enumerate(qs, 1):
         r = recs[q["id"]]
         base = {"question_type": q["question_type"], "trigger": r["trigger"]}
         g_rag = grade(q, rag[q["id"]])
         b2.append({**base, "correct": g_rag["correct"], "strict": g_rag["strict"],
                    "judge_label": g_rag.get("judge_label")})
+        sheet.writerow(ep.owner_sheet_row(q, "b2_rag_alone", rag[q["id"]], "rag", r["trigger"], g_rag))
         if r["trigger"] is None:
             g = grade(q, r["text"])
             v2.append({**base, "source": "rules", "correct": g["correct"], "strict": g["strict"],
                        "judge_label": g.get("judge_label")})
+            sheet.writerow(ep.owner_sheet_row(q, "v2_rules_plus_rag", r["text"], "rules", None, g))
         else:
             v2.append({**base, "source": "rag", "correct": g_rag["correct"], "strict": g_rag["strict"],
                        "judge_label": g_rag.get("judge_label")})
+            sheet.writerow(ep.owner_sheet_row(q, "v2_rules_plus_rag", rag[q["id"]], "rag", r["trigger"], g_rag))
+        sheet_f.flush()
         print(f"[{n}/{len(qs)}]  spent ${guard.spent:.4f}")                 # a counter only
     graded.clear()
+    sheet_f.close()
     report = {"what": "private test, RAG merge, aggregate only (docs/plans/rag-fallback.md F4.3)",
               "private_run_id": mark["run_id"], "private_run_commit": mark.get("git_commit"),
               "questions": len(qs), "started": started,

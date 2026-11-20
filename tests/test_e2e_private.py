@@ -357,3 +357,17 @@ def test_the_private_run_has_the_answer_fallback_off(fake_set):
     run_id = rep["run_id"]
     rows = [json.loads(l) for l in (fake_set / "private_run" / run_id / "records.jsonl").read_text().splitlines()]
     assert {r["trigger"] for r in rows} == {"out_of_scope"} and {r["answered_by"] for r in rows} == {"not_decided"}
+
+
+def test_the_owner_sheet_is_written_in_the_replay_folder_only(fake_set):
+    """Owner, 2026-11-20 (P6): the grading sheet goes to the gitignored replay folder; records.jsonl
+    and the aggregate stay free of gold and grades."""
+    import csv
+    out, _ = _run(fake_set)
+    run_id = json.loads(out.read_text())["run_id"]
+    folder = fake_set / "private_run" / run_id
+    rows = list(csv.DictReader(open(folder / ep.OWNER_SHEET, encoding="utf-8-sig")))
+    assert [r["id"] for r in rows] == [q["id"] for q in SECRET_QS]
+    assert tuple(rows[0]) == ep.OWNER_SHEET_FIELDS and {r["system"] for r in rows} == {"v1_rules_only"}
+    assert all("secret-gold" in r["gold_answer"] for r in rows)
+    assert "secret-gold" not in (folder / "records.jsonl").read_text() and "secret-gold" not in out.read_text()

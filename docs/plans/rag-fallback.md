@@ -60,6 +60,7 @@ All figures are reported on all images only (owner, 2026-11-20: no non-duplicate
    - **V2:** the rules' answer where no trigger fired, the RAG's answer where one did;
    - **B2:** the RAG's answer for every question.
    It writes one aggregate file (no ids): overall, Yes/No and Natural QA scores for V2 and B2, the RAG's score on the triggered questions, by trigger, and the judge cost.
+   **Grading sheets (owner, 2026-11-20, P6):** the private run writes `owner_grading.csv` (V1) and the merge writes `owner_grading_rag.csv` (V2 and B2) into the run's gitignored replay folder, with each question, gold answer, answer and judge grade, plus empty `human_score` and `human_note` columns. The owner grades V1, V2 and RAG alone by hand from the judge's labels, after the automatic aggregates are committed. The baselines' scores are the owner's own hand grades, so the thesis labels our rows "human-verified judge grades" and the baselines "human-graded".
 4. **public_dev (may be read question by question):** the same merge from stored pipeline records and the RAG's saved public_test answers, for the error analysis in Chapter 4.
 
 The demo and the final repository use the RAG service (F2) and client (F3); a freeze record for that configuration is written when it is built.
@@ -75,6 +76,13 @@ The demo and the final repository use the RAG service (F2) and client (F3); a fr
 | Ablation | RAG alone, its existing configuration (F1; "B2" in F4.3) |
 
 - **Baselines (owner, 2026-11-20):** the two published VLSP 2025 systems, cited, described as adapted re-implementations (the papers solved the multiple-choice TSR task; their reported numbers are not comparable). Claude alone (B1 Sonnet, 85.3% on private) is not reported at this time.
+- **The private test is the benchmark (owner, 2026-11-20):** every row is compared on the same 146 private questions, the one split no system was tuned on. Public_test is the development set, used to choose each system's settings, and the thesis states how each system used it:
+
+  | System | Public_test | Private |
+  |---|---|---|
+  | Neuro-symbolic (V1/V2) | tuned on `public_dev`; `public_holdout` for aggregate checks only | one run |
+  | RAG | settings chosen on public_test | saved runs; its settings must be justified by public results or a reason fixed in advance (Q4 for speed and memory), never by its private scores; its Q4 vs BF16 private runs appear only as the optimisation table (checklist 1.4–1.5) |
+  | LowCost, LexiSignVQA | paper settings, adapted; no tuning | saved runs |
 - **Same judge for every row:** the baselines' saved private answers are graded by this project's judge, through the same merge-style scoring as B2 (a predictions file in, aggregate out), not by their own graders. It is to be checked first that each baseline has saved free-response answers for all 146 private questions; a missing one needs a GPU run.
 
 - Decided coverage and accuracy on decided stay the rules-only figures.
