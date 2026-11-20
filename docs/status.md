@@ -1692,6 +1692,22 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### v18 dev guardrail: re-parse of dev and dev2 on phase52 (owner runs, 2026-11-20): dev passes, dev2 −1.5
+
+- **Runs:** from the phase49 judged runs (`dev_rejudge_ce47ca5037a7`, `dev2_rejudge_32f3582f8b1c`), parser v18, `--select all --reading-policy higher_confidence`, phase52 engine (commit `69003cd`). dev `eval/runs/e2e/dev_reparse_v18_916b52fcedf2.jsonl` (two resumes: `d1332c67c4ae.partial` stopped by the $0.55 cap at 82 of 87, `cc0e7474e96c.partial` by the guard's worst-case reservation); dev2 `dev2_reparse_v18_1780bb064874.jsonl`. **Cost $1.01** (dev about $0.55, dev2 $0.459). A v18 parse costs about $0.0043 against v17's $0.0034 (the prompt is 14% longer), and each resume after a pause pays one cache write (about $0.07).
+- **A batch re-parse was built and dropped (owner, 2026-11-20):** with a 27k-token cached system prompt, batch requests get best-effort cache hits, so a batch is likely dearer than live cached calls (about $1.47 against $0.43 for dev2 at half hits); its worst-case guard needs a $5.50 cap.
+
+| | decided | accuracy on decided | overall |
+|---|---|---|---|
+| dev, phase49 (v17) | 73 | 81.5% | 68.39% (59.5 of 87) |
+| **dev, phase52 (v18)** | **74** | **81.1%** | **68.97%** (60.0 of 87; +0.5, passes the 68.39% bar) |
+| dev2, phase49 (v17) | 79 | 71.5% | 56.5% |
+| **dev2, phase52 (v18)** | **79** | **69.6%** | **55.0%** (−1.5) |
+
+- **dev, 13 changed, net +0.5:** train_386 out of scope → `meaning` name, 1.0 (+1.0); train_159 unknown → `meaning` name, 0.5 (+0.5); **train_250 1.0 → unknown (−1.0)**: v18 shortens the second part's destination to "khu công nghiệp", so no board line matches.
+- **dev2, 16 changed, net −1.5:** **train_169 1.0 → 0.0** (`which_vehicles` → `applies_to`, which lists the wrong classes for R.403b); **train_437 1.0 → 0.5** (`meaning` → `which_vehicles`, drops "cấm rẽ phải"); **train_459 0.5 → out of scope** (the v18 out-of-scope wording reaches an open "quy định gì" question); train_347 out of scope → 0.5 (+0.5); train_350 undecided → decided 0.0 (**v18 maps "xe ba bánh" to `cyclo`, against CLAUDE.md's `motor_tricycle`**); train_504 0.0 → out of scope (0).
+- **Reading:** v18 passes the dev guardrail and loses 1.5 points on dev2 (biased, tuned). Its losses are parser intent choices (`applies_to` / `which_vehicles` / `meaning`), one destination shortening, and the "xe ba bánh" mapping. Development figures, not benchmark results. **Owner decision (2026-11-20): the private run uses phase52 (v18).**
+
 ### RAG fallback plan approved; private run rules-only on phase52, RAG merged in after (owner, 2026-11-20; no API calls)
 
 - **Plan:** `docs/plans/rag-fallback.md`, approved and revised the same day. The owner's RAG (`~/UNIVERSITY/Capstone/RAG`) is the only answer fallback, used as it is (its similarity-chosen train few-shots kept; CLAUDE.md's leakage guard now covers `vqa/` and `app/` only). Reports give scores on all images only.
