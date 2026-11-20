@@ -36,6 +36,14 @@ covers(S, Veh, T) :-
     cite(r_max_speed),
     lane_row_truth(Spec, Veh, T).
 
+% Reserved lanes (R.412, D.14): the lane is for the classes the sign names (fix 2026-11-20).
+covers(S, Veh, T) :-
+    scene_sign(S, Code),
+    lane_reserved_sign(Code),
+    findall(spec(C, []), lane_reserved(Code, C), Specs),
+    cite(r_lane_reserved),
+    any_spec_match(Specs, Veh, T).
+
 lane_row_truth(any, _, true).
 lane_row_truth(Spec, Veh, T) :-
     Spec \== any,
@@ -50,6 +58,7 @@ covers(S, _Veh, true) :-
     \+ prohibits(Code, _, _),
     \+ direction_sign(Code),
     \+ max_speed_for(Code, _),
+    \+ lane_reserved(Code, _),
     cite(Rule).
 
 all_users_rule(warning,     r_warning_all_users).

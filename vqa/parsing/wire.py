@@ -366,6 +366,13 @@ class WLanesOnly(_W):                        # parser v17 (phase 4.8c)
     when: Optional[WWhen] = None
 
 
+class WLaneReservedIs(_W):                   # parser v18 (owner, 2026-11-20)
+    intent: Literal["lane_reserved_is"]
+    lane: int
+    vehicle: Optional[WVehicle] = None
+    when: Optional[WWhen] = None
+
+
 class WViolationKind(_W):                    # parser v17 (phase 4.8c)
     intent: Literal["violation_kind"]
     vehicle: Optional[WVehicle] = None
@@ -374,7 +381,8 @@ class WViolationKind(_W):                    # parser v17 (phase 4.8c)
 
 _LEAF_MODELS = (WPermitted, WForbidden, WSpeedOk, WRequired, WExistsViolation, WIsSign, WPresent,
                 WGuideClaim, WSpeedLimitIs, WCountIs, WSignApplies, WRulePermitted, WMarkingIs,
-                WOfficerPermits, WPrecedenceIs, WMustYield, WVehicleClassIs, WLanesOnly)
+                WOfficerPermits, WPrecedenceIs, WMustYield, WVehicleClassIs, WLanesOnly,
+                WLaneReservedIs)
 LeafClaim = Annotated[Union[_LEAF_MODELS], Field(discriminator="intent")]
 
 
@@ -544,7 +552,8 @@ def from_wire(data: dict[str, Any]) -> WParse:
 # --------------------------------------------------------------------------- convert
 
 _NEEDS_VEHICLE = {"permitted", "forbidden", "speed_ok", "lanes_for", "lanes_where", "ban_times",
-                  "rule_permitted", "lanes_only", "violation_kind"}       # parser v17: the last two
+                  "rule_permitted", "lanes_only", "violation_kind",
+                  "lane_reserved_is"}       # parser v17: the last two
 # speed_limit and speed_limit_is default to motor_vehicle in the schema itself (no default recorded)
 _ATTRS = ("load_t", "gross_t", "seats", "height_m", "width_m", "length_m", "seats_gt",
           "seats_lt", "load_gt", "load_lt", "gross_gt", "gross_lt",

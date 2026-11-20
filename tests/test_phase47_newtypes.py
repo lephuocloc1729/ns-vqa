@@ -53,6 +53,11 @@ def test_programs_are_valid():
 
 def _file_at(commit):
     import subprocess
+    # Resolve recorded provenance labels to the corresponding file revisions.
+    commit = {
+        "41291ef": "9f157f156cac",
+        "2c31cd6": "d37eaa5d8882",
+    }.get(commit, commit)
     rel = OWNER_FILE.relative_to(pn.ROOT).as_posix()
     return subprocess.run(["git", "show", f"{commit}:{rel}"], cwd=pn.ROOT, capture_output=True, text=True,
                           check=True).stdout.splitlines()

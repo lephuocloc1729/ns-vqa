@@ -22,6 +22,7 @@ from vqa.schemas import (MustYield, OfficerPermits, OfficerSignal, Precedence, P
                          RightOfWay, VehicleClassIs, VehicleClassOf)
 from vqa.schemas import AltReading, Confidence  # noqa: E402  phase 4.8 A1
 from vqa.schemas import Action, LanesOnly, ViolationKind  # noqa: E402  parser v17 (phase 4.8c)
+from vqa.schemas import LaneReservedIs  # noqa: E402  parser v18 (owner, 2026-11-20)
 from vqa.schemas import (
     AllOf, Answer, AnyOf, AppliesTo, BanTimes, Choose, Count, CountIs, Duties, MarkingIs, MarkingMeaning,
     RulePermitted, SignalMeaning, SignApplies, Citation, ExistsViolation, Explain, Guide, GuideClaim, IsSign,
@@ -102,6 +103,46 @@ def _ctx(when: When | None, scene: SceneGraph, lane: int | None = None) -> Term:
         t: dt.datetime = scene.context.datetime
         minute, day = t.hour * 60 + t.minute, t.day
     return Term("ctx", minute, day, lane)
+
+
+# Fix 2026-11-20 (kb/rules/fixes50.pl): the asked date's kinds for exception-day plates. Public
+# holidays are calendar facts, not traffic rules: the fixed solar ones (1/1, 30/4, 1/5, 2/9) are
+# holidays; the day next to 2/9 and the January-April windows of the lunar holidays (Tết, Hùng
+# Kings' day) are maybe_holiday. Flagged for the owner.
+_WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+_FIXED_HOLIDAYS = {(1, 1), (4, 30), (5, 1), (9, 2)}
+
+
+def _day_kinds(d: dt.date) -> list[str]:
+    kinds = [_WEEKDAYS[d.weekday()]]
+    md = (d.month, d.day)
+    if md in _FIXED_HOLIDAYS:
+        kinds.append("holiday")
+    elif md in {(9, 1), (9, 3)} or (1, 15) <= md <= (2, 25) or (3, 25) <= md <= (4, 29):
+        kinds.append("maybe_holiday")
+    return kinds
+
+
+def _asked_dates(obj: Any) -> set[str]:
+    out: set[str] = set()
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k == "date" and isinstance(v, str):
+                out.add(v)
+            else:
+                out |= _asked_dates(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            out |= _asked_dates(v)
+    return out
+
+
+def day_kind_facts(program: Any) -> list[Term]:
+    """query_day_kind/1 facts when the program asks about exactly one date."""
+    dates = _asked_dates(program.model_dump(mode="json")) if program is not None else set()
+    if len(dates) != 1:
+        return []
+    return [Term("query_day_kind", atom(k)) for k in _day_kinds(dt.date.fromisoformat(dates.pop()))]
 
 
 def _fmt_min(m: int) -> str:
@@ -190,6 +231,30 @@ class Engine:
                                   else stated_exceptions)
         _load_kb(self.catalog)
 
+    @staticmethod
+    def _drop_lane_row_discs(scene: SceneGraph) -> SceneGraph:
+        """Fix 2026-11-20: a guide-board disc (id g1, g2, ...) whose value repeats exactly one lane
+        row's limit on a board with per-lane rows is that row's limit, not one for every lane: it
+        is placed over that lane (position.lane), so the speed rules apply it there only. Scene
+        cleanup, not a legal decision."""
+        rows: dict[tuple[str, float], set[int]] = {}
+        for sg in scene.signs:
+            for r in sg.lanes:
+                if r.max_speed is not None:
+                    rows.setdefault(("P.127", r.max_speed), set()).add(r.lane)
+                if r.min_speed is not None:
+                    rows.setdefault(("R.306", r.min_speed), set()).add(r.lane)
+        if len({v for _, v in rows}) < 2:
+            return scene
+        out, changed = [], False
+        for sg in scene.signs:
+            lanes = rows.get((sg.code, sg.value)) if sg.id.startswith("g") and sg.value is not None else None
+            if lanes and len(lanes) == 1 and sg.position.lane is None:
+                sg = sg.model_copy(update={"position": sg.position.model_copy(update={"lane": next(iter(lanes))})})
+                changed = True
+            out.append(sg)
+        return scene.model_copy(update={"signs": out}) if changed else scene
+
     def _strip_v6(self, scene: SceneGraph) -> SceneGraph:
         if not self.v6_fields_off:
             return scene
@@ -206,7 +271,7 @@ class Engine:
     # ------------------------------------------------------------------ low level
     def load_scene(self, scene: SceneGraph, selection: list[str] | None = None) -> None:
         janus.query_once("clear_scene")
-        _assert(scene_facts(scene, self.catalog, selection))
+        _assert(scene_facts(scene, self.catalog, selection) + list(getattr(self, "_day_facts", [])))
 
     def call(self, goal: Term) -> dict[str, Any]:
         r = janus.query_once("solve_text(T, Out)", {"T": to_prolog(goal)})
@@ -337,11 +402,12 @@ class Engine:
 
     # ------------------------------------------------------------------ entry point
     def answer(self, scene: SceneGraph, query: QueryProgram | Program) -> Answer:
-        scene = self._strip_v6(scene)
+        scene = self._drop_lane_row_discs(self._strip_v6(scene))
         if isinstance(query, QueryProgram) and query.out_of_scope:
             return Answer(verdict=Verdict.unknown, note="out of scope for the rules: "
                           + (query.out_of_scope_reason or "no DSL intent fits"))
         program = normalize(query.program if isinstance(query, QueryProgram) else query)
+        self._day_facts = day_kind_facts(program)       # fix 2026-11-20, kb/rules/fixes50.pl
         program, from_right = resolve_lanes(program, scene_lane_count(scene))
         if program is None:
             return Answer(verdict=Verdict.unknown, note="the question counts lanes from the right "
@@ -621,6 +687,8 @@ class Engine:
             return self._lanes_only(scene, p)
         if isinstance(p, ViolationKind):               # parser v17 (phase 4.8c)
             return self._violation_kind(scene, p)
+        if isinstance(p, LaneReservedIs):              # parser v18 (owner, 2026-11-20)
+            return self._lane_reserved_is(scene, p)
         raise EngineError(f"unsupported program {type(p).__name__}")
 
     _RANK = {"high": 0, "medium": 1, "low": 2}
@@ -675,6 +743,42 @@ class Engine:
                 "verdict": Verdict.unknown, "uncertain_signs": sorted(set(risky)),
                 "note": "a sign in the scene could not be read or has an effect the rules don't model; "
                         "it may change which lanes are open"})
+        return ans
+
+    def _lane_reserved_is(self, scene: SceneGraph, p: LaneReservedIs) -> Answer:
+        """Lane X is reserved for Y: the per-class lane answers of `lane_vehicles` (the rules
+        decide each class); Python only sorts the classes into Y's own (Y, its kinds, the classes
+        Y belongs to) and the others. Closed-world like lanes_only: an unreadable or unmodelled
+        sign that could bear on lanes makes a yes unknown."""
+        n = scene_lane_count(scene)
+        if not n:
+            return Answer(verdict=Verdict.unknown, note="the scene does not say how many lanes there are")
+        if p.lane < 1 or p.lane > n:
+            return Answer(verdict=Verdict.unknown, note=f"the scene shows {n} lanes")
+        results = self._lane_class_results(scene, p.lane, p.when, None)
+        per = {c: v for c, (v, _) in results.items()}
+        y = p.vehicle.cls.value
+        related = {c for c in per if janus.query_once(f"(subclass_of({c}, {y}) ; subclass_of({y}, {c}))")["truth"]}
+        others = {c: v for c, v in per.items() if c not in related and c not in ("pedestrian",)}
+        mine = per.get(y, "unknown")
+        if mine == "no" or any(v == "yes" for v in others.values()):
+            verdict = Verdict.no
+        elif mine == "yes" and others and all(v == "no" for v in others.values()):
+            verdict = Verdict.yes
+        else:
+            verdict = Verdict.unknown
+        keys = [y] + ([c for c, v in others.items() if v == "yes"] if verdict is Verdict.no and mine != "no"
+                      else list(others) if verdict is Verdict.yes else [])
+        support = [r for c in keys for r in _supporting(results[c][1])]
+        value = {"lane": p.lane, "vehicle": y, "open_to_others": sorted(c for c, v in others.items() if v == "yes")}
+        ans = Answer(verdict=verdict, value=value, reasons=support, citations=_cites(support), basis=_basis(support))
+        risky = [sid for sid in self.unreadable_signs(scene) + self.unmodelled_signs(scene)
+                 if self.visual_category(scene.sign(sid)) in self._LANE_RISK]
+        if verdict is Verdict.yes and risky:
+            ans = ans.model_copy(update={
+                "verdict": Verdict.unknown, "uncertain_signs": sorted(set(risky)),
+                "note": "a sign in the scene could not be read or has an effect the rules don't model; "
+                        "it may change which vehicles the lane is open to"})
         return ans
 
     _VIOLATION_ACTIONS = (Action.enter, Action.go_straight, Action.turn_left, Action.turn_right,
@@ -1806,17 +1910,22 @@ class Engine:
             return {}
         return {"except_priority": True, "exception_articles": sorted(set(arts))}
 
+    def _lane_class_results(self, scene: SceneGraph, lane: int, when, speed_kmh) -> dict[str, tuple]:
+        """q_lane's answer for every ontology class on one lane: {class: (verdict, out)}."""
+        self.load_scene(scene)
+        ctx = _ctx(when, scene, lane)
+        speed = atom("none") if speed_kmh is None else float(speed_kmh)
+        results = {}
+        for c in ONTOLOGY_CLASSES:
+            out = self.call(Term("q_lane", Term("veh", atom(c.value), []), lane, speed, ctx))
+            results[c.value] = (out["verdict"], out)
+        return results
+
     def _lane_vehicles(self, scene: SceneGraph, p: LaneVehicles) -> Answer:
         n = scene_lane_count(scene)
         if n and p.lane > n:
             return Answer(verdict=Verdict.unknown, note=f"the scene shows {n} lanes")
-        self.load_scene(scene)
-        ctx = _ctx(p.when, scene, p.lane)
-        speed = atom("none") if p.speed_kmh is None else float(p.speed_kmh)
-        results = {}
-        for c in ONTOLOGY_CLASSES:
-            out = self.call(Term("q_lane", Term("veh", atom(c.value), []), p.lane, speed, ctx))
-            results[c.value] = (out["verdict"], out)
+        results = self._lane_class_results(scene, p.lane, p.when, p.speed_kmh)
         hits, conditional = self.report_classes(results, "yes" if p.status == "allowed" else "no")
         support = [r for c in hits + conditional for r in _supporting(results[c][1])]
         return Answer(verdict=Verdict.value,
@@ -1908,6 +2017,12 @@ class Engine:
         actual = [{"sign_id": i, "code": self.catalog.get(scene.sign(i).code).code,
                    "name_vi": self.catalog.get(scene.sign(i).code).name_vi} for i in ids]
         verdict = Verdict(out["verdict"])
+        if not p.sign.only and len(ids) > 1 and verdict is Verdict.no:
+            # fix 2026-11-20: "biển ở phía bên phải là ..." names one sign; when the selector's
+            # attributes leave several, the claim holds if one of them is the named sign
+            truths = {r.truth for r in reasons}
+            if "true" in truths:
+                verdict = Verdict.yes
         if several:
             truths = {r.truth for r in reasons}
             verdict = (Verdict.yes if truths == {"true"} else Verdict.no if truths == {"false"}

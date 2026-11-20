@@ -74,10 +74,21 @@ general_ban(reverse, expressway,          r_l36_reversing).
 %!  general_forbids(+Action, +Veh, +Place, -T) is nondet.
 %   T = true, or unknown when a scene sign permits the action at this place (the law's own
 %   exceptions; see the header).
-general_forbids(Action, _Veh, Place, T) :-
+general_forbids(Action, Veh, Place, T) :-
     general_ban(Action, Place, Rule),
+    \+ point_user(Action, Veh, Place),
     cite(Rule),
     (   lifted_by_sign(Action) -> T = unknown ; T = true ).
+% Fix 2026-11-20, interpretation kb5 (flagged for the owner): art. 18.4 i) "Điểm đón, trả khách"
+% keeps other vehicles off the point; a bus stopping there to let people on and off (art. 18.1
+% "đủ để cho người lên xe, xuống xe") is the point's own use.
+general_forbids(stop, Veh, pickup_point, false) :-
+    point_user(stop, Veh, pickup_point),
+    cite(r_l36_stopping),
+    cite(r_kb5_pickup_point_bus).
+
+leaf(point_user(_, _, _)).
+point_user(stop, veh(C, _), pickup_point) :- subclass_of(C, bus), !.
 
 leaf(lifted_by_sign(_)).
 lifted_by_sign(Action) :- scene_sign(_, Code), permits_here(Code, Action), !.

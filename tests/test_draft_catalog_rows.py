@@ -15,9 +15,9 @@ def test_regenerating_reproduces_the_committed_yaml():
 
 def test_an_empty_visual_reviewed_set_gives_the_pre_d10_yaml(monkeypatch):
     """With no row in VISUAL_REVIEWED the tool writes the YAML as committed before the
-    D10 check (cb69f30), byte for byte; the set adds human lines and nothing else."""
+    D10 check (a82c97209487), byte for byte; the set adds human lines and nothing else."""
     import subprocess
-    before = subprocess.run(["git", "show", "cb69f30:kb/sign_catalog_meaning.yaml"],
+    before = subprocess.run(["git", "show", "a82c97209487:kb/sign_catalog_meaning.yaml"],
                             cwd=dcr.ROOT, capture_output=True, check=True).stdout.decode("utf-8")
     listed = set(dcr.VISUAL_REVIEWED)
     monkeypatch.setattr(dcr, "VISUAL_REVIEWED", set())

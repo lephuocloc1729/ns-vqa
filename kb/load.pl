@@ -19,4 +19,5 @@
 :- ensure_loaded('rules/signals47').
 :- ensure_loaded('rules/v13_47').
 :- ensure_loaded('rules/fixes48').
+:- ensure_loaded('rules/fixes50').
 :- ensure_loaded(query).

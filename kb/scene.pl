@@ -56,7 +56,9 @@
            unread_sign/1,        % unread_sign(S): a sign that couldn't be read (not a warning triangle)
            lane_direction/3,     % lane_direction(S, Lane, Action)  scene v6: R.411 arrows (D.13)
            marking/4,            % marking(Kind, Pattern, LaneLo, LaneHi)  scene v6: G.1 lines (0 = not given)
-           signal/4.             % signal(Kind, Colour, Arrow, Flashing)  scene v6: art. 6 lights
+           signal/4,             % signal(Kind, Colour, Arrow, Flashing)  scene v6: art. 6 lights
+           plate_except_day/2,   % plate_except_day(S, mon..sun|holiday)  fix 2026-11-20 (fixes50.pl)
+           query_day_kind/1.     % query_day_kind(mon..sun|holiday|maybe_holiday): the asked date
 
 scene_fact(sign/3).        scene_fact(sign_value/2).   scene_fact(sign_lane/3).
 scene_fact(sign_placement/2).
@@ -69,6 +71,7 @@ scene_fact(local_plate/2). scene_fact(local_vehicle/2). scene_fact(local_action/
 scene_fact(selected/1).    scene_fact(selection_active/0).
 scene_fact(road_divided/1). scene_fact(unread_sign/1).
 scene_fact(lane_direction/3). scene_fact(marking/4). scene_fact(signal/4).
+scene_fact(plate_except_day/2). scene_fact(query_day_kind/1).
 
 catalog_fact(catalog_sign/4). catalog_fact(prohibits/3). catalog_fact(catalog_except/2).
 catalog_fact(no_priority_exempt/1). catalog_fact(value_cond/4). catalog_fact(catalog_days/2).

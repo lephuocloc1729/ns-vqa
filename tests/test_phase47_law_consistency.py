@@ -32,6 +32,7 @@ PREMISES = {
     "r_c38_moped": [(L, "34", "vận tốc thiết kế không lớn hơn 50 km/h"), (L, "12", "quy định chi tiết về tốc độ")],
     "r_c38_outside": [(Q, "D.18", "đã hết hiệu lực"), (Q, "B.27", "vượt quá trị số ghi trên biển"),
                       (L, "12", "quy định chi tiết về tốc độ")],
+    "r_kb5_pickup_point_bus": [(L, "18", "i) Điểm đón, trả khách"), (L, "18", "đủ để cho người lên xe, xuống xe")],
     # parser v13 (owner, 2026-11-18)
     "r_officer_right_turn_only": [(L, "11", "ở phía trước người điều khiển giao thông được rẽ phải")],
 }

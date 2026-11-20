@@ -907,6 +907,19 @@ class LanesOnly(_Model):
     when: When | None = None
 
 
+class LaneReservedIs(_Model):
+    """Parser v18 (owner, 2026-11-20): "Làn X được dành riêng cho xe Y, đúng hay sai?": lane X is
+    open to Y and closed to every vehicle class that is neither a kind of Y nor a class Y belongs
+    to. Decided from the per-class answers `lane_vehicles` gives (lane boards and R.412, B.27c,
+    D.14): no when Y is banned there or another class is allowed; yes when Y is allowed and every
+    other class banned; unknown otherwise."""
+
+    intent: Literal["lane_reserved_is"] = "lane_reserved_is"
+    lane: QuestionLane
+    vehicle: Vehicle
+    when: When | None = None
+
+
 class ViolationKind(_Model):
     """Parser v17 (phase 4.8c): "Ô tô trong ảnh vi phạm lỗi gì?": what the signs in the photo ban
     the named vehicle from doing. Each action is checked by the rules as `forbidden`; the answer
@@ -1034,7 +1047,7 @@ class AnyOf(_Model):
 Claim = Annotated[
     Union[Permitted, Forbidden, SpeedOk, Required, ExistsViolation, IsSign, Present, GuideClaim,
           SpeedLimitIs, AllOf, AnyOf, CountIs, SignApplies, RulePermitted, MarkingIs,
-          OfficerPermits, PrecedenceIs, MustYield, VehicleClassIs, LanesOnly],
+          OfficerPermits, PrecedenceIs, MustYield, VehicleClassIs, LanesOnly, LaneReservedIs],
     Field(discriminator="intent"),
 ]
 AllOf.model_rebuild()
@@ -1083,7 +1096,7 @@ class Explain(_Model):
     program: Annotated[Union[Permitted, Forbidden, SpeedOk, Required, ExistsViolation, IsSign, Present,
                              GuideClaim, SpeedLimitIs, AllOf, AnyOf, Verify, Choose, CountIs, SignApplies,
                              RulePermitted, MarkingIs, OfficerPermits, PrecedenceIs, MustYield,
-                             VehicleClassIs, LanesOnly],
+                             VehicleClassIs, LanesOnly, LaneReservedIs],
                        Field(discriminator="intent")]
 
 
@@ -1093,7 +1106,7 @@ _PART = Annotated[
           SpeedLimit, Present, Guide, GuideClaim, SpeedLimitIs, Explain, Count, CountIs, AppliesTo,
           SignApplies, RulePermitted, Duties, SignalMeaning, MarkingMeaning, MarkingIs,
           OfficerSignal, OfficerPermits, Precedence, PrecedenceIs, RightOfWay, MustYield,
-          VehicleClassOf, VehicleClassIs, LanesOnly, ViolationKind],
+          VehicleClassOf, VehicleClassIs, LanesOnly, LaneReservedIs, ViolationKind],
     Field(discriminator="intent"),
 ]
 
@@ -1112,7 +1125,7 @@ Program = Annotated[
           SpeedLimit, Present, Guide, GuideClaim, SpeedLimitIs, Explain, Multi, Count, CountIs,
           AppliesTo, SignApplies, RulePermitted, Duties, SignalMeaning, MarkingMeaning, MarkingIs,
           OfficerSignal, OfficerPermits, Precedence, PrecedenceIs, RightOfWay, MustYield,
-          VehicleClassOf, VehicleClassIs, LanesOnly, ViolationKind],
+          VehicleClassOf, VehicleClassIs, LanesOnly, LaneReservedIs, ViolationKind],
     Field(discriminator="intent"),
 ]
 

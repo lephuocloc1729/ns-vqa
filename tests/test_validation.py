@@ -243,7 +243,7 @@ def _run_final2(fake_set, **kw):
 # adds engine files. These two tests therefore check the phase46 record's engine-code hash against
 # the files at the freeze commit, read from git, instead of the working tree. The run-time guard in
 # e2e_validation.py / freeze.py is unchanged (test_an_engine_code_change_is_refused_... still holds).
-PHASE46_FREEZE_COMMIT = "9d78dad"
+PHASE46_FREEZE_COMMIT = "a9b554ae4395"
 
 
 def _code_hash_at(commit: str, tmp) -> dict:

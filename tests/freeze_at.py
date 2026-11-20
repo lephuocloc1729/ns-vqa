@@ -17,7 +17,7 @@ from pathlib import Path
 
 import eval.freeze as fz
 
-PHASE47_FREEZE_COMMIT = "4ad9137"
+PHASE47_FREEZE_COMMIT = "84b3bae"
 
 
 @functools.lru_cache(maxsize=None)
@@ -49,9 +49,9 @@ def phase47_record_file(folder: Path) -> Path:
 
 # Owner, 2026-11-18 (phase 4.8c, the same option as above): phase 4.8c adds engine files and engine
 # switches, so the phase-4.8 record no longer matches the working tree. Its engine-code hash is
-# checked against freeze commit f8bcb67; its engine switches must keep their recorded values in the
+# checked against freeze commit 254f055; its engine switches must keep their recorded values in the
 # tree (the new switches are added beside them). The copy carries the tree's engine_code and switches.
-PHASE48_FREEZE_COMMIT = "f8bcb67"
+PHASE48_FREEZE_COMMIT = "254f055"
 
 
 def phase48_record_for_this_tree() -> dict:
@@ -74,9 +74,9 @@ def phase48_record_file(folder: Path) -> Path:
 
 # 2026-11-19 (docs/plans/rerun-removal.md, the same option as above): the parallel API calls (a16d32c) and
 # the scene_rerun switch change vqa/, so the phase-4.9 record no longer matches the working tree. Its
-# engine-code hash is checked against freeze commit e8f9134, and its engine switches must keep their
+# engine-code hash is checked against freeze commit 5041137, and its engine switches must keep their
 # recorded values. The run-time guards are unchanged.
-PHASE49_FREEZE_COMMIT = "e8f9134"
+PHASE49_FREEZE_COMMIT = "5041137"
 
 
 def phase49_record_for_this_tree() -> dict:
@@ -95,3 +95,7 @@ def phase49_record_file(folder: Path) -> Path:
     p = folder / "frozen_phase49.json"
     p.write_text(json.dumps(phase49_record_for_this_tree()), encoding="utf-8")
     return p
+
+
+# record no longer matches the working tree. Its engine-code hash is checked against its freeze commit.
+PHASE50_FREEZE_COMMIT = "1ab06a9"

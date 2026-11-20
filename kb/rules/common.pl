@@ -47,6 +47,7 @@ rule_source(r_mandatory_all_users, 'QCVN 41:2024/BGTVT', '31').
 rule_source(r_guide_all_users,     'QCVN 41:2024/BGTVT', '35').
 rule_source(r_kb1_pass_side,       interpretation, kb1_r302_pass_side_only).
 rule_source(r_kb2_roundabout,      interpretation, kb2_r303_yield_only).
+rule_source(r_kb5_pickup_point_bus, interpretation, kb5_pickup_point_bus).   % fix 2026-11-20
 rule_source(r_c38_expressway,      interpretation, circular_38_2024_expressway_speeds).
 rule_source(r_c38_residential,     interpretation, circular_38_2024_residential_speeds).
 rule_source(r_c38_moped,           interpretation, circular_38_2024_moped_speed).
@@ -275,16 +276,22 @@ window_truth(S, M, T) :-
 in_window(M, F, T) :- F =< T, M >= F, M =< T.
 in_window(M, F, T) :- F > T, ( M >= F ; M =< T ).
 
-%!  day_check(+S, +Code, +Ctx, -T) is det.  true = right day parity (or none required).
-day_check(S, Code, _, true) :-
+%!  day_check(+S, +Code, +Ctx, -T) is det.  true = right day parity (or none required) and
+%   the day is not one an exception plate excepts (fix 2026-11-20, kb/rules/fixes50.pl).
+day_check(S, Code, Ctx, T) :-
+    parity_check(S, Code, Ctx, T1),
+    except_day_check(S, T2),
+    and3([T1, T2], T).
+
+parity_check(S, Code, _, true) :-
     \+ sign_days(S, Code, _).
-day_check(S, Code, ctx(_, D, _), T) :-
+parity_check(S, Code, ctx(_, D, _), T) :-
     has_day_plate(S),
     cite(r_aux_plate),
     cite(r_time_plate),
     sign_days(S, Code, P),
     day_truth(D, P, T).
-day_check(S, Code, ctx(_, D, _), T) :-
+parity_check(S, Code, ctx(_, D, _), T) :-
     \+ plate_days(S, _),
     catalog_days(Code, P),
     day_truth(D, P, T).

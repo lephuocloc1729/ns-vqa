@@ -255,10 +255,15 @@ def test_phase49_pins_the_owner_approved_v17_configuration(tmp_path):
     assert fz.check(fz.FROZEN_PHASE49) != []          # a run from this tree with the real record is refused
 
 
-def test_phase50_is_phase49_without_the_scene_rerun():
-    assert fz.check(fz.FROZEN_PHASE50) == []
+def test_phase50_is_phase49_without_the_scene_rerun(tmp_path):
+    # engine hash checked at the freeze commit 8ab1a60 (tests/freeze_at.py): kb/ and vqa/ changed after it
+    from tests.freeze_at import PHASE50_FREEZE_COMMIT, code_hash_at
     rec, old = fz.load(fz.FROZEN_PHASE50), fz.load(fz.FROZEN_PHASE49)
+    copy = tmp_path / "frozen_phase50.json"
+    copy.write_text(json.dumps({**rec, "engine_code": fz.code_hash()}), encoding="utf-8")
+    assert fz.check(copy) == []
     assert rec["pipeline_config"] == {**old["pipeline_config"], "scene_rerun": False}
     assert rec["prompts"] == old["prompts"] and rec["engine_switches"] == old["engine_switches"]
-    assert rec["engine_code"] == fz.code_hash()
+    assert json.dumps(rec["engine_code"], sort_keys=True) == code_hash_at(PHASE50_FREEZE_COMMIT)
+    assert fz.check(fz.FROZEN_PHASE50) != []          # a run from this tree with the real record is refused
     assert fz.pipeline_config("phase50").scene_rerun is False and fz.pipeline_config("phase49").scene_rerun is True

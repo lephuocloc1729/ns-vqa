@@ -79,7 +79,7 @@ def test_wire_v13_forms(wire):
 
 def test_owner2_rows_are_the_file_lines_at_d427da1_verbatim():
     from eval import parser_newtypes as nt
-    lines = subprocess.run(["git", "show", "d427da1:data/annotations/gold_v12_new/owner_questions.txt"],
+    lines = subprocess.run(["git", "show", "705e24a4c1d4:data/annotations/gold_v12_new/owner_questions.txt"],
                            capture_output=True, text=True, cwd=ROOT, check=True).stdout.splitlines()
     rows = [r for r in nt.load() if r["source"] == "owner2"]
     assert len(rows) == 20
