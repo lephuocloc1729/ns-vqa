@@ -42,7 +42,7 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
 - **The phase-4.5 dev set** (`data/splits/train_dev.json`, ids only: the validation pool minus the validation set, 87 Natural QA questions on 60 images) **may be read question by question** (owner, 2026-11-17). It runs through `eval/e2e_dev.py`, with per-question records in the gitignored `eval/runs/`.
 - **Many images repeat across splits.** `data/splits/duplicates.json` lists near-duplicate image groups, made by `eval/find_duplicates.py`. It uses perceptual hashes and reads image files only, never question files.
   - 79 of the 104 private images and 53 of the 90 public images also appear in train.
-  - Evaluations report every score twice: on all questions, and without questions whose image is in `duplicated_with_train`. Map image ids to questions at evaluation time.
+  - Earlier evaluations reported every score twice: on all questions, and without questions whose image is in `duplicated_with_train`. Since 2026-11-20 (owner) the all-questions score is enough.
   - The duplicate check finds copies and slight re-crops. It misses different photos of the same scene.
 - **Never open the private test answers.** The private test is the final benchmark and runs once, at the end.
   - Only the scoring code reads them, in memory, and it writes aggregates only (`eval/e2e_private.py`, sentinel `eval/private_ran.json`).
@@ -59,8 +59,8 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
 - **Inference code means `vqa/` and `app/`.** It must not import from `tests`, `conftest` or `eval`. It must not mention fixture, annotation, audit, split or duplicate files, or the dataset's QA files.
   - `tests/test_leakage_guard.py` enforces this.
   - Few-shot examples built from train go into versioned prompt files under `prompts/`. They are never selected per image.
-- **Every eval report gives two scores:** one on all images, and one on non-duplicate images only, with a 95% confidence interval for the non-duplicate subset.
-  - Use `eval/report.py` (`score_report`, `format_report`).
+- **The RAG fallback is outside this guard (owner, 2026-11-20, `docs/plans/rag-fallback.md`).** The owner's RAG service keeps its similarity-chosen train few-shots and example-guided law retrieval. `vqa/` only sends it the image and the question, and the guard above still applies to `vqa/` and `app/`.
+- **Eval reports give the score on all images (owner, 2026-11-20).** Non-duplicate figures are no longer required; `eval/report.py` (`score_report`, `format_report`) still prints them, and earlier reports keep theirs.
   - For public, "duplicate" means the image is also in train. For private, it means the image is also in train or public.
 
 ## Layout

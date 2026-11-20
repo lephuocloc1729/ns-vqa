@@ -341,3 +341,19 @@ def test_the_estimate_is_calibrated_to_the_final_validation():
           for i in range(110)]
     e = ep.estimate(qs, decided_share=52 / 110, rates=ep.RATES)            # the phase-4.5 rates it was fitted on
     assert abs(e["total_fallback_off_usd"] - 0.83) <= 0.06
+
+
+# ---------------------------------------------------------------- docs/plans/rag-fallback.md (owner, 2026-11-20)
+
+def test_the_private_run_has_the_answer_fallback_off(fake_set):
+    """No Sonnet fallback: a question the parser puts out of scope gets no fallback call, and the
+    record keeps its trigger for the RAG merge."""
+    sdk = _e2e_sdk()
+    sdk.replies["parser"] = [{"out_of_scope": True, "out_of_scope_reason": "no claim form"}] * 2
+    out, sdk = _run(fake_set, sdk=sdk)
+    rep = json.loads(out.read_text())
+    assert ep.ANSWER_FALLBACK is False and rep["answer_fallback"] is False
+    assert "fallback" not in sdk.created
+    run_id = rep["run_id"]
+    rows = [json.loads(l) for l in (fake_set / "private_run" / run_id / "records.jsonl").read_text().splitlines()]
+    assert {r["trigger"] for r in rows} == {"out_of_scope"} and {r["answered_by"] for r in rows} == {"not_decided"}

@@ -18,6 +18,8 @@ or written (CLAUDE.md, "Dataset rules").
   The sentinel is written before the first call, so a run that stops part way also
   counts as the one run.
 - **Fresh perception** into a new, empty scene cache under the replay folder.
+- **Answer fallback off** (owner, 2026-11-20, `docs/plans/rag-fallback.md`): non-decided questions get
+  the engine's template answer; the RAG fallback is merged in afterwards (`eval/e2e_private_rag.py`).
 - **Replay records (P4)**, local and gitignored under `cache/private_run/<run_id>/`,
   deleted at the end of phase 5: the scene cache (`scenes/`) and `records.jsonl`, one
   line per question with model outputs and the pipeline's trace only (`RECORD_FIELDS`:
@@ -259,6 +261,9 @@ def git_ignores(path: Path) -> bool:
 # Phase 5.2 (owner, 2026-11-20): phase52 (phase51 with the lane_reserved_is fixes of 8b45e0b) replaces
 # phase51, which is refused by its profile.
 PRIVATE_PROFILES = ("phase52",)
+# docs/plans/rag-fallback.md (owner, 2026-11-20): no Sonnet answer fallback in the private run; the RAG
+# fallback is merged in from its saved answers (eval/e2e_private_rag.py).
+ANSWER_FALLBACK = False
 
 
 def frozen_perception_model(frozen: Path = freeze.FROZEN_PHASE52) -> str:
@@ -319,9 +324,11 @@ def run_private(max_spend: float, *, confirm_frozen: bool = False, sdk=None, que
     (replay / "scenes").mkdir(parents=True)
     guard = SpendGuard(max_spend)
     records: list[dict] = []
-    # the record's profile (phase 4.5 from B5 on); the answer fallback keeps its default
-    pipe = Pipeline(freeze.pipeline_config(profile, perception_model, cache_dir=replay / "scenes", cache_only=False),
-                    sdk=sdk, guard=guard)
+    # the record's profile (phase 4.5 from B5 on). Answer fallback off (owner, 2026-11-20,
+    # docs/plans/rag-fallback.md F4): the run gives the rules-only figures, and the RAG's saved
+    # answers are merged in afterwards by eval/e2e_private_rag.py.
+    pipe = Pipeline(freeze.pipeline_config(profile, perception_model, cache_dir=replay / "scenes", cache_only=False,
+                                           answer_fallback=ANSWER_FALLBACK), sdk=sdk, guard=guard)
     judge = Judge(llm=LLMClient(model="claude-opus-5-5", guard=guard, sdk=sdk))
     with open(replay / "records.jsonl", "w", encoding="utf-8") as f:
         for n, q in enumerate(qs, 1):
@@ -343,7 +350,7 @@ def run_private(max_spend: float, *, confirm_frozen: bool = False, sdk=None, que
             del a, t, rec
             print(f"[{n}/{len(qs)}]  spent ${guard.spent:.4f}")        # a counter only
     report = {"what": "private test, aggregate only (phase 5, item 1)", "run_id": run_id,
-              "perception_model": perception_model, **counts, "started": started,
+              "perception_model": perception_model, "answer_fallback": ANSWER_FALLBACK, **counts, "started": started,
               "finished": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
               "git_commit": g["commit"], "frozen_config": config,
               "prompt_ids": {k: v["id"] for k, v in config["prompts"].items()},

@@ -1692,6 +1692,21 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### RAG fallback plan approved; private run rules-only on phase52, RAG merged in after (owner, 2026-11-20; no API calls)
+
+- **Plan:** `docs/plans/rag-fallback.md`, approved and revised the same day. The owner's RAG (`~/UNIVERSITY/Capstone/RAG`) is the only answer fallback, used as it is (its similarity-chosen train few-shots kept; CLAUDE.md's leakage guard now covers `vqa/` and `app/` only). Reports give scores on all images only.
+- **Private run:** `eval/e2e_private.py` now builds its pipeline with `answer_fallback=False` (`ANSWER_FALLBACK`), and the report records it. The run gives V1 (rules only) and keeps each question's trigger in the replay records. phase52 is unchanged (`eval/` is outside the engine hash); `freeze.py check --profile phase52` matches.
+- **RAG merge:** `eval/e2e_private_rag.py` (new, scoring code, runs once, sentinel `eval/private_rag_ran.json`). After the private run it grades, in memory, V2 (rules where no trigger fired, RAG where one did) and B2 (RAG alone) from the RAG's saved `predictions.jsonl`, and writes one aggregate file.
+- **The RAG is deterministic:** its two saved Q4 private runs (`answer_comparison/private_models_Qwen_Q4_run1` and `_run2`) give the same answer on all 146 questions, and their `run_config.json` is the plan's F1 configuration. Checked without reading private answers: the run1 predictions cover exactly the 146 private question ids, all `COMPLETED`.
+- **Next:** (recommended) the v18 dev and dev2 re-parse (~$0.85); then the private run (~$1.49, fallback off); then the merge (~$0.7 judge).
+- Tests: `tests/test_e2e_private_rag.py` (9), a fallback-off test in `tests/test_e2e_private.py`, and `tests/test_freeze.py`'s private-run check updated. Suite: 2,390 passed.
+
+```zsh
+.venv/bin/python eval/e2e_private.py run --confirm-frozen --max-spend 2.5
+.venv/bin/python eval/e2e_private_rag.py run --confirm --max-spend 1 \
+  --rag-predictions ~/UNIVERSITY/Capstone/RAG/artifacts/experiments/text_based_rag/natural_qa/answer_comparison/private_models_Qwen_Q4_run1/private_test/predictions.jsonl
+```
+
 ### Freeze phase52: phase51 with the lane_reserved_is fixes (owner request, 2026-11-20; no API calls)
 
 - **Record:** `eval/frozen_phase52.json`, profile `phase52` in `eval/freeze.py` = phase51's configuration and prompts unchanged (parser v18, scene v5 + guide, no scene re-run, writer v3, policy A, signals off, same engine switches), with the engine-code hash of `8b45e0b` (bare R.412 lane rows, every kind of bus on R.412a). `freeze.py check --profile phase52` matches; only `engine_code`, `profile` and `what` differ from phase51.

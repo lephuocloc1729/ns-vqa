@@ -158,7 +158,9 @@ def test_post_freeze_switches_default_to_the_frozen_behaviour():
     assert "answer_fallback" not in fz.live()["pipeline_config"] and "answer_fallback" not in fz.RUN_SPECIFIC
     import eval.e2e_private as ep
     src = open(ep.__file__, encoding="utf-8").read()
-    assert "answer_fallback" not in src                     # the private run keeps the default (on)
+    # docs/plans/rag-fallback.md (owner, 2026-11-20): the private run sets the fallback off; the RAG
+    # answers are merged in afterwards (eval/e2e_private_rag.py)
+    assert "answer_fallback=ANSWER_FALLBACK" in src and "ANSWER_FALLBACK = False" in src
 
 
 
