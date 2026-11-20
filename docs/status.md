@@ -1692,6 +1692,14 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### Freeze phase51: phase50 with parser v18 (owner request, 2026-11-20; no API calls)
+
+- **Record:** `eval/frozen_phase51.json`, profile `phase51` in `eval/freeze.py` = phase50 (scene v5 + guide, no scene re-run, parallel calls, writer v3, policy A, signals off, same engine switches) with **parser v18** (`parser/v18@b370b923cccb`) and the engine-code hash of `65bbfbb` (67 files; the rule and engine fixes, `kb/rules/fixes50.pl`). `freeze.py check --profile phase51` matches. Nothing else differs from the phase50 record.
+- **v18 gate** (run `pred_claude-sonnet-5-5_medium_v18_20261120-140742.jsonl`, $0.23; scored offline here): 80.9% (38/47), the same nine wrong rows as v17; `regressed_types_without_design` empty, so it passes the no-regression rule. The 90% point gate fails, as for every version since v6's three-run mean.
+- **Not checked:** v18 and the 65bbfbb fixes have no dev / dev2 run, so the dev guardrail is not measured for this record.
+- **Private runner on phase51 (owner, 2026-11-20):** `eval/e2e_private.py` checks `frozen_phase51.json` by default and accepts profile `phase51` only (`PRIVATE_PROFILES`); the phase49 and phase50 records are now refused by their profile, like the older ones. This replaces the phase49 private run of the approved plan; phase50's "not for the private test" note is superseded by this record. Any later change to `vqa/` or `kb/` makes the run refuse until a new record is written.
+- Tests: `tests/test_freeze.py` (phase51 is phase50 with v18; written once) and `tests/test_e2e_private.py` (defaults and profile phase51; phase49 and phase50 refused; mismatch cases add parser v17 and `scene_rerun` on). Suite: 2,348 passed.
+
 ### Re-run removal: paired public_holdout check (owner run `aa10b2294ae7`, 2026-11-19): no change, adopted as phase50
 
 - **Plan:** `docs/plans/rerun-removal.md`, approved by the owner. **H0:** "public_holdout is never touched again" was lifted for this one paired run. **R3** was fixed before the run. Runner: `eval/e2e_holdout_rerun.py`. Its sentinel `eval/holdout_rerun_ran.json` is committed; the aggregate is in the gitignored runs folder. Spend **$0.548** (estimate $0.69, cap $1.00).

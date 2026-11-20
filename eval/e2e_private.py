@@ -254,14 +254,16 @@ def git_ignores(path: Path) -> bool:
 # Phase 4.8 (owner, 2026-11-18): the private test runs with frozen_phase48.json only; phase 4.7 and older
 # records are refused by their profile.
 # Phase 4.9 (owner, 2026-11-18): v17 replaces v16; older profiles remain refused.
-PRIVATE_PROFILES = ("phase49",)
+# Phase 5.1 (owner, 2026-11-20): phase51 (phase50 with parser v18 and the 65bbfbb fixes) replaces phase49;
+# phase49 and phase50 are refused by their profile.
+PRIVATE_PROFILES = ("phase51",)
 
 
-def frozen_perception_model(frozen: Path = freeze.FROZEN_PHASE49) -> str:
+def frozen_perception_model(frozen: Path = freeze.FROZEN_PHASE51) -> str:
     return freeze.load(frozen)["pipeline_config"]["perception_model"]
 
 
-def guards(*, out_dir: Path = OUT, sentinel: Path = SENTINEL, frozen: Path = freeze.FROZEN_PHASE49,
+def guards(*, out_dir: Path = OUT, sentinel: Path = SENTINEL, frozen: Path = freeze.FROZEN_PHASE51,
            replay_root: Path = REPLAY, git=freeze.git_state, ignored=git_ignores) -> dict:
     """Refuses (SystemExit) unless the tree is clean, the configuration is the frozen
     one, the private test has never run and git ignores the replay folder."""
@@ -270,7 +272,7 @@ def guards(*, out_dir: Path = OUT, sentinel: Path = SENTINEL, frozen: Path = fre
         raise SystemExit("the git working tree is not clean: commit or remove these first:\n  "
                          + "\n  ".join(g["dirty"]))
     if (prof := freeze.profile_of(freeze.load(frozen))) not in PRIVATE_PROFILES:
-        raise SystemExit(f"the private test runs with the phase-4.9 freeze only; {Path(frozen).name} is {prof}")
+        raise SystemExit(f"the private test runs with the phase-5.1 freeze only; {Path(frozen).name} is {prof}")
     if d := freeze.check(frozen, frozen_perception_model(frozen)):
         raise SystemExit("the live configuration differs from the freeze record:\n  " + "\n  ".join(d))
     if Path(sentinel).exists():
@@ -285,7 +287,7 @@ def guards(*, out_dir: Path = OUT, sentinel: Path = SENTINEL, frozen: Path = fre
 # ---------------------------------------------------------------- the run
 
 def run_private(max_spend: float, *, confirm_frozen: bool = False, sdk=None, questions: list[dict] | None = None,
-                out_dir: Path = OUT, image_path=None, sentinel: Path = SENTINEL, frozen: Path = freeze.FROZEN_PHASE49,
+                out_dir: Path = OUT, image_path=None, sentinel: Path = SENTINEL, frozen: Path = freeze.FROZEN_PHASE51,
                 replay_root: Path = REPLAY, git=freeze.git_state, ignored=git_ignores,
                 expected: dict | None = EXPECTED) -> Path:
     if not confirm_frozen:

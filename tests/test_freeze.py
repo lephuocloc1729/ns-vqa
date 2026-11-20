@@ -267,3 +267,23 @@ def test_phase50_is_phase49_without_the_scene_rerun(tmp_path):
     assert json.dumps(rec["engine_code"], sort_keys=True) == code_hash_at(PHASE50_FREEZE_COMMIT)
     assert fz.check(fz.FROZEN_PHASE50) != []          # a run from this tree with the real record is refused
     assert fz.pipeline_config("phase50").scene_rerun is False and fz.pipeline_config("phase49").scene_rerun is True
+
+
+def test_phase51_is_phase50_with_parser_v18():
+    rec, old = fz.load(fz.FROZEN_PHASE51), fz.load(fz.FROZEN_PHASE50)
+    assert fz.check(fz.FROZEN_PHASE51) == []
+    assert rec["profile"] == "phase51"
+    assert rec["pipeline_config"] == {**old["pipeline_config"], "parser_version": "v18"}
+    assert rec["prompts"]["parser"]["id"].startswith("parser/v18@")
+    assert {k: v for k, v in rec["prompts"].items() if k != "parser"} == \
+        {k: v for k, v in old["prompts"].items() if k != "parser"}
+    assert rec["engine_switches"] == old["engine_switches"] and rec["v6_fields_off"] == old["v6_fields_off"]
+    assert rec["engine_code"] == fz.code_hash()
+    assert fz.pipeline_config("phase51").scene_rerun is False
+
+
+def test_phase51_record_is_written_once(tmp_path):
+    p = tmp_path / "frozen_phase51.json"
+    fz.write(p, "phase51")
+    with pytest.raises(SystemExit):
+        fz.write(p, "phase51")

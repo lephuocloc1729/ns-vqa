@@ -124,6 +124,20 @@ CODE_HASHED_FROM.add("phase50")
 V6_SWITCH_FROM.add("phase50")
 SWITCHES48_FROM.add("phase50")
 
+# Owner request, 2026-11-20: phase50 with parser v18 and the rule and engine fixes of 65bbfbb
+# (kb/rules/fixes50.pl and others). v18 gate run 20261120-140742: 80.9% (38/47), the same wrong rows as
+# v17, regressed_types_without_design empty. Not yet accepted by the private runner (PRIVATE_PROFILES).
+FROZEN_PHASE51 = ROOT / "eval" / "frozen_phase51.json"
+PROFILES["phase51"] = {**PROFILES["phase50"], "parser_version": "v18"}
+RECORDS["phase51"] = FROZEN_PHASE51
+EXCLUDED_SWITCHES["phase51"] = ("answer_fallback",)
+LATER_SWITCHES["phase51"] = ()
+WHAT["phase51"] = ("phase 5.1: phase50 (no scene re-run, parallel calls) with parser v18 and the rule and "
+                   "engine fixes of 65bbfbb")
+CODE_HASHED_FROM.add("phase51")
+V6_SWITCH_FROM.add("phase51")
+SWITCHES48_FROM.add("phase51")
+
 def code_hash(root: Path = ROOT) -> dict[str, Any]:
     files = sorted([*(root / "vqa").rglob("*.py"), *(root / "kb").rglob("*.pl"), *(root / "kb").rglob("*.yaml")])
     files = [f for f in files if "__pycache__" not in f.parts]
