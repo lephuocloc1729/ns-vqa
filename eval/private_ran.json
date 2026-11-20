@@ -1,0 +1,12 @@
+{
+  "what": "the one private-test benchmark run (phase 5, item 1); its existence blocks a second run",
+  "run_id": "a51605785ace",
+  "started": "2026-11-20T14:11:54+00:00",
+  "git_commit": "3f45ba6155f76f230ef9e617fc8752d3a9612783",
+  "status": "finished",
+  "frozen_record_sha256": "22004c43b67d6cc2b1c00df80a00cd87e6241bcc1f8eaf2b307ac698c976fd69",
+  "replay_dir": "private_run/a51605785ace",
+  "finished": "2026-11-20T14:55:13+00:00",
+  "report": "private_aggregate_a51605785ace.json",
+  "spent_usd": 1.3293
+}

@@ -1692,6 +1692,28 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### The private benchmark, once, on phase52, rules only (owner run, 2026-11-20): V1 decides 65.8% at 81.8%
+
+- **Run:** `a51605785ace`, 14:11–14:55 UTC, at `3f45ba6` (phase52: scene v5 + guide, Haiku 5.5 perception, parser v18, writer v3, policy A, signals off, no scene re-run), **answer fallback off**. Sentinel `eval/private_ran.json` (status finished); aggregate `eval/runs/e2e/private_aggregate_a51605785ace.json` (local, no ids). **$1.33** (estimate $1.49), 16.5 s and $0.0091 per question. Replay records and the owner's grading sheet `owner_grading.csv` in `cache/private_run/a51605785ace/` (gitignored).
+- **V1, rules only** (146 questions, 104 images; judge `judge/v1`, Opus 5.5):
+
+| | value | 95% CI |
+|---|---|---|
+| decided coverage | **65.8%** (96 of 146) | 57.7–73.0% |
+| accuracy on decided | **81.8%** (strict 79.2%) | 72.9–88.2% |
+| overall, non-decided counted wrong | **53.8%** | 45.7–61.7% |
+
+| by type | questions | decided | accuracy on decided | overall |
+|---|---|---|---|---|
+| Natural QA | 76 | 52 (68.4%) | 77.9% | 53.3% |
+| Yes/No | 70 | 44 (62.9%) | 86.4% | 54.3% |
+
+- **Not decided (50):** out of scope 21, unknown 19, unreadable sign 6, program cannot run 3, parse failed 1. These go to the RAG in V2 (`eval/e2e_private_rag.py`).
+- **Writer:** 96 decided answers, faithfulness 100% (every written verdict equals the engine's), 2 template answers.
+- **By feature** (score with non-decided answers as their template text; rule coverage): time 71% (87%), weight or seats 81% (92%), speed 63% (69%), turns, stops, parking and overtaking 58% (70%), violation 56% (56%), vehicle class 52% (64%), meaning 50% (63%), lanes 43% (52%).
+- **Compared with the development sets** (phase52, judged): dev decided 85% at 81.1%, dev2 79% at 69.6%. Private coverage is lower (65.8%), with accuracy on decided in line with dev.
+- **Next:** the RAG merge (`eval/e2e_private_rag.py`, about $0.7) for V2 and RAG alone; then the owner's hand grading (P6).
+
 ### v18 dev guardrail: re-parse of dev and dev2 on phase52 (owner runs, 2026-11-20): dev passes, dev2 −1.5
 
 - **Runs:** from the phase49 judged runs (`dev_rejudge_ce47ca5037a7`, `dev2_rejudge_32f3582f8b1c`), parser v18, `--select all --reading-policy higher_confidence`, phase52 engine (commit `69003cd`). dev `eval/runs/e2e/dev_reparse_v18_916b52fcedf2.jsonl` (two resumes: `d1332c67c4ae.partial` stopped by the $0.55 cap at 82 of 87, `cc0e7474e96c.partial` by the guard's worst-case reservation); dev2 `dev2_reparse_v18_1780bb064874.jsonl`. **Cost $1.01** (dev about $0.55, dev2 $0.459). A v18 parse costs about $0.0043 against v17's $0.0034 (the prompt is 14% longer), and each resume after a pause pays one cache write (about $0.07).
