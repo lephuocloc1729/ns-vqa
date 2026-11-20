@@ -1692,6 +1692,13 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### Freeze phase52: phase51 with the lane_reserved_is fixes (owner request, 2026-11-20; no API calls)
+
+- **Record:** `eval/frozen_phase52.json`, profile `phase52` in `eval/freeze.py` = phase51's configuration and prompts unchanged (parser v18, scene v5 + guide, no scene re-run, writer v3, policy A, signals off, same engine switches), with the engine-code hash of `8b45e0b` (bare R.412 lane rows, every kind of bus on R.412a). `freeze.py check --profile phase52` matches; only `engine_code`, `profile` and `what` differ from phase51.
+- **Private runner on phase52 (owner, 2026-11-20):** `eval/e2e_private.py` checks `frozen_phase52.json` by default and accepts profile `phase52` only; phase51 and older records are refused by their profile. Any later change to `vqa/` or `kb/` makes the run refuse until a new record is written.
+- **Not checked:** no dev / dev2 run of v18 or the 65bbfbb and 8b45e0b fixes.
+- Tests: `tests/test_freeze.py` (phase52 is phase51 with new engine code only; written once) and `tests/test_e2e_private.py` (defaults and profile phase52; phase51 added to the refused records). CLAUDE.md's freeze line names phase52.
+
 ### Freeze phase51: phase50 with parser v18 (owner request, 2026-11-20; no API calls)
 
 - **Record:** `eval/frozen_phase51.json`, profile `phase51` in `eval/freeze.py` = phase50 (scene v5 + guide, no scene re-run, parallel calls, writer v3, policy A, signals off, same engine switches) with **parser v18** (`parser/v18@b370b923cccb`) and the engine-code hash of `65bbfbb` (67 files; the rule and engine fixes, `kb/rules/fixes50.pl`). `freeze.py check --profile phase51` matches. Nothing else differs from the phase50 record.

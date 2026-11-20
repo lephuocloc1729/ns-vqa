@@ -138,6 +138,20 @@ CODE_HASHED_FROM.add("phase51")
 V6_SWITCH_FROM.add("phase51")
 SWITCHES48_FROM.add("phase51")
 
+# Owner request, 2026-11-20: phase51 with the lane_reserved_is fixes of 8b45e0b (bare R.412 lane rows
+# take the catalog's classes; every kind of bus counts as one on an R.412a lane). Configuration and
+# prompts unchanged from phase51; only the engine code differs.
+FROZEN_PHASE52 = ROOT / "eval" / "frozen_phase52.json"
+PROFILES["phase52"] = dict(PROFILES["phase51"])
+RECORDS["phase52"] = FROZEN_PHASE52
+EXCLUDED_SWITCHES["phase52"] = ("answer_fallback",)
+LATER_SWITCHES["phase52"] = ()
+WHAT["phase52"] = ("phase 5.2: phase51 (parser v18, no scene re-run, parallel calls) with the lane_reserved_is "
+                   "fixes of 8b45e0b")
+CODE_HASHED_FROM.add("phase52")
+V6_SWITCH_FROM.add("phase52")
+SWITCHES48_FROM.add("phase52")
+
 def code_hash(root: Path = ROOT) -> dict[str, Any]:
     files = sorted([*(root / "vqa").rglob("*.py"), *(root / "kb").rglob("*.pl"), *(root / "kb").rglob("*.yaml")])
     files = [f for f in files if "__pycache__" not in f.parts]

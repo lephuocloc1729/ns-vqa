@@ -292,3 +292,19 @@ def test_phase51_record_is_written_once(tmp_path):
     fz.write(p, "phase51")
     with pytest.raises(SystemExit):
         fz.write(p, "phase51")
+
+
+def test_phase52_is_phase51_with_new_engine_code_only():
+    rec, old = fz.load(fz.FROZEN_PHASE52), fz.load(fz.FROZEN_PHASE51)
+    assert fz.check(fz.FROZEN_PHASE52) == []
+    assert rec["profile"] == "phase52" and rec["engine_code"] == fz.code_hash()
+    same = lambda r: {k: v for k, v in r.items() if k not in ("profile", "what", "engine_code")}  # noqa: E731
+    assert same(rec) == same(old) and rec["engine_code"] != old["engine_code"]
+    assert fz.pipeline_config("phase52") == fz.pipeline_config("phase51")
+
+
+def test_phase52_record_is_written_once(tmp_path):
+    p = tmp_path / "frozen_phase52.json"
+    fz.write(p, "phase52")
+    with pytest.raises(SystemExit):
+        fz.write(p, "phase52")
