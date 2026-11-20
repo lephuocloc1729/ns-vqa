@@ -119,7 +119,10 @@ def sign_facts(sign: Sign, catalog: Catalog) -> list[Term]:
             v = entry.effect.value
             value_conds = [(set(c.value for c in v.applies_to), Term(
                 "c", atom(v.attr.value), atom(v.op.value), float(sign.value)))]
-        for ln in sorted({ln for ln, _ in lanes}):
+        # A lane row that names no vehicles takes the classes the catalog reserves the lane for
+        # (owner, 2026-11-20): an R.412 lane listed without vehicles is still that sign's lane.
+        bare_rows = {row.lane for row in sign.lanes if not row.vehicles}
+        for ln in sorted({ln for ln, _ in lanes} | bare_rows):
             for cls in entry.effect.lane_reserved:
                 conds = [c for classes, c in value_conds if cls.value in classes]
                 out.append(Term("lane_vehicle", s, ln, Term("spec", atom(cls.value), conds)))

@@ -99,3 +99,28 @@ def phase49_record_file(folder: Path) -> Path:
 
 # record no longer matches the working tree. Its engine-code hash is checked against its freeze commit.
 PHASE50_FREEZE_COMMIT = "1ab06a9"
+
+
+# 2026-11-20 (the same option as above): the empty-lane fix for reserved lanes (vqa/reasoning/facts.py)
+# changes vqa/, so the phase-5.1 record no longer matches the working tree. Its engine-code hash is
+# checked against freeze commit 598a6c1, and its engine switches must keep their recorded values. The
+# run-time guards are unchanged: a private run from this tree with the real record is refused.
+PHASE51_FREEZE_COMMIT = "598a6c1"
+
+
+def phase51_record_for_this_tree() -> dict:
+    rec = fz.load(fz.FROZEN_PHASE51)
+    assert json.dumps(rec["engine_code"], sort_keys=True) == code_hash_at(PHASE51_FREEZE_COMMIT)
+    from vqa.reasoning.engine import switches_from_kb
+    live = dict(sorted(switches_from_kb().items()))
+    assert all(live.get(k) == v for k, v in rec["engine_switches"].items())
+    return {**rec, "engine_code": fz.code_hash(), "engine_switches": live}
+
+
+def phase51_record_file(folder: Path) -> Path:
+    """That record written as `frozen_phase51.json` in `folder`."""
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    p = folder / "frozen_phase51.json"
+    p.write_text(json.dumps(phase51_record_for_this_tree()), encoding="utf-8")
+    return p

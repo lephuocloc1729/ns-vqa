@@ -759,6 +759,10 @@ class Engine:
         per = {c: v for c, (v, _) in results.items()}
         y = p.vehicle.cls.value
         related = {c for c in per if janus.query_once(f"(subclass_of({c}, {y}) ; subclass_of({y}, {c}))")["truth"]}
+        # Owner, 2026-11-20: on an R.412a bus-and-coach lane ("kể cả ô tô buýt") every kind of bus counts
+        # as one; the rules name such groups (kb/rules/fixes50.pl, q_lane_reserved_group).
+        for g in janus.query_once(f"q_lane_reserved_group({p.lane}, {y}, Gs)")["Gs"]:
+            related |= {c for c in per if janus.query_once(f"subclass_of({c}, {g})")["truth"]}
         others = {c: v for c, v in per.items() if c not in related and c not in ("pedestrian",)}
         mine = per.get(y, "unknown")
         if mine == "no" or any(v == "yes" for v in others.values()):
