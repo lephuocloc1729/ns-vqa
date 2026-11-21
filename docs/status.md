@@ -1692,6 +1692,22 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### The private benchmark, run 3, and V1 over the three runs (owner run, 2026-11-21): decides 66.9% at 82.1%
+
+- **Run 3:** `e243362cb98e`, 03:06–04:01 UTC, at `4e71a18`, same frozen phase52 record (sentinel `eval/private_ran_3.json`; aggregate `eval/runs/e2e/private_aggregate_e243362cb98e.json`, no ids). **$1.36.** Replay records and `owner_grading.csv` in `cache/private_run/e243362cb98e/` (gitignored). Not decided (48): out of scope 20, unknown 20, unreadable sign 5, parse failed 2, program cannot run 1.
+
+| V1, rules only | run 1 | run 2 | run 3 | **mean (sd)** |
+|---|---|---|---|---|
+| decided coverage | 65.8% (96) | 67.8% (99) | 67.1% (98) | **66.9% (1.1)** |
+| accuracy on decided | 81.8% | 80.8% | 83.7% | **82.1% (1.5)** |
+| accuracy on decided, strict | 79.2% | 78.8% | 80.6% | 79.5% |
+| overall, non-decided wrong | 53.8% | 54.8% | 56.2% | **54.9% (1.2)** |
+| Natural QA: decided, accuracy | 52, 77.9% | 54, 79.6% | 54, 81.5% | |
+| Yes/No: decided, accuracy | 44, 86.4% | 45, 82.2% | 44, 86.4% | |
+| cost | $1.33 | $1.39 | $1.36 | $4.08 |
+
+- **Next:** the RAG merges for runs 2 and 3 (`e2e_private_rag.py run --run 2`, then `--run 3`, the same two live files), then V2 and RAG alone as means over the three runs.
+
 ### The private benchmark, run 2 (owner run, 2026-11-21): V1 decides 67.8% at 80.8%
 
 - **Run:** `3163188d23b7`, 02:10–02:58 UTC, at `20f5926`, same frozen phase52 record as run 1 (sentinel `eval/private_ran_2.json`; aggregate `eval/runs/e2e/private_aggregate_3163188d23b7.json`, no ids). **$1.39.** Fresh scene cache; replay records and `owner_grading.csv` in `cache/private_run/3163188d23b7/` (gitignored).

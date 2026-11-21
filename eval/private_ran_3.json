@@ -1,0 +1,13 @@
+{
+  "what": "private-test benchmark run 3 of 3 (owner, 2026-11-21: mean and spread); its existence blocks a second run 3",
+  "run": 3,
+  "run_id": "e243362cb98e",
+  "started": "2026-11-21T03:06:14+00:00",
+  "git_commit": "4e71a18ccad87aa9fd509d19723e1493ff4520e8",
+  "status": "finished",
+  "frozen_record_sha256": "22004c43b67d6cc2b1c00df80a00cd87e6241bcc1f8eaf2b307ac698c976fd69",
+  "replay_dir": "private_run/e243362cb98e",
+  "finished": "2026-11-21T04:01:00+00:00",
+  "report": "private_aggregate_e243362cb98e.json",
+  "spent_usd": 1.3561
+}
