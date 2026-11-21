@@ -64,3 +64,29 @@ def at(h: int, m: int = 0, date: dt.date | None = None) -> When:
 
 def articles(answer) -> set[str]:
     return {c.article_id for c in answer.citations}
+
+
+# --- CI without local data -------------------------------------------------
+# A clean checkout has neither the dataset nor the gitignored pictogram copies.
+# With VQA_NO_LOCAL_DATA=1 (set in CI) the tests listed in needs_local_data.txt
+# are skipped with a reason; without it, every test runs as before.
+NO_LOCAL_DATA = os.environ.get("VQA_NO_LOCAL_DATA") == "1"
+_NEEDS_LOCAL_DATA_FILE = Path(__file__).with_name("needs_local_data.txt")
+
+# test_dev2 reads the train QA file at import time, so it cannot be collected.
+collect_ignore = ["test_dev2.py"] if NO_LOCAL_DATA else []
+
+
+def _needs_local_data() -> set[str]:
+    lines = _NEEDS_LOCAL_DATA_FILE.read_text(encoding="utf-8").splitlines()
+    return {ln.strip() for ln in lines if ln.strip() and not ln.startswith("#")}
+
+
+def pytest_collection_modifyitems(config, items):
+    if not NO_LOCAL_DATA:
+        return
+    listed = _needs_local_data()
+    skip = pytest.mark.skip(reason="needs the dataset or local pictogram copies")
+    for item in items:
+        if item.nodeid in listed:
+            item.add_marker(skip)

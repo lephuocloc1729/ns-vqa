@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint, KB load, leakage guard, tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      # A clean checkout has no dataset and no pictogram copies; the tests that
+      # need them (tests/needs_local_data.txt) are skipped with a reason.
+      VQA_NO_LOCAL_DATA: "1"
+      VQA_DATASET_DIR: /nonexistent
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SWI-Prolog (>= 9.1)
+        run: |
+          sudo apt-add-repository -y ppa:swi-prolog/stable
+          sudo apt-get update -q
+          sudo apt-get install -y -q swi-prolog-nox
+          swipl --version
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install the package
+        run: |
+          python -m pip install -U pip
+          pip install -e '.[dev]' ruff
+
+      - name: Lint (ruff)
+        run: ruff check vqa app eval tests tools
+
+      - name: Load the Prolog knowledge base
+        run: swipl -q -g "consult('kb/load.pl'), halt" -t "halt(1)"
+
+      - name: Leakage guard
+        run: python -m pytest -q tests/test_leakage_guard.py
+
+      - name: Test suite
+        run: python -m pytest -q -rs --junitxml=reports/junit.xml
+
+      - name: Upload the test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-report
+          path: reports/junit.xml
