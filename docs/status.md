@@ -1692,6 +1692,13 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### Post-benchmark fix: a lane sign's truck weight is the payload (owner, 2026-11-21; no API calls)
+
+- **Found by the owner while hand-grading the private workbooks:** on R.415a the engine read the number on a truck as the gross mass, so some answers were wrong. **QCVN 41 D.14** (lane signs): "ghi trị số khối lượng chuyên chở cho phép của xe tải lên thân xe trong hình vẽ của biển (Ví dụ: "<3,5t")": it is the permitted **payload**. D.16 (R.415a) says nothing about weights, so D.14 applies; P.106b already reads payload (B.6).
+- **Cause:** the scene prompt's only weight example is `gross_t`, so perception records a lane-board truck's "3,5t" as gross mass, and lane rows passed it through unchanged.
+- **Fix:** catalog `lane_truck_weight: load_t` on R.412c and R.415a (D.14 quoted in the YAML; `reviewed_by: assistant`), and `vqa/reasoning/facts.py` `_lane_vehicles` reads a truck's gross-mass condition on those signs' lane rows as a payload condition. Example: a truck with a 3 t payload on a "<3,5t" truck lane goes from unknown to yes. Tests `tests/test_lane_truck_weight.py` (5).
+- **The benchmark stands as run.** The three private runs used the frozen phase52 system; this fix is post-benchmark and is never scored on private. The phase-5.2 record no longer matches the tree: tests use `tests/freeze_at.py` `phase52_record_for_this_tree` (checked at `0b882c3`), and a real run from this tree with the real record is refused. The fix's effect is to be measured on public_dev / the train dev set only. In the thesis it belongs in the error analysis, with the number of affected private questions from the owner's grading.
+
 ### The private benchmark, complete (2026-11-21): V2 82.2% (sd 2.1), RAG alone 79.2%, V1 decides 66.9% at 82.1%
 
 - **Run 3's merge:** `e2e_private_rag.py run --run 3`, sentinel `eval/private_rag_ran_3.json`, aggregate `eval/runs/e2e/private_rag_aggregate_e243362cb98e.json` (no ids), **$0.78**. Live vs saved RAG answers: 34 of 48 identical.

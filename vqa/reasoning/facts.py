@@ -6,7 +6,7 @@ import itertools
 
 from vqa.kb import Catalog, code_atom
 from vqa.reasoning.terms import Term, atom, cond_term, spec_term
-from vqa.schemas import Confidence, PlateKind, SceneGraph, Sign
+from vqa.schemas import Confidence, PlateKind, SceneGraph, Sign, VehicleAttr, VehicleClass
 
 
 def board_read(sign) -> bool:
@@ -48,6 +48,24 @@ def _group_facts(s, rules, prefix: str) -> list[Term]:
 # turns the same way)
 _DIRECTION_ACTION = {"straight": "go_straight", "left": "turn_left", "slight_left": "turn_left",
                      "right": "turn_right", "slight_right": "turn_right", "u_turn": "u_turn"}
+
+
+def _lane_vehicles(vehicles: list, entry) -> list:
+    """A lane row's vehicles, with a truck's gross-mass condition read as the sign defines a
+    weight on its lane rows (catalog `lane_truck_weight`; QCVN 41 D.14: the payload on lane signs).
+    Post-benchmark fix (owner, 2026-11-21): perception records "3,5t" on a lane-board truck as
+    gross_t; on R.412c and R.415a it is the permitted payload."""
+    attr = entry.effect.lane_truck_weight if entry is not None else None
+    if attr is None:
+        return list(vehicles)
+    out = []
+    for v in vehicles:
+        if v.cls == VehicleClass.truck and any(c.attr == VehicleAttr.gross_t for c in v.conditions):
+            conds = [c.model_copy(update={"attr": VehicleAttr(attr)}) if c.attr == VehicleAttr.gross_t else c
+                     for c in v.conditions]
+            v = v.model_copy(update={"conditions": conds})
+        out.append(v)
+    return out
 
 
 def sign_facts(sign: Sign, catalog: Catalog) -> list[Term]:
@@ -102,7 +120,7 @@ def sign_facts(sign: Sign, catalog: Catalog) -> list[Term]:
     out += _group_facts(s, sign.rules, "g")
 
     for row in sign.lanes:
-        specs = [spec_term(v) for v in row.vehicles] or [atom("any")]
+        specs = [spec_term(v) for v in _lane_vehicles(row.vehicles, entry)] or [atom("any")]
         for sp in specs:
             if row.max_speed is not None:
                 out.append(Term("lane_limit", s, row.lane, sp, float(row.max_speed)))

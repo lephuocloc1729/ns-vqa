@@ -297,9 +297,13 @@ def test_phase51_record_is_written_once(tmp_path):
 
 
 def test_phase52_is_phase51_with_new_engine_code_only():
+    from tests.freeze_at import PHASE52_FREEZE_COMMIT, code_hash_at, phase52_record_for_this_tree
     rec, old = fz.load(fz.FROZEN_PHASE52), fz.load(fz.FROZEN_PHASE51)
-    assert fz.check(fz.FROZEN_PHASE52) == []
-    assert rec["profile"] == "phase52" and rec["engine_code"] == fz.code_hash()
+    # the record matches the engine code at its freeze commit; the post-benchmark lane truck-weight
+    # fix (2026-11-21) changed it since, so a run from this tree with the real record is refused
+    assert json.dumps(rec["engine_code"], sort_keys=True) == code_hash_at(PHASE52_FREEZE_COMMIT)
+    assert fz.check(fz.FROZEN_PHASE52) != []
+    assert rec["profile"] == "phase52" and phase52_record_for_this_tree()["engine_code"] == fz.code_hash()
     same = lambda r: {k: v for k, v in r.items() if k not in ("profile", "what", "engine_code")}  # noqa: E731
     assert same(rec) == same(old) and rec["engine_code"] != old["engine_code"]
     assert fz.pipeline_config("phase52") == fz.pipeline_config("phase51")

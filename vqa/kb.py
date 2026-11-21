@@ -58,6 +58,10 @@ class Effect(_M):
     min_speed: list[VehicleClass] = []
     lane_board: bool = False
     lane_reserved: list[VehicleClass] = []
+    # Post-benchmark fix (owner, 2026-11-21): what a weight on a truck in this sign's lane rows
+    # means. QCVN 41 D.14: on lane signs it is the truck's permitted payload, so a gross-mass
+    # condition read from the pictogram is taken as a payload condition (vqa/reasoning/facts.py).
+    lane_truck_weight: Literal["load_t"] | None = None
     only_directions: list[Literal["go_straight", "turn_left", "turn_right"]] = []
     ends: list[str] = []
     placement: PlacementRules | None = None

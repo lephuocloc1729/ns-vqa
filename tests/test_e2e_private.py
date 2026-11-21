@@ -6,6 +6,7 @@ no dataset file."""
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -15,6 +16,13 @@ import eval.freeze as fz
 from tests.freeze_at import phase47_record_file  # noqa: F401  (phase 4.7 record checked at 4ad9137)
 
 from tests.test_e2e_eval import CLEAN, QS, SCENE_REPLY, _e2e_sdk, fake_set  # noqa: F401
+
+import tempfile  # noqa: E402
+
+from tests.freeze_at import phase52_record_file  # noqa: E402
+
+# the phase-5.2 record checked at its freeze commit, with this tree's engine code (tests/freeze_at.py)
+FROZEN52 = phase52_record_file(Path(tempfile.mkdtemp(prefix="frozen52_")))
 
 SECRET_QS = [dict(q, id=f"private_secret_{i}", answer=f"{q['answer']} secret-gold-{i}")
              for i, q in enumerate(QS)]
@@ -28,7 +36,7 @@ def _run(fake_set, **kw):
     args = dict(confirm_frozen=True, sdk=sdk, questions=SECRET_QS, out_dir=fake_set / "agg",
                 image_path=lambda i: fake_set / f"{i}.jpg", sentinel=fake_set / "private_ran.json",
                 replay_root=fake_set / "private_run", git=CLEAN, ignored=lambda p: True, expected=TWO)
-    args["frozen"] = fz.FROZEN_PHASE52
+    args["frozen"] = FROZEN52
     args.update(kw)
     return ep.run_private(1.0, **args), sdk
 
@@ -48,7 +56,7 @@ def test_a_dirty_tree_is_refused_before_the_sentinel(fake_set):
 
 
 def test_a_configuration_that_differs_from_the_record_is_refused(fake_set):
-    rec = fz.load(fz.FROZEN_PHASE52)   # phase 5.2 (owner, 2026-11-20): the private run's record
+    rec = fz.load(FROZEN52)   # phase 5.2 (owner, 2026-11-20): the private run's record
     rec["prompts"]["answer"]["id"] = "answer/v2@0000000000"
     p = fake_set / "frozen.json"
     p.write_text(json.dumps(rec), encoding="utf-8")
@@ -276,7 +284,7 @@ def test_an_older_record_is_refused_before_the_sentinel(fake_set, record):
     (("engine_switches", "confusable_pairs"), True), (("pipeline_config", "parser_version"), "v17"),
     (("pipeline_config", "scene_rerun"), True)])
 def test_a_phase52_mismatch_is_refused_before_the_sentinel(fake_set, field, value):
-    rec = fz.load(fz.FROZEN_PHASE52)
+    rec = fz.load(FROZEN52)
     node = rec
     for k in field[:-1]:
         node = node[k]
@@ -375,7 +383,7 @@ def test_the_owner_sheet_is_written_in_the_replay_folder_only(fake_set):
 
 # ---------------------------------------------------------------- three runs in all (owner, 2026-11-21)
 
-def _finished(fake_set, run, run_id, *, status="finished", frozen=fz.FROZEN_PHASE52, aggregate=True):
+def _finished(fake_set, run, run_id, *, status="finished", frozen=FROZEN52, aggregate=True):
     """A hand-made sentinel for an earlier run, with its aggregate file."""
     import hashlib
     report = f"private_aggregate_{run_id}.json"

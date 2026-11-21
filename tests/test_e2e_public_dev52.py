@@ -10,6 +10,7 @@ import pytest
 
 import eval.e2e_public_dev52 as pd
 import eval.freeze as fz
+from tests.freeze_at import phase52_record_file
 from tests.test_e2e_eval import CLEAN, QS, SCENE_REPLY, RoutedSDK, _e2e_sdk, fake_set  # noqa: F401
 
 
@@ -17,7 +18,7 @@ def _run(fake_set, **kw):
     sdk = kw.pop("sdk", None) or _e2e_sdk()
     sdk.replies["perception"] = [SCENE_REPLY, SCENE_REPLY]
     args = dict(confirm_frozen=True, sdk=sdk, questions=QS, image_path=lambda i: fake_set / f"{i}.jpg",
-                out_root=fake_set / "runs", frozen=fz.FROZEN_PHASE52, git=CLEAN, ignored=lambda p: True)
+                out_root=fake_set / "runs", frozen=phase52_record_file(fake_set / "frozen"), git=CLEAN, ignored=lambda p: True)
     args.update(kw)
     return pd.run(1.0, **args), sdk
 

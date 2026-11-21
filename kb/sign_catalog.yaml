@@ -982,6 +982,10 @@ signs:
       lane_reserved: [truck]
       # an optional "<3,5t" on the symbol limits the lane to trucks under that load
       value: {attr: load_t, op: lt, unit: t, applies_to: [truck]}
+      # D.14: "ghi trị số khối lượng chuyên chở cho phép của xe tải lên thân xe trong hình vẽ của
+      # biển (Ví dụ: "<3,5t")" -- a weight on a truck in the lane rows is the payload
+      # (post-benchmark fix, owner 2026-11-21; reviewed_by: assistant)
+      lane_truck_weight: load_t
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.14"}
 
   - code: R.412d
@@ -1048,6 +1052,11 @@ signs:
       # D.16 a: shows the vehicles allowed on each lane (SceneGraph Sign.lanes, no speeds).
       # "Biển không áp dụng với các xe chuyển làn để ra vào hoặc dừng, đỗ bên đường."
       lane_board: true
+      # D.16 gives no meaning to a weight on a vehicle pictogram; D.14 (lane signs) does: "ghi trị
+      # số khối lượng chuyên chở cho phép của xe tải lên thân xe trong hình vẽ của biển (Ví dụ:
+      # "<3,5t")". A weight on a truck in a lane row is the payload, not the gross mass
+      # (post-benchmark fix, owner 2026-11-21; reviewed_by: assistant).
+      lane_truck_weight: load_t
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "D.16"}
     visual_reviewed_by: human
 
