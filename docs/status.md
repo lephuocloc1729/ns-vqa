@@ -1692,6 +1692,24 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### phase52 on the whole public test, with the RAG fallback (2026-11-21): V2 84.5%, RAG alone 82.0%
+
+- **Runs** (frozen phase52, rules only, fresh perception): public_dev `a30895cfad39` ($0.50, at `59425af`) and public_holdout `32cf475921a1` ($0.58, from the worktree `~/abc-phase52`, branch `phase52-holdout` at `f30e048`, the pre-fix code). **Merges** with the RAG's saved public predictions (config C): $0.14 and $0.18; the rules' grades are reused, only the RAG's Natural QA answers are judged. Combined report `eval/public52_report.py` -> `eval/runs/public52_report.json` (gitignored).
+
+| | public_test (100) | public_dev (51) | public_holdout (49) |
+|---|---|---|---|
+| V1 decided coverage | 81.0% | 82.4% | 79.6% |
+| V1 accuracy on decided | 87.0% | 85.7% | 88.5% |
+| V1 overall (non-decided wrong) | 70.5% | 70.6% | 70.4% |
+| **V2 rules + RAG fallback** | **84.5%** (CI 76.1–90.3%) | 86.3% | 82.7% |
+| V2 strict | 81.0% | 84.3% | 77.6% |
+| RAG alone | 82.0% | 82.4% | 81.6% |
+| RAG alone strict | 80.0% | 80.4% | 79.6% |
+| rules vs RAG on the decided questions | 87.0% vs 84.0% | 85.7% vs 81.0% | 88.5% vs 87.2% |
+| V2 vs RAG alone, paired strict (only V2 / only RAG) | 8 / 7, p 1.0 | 6 / 4, p 0.75 | 2 / 3, p 1.0 |
+
+- **Reading:** the two halves agree (V1 overall 70.6% vs 70.4%), so phase52 shows no sign of overfitting to public_dev. On public, the rules decide 81% at 87.0%, higher than on private (66.9% at 82.1%). V2 is 2.5 points above RAG alone, mostly from partial credit: on strict grades the two are tied (81% vs 80%). The RAG on the 19 triggered questions scores 73.7%. As on private, the rules and the RAG are right on different questions (8 vs 7 on the decided ones).
+
 ### public_holdout readable per question (owner, 2026-11-21; no API calls yet)
 
 - **Rule lifted (owner, 2026-11-21), recorded in CLAUDE.md:** after the private benchmark, public_holdout may be read question by question like public_dev, for the Chapter 4 error analysis. It is no longer held out; the earlier holdout figures stay as reported.
