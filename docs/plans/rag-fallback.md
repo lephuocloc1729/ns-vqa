@@ -1,6 +1,6 @@
 # Plan: the owner's RAG system as the answer fallback
 
-**Status: approved (owner, 2026-11-20)**, with decisions G1–G8 at the end. **Revised the same day (owner):** the RAG is the only fallback (no Sonnet fallback); the private benchmark runs once on `phase52` with the answer fallback off, and the RAG's saved, deterministic private answers are merged in afterwards (F4). No phase53 freeze is needed for the benchmark.
+**Status: approved (owner, 2026-11-20)**, with decisions G1–G8 at the end. **Revised the same day (owner):** the RAG is the only fallback (no Sonnet fallback); the private benchmark runs once on `phase52` with the answer fallback off, and the RAG's saved, deterministic private answers are merged in afterwards (F4). No phase53 freeze is needed for the benchmark. **Revised again (owner, 2026-11-21):** V2's fallback answers come from a **live** RAG run on the triggered private questions, not from the saved predictions; B2 (RAG alone) keeps the saved predictions (F4.3, G8). The live run uses the RAG repo's latency pipeline (live captions, live embeddings, then retrieval and answer, no per-question cache) limited to the triggered ids; the service (F2) and client (F3) follow for the demo.
 
 ## Why
 
@@ -56,12 +56,16 @@ All figures are reported on all images only (owner, 2026-11-20: no non-duplicate
 
 1. **(Recommended first) the v18 dev guardrail:** a re-parse of dev and dev2 with v18 on stored scenes, so the phase52 rules are checked before the one private run.
 2. **The private run, once, on `phase52`, answer fallback off** (`eval/e2e_private.py`, changed to build its pipeline with `answer_fallback=False`). It gives **V1** (rules only: decided coverage, accuracy on decided, overall with non-decided counted wrong) and writes the replay records, which hold each question's trigger.
-3. **The RAG merge, once** (`eval/e2e_private_rag.py`, new, scoring code like `e2e_private.py`). Inputs: the private run's `records.jsonl` and the RAG's `predictions.jsonl` (its path and sha256 go in the report). It refuses unless the private run has finished, the two files cover the same 146 questions, and its own sentinel `eval/private_rag_ran.json` does not exist. In memory it grades:
-   - **V2:** the rules' answer where no trigger fired, the RAG's answer where one did;
-   - **B2:** the RAG's answer for every question.
-   It writes one aggregate file (no ids): overall, Yes/No and Natural QA scores for V2 and B2, the RAG's score on the triggered questions, by trigger, and the judge cost.
+3. **The live RAG fallback run, once (owner, 2026-11-21).** The rules are not run again.
+   - `eval/e2e_private_rag.py ids` writes the triggered ids (ids only, 50 questions) to `triggered_ids.json` in the gitignored replay folder.
+   - On the GPU machine, the RAG repo's `experiments/private_live/run_private_live.sh triggered_ids.json` runs the F1 configuration live on those ids: live captions (one warm llama-server), live embeddings, then the runner's retrieval and answer (new runner options `--ids` and `--query-embeddings-dir`). The offline law-corpus and train-bank index is reused, as a deployment would. It refuses a non-empty output folder.
+   - Its last step writes `rag_live.jsonl` (answer and per-stage seconds per question) and `rag_live_meta.json` (configuration fingerprint, retrieval seconds). Model outputs only, no gold.
+4. **The RAG merge, once** (`eval/e2e_private_rag.py`, scoring code like `e2e_private.py`). Inputs: the private run's `records.jsonl`, the live answers (`rag_live.jsonl`) and the RAG's saved `predictions.jsonl` (paths and sha256s go in the report). It refuses unless the private run has finished, the live file covers exactly the triggered questions, the saved predictions cover all 146, and its own sentinel `eval/private_rag_ran.json` does not exist. In memory it grades:
+   - **V2:** the rules' answer where no trigger fired, the **live** RAG answer where one did;
+   - **B2:** the saved RAG answer for every question.
+   It writes one aggregate file (no ids): overall, Yes/No and Natural QA scores for V2 and B2, the RAG's score on the triggered questions, by trigger, how many live answers equal the saved ones (the determinism check), the live fallback latency, and the judge cost.
    **Grading sheets (owner, 2026-11-20, P6):** the private run writes `owner_grading.csv` (V1) and the merge writes `owner_grading_rag.csv` (V2 and B2) into the run's gitignored replay folder, with each question, gold answer, answer and judge grade, plus empty `human_score` and `human_note` columns. The owner grades V1, V2 and RAG alone by hand from the judge's labels, after the automatic aggregates are committed. The baselines' scores are the owner's own hand grades, so the thesis labels our rows "human-verified judge grades" and the baselines "human-graded".
-4. **public_dev (may be read question by question):** the same merge from stored pipeline records and the RAG's saved public_test answers, for the error analysis in Chapter 4.
+5. **public_dev (may be read question by question):** the same merge from stored pipeline records and the RAG's saved public_test answers, for the error analysis in Chapter 4.
 
 The demo and the final repository use the RAG service (F2) and client (F3); a freeze record for that configuration is written when it is built.
 
@@ -95,7 +99,8 @@ The demo and the final repository use the RAG service (F2) and client (F3); a fr
 | F1–F3 code and tests | none | none (fake backends) |
 | v18 dev and dev2 re-parse (F4.1) | ~$0.85 (the v17 re-parse was $0.84) | none |
 | Private run, rules only (F4.2) | ~$1.49 (range $1.19–1.93; `e2e_private.py estimate`, fallback off) | none |
-| RAG merge (F4.3): judge the RAG's Natural QA answers and V2's rules answers | ~$0.7 (about 120 Natural QA gradings) | none (saved answers) |
+| Live RAG fallback run (F4.3) | none | ~10 min (50 questions at ~12 s, plus model loading) |
+| RAG merge (F4.4): judge the RAG's Natural QA answers and V2's rules answers | ~$0.7 (about 120 Natural QA gradings) | none |
 
 Every paid step needs the owner's go-ahead on its estimate, behind the spend guard.
 
@@ -110,4 +115,4 @@ Every paid step needs the owner's go-ahead on its estimate, behind the spend gua
 | G5 | The rule for choosing G1 on public_dev | **Not needed**: G1 is decided |
 | G6 | The RAG's earlier private scoring | **Tune nothing on private**; the private run stays the final benchmark |
 | G7 | Lift the holdout rule for one more paired run | **Not needed**: no fallback choice is left to make |
-| G8 | Private run with the RAG live or precomputed | **Decided (owner, 2026-11-20): precomputed**, the saved deterministic answers (F4.3) |
+| G8 | Private run with the RAG live or precomputed | **Revised (owner, 2026-11-21): live for V2** (the triggered questions, the latency pipeline limited to their ids), saved predictions for B2 (F4.3–F4.4); judge stays Opus (`judge/v1`) for every row |
