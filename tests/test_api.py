@@ -227,10 +227,12 @@ def test_the_api_answer_is_the_pipelines_answer(make, tmp_path, monkeypatch):
     c, _ = make(pipe=real())
     ev = sse_events(ask(c, path="/v1/ask/stream", image=photo.read_bytes()).text)
     d = dict(ev)
-    names = [n for n, _ in ev]
+    names = [n for n, _ in ev if n != "token"]
     # perception and the parser run in parallel inside the pipeline, so either may finish first
     assert sorted(names[2:4]) == ["parsed", "perception"]
     assert names[:2] + names[4:] == ["turn", "started", "engine", "route", "answer", "done"]
+    # a non-streaming SDK hands the writer's whole reply over at once: one token, the full text
+    assert "".join(e["text"] for n, e in ev if n == "token") == direct.text
     a = d["answer"]
     assert (a["answer"], a["verdict"], a["answered_by"], a["citations"]) == \
         (direct.text, direct.verdict, direct.answered_by, direct.citations)

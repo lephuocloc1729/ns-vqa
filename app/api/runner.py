@@ -169,3 +169,9 @@ class PipelineRunner:
                 runner._send("route", {"to": "writer"})
                 return write(*a, **kw)
             writer.write = _write
+
+            # the writer's answer text as it streams ("token"), and its withdrawal before a
+            # retry or the template answer ("token_reset"); the final `answer` event is authoritative
+            def _writer_event(kind: str, payload: dict[str, Any]) -> None:
+                runner._send("token" if kind == "delta" else "token_reset", payload)
+            writer.on_event = _writer_event

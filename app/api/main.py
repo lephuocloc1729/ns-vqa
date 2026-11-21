@@ -6,7 +6,9 @@ Endpoints:
 - POST /v1/sessions                      start a conversation
 - POST /v1/ask                           image + question -> answer (JSON)
 - POST /v1/ask/stream                    the same, as server-sent events: one event per pipeline stage,
-                                         then `answer` and `done` (or `error`)
+                                         the writer's text as it is written (`token`; `token_reset`
+                                         withdraws it before a retry or the template answer), then
+                                         `answer` (authoritative, guard-checked) and `done` (or `error`)
 - GET  /v1/sessions/{id}/turns           the conversation's history
 - GET  /v1/turns/{id}                    one turn (also how a client that lost the stream gets its answer)
 - POST /v1/turns/{id}/feedback           thumbs up/down, a corrected answer, a note
@@ -273,14 +275,14 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
         sha, path = await save_upload(image)
         turn = store.start_turn(sid, q, sha)
         loop = asyncio.get_running_loop()
-        queue: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue(maxsize=256)
+        queue: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue(maxsize=8192)
         signs: list[dict[str, Any]] = []
 
         def put(name: str, payload: dict[str, Any]) -> None:
             try:
                 queue.put_nowait((name, payload))
             except asyncio.QueueFull:
-                pass                            # stage events are few; a full queue means a stalled client
+                pass                            # a stalled client; the final `answer` event still has the text
 
         def emit(name: str, payload: dict[str, Any]) -> None:   # pipeline thread
             if name == "perception":
