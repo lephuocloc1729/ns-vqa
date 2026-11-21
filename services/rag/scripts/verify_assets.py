@@ -3,6 +3,7 @@
     python scripts/verify_assets.py            # files and dataset links
     python scripts/verify_assets.py --cuda     # also the weights and llama.cpp
     python scripts/verify_assets.py --quick    # sizes only, no hashing
+    python scripts/verify_assets.py --no-private  # a GPU machine set up from the bundle (no private-test files)
 
 Exit code 0 when everything required is present and matches, 1 otherwise.
 """
@@ -29,11 +30,14 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--cuda", action="store_true", help="also check the weights and llama.cpp downloads")
     ap.add_argument("--quick", action="store_true", help="check sizes only")
+    ap.add_argument("--no-private", action="store_true",
+                    help="skip the private-test caches and dataset folder (the GPU bundle leaves them out)")
     args = ap.parse_args()
     m = json.loads((ROOT / "assets_manifest.json").read_text(encoding="utf-8"))
     problems: list[str] = []
 
-    for e in m["files"]:
+    files = [e for e in m["files"] if not (args.no_private and e["kind"] == "cache-private")]
+    for e in files:
         p = ROOT / e["path"]
         if not p.is_file():
             problems.append(f"missing: {e['path']}")
@@ -43,6 +47,8 @@ def main() -> int:
             problems.append(f"sha256 differs: {e['path']}")
 
     for link, target in m["dataset_links"].items():
+        if args.no_private and "private_test" in link:
+            continue
         p = ROOT / link
         if not p.is_symlink():
             if not p.exists():
@@ -66,7 +72,7 @@ def main() -> int:
             elif not args.quick and sha256(target) != d["sha256"]:
                 problems.append(f"sha256 differs: {d['path']}")
 
-    n = len(m["files"])
+    n = len(files)
     if problems:
         print(f"FAILED: {len(problems)} problem(s) in {n} files"
               f"{' + downloads' if args.cuda else ''}:")

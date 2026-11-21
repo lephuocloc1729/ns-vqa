@@ -48,3 +48,8 @@ temp/
 /artifacts/experiments/text_based_rag/corpus/corpus_embedding/organized_corpus.jsonl
 /artifacts/experiments/text_based_rag/corpus/data_preprocessing/corpus_preview.md
 /artifacts/experiments/text_based_rag/corpus/data_preprocessing/structured_corpus.jsonl
+
+# bundles made by scripts/make_bundle.py
+dist/
+downloads/
+logs/
