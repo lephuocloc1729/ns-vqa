@@ -49,3 +49,6 @@ services/rag/outputs/
 services/rag/evidence/
 services/rag/reports/
 services/rag/.venv/
+
+# app/api local database and uploads
+var/
