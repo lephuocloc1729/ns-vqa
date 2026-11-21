@@ -1692,6 +1692,12 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### public_holdout readable per question (owner, 2026-11-21; no API calls yet)
+
+- **Rule lifted (owner, 2026-11-21), recorded in CLAUDE.md:** after the private benchmark, public_holdout may be read question by question like public_dev, for the Chapter 4 error analysis. It is no longer held out; the earlier holdout figures stay as reported.
+- **Runner:** `eval/e2e_public_dev52.py run --split public_holdout` (and `merge --split public_holdout`), output in the gitignored `eval/runs/public_holdout52/`. 49 questions, 45 images, 36 Natural QA; the RAG's saved predictions cover all 49.
+- **System:** phase52 as benchmarked (owner), run from a worktree at the pre-fix commit so the code matches `eval/frozen_phase52.json`; the payload fix is not in it.
+
 ### Post-benchmark fix: a lane sign's truck weight is the payload (owner, 2026-11-21; no API calls)
 
 - **Found by the owner while hand-grading the private workbooks:** on R.415a the engine read the number on a truck as the gross mass, so some answers were wrong. **QCVN 41 D.14** (lane signs): "ghi trị số khối lượng chuyên chở cho phép của xe tải lên thân xe trong hình vẽ của biển (Ví dụ: "<3,5t")": it is the permitted **payload**. D.16 (R.415a) says nothing about weights, so D.14 applies; P.106b already reads payload (B.6).

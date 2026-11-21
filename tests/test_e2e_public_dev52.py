@@ -87,3 +87,11 @@ def test_the_merge_refuses_missing_public_dev_predictions(fake_set, tmp_path):
     with pytest.raises(SystemExit, match="miss"):
         pd.merge(1.0, run_id=out.parent.name, rag_predictions=_preds(tmp_path, rows), out_root=fake_set / "runs",
                  questions=QS)
+
+
+def test_the_split_option_names_the_public_halves(fake_set):
+    with pytest.raises(SystemExit, match="public_dev or public_holdout"):
+        pd.load_public("private_test")
+    assert set(pd.OUTS) == {"public_dev", "public_holdout"}
+    out, _ = _run(fake_set, split="public_holdout")
+    assert json.loads(out.read_text())["split"] == "public_holdout"

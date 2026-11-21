@@ -1,5 +1,6 @@
-"""phase52 on public_dev, rules only, then merged with the RAG's saved public answers (owner,
-2026-11-21). For the Chapter 4 error analysis: public_dev may be read question by question.
+"""phase52 on public_dev (or public_holdout), rules only, then merged with the RAG's saved public
+answers (owner, 2026-11-21). For the Chapter 4 error analysis: public_dev may be read question by
+question, and since 2026-11-21 (owner, CLAUDE.md) public_holdout too, with `--split public_holdout`.
 
 `run` answers the 51 public_dev questions with the frozen phase52 system (the private benchmark's
 configuration: `eval/frozen_phase52.json`, answer fallback off), with fresh perception into a new
@@ -13,8 +14,8 @@ restricted to public_dev's ids: the public_holdout half is neither read nor used
 grades are the run's own (not re-judged); only the RAG's Natural QA answers are judged. It writes
 per-question merge records and the same aggregate as the private merge (`same_questions` included).
 
-    .venv/bin/python eval/e2e_public_dev52.py run --confirm-frozen --max-spend 1.2
-    .venv/bin/python eval/e2e_public_dev52.py merge --run-id <id> --max-spend 0.6 \\
+    .venv/bin/python eval/e2e_public_dev52.py run [--split public_holdout] --confirm-frozen --max-spend 1.2
+    .venv/bin/python eval/e2e_public_dev52.py merge [--split public_holdout] --run-id <id> --max-spend 0.6 \\
         --rag-predictions <RAG repo>/artifacts/.../public_configs_C/public_test/predictions.jsonl
 """
 
@@ -39,7 +40,23 @@ from eval import freeze  # noqa: E402
 from eval import gold_signs as gs  # noqa: E402
 
 OUT = ROOT / "eval" / "runs" / "public_dev52"
+OUTS = {"public_dev": OUT, "public_holdout": ROOT / "eval" / "runs" / "public_holdout52"}
 PROFILE = "phase52"
+
+
+def load_public(split: str = "public_dev") -> list[dict]:
+    """The questions of one half of the public test, with their answers, in id order."""
+    if split == "public_dev":
+        return ee.load_dev()
+    if split != "public_holdout":
+        raise SystemExit(f"--split must be public_dev or public_holdout, not {split!r}")
+    from eval import parser_eval as pev
+    ids = set(json.loads(pev.SPLIT_FILE.read_text())["public_holdout"]["questions"])
+    rows = json.loads(pev.PUBLIC_FILE.read_text(encoding="utf-8"))
+    out = [{k: q[k] for k in ("id", "question", "image_id", "question_type", "answer")} for q in rows if q["id"] in ids]
+    if {q["id"] for q in out} != ids:
+        raise SystemExit("public_holdout ids missing from the public test file")
+    return sorted(out, key=lambda q: q["id"])
 
 
 def guards(*, frozen: Path = freeze.FROZEN_PHASE52, git=freeze.git_state, ignored=ep.git_ignores,
@@ -56,14 +73,15 @@ def guards(*, frozen: Path = freeze.FROZEN_PHASE52, git=freeze.git_state, ignore
     return g
 
 
-def run(max_spend: float, *, confirm_frozen: bool = False, sdk=None, questions: list[dict] | None = None,
-        image_path=None, out_root: Path = OUT, frozen: Path = freeze.FROZEN_PHASE52, git=freeze.git_state,
+def run(max_spend: float, *, split: str = "public_dev", confirm_frozen: bool = False, sdk=None,
+        questions: list[dict] | None = None, image_path=None, out_root: Path | None = None, frozen: Path = freeze.FROZEN_PHASE52, git=freeze.git_state,
         ignored=ep.git_ignores) -> Path:
     if not confirm_frozen:
         raise SystemExit("this run uses the frozen phase52 system: pass --confirm-frozen")
+    out_root = out_root or OUTS[split]
     g = guards(frozen=frozen, git=git, ignored=ignored, out_root=out_root)
     perception_model = ep.frozen_perception_model(frozen)
-    qs = questions if questions is not None else ee.load_dev()
+    qs = questions if questions is not None else load_public(split)
     image_path = image_path or (lambda i: gs.image_path(i, "public_dev"))
     run_id = uuid.uuid4().hex[:12]
     folder = Path(out_root) / run_id
@@ -104,7 +122,7 @@ def run(max_spend: float, *, confirm_frozen: bool = False, sdk=None, questions: 
     # meaningful here, and no longer required (owner, 2026-11-20)
     agg.pop("by_images", None)
     agg["rules_only"].pop("by_images", None)
-    report = {"what": "phase52 on public_dev, rules only (Chapter 4 error analysis)", "run_id": run_id,
+    report = {"what": f"phase52 on {split}, rules only (Chapter 4 error analysis)", "split": split, "run_id": run_id,
               "questions": len(qs), "images": len({q["image_id"] for q in qs}), "perception_model": perception_model,
               "answer_fallback": False, "started": started,
               "finished": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "git_commit": g["commit"],
@@ -116,23 +134,23 @@ def run(max_spend: float, *, confirm_frozen: bool = False, sdk=None, questions: 
     return out
 
 
-def merge(max_spend: float, *, run_id: str, rag_predictions: Path, sdk=None, out_root: Path = OUT,
-          questions: list[dict] | None = None) -> Path:
-    folder = Path(out_root) / run_id
+def merge(max_spend: float, *, run_id: str, rag_predictions: Path, split: str = "public_dev", sdk=None,
+          out_root: Path | None = None, questions: list[dict] | None = None) -> Path:
+    folder = Path(out_root or OUTS[split]) / run_id
     recs = {r["id"]: r for r in (json.loads(x) for x in (folder / "records.jsonl").read_text(encoding="utf-8").splitlines()
                                   if x.strip())}
-    qs = questions if questions is not None else ee.load_dev()
+    qs = questions if questions is not None else load_public(split)
     ids = {q["id"] for q in qs}
     if set(recs) != ids:
-        raise SystemExit(f"the run's records cover {len(recs)} questions, public_dev has {len(ids)}")
+        raise SystemExit(f"the run's records cover {len(recs)} questions, {split} has {len(ids)}")
     rows = {}
     for line in Path(rag_predictions).read_text(encoding="utf-8").splitlines():
         if line.strip():
             r = json.loads(line)
-            if r["id"] in ids:                          # public_dev only; public_holdout rows are skipped unread
+            if r["id"] in ids:                          # this half only; the other half's rows are skipped
                 rows[r["id"]] = r
     if missing := ids - set(rows):
-        raise SystemExit(f"the RAG predictions miss {len(missing)} public_dev questions")
+        raise SystemExit(f"the RAG predictions miss {len(missing)} {split} questions")
     if bad := sum(rows[i].get("status") != "COMPLETED" or not str(rows[i].get("answer") or "").strip() for i in ids):
         raise SystemExit(f"{bad} RAG predictions did not complete")
 
@@ -162,7 +180,8 @@ def merge(max_spend: float, *, run_id: str, rag_predictions: Path, sdk=None, out
     with open(folder / "merge_records.jsonl", "w", encoding="utf-8") as f:
         for row in out_rows:
             f.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
-    report = {"what": "phase52 on public_dev merged with the RAG's saved public answers (config C)", "run_id": run_id,
+    report = {"what": f"phase52 on {split} merged with the RAG's saved public answers (config C)", "split": split,
+              "run_id": run_id,
               "rag_predictions": {"file": str(rag_predictions),
                                   "sha256": hashlib.sha256(Path(rag_predictions).read_bytes()).hexdigest(),
                                   "config": er.rag_config(rag_predictions)},
@@ -177,17 +196,19 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run")
+    r.add_argument("--split", choices=sorted(OUTS), default="public_dev")
     r.add_argument("--confirm-frozen", action="store_true")
     r.add_argument("--max-spend", type=float, required=True)
     m = sub.add_parser("merge")
+    m.add_argument("--split", choices=sorted(OUTS), default="public_dev")
     m.add_argument("--run-id", required=True)
     m.add_argument("--max-spend", type=float, required=True)
     m.add_argument("--rag-predictions", type=Path, required=True)
     a = ap.parse_args()
     if a.cmd == "run":
-        run(a.max_spend, confirm_frozen=a.confirm_frozen)
+        run(a.max_spend, split=a.split, confirm_frozen=a.confirm_frozen)
     else:
-        merge(a.max_spend, run_id=a.run_id, rag_predictions=a.rag_predictions)
+        merge(a.max_spend, run_id=a.run_id, rag_predictions=a.rag_predictions, split=a.split)
 
 
 if __name__ == "__main__":
