@@ -40,3 +40,12 @@ prompts/scene/*/pictograms/
 # read by replay code only, deleted at the end of phase 5
 cache/private_run/
 reports/
+
+# services/rag: runtime files live here but never in git (docs/plans/rag-import.md)
+services/rag/data/
+services/rag/artifacts/
+services/rag/models/
+services/rag/outputs/
+services/rag/evidence/
+services/rag/reports/
+services/rag/.venv/
