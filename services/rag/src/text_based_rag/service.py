@@ -169,7 +169,9 @@ def generate_streaming(server: Any, messages: list, schema: dict, max_tokens: in
     content, finish, usage = [], None, None
     with requests.post(server.url + "/v1/chat/completions", json=body, stream=True, timeout=(10, 900)) as r:
         r.raise_for_status()
-        for raw in r.iter_lines(decode_unicode=True):
+        # llama-server sends no charset, and requests would then decode as Latin-1: decode UTF-8 ourselves
+        for raw_bytes in r.iter_lines():
+            raw = raw_bytes.decode("utf-8") if isinstance(raw_bytes, bytes) else raw_bytes
             if not raw or not raw.startswith("data: "):
                 continue
             data = raw[6:].strip()
