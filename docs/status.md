@@ -16,11 +16,41 @@
 - The lane-sign payload fix (QCVN 41 D.14, `05e4b3b`) is post-benchmark and never scored on private.
 - Details are in the entries below.
 
+### Task 3 (Review 3 checklist, defense 2026-11-30), day 1: done on 2026-11-21
+
+Plan: `docs/plans/task-3-review-3.md` (proposed; 9-day schedule). All work goes through PRs to `main`, with CI on every push.
+
+| PR | What | Merge |
+|---|---|---|
+| — | `phase-5` fast-forwarded into `main`; tag `v1.0-benchmark` (`4e71a18`, the code of the 3 private runs); GitHub Actions CI (lint, KB load, leakage guard, tests; tests needing local data skip via `tests/needs_local_data.txt`) | `ab315f1`, `e6cd2ca` |
+| #1 | The RAG imported as code only under `services/rag/` (history kept, rewritten to author/committer `stfutien`; `services/rag/ORIGIN.md` maps old hashes, e.g. `db75c4b` → `f177426`) | `d965265` |
+| #2 | RAG runtime assets: gitignored copies plus `assets_manifest.json` (1,596 files, sha256), `verify_assets.py`, `fetch_assets.sh`; retrieval from `services/rag/` identical to the saved runs (100 public + 146 private) | `ba5df83` |
+| #3 | Backend API `app/api/` (FastAPI): `/v1/ask`, `/v1/ask/stream` (stage events), sessions, history, feedback, images, `/metrics`, Swagger; runs the phase52 profile (held equal to `eval/frozen_phase52.json` by a test) | `560e6b7` |
+| #4 | Answer text streams token by token (`token`, `token_reset`; the final `answer` event stays authoritative); answers unchanged | `6f51736` |
+| #5 | RAG service (`services/rag/src/text_based_rag/service.py`, `service_api.py`) and the RAG fallback client `vqa/answer/rag_fallback.py`; API mode `VQA_ANSWER_FALLBACK=rag` + `VQA_RAG_URL` | `37acdf0` |
+| #6 | Fast GPU setup: bundle on the private HF dataset `lephuocloc/ns-vqa-rag-assets` (109 MB, no private-test files), `fetch.py`, `gpu_setup.sh`, GPU image `ghcr.io/lephuocloc1729/ns-vqa-rag` (public; code only) built by `.github/workflows/rag-image.yml`, runbook `docs/runbooks/gpu-session.md` | `0009e0f` |
+| #7 | GPU-session fixes (UTF-8 streaming, in-place downloads), results `docs/results/gpu-session-2026-11-21.md`, and setup without an interactive HF login (`HF_TOKEN` from the container, `scripts/onstart.sh`) | `7ebae48` |
+
+**Measured** (details in `docs/results/gpu-session-2026-11-21.md`):
+
+- **Live API test on the Mac, 3 public_dev questions, cold cache:** $0.1019; 1 correct, 1 sign misread, 1 undecided with the fallback off.
+- **GPU (RTX 5090):**
+  - a fresh machine is ready in about 2–3 minutes;
+  - service vs batch runner: identical at every stage except the query-embedding batch size;
+  - service latency 8.7 s mean, 6.8 s p50; peak VRAM 18.4 GB;
+  - Q4_K_M vs BF16: 9.3 vs 19.6 GB, 203 vs 91 tokens/s, 4.8 vs 6.5 s per answer (accuracy not measured);
+  - end to end through the API with the RAG fallback: 3/3 correct, $0.0855.
+
 **Next:**
-1. The demo: the RAG service (F2), the client (F3) and the UI.
-2. The RAG's Q4 vs BF16 table.
-3. The defense slides.
-4. Merge `phase-5` into `main`.
+1. **The web UI** (`web/`, React + Vite + TypeScript): ask screen with live stages and the streamed answer, sign boxes, citations, proof, RAG badge and sources, feedback, history; then microphone, video frame, dashboard.
+2. Docker Compose (web, api, rag, postgres, prometheus, grafana) + Grafana dashboards; CD for the API image.
+3. Load test (Locust), red-team/guardrail test, user test (SUS/CSAT, 10–12 people on 26–27/11).
+4. The RAG's Q4 vs BF16 accuracy (grade the saved private runs); thesis chapters; slides; demo video.
+
+**Open:**
+- The thesis's location, format and status are unknown (owner).
+- The default branch is still `phase-5` (owner to switch to `main`; ruleset `protect-main` suggested).
+- The repo's `.venv` pip script points at `NewNeuroSymbolic/.venv`: use `.venv/bin/python -m pip`.
 
 ---
 
