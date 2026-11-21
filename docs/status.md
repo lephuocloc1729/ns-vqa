@@ -1692,6 +1692,21 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### The private benchmark, run 2 (owner run, 2026-11-21): V1 decides 67.8% at 80.8%
+
+- **Run:** `3163188d23b7`, 02:10–02:58 UTC, at `20f5926`, same frozen phase52 record as run 1 (sentinel `eval/private_ran_2.json`; aggregate `eval/runs/e2e/private_aggregate_3163188d23b7.json`, no ids). **$1.39.** Fresh scene cache; replay records and `owner_grading.csv` in `cache/private_run/3163188d23b7/` (gitignored).
+
+| V1, rules only | run 1 | run 2 |
+|---|---|---|
+| decided coverage | 65.8% (96) | 67.8% (99) |
+| accuracy on decided | 81.8% (strict 79.2%) | 80.8% (strict 78.8%) |
+| overall, non-decided wrong | 53.8% | 54.8% |
+| Natural QA: decided, accuracy | 52, 77.9% | 54, 79.6% |
+| Yes/No: decided, accuracy | 44, 86.4% | 45, 82.2% |
+
+- **Not decided (47):** out of scope 20, unknown 20, unreadable sign 5, program cannot run 1, parse failed 1. Faithfulness 100%.
+- **Next:** run 3, then the merges for runs 2 and 3 (the live RAG files cover all 146 questions).
+
 ### The RAG merge, run 1 (owner run, 2026-11-21): V2 82.2%, RAG alone 79.1%
 
 - **Live RAG** (owner's vast RTX 5090, RAG repo `db75c4b`, config C as plan F1): the private questions captioned and embedded live, the law-corpus and train-bank index from their hash-verified caches. Run 1's 50 triggered questions, then the other 96, so all 146 are covered for runs 2 and 3. **A second live pass on the 50 matched the first on 50 of 50.** Files `rag_live.jsonl` in `cache/private_run/a51605785ace/` and `cache/private_run/live_rest/` (gitignored).
