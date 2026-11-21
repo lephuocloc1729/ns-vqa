@@ -126,22 +126,23 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-        text = json.dumps(REPLY, ensure_ascii=True)
+        text = json.dumps(REPLY, ensure_ascii=False)       # raw UTF-8, as llama-server sends it
         if not body.get("stream"):
             out = json.dumps({"choices": [{"finish_reason": "stop", "message": {"content": text}}],
-                              "usage": {"completion_tokens": 40}}).encode()
+                              "usage": {"completion_tokens": 40}}, ensure_ascii=False).encode("utf-8")
             self.send_response(200)
-            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(out)))
             self.end_headers()
             self.wfile.write(out)
             return
         self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Content-Type", "text/event-stream")       # no charset, like llama-server
         self.end_headers()
         pieces = [text[i:i + 3] for i in range(0, len(text), 3)]
         for p in pieces:
-            self.wfile.write(f"data: {json.dumps({'choices': [{'delta': {'content': p}, 'finish_reason': None}]})}\n\n".encode())
+            chunk = json.dumps({'choices': [{'delta': {'content': p}, 'finish_reason': None}]}, ensure_ascii=False)
+            self.wfile.write(f"data: {chunk}\n\n".encode("utf-8"))
         self.wfile.write(f"data: {json.dumps({'choices': [{'delta': {}, 'finish_reason': 'stop'}]})}\n\n".encode())
         self.wfile.write(f"data: {json.dumps({'choices': [], 'usage': {'completion_tokens': 40}})}\n\n".encode())
         self.wfile.write(b"data: [DONE]\n\n")
