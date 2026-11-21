@@ -75,6 +75,7 @@ class TurnOut(BaseModel):
     basis: list[str] = []
     citations: list[str] = []
     signs: list[dict[str, Any]] = []
+    retrieved: list[dict[str, Any]] = []      # laws the RAG fallback used (never rule citations)
     proof: dict[str, Any] | None = None
     stages: dict[str, Any] = {}
     cost_usd: float | None = None
@@ -87,7 +88,7 @@ def turn_out(t: Turn) -> TurnOut:
     return TurnOut(turn_id=t.id, session_id=t.session_id, status=t.status, question=t.question,
                    image_sha256=t.image_sha256, answer=t.answer_text, verdict=t.verdict,
                    answered_by=t.answered_by, basis=t.basis or [], citations=t.citations or [],
-                   signs=t.signs or [], proof=t.proof, stages=t.stages or {}, cost_usd=t.cost_usd,
+                   signs=t.signs or [], retrieved=t.retrieved or [], proof=t.proof, stages=t.stages or {}, cost_usd=t.cost_usd,
                    seconds=t.seconds, error=t.error,
                    feedback=[FeedbackOut(id=f.id, thumb=f.thumb, corrected_answer=f.corrected_answer, note=f.note)
                              for f in getattr(t, "feedback", []) or []])
@@ -127,7 +128,11 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
 
     def default_factory() -> Any:
         from vqa.pipeline import Pipeline
-        return Pipeline(pipeline_config(settings))
+        pipe = Pipeline(pipeline_config(settings))
+        if settings.answer_fallback == "rag":
+            from vqa.answer.rag_fallback import RagFallback
+            pipe.fallback = RagFallback(settings.rag_url, timeout=settings.rag_timeout_s)
+        return pipe
 
     runner = PipelineRunner(pipeline_factory or default_factory)
 
@@ -179,12 +184,24 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
             return session_id
         return store.new_session().id
 
+    def rag_part(result: Any) -> tuple[list[str], list[dict[str, Any]]]:
+        """For a RAG fallback answer: the basis gains "rag", and its laws go to `retrieved`."""
+        fb = (result.trace or {}).get("fallback") or {}
+        if result.answered_by != "fallback" or not str(fb.get("prompt_id", "")).startswith("rag"):
+            return list(result.basis), []
+        try:
+            record = json.loads((fb.get("raw") or ["{}"])[-1])
+        except (TypeError, ValueError):
+            record = {}
+        return [*result.basis, "rag"], list(record.get("retrieved") or [])
+
     def finish(turn_id: str, result: Any, signs: list[dict[str, Any]]) -> Turn:
+        basis, retrieved = rag_part(result)
         metrics.answers.labels(result.answered_by).inc()
         metrics.cost.labels(result.answered_by).inc(result.cost_usd or 0.0)
         metrics.seconds.observe(result.seconds or 0.0)
         return store.finish_turn(turn_id, status="done", answer_text=result.text, verdict=result.verdict,
-                                 answered_by=result.answered_by, basis=list(result.basis),
+                                 answered_by=result.answered_by, basis=basis, retrieved=retrieved,
                                  citations=list(result.citations), proof=result.proof, signs=signs,
                                  stages=stage_summary(result.trace or {}), cost_usd=result.cost_usd,
                                  seconds=result.seconds)

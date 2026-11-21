@@ -5,7 +5,9 @@
 | VQA_DATABASE_URL | sqlite:///var/app.db | SQLAlchemy URL; postgresql+psycopg://... in Docker |
 | VQA_UPLOAD_DIR | var/uploads | where uploaded images are kept, named by sha256 |
 | VQA_PROFILE | phase52 | the frozen pipeline profile the API runs |
-| VQA_ANSWER_FALLBACK | off | off: undecided questions get the rules' "not decided" answer; claude: the Sonnet answer fallback |
+| VQA_ANSWER_FALLBACK | off | off: undecided questions get the rules' "not decided" answer; claude: the Sonnet answer fallback; rag: the RAG service (V2) |
+| VQA_RAG_URL | http://127.0.0.1:8100 | the RAG service, for VQA_ANSWER_FALLBACK=rag |
+| VQA_RAG_TIMEOUT_S | 180 | seconds before a RAG answer counts as failed (the engine's answer then ships) |
 | VQA_SCENE_CACHE | (pipeline default) | scene cache directory |
 | VQA_SPEND_LIMIT | (spend guard default) | Claude API spend limit in USD for this process |
 | VQA_MAX_IMAGE_MB | 10 | largest accepted upload |
@@ -20,7 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
-FALLBACK_MODES = ("off", "claude")
+FALLBACK_MODES = ("off", "claude", "rag")
 
 
 @dataclass(frozen=True)
@@ -29,6 +31,8 @@ class Settings:
     upload_dir: Path = ROOT / "var" / "uploads"
     profile: str = "phase52"
     answer_fallback: str = "off"
+    rag_url: str = "http://127.0.0.1:8100"
+    rag_timeout_s: float = 180.0
     scene_cache: Path | None = None
     max_spend: float | None = None
     max_image_bytes: int = 10 * 1024 * 1024
@@ -51,6 +55,8 @@ class Settings:
             upload_dir=Path(env.get("VQA_UPLOAD_DIR", str(cls.upload_dir))),
             profile=env.get("VQA_PROFILE", cls.profile),
             answer_fallback=env.get("VQA_ANSWER_FALLBACK", cls.answer_fallback),
+            rag_url=env.get("VQA_RAG_URL", cls.rag_url),
+            rag_timeout_s=float(env.get("VQA_RAG_TIMEOUT_S", "180")),
             scene_cache=Path(cache) if cache else None,
             max_spend=float(spend) if spend else None,
             max_image_bytes=int(float(env.get("VQA_MAX_IMAGE_MB", "10")) * 1024 * 1024),

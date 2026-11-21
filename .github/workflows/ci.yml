@@ -60,3 +60,27 @@ jobs:
         with:
           name: junit-report
           path: reports/junit.xml
+
+  rag-service:
+    name: RAG service tests (no GPU, no index)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/rag
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install the RAG package (CPU only)
+        run: pip install -e '.[service,dev]'
+      - name: Compile the RAG code
+        run: python -m compileall -q src experiments scripts
+      - name: Runner help and asset manifest
+        run: |
+          python -m text_based_rag.natural_qa_runner --help > /dev/null
+          python -c "import json; m = json.load(open('assets_manifest.json')); assert m['files'] and m['downloads']"
+      - name: Service tests (tests needing the gitignored index are skipped)
+        run: python -m pytest -q -rs tests

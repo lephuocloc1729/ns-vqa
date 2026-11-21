@@ -161,6 +161,10 @@ class PipelineRunner:
                 return fb_answer(*a, **kw)
             fallback.answer = _fallback
 
+            if hasattr(fallback, "on_event"):          # the RAG fallback streams its answer text
+                fallback.on_event = lambda kind, payload: runner._send(
+                    "token" if kind == "delta" else "token_reset", payload)
+
         writer = getattr(pipe, "writer", None)
         if writer is not None and hasattr(writer, "write"):
             write = writer.write
