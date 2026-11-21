@@ -1692,6 +1692,25 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### The RAG merge, run 2 (owner run, 2026-11-21): V2 80.1%, RAG alone 79.5%, no significant difference
+
+- **Merge:** `e2e_private_rag.py run --run 2` at `335b6e5` (with the same-question split), sentinel `eval/private_rag_ran_2.json`, aggregate `eval/runs/e2e/private_rag_aggregate_3163188d23b7.json` (no ids), **$0.74**.
+
+| run 2 | overall | 95% CI | strict | Yes/No | Natural QA |
+|---|---|---|---|---|---|
+| **V2, rules + live RAG fallback** | **80.1%** | 72.9–85.8% | 78.8% | 77.1% | 82.9% |
+| RAG alone (saved predictions) | 79.5% | 72.2–85.2% | 77.4% | 75.7% | 82.9% |
+
+- **Same questions, paired (strict):**
+
+| | V2 | RAG alone | both right | only V2 | only RAG | both wrong | McNemar p |
+|---|---|---|---|---|---|---|---|
+| 99 rules-decided | 80.8% (rules) | 80.3% | 65 | 13 | 12 | 9 | 1.0 |
+| 47 triggered | 78.7% (live) | 77.7% (saved) | 35 | 2 | 1 | 9 | 1.0 |
+| all 146 | 80.1% | 79.5% | 100 | 15 | 13 | 18 | 0.85 |
+
+- **Reading:** on the questions the rules decide, the rules and the RAG are tied (80.8% vs 80.3%), and they are right on different questions (13 vs 12 discordant, 9 both wrong). The run-1 estimate of RAG alone at 77–78% on the rules' questions (from the aggregates) was wrong. V2's accuracy is on par with RAG alone; the rules add proofs, citations and 100% faithfulness on two-thirds of the questions, not accuracy. Live vs saved RAG answers: 33 of 47 identical.
+
 ### The private benchmark, run 3, and V1 over the three runs (owner run, 2026-11-21): decides 66.9% at 82.1%
 
 - **Run 3:** `e243362cb98e`, 03:06–04:01 UTC, at `4e71a18`, same frozen phase52 record (sentinel `eval/private_ran_3.json`; aggregate `eval/runs/e2e/private_aggregate_e243362cb98e.json`, no ids). **$1.36.** Replay records and `owner_grading.csv` in `cache/private_run/e243362cb98e/` (gitignored). Not decided (48): out of scope 20, unknown 20, unreadable sign 5, parse failed 2, program cannot run 1.
