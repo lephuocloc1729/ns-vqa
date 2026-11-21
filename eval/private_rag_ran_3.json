@@ -1,0 +1,15 @@
+{
+  "what": "the one RAG merge on the private test (docs/plans/rag-fallback.md F4.4); blocks a second run",
+  "run": 3,
+  "private_run_id": "e243362cb98e",
+  "started": "2026-11-21T04:19:32+00:00",
+  "status": "finished",
+  "rag_predictions_sha256": "82d50aa5f42b0ea8fb7e990fab9e39e667c924a87fdc32173efe6b893a72891e",
+  "rag_live_sha256": {
+    "a51605785ace/rag_live.jsonl": "e186823ad52492879ddef1319f03b1083f1441d715a38c8d63e7296c9647319d",
+    "live_rest/rag_live.jsonl": "79aeef4bab5453bfbdcb15b7f86d65cbd618acdc2571bf8704424bd130fef5b8"
+  },
+  "finished": "2026-11-21T04:25:47+00:00",
+  "report": "private_rag_aggregate_e243362cb98e.json",
+  "spent_usd": 0.7793
+}

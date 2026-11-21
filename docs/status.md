@@ -1692,6 +1692,30 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### The private benchmark, complete (2026-11-21): V2 82.2% (sd 2.1), RAG alone 79.2%, V1 decides 66.9% at 82.1%
+
+- **Run 3's merge:** `e2e_private_rag.py run --run 3`, sentinel `eval/private_rag_ran_3.json`, aggregate `eval/runs/e2e/private_rag_aggregate_e243362cb98e.json` (no ids), **$0.78**. Live vs saved RAG answers: 34 of 48 identical.
+- **All three runs** (146 private questions; judge `judge/v1`, Opus 5.5; Yes/No by polarity):
+
+| | run 1 | run 2 | run 3 | **mean (sd)** |
+|---|---|---|---|---|
+| V1, rules only, non-decided wrong | 53.8% | 54.8% | 56.2% | **54.9% (1.2)** |
+| V1, accuracy on decided (coverage) | 81.8% (65.8%) | 80.8% (67.8%) | 83.7% (67.1%) | **82.1% (1.5)** at 66.9% (1.1) |
+| **V2, rules + live RAG fallback** | 82.2% | 80.1% | 84.2% | **82.2% (2.1)** |
+| RAG alone (saved predictions) | 79.1% | 79.5% | 79.1% | **79.2% (0.2)** |
+
+- **Same questions, paired (strict; runs 2 and 3, the split was added after run 1's merge):**
+
+| | rules / V2 | RAG alone | only rules/V2 right | only RAG right | McNemar p |
+|---|---|---|---|---|---|
+| run 3, 98 rules-decided | 83.7% | 76.5% | 15 | 8 | 0.21 |
+| run 3, 48 triggered (live vs saved RAG) | 85.4% | 84.4% | 2 | 1 | 1.0 |
+| run 3, all 146 | 84.2% | 79.1% | 17 | 9 | 0.17 |
+| run 2, all 146 | 80.1% | 79.5% | 15 | 13 | 0.85 |
+
+- **Reading:** V2 is above RAG alone in every run (+3.1, +0.6, +5.1; mean +3.0) and above the two hand-graded baselines (~78%), but no single run's difference is significant on 146 questions. RAG alone's answers are the same in every merge and its score moves 0.2 points across three judgings, so V2's spread (2.1) is the neuro-symbolic side's own run-to-run variance, not the judge's. On the decided questions the rules and the RAG are each right where the other is wrong on 8–15 questions: better routing between them is the clearest future work. The baselines' figures are the owner's hand grades; the hand grades of V1, V2 and RAG alone (the `owner_grading*.csv` sheets) are still to come.
+- **Cost of the benchmark:** private runs $4.08, merges $2.24, live RAG on the owner's GPU.
+
 ### The RAG merge, run 2 (owner run, 2026-11-21): V2 80.1%, RAG alone 79.5%, no significant difference
 
 - **Merge:** `e2e_private_rag.py run --run 2` at `335b6e5` (with the same-question split), sentinel `eval/private_rag_ran_2.json`, aggregate `eval/runs/e2e/private_rag_aggregate_3163188d23b7.json` (no ids), **$0.74**.
