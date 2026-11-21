@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # Set up the RAG service on a fresh GPU machine, in one command.
 #
-#   export RAG_ASSETS_REPO=<hf-user>/ns-vqa-rag-assets     # the private dataset repo with the bundle
-#   hf auth login                                         # once, on the machine (or export HF_TOKEN)
 #   bash scripts/gpu_setup.sh [--bf16]
+#
+# Hugging Face access, with no interactive login: set HF_TOKEN (a read-only token) when the
+# container starts, e.g. in the vast.ai template's environment variables. The script also
+# reads HF_TOKEN and RAG_ASSETS_REPO from the container's start environment (/proc/1/environ),
+# because vast.ai passes them to the container but not always to SSH shells. A saved
+# `hf auth login` works too. The token is never printed or written by this script.
+# RAG_ASSETS_REPO defaults to lephuocloc/ns-vqa-rag-assets.
 #
 # Works in the GPU image (ghcr.io/<owner>/ns-vqa-rag, packages and llama.cpp already in it)
 # and on a plain CUDA machine (packages installed with uv, llama.cpp downloaded).
@@ -13,7 +18,20 @@
 #   then: unpack, check every file against assets_manifest.json, report GPU and timing
 set -euo pipefail
 cd "$(dirname "$0")/.."
-: "${RAG_ASSETS_REPO:?set RAG_ASSETS_REPO to the private Hugging Face dataset repo, e.g. user/ns-vqa-rag-assets}"
+
+# Variables the container was started with (vast.ai -e / template env) that this shell lacks.
+load_container_env() {
+  local src=${CONTAINER_ENV_FILE:-/proc/1/environ} kv key
+  [ -r "$src" ] || return 0
+  while IFS= read -r -d '' kv; do
+    key=${kv%%=*}
+    case "$key" in
+      HF_TOKEN|RAG_ASSETS_REPO) [ -z "${!key:-}" ] && export "$kv" ;;
+    esac
+  done < "$src"
+}
+load_container_env
+export RAG_ASSETS_REPO=${RAG_ASSETS_REPO:-lephuocloc/ns-vqa-rag-assets}
 BF16=""
 [ "${1:-}" = "--bf16" ] && BF16="--bf16"
 PY=${PY:-python3}
@@ -36,6 +54,14 @@ else
   "$PY" -m uv pip install --system -e '.[service]' "transformers==4.56.2" "sentence-transformers==5.1.1" \
     "huggingface_hub[cli]>=0.34"
 fi
+
+echo "== Hugging Face access"
+if ! "$PY" -c "import sys; from huggingface_hub import get_token; sys.exit(0 if get_token() else 1)"; then
+  echo "   no token: set HF_TOKEN (read-only) in the instance's environment, or run: hf auth login"
+  kill $MODELS $LLAMA 2>/dev/null || true
+  exit 1
+fi
+echo "   token found ($( [ -n "${HF_TOKEN:-}" ] && echo HF_TOKEN || echo saved login ))"
 
 echo "== asset bundle from $RAG_ASSETS_REPO"
 "$PY" - "$RAG_ASSETS_REPO" <<'EOF'
