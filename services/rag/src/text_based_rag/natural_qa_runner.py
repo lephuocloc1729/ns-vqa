@@ -33,6 +33,20 @@ DEDUP_FIX_SHA256 = '814ecba9005a5a7f7dfbac8190901e440ff69e96ea60156dca33a8ea2872
 UNBOUNDED_FIX_SHA256 = 'd77b1db2faf5d970c8a84b14a52cff30d8035d002fa15c151e713dca42e75f98'
 PRE_CONTEXT_FIX_SHA256 = 'b9f74574bf0df80a3d21582a815a24f7b07e19a2f127bde4ec612bf26c4be975'
 CAPTION_RETRY_MAX_TOKENS = 12288
+# Optional subset of a test split (--ids): only these question ids are loaded. Train is never filtered.
+ID_FILTER = None
+
+
+def set_id_filter(path):
+    """Restrict test-split rows to the ids in `path` (JSON list, or one id per line). Returns provenance."""
+    global ID_FILTER
+    text = Path(path).read_text(encoding='utf-8-sig').strip()
+    ids = json.loads(text) if text.startswith('[') else [line.strip() for line in text.splitlines() if line.strip()]
+    if not ids or len(set(ids)) != len(ids) or not all(isinstance(i, str) and i for i in ids):
+        raise ValueError(f'--ids must list distinct, non-empty question ids: {path}')
+    ID_FILTER = frozenset(ids)
+    return {'ids_file_sha256': hashlib.sha256(Path(path).read_bytes()).hexdigest(), 'count': len(ids),
+            'policy': 'test_split_subset_by_id_v1'}
 ANSWER_IMAGE_MAX_TOKENS = 4096
 CAPTION_RETRY_RULES = '''
 YÊU CẦU CHO LẦN SINH LẠI: Lần trước đã thất bại vì output quá dài hoặc lặp item.
@@ -145,6 +159,11 @@ def load_rows(root, split):
         rows.append(row)
     if len({r['id'] for r in rows}) != len(rows):
         raise ValueError(f'Duplicate sample IDs: {source}')
+    if ID_FILTER is not None and split != 'train':
+        missing = ID_FILTER - {r['id'] for r in rows}
+        if missing:
+            raise ValueError(f'{len(missing)} --ids are not in {split}')
+        rows = [r for r in rows if r['id'] in ID_FILTER]
     return source, rows
 
 
@@ -982,6 +1001,8 @@ def embed_natural_captions(args, root, qa_module, cap_module):
             'packages': installed_package_versions(('numpy', 'torch', 'transformers', 'sentence-transformers', 'Pillow')),
             'bge_reference_revision': BGE_REVISION if args.embedding_model == 'bge-m3' else None,
         }
+        if getattr(args, 'id_filter', None):
+            config['id_filter'] = args.id_filter
         run = Run(output, config)
         records = run.read('embeddings.jsonl', rows)
         encoder = NaturalEncoder(args.embedding_model, args.embedding_dtype)
@@ -1395,7 +1416,18 @@ def main():
     parser.add_argument('--kb-articles', type=Path, default=None,
                         help='Experiment (option C): JSONL of knowledge-base articles per question id, appended after retrieval.')
     parser.add_argument('--kb-limit', type=int, default=1, help='At most this many knowledge-base articles per question.')
+    parser.add_argument('--ids', type=Path, default=None,
+                        help='Run only these question ids of the test split (JSON list or one per line).')
+    parser.add_argument('--query-embeddings-dir', type=Path, default=None,
+                        help='With --reuse-precomputed-embeddings: the query-embedding cache to read instead of the split default.')
     args = parser.parse_args()
+    id_filter = None
+    if args.ids:
+        if args.split not in {'public_test', 'private_test'}:
+            parser.error('--ids applies to public_test or private_test.')
+        id_filter = set_id_filter(args.ids)
+    if args.query_embeddings_dir and not args.reuse_precomputed_embeddings:
+        parser.error('--query-embeddings-dir requires --reuse-precomputed-embeddings.')
     if args.answer_max_tokens < 1:
         parser.error('--answer-max-tokens must be positive.')
     if args.answer_gpu_memory_limit is not None:
@@ -1438,6 +1470,7 @@ def main():
         if not args.allow_incomplete_captions:
             parser.error('--embedding-only requires --allow-incomplete-captions for the accepted incomplete captions.')
         root = args.dataset_root.expanduser().resolve()
+        args.id_filter = id_filter
         return embed_natural_captions(args, root, qa, cap)
     if args.split == 'train':
         parser.error("--split train chỉ dùng được cùng --embedding-only.")
@@ -1527,7 +1560,8 @@ def main():
             }.get(args.split)
             if query_root is None:
                 raise ValueError('Precomputed query embedding cache supports public_test or private_test.')
-            query_cache_dir = query_root / args.embedding_model
+            query_cache_dir = (args.query_embeddings_dir.expanduser().resolve() if args.query_embeddings_dir
+                               else query_root / args.embedding_model)
             precomputed_query_manifest = verified_run_cache(query_cache_dir, ('embeddings.jsonl',))
             expected_model = EMBEDDERS[args.embedding_model][0]
             for label, manifest in (('corpus', precomputed_corpus_manifest),
@@ -1655,6 +1689,8 @@ def main():
                            'answer_max_tokens': args.answer_max_tokens, 'test_source_sha256': file_hash(test_source),
                            'test_image_sha256': {r['image_id']: file_hash(Path(r['image'])) for r in rows},
                            'example_bank_fingerprint': digest(train_config)}
+            if id_filter:
+                test_config['id_filter'] = id_filter
             if args.kb_articles:
                 test_config['kb_articles'] = {'sha256': file_hash(args.kb_articles), 'limit': args.kb_limit,
                                               'policy': 'append_after_retrieval_skip_present_v1'}
