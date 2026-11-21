@@ -70,6 +70,9 @@ def collect(live: Path, log: Path | None = None) -> tuple[Path, Path]:
             "caption_manifest": {k: v for k, v in json.loads((live / "captions" / "manifest.json").read_text(
                 encoding="utf-8")).items() if k in ("status", "incomplete_queries", "model_load_seconds",
                                                     "elapsed_seconds", "scope")},
+            "train_caption_manifest": {k: v for k, v in json.loads((live / "train_captions" / "manifest.json").read_text(
+                encoding="utf-8")).items() if k in ("status", "queries", "incomplete_queries", "elapsed_seconds")}
+            if (live / "train_captions" / "manifest.json").exists() else None,
             "retrieval_seconds_per_question": retrieval_seconds(log)}
     meta_path = live / "rag_live_meta.json"
     meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")

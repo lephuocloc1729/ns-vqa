@@ -32,7 +32,8 @@ from text_based_rag.corpus_embedding import file_hash
 
 ROOT = Path(__file__).resolve().parents[2]
 REFERENCE = {"public_test": ROOT / "artifacts/public-test/text_based_rag/natural_qa/image_captioning",
-             "private_test": ROOT / "artifacts/private_test/text_based_rag/natural_qa/image_captioning"}
+             "private_test": ROOT / "artifacts/private_test/text_based_rag/natural_qa/image_captioning",
+             "train": ROOT / "artifacts/experiments/text_based_rag/natural_qa/image_captioning/train"}
 
 
 def valid(description: str) -> bool:

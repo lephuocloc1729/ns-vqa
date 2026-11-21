@@ -1052,7 +1052,12 @@ def load_fresh_caption_artifacts(rows, root, split, args, qa_module):
         'public_test': qa_module.ROOT / 'artifacts/public-test/text_based_rag/natural_qa/image_captioning',
         'private_test': qa_module.ROOT / 'artifacts/private_test/text_based_rag/natural_qa/image_captioning',
     }
-    caption_dir = (args.caption_dir if split == args.split and args.caption_dir else folders[split]).expanduser().resolve()
+    if split == args.split and args.caption_dir:
+        caption_dir = args.caption_dir.expanduser().resolve()
+    elif split == 'train' and getattr(args, 'train_caption_dir', None):
+        caption_dir = args.train_caption_dir.expanduser().resolve()
+    else:
+        caption_dir = folders[split].expanduser().resolve()
     source, source_rows = load_rows(root, split)
     manifest_path, mapping_path = caption_dir / 'manifest.json', caption_dir / 'query_image_mapping.jsonl'
     manifest = json.loads(manifest_path.read_text(encoding='utf-8-sig'))
@@ -1418,6 +1423,8 @@ def main():
     parser.add_argument('--kb-limit', type=int, default=1, help='At most this many knowledge-base articles per question.')
     parser.add_argument('--ids', type=Path, default=None,
                         help='Run only these question ids of the test split (JSON list or one per line).')
+    parser.add_argument('--train-caption-dir', type=Path, default=None,
+                        help='With --fresh-captions: the train (example-bank) caption artifacts to read instead of the default.')
     parser.add_argument('--query-embeddings-dir', type=Path, default=None,
                         help='With --reuse-precomputed-embeddings: the query-embedding cache to read instead of the split default.')
     args = parser.parse_args()

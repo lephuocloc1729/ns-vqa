@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # The live RAG fallback run on the private test (NewNeuroSymbolic docs/plans/rag-fallback.md, F4.3).
 #
-# Runs the pinned configuration C (Qwen3.5-9B Q4_K_M, f2llm-v2-0.6b, 5 image few-shots) live,
-# with no per-question cache, on the private questions the neuro-symbolic rules left
-# undecided (their ids only, exported by the rules repo):
-#   1. live captions (one warm llama-server, each caption timed)
+# Runs the pinned configuration C (Qwen3.5-9B Q4_K_M, f2llm-v2-0.6b, 5 image few-shots) live on
+# the private questions the neuro-symbolic rules left undecided (their ids only, exported by
+# the rules repo). No cache is used for the private questions (owner, 2026-11-21): they are
+# captioned and embedded live. The offline index stays as a deployment would have it: the law
+# corpus chunks and vectors, the train example bank's captions and embeddings.
+#   1. live captions for the triggered private questions (one warm llama-server, each timed)
 #   2. live question embeddings: a one-at-a-time timer, then the runner's cache format
-#   3. retrieval + answer: the runner, reading only the live captions and live embeddings
+#   3. retrieval + answer: the runner, reading the live private captions and embeddings
+#      (--query-embeddings-dir) and the hash-verified offline index
 #   4. collect: one rag_live.jsonl (answers + per-stage seconds) for the rules repo's merge
-# The offline index (law-corpus and train-bank vectors) is reused, as a deployment would.
 #
 #   bash experiments/private_live/run_private_live.sh <triggered_ids.json> [out_dir]
 set -euo pipefail
@@ -24,7 +26,7 @@ fi
 mkdir -p "$OUT"
 cp "$IDS" "$OUT/ids.json"
 
-echo "== 1 live captions"
+echo "== 1 live captions, triggered private questions"
 $PY experiments/latency/caption_live.py --split private_test --ids "$OUT/ids.json" --out "$OUT/captions"
 
 echo "== 2a live embeddings, one question at a time (timing)"
@@ -37,7 +39,7 @@ $PY -m text_based_rag.natural_qa_runner --dataset-root "$DATA" \
   --embedding-model f2llm-v2-0.6b --embedding-dtype bf16 \
   --caption-dir "$OUT/captions" --output-dir "$OUT/query_embeddings" --allow-incomplete-captions
 
-echo "== 3 retrieval + answer, config C, live captions and embeddings"
+echo "== 3 retrieval + answer, config C, live private captions and embeddings"
 $PY -m text_based_rag.natural_qa_runner \
   --dataset-root "$DATA" --split private_test --ids "$OUT/ids.json" \
   --output-dir "$OUT/answers" --embedding-model f2llm-v2-0.6b --embedding-dtype bf16 \
