@@ -17,6 +17,12 @@
 - refusal and max_tokens stop reasons raise, each with its own message.
 - The user turn is text (the parser) or a list of content blocks, text and image
   (the scene call). Text is sent unchanged, as the parser always sent it.
+- **Streaming (opt-in, the demo API):** with `on_text`, the request goes through
+  messages.stream and each text delta is passed to `on_text` as it arrives. The final
+  message is then handled exactly like a create() reply (same parsing, cost, spend
+  guard, log and errors), so the result does not depend on streaming. Without
+  `on_text` the call is the plain create() it always was. A client whose SDK has no
+  stream() (test stand-ins) calls create() and passes the whole text once.
 """
 
 from __future__ import annotations
@@ -25,7 +31,7 @@ import json
 import re
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from vqa.llm.pricing import cost_usd, worst_case_usd
 from vqa.llm.spend import SpendGuard, log_call
@@ -67,6 +73,14 @@ def parse_json_reply(text: str) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise LLMBadJSON("the reply must be a JSON object")
     return data
+
+
+def _notify(on_text: Callable[[str], None], delta: str) -> None:
+    """Pass a delta on; a failing listener never fails the call."""
+    try:
+        on_text(delta)
+    except Exception:
+        pass
 
 
 @dataclass
@@ -117,10 +131,12 @@ class LLMClient:
     def json_reply(self, *, system: str, user: str | list[dict[str, Any]], max_tokens: int = 4096,
                    effort: str | None = None, purpose: str = "",
                    extra_messages: list[dict] | None = None,
-                   output_schema: dict[str, Any] | None = None) -> CallResult:
+                   output_schema: dict[str, Any] | None = None,
+                   on_text: Callable[[str], None] | None = None) -> CallResult:
         """One call whose reply must be a JSON object. Raises LLMRefusal,
         LLMTruncated, LLMBadJSON (after logging and counting the cost), or the
-        SDK's own error for HTTP failures (logged with cost 0)."""
+        SDK's own error for HTTP failures (logged with cost 0). `on_text` receives
+        the reply's text deltas as they arrive (see the module docstring)."""
         self.check_user_content(user)
         images = 0 if isinstance(user, str) else sum(b["type"] == "image" for b in user)
         messages = [{"role": "user", "content": user}] + (extra_messages or [])
@@ -138,9 +154,22 @@ class LLMClient:
             raise
         worst = worst_case_usd(self.model, counted.input_tokens, max_tokens)
         self.guard.reserve(worst, purpose)
+        streamed = on_text is not None and hasattr(self.sdk.messages, "stream")
         try:
-            resp = self.sdk.messages.create(model=self.model, max_tokens=max_tokens,
-                                            system=sys_blocks, messages=messages, **kw)
+            if streamed:
+                with self.sdk.messages.stream(model=self.model, max_tokens=max_tokens,
+                                              system=sys_blocks, messages=messages, **kw) as stream:
+                    for delta in stream.text_stream:
+                        _notify(on_text, delta)
+                    resp = stream.get_final_message()
+                    if getattr(resp, "_request_id", None) is None:
+                        try:
+                            resp._request_id = getattr(stream, "request_id", None)
+                        except AttributeError:
+                            pass
+            else:
+                resp = self.sdk.messages.create(model=self.model, max_tokens=max_tokens,
+                                                system=sys_blocks, messages=messages, **kw)
         except Exception as e:
             self.guard.settle(worst)
             self.last_usage = None
@@ -160,6 +189,8 @@ class LLMClient:
         self.guard.settle(worst, cost)
         rid = getattr(resp, "_request_id", None)
         text = next((b.text for b in resp.content if b.type == "text"), "")
+        if on_text is not None and not streamed:
+            _notify(on_text, text)
         status, err, data = "ok", None, None
         if resp.stop_reason == "refusal":
             details = getattr(resp, "stop_details", None)

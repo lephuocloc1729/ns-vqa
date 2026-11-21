@@ -14,16 +14,24 @@ Flow:
 So at most two calls are made, and the shipped answer always has the engine's
 verdict. `WriteResult.status` is `first_try`, `regenerated` or `template`; the
 template rate counts toward the phase-4 gate (D5).
+
+**Streaming (opt-in, the demo API).** When `on_event` is set, each attempt's call
+streams, and the listener gets `("delta", {"attempt": n, "text": ...})` for the new
+characters of the reply's "answer" field, then `("reset", {"attempt": n, "reason": ...})`
+whenever that text is withdrawn: before a retry, and before the template answer. The
+listener only displays text; the result (status, text, citations) is the same as
+without it, and with `on_event` unset the calls are exactly the plain ones.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from vqa.answer import digest as digest_mod
 from vqa.answer import prompt as answer_prompt
 from vqa.answer.faithfulness import check, is_true_false
+from vqa.answer.stream import FieldStream
 from vqa.answer.template import template_reply
 from vqa.kb import Catalog
 from vqa.llm.client import LLMBadJSON, LLMClient, LLMError
@@ -57,6 +65,25 @@ class AnswerWriter:
         self.catalog = catalog
         self._system = answer_prompt.system_prompt(version)
         self.prompt_id = answer_prompt.prompt_id(version)
+        self.on_event: Callable[[str, dict[str, Any]], None] | None = None
+
+    def _emit(self, kind: str, payload: dict[str, Any]) -> None:
+        if self.on_event is not None:
+            try:
+                self.on_event(kind, payload)
+            except Exception:
+                pass                      # a display listener never changes the answer
+
+    def _stream_listener(self, attempt: int) -> Callable[[str], None] | None:
+        if self.on_event is None:
+            return None
+        fs = FieldStream("answer")
+
+        def on_text(delta: str) -> None:
+            new = fs.feed(delta)
+            if new:
+                self._emit("delta", {"attempt": attempt, "text": new})
+        return on_text
 
     def write(self, question: str, answer: Answer, scene: SceneGraph | None) -> WriteResult:
         dg = digest_mod.build(answer, scene, self.catalog)
@@ -69,9 +96,14 @@ class AnswerWriter:
         extra: list[dict] = []
         for attempt in (1, 2):
             res.attempts = attempt
+            if attempt == 2:
+                self._emit("reset", {"attempt": 1, "reason": "retry"})
+            listener = self._stream_listener(attempt)
+            stream_kw = {"on_text": listener} if listener is not None else {}
             try:
                 call = self.llm.json_reply(system=self._system, user=user, max_tokens=self.max_tokens,
-                                           effort=self.effort, purpose="answer", extra_messages=extra)
+                                           effort=self.effort, purpose="answer", extra_messages=extra,
+                                           **stream_kw)
             except SpendLimitExceeded:
                 raise
             except LLMBadJSON as e:
@@ -95,6 +127,7 @@ class AnswerWriter:
                     return res
             res.errors.append(errs)
             extra = retry_messages(errs)
+        self._emit("reset", {"attempt": res.attempts, "reason": "template"})
         tpl = template_reply(dg, question)
         res.status, res.text = "template", tpl["answer"]
         res.cited_signs, res.cited_rules = tpl["cited_signs"], tpl["cited_rules"]
