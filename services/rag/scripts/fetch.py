@@ -34,48 +34,68 @@ def sha256(p: Path) -> str:
     return h.hexdigest()
 
 
-def _range(url: str, out: Path, lo: int, hi: int) -> None:
-    have = out.stat().st_size if out.exists() else 0
-    if have >= hi - lo + 1:
-        return
-    req = urllib.request.Request(url, headers={"Range": f"bytes={lo + have}-{hi}", "User-Agent": "ns-vqa-fetch"})
-    with urllib.request.urlopen(req, timeout=60) as r, open(out, "ab") as f:
-        while chunk := r.read(1 << 16):
-            f.write(chunk)
-
-
 def download(url: str, out: Path, size: int) -> None:
-    """Parallel ranged download into `out` (resumable)."""
+    """Parallel ranged download straight into `out`: each connection writes its own byte range
+    in place, so the disk never holds more than the file itself. `<out>.progress` records each
+    range's progress, so an interrupted download resumes where it stopped."""
+    import threading
     out.parent.mkdir(parents=True, exist_ok=True)
-    if out.exists() and out.stat().st_size == size:
+    progress = out.with_name(out.name + ".progress")
+    if out.exists() and out.stat().st_size == size and not progress.exists():
         return
     with urllib.request.urlopen(urllib.request.Request(url, method="HEAD",
                                                        headers={"User-Agent": "ns-vqa-fetch"})) as r:
         final = r.geturl()
     n = PARTS if size > 64 * 1024 * 1024 else 1
     step = -(-size // n)
-    parts = [out.with_name(f"{out.name}.part{i}") for i in range(n)]
+    done = json.loads(progress.read_text()) if progress.exists() else [0] * n
+    if len(done) != n or not out.exists() or out.stat().st_size != size:
+        done = [0] * n
+        with open(out, "wb") as f:            # a sparse file of the final size
+            f.truncate(size)
+    lock = threading.Lock()
+
+    def save() -> None:
+        with lock:
+            progress.write_text(json.dumps(done))
+
+    def part(i: int) -> None:
+        lo, hi = i * step, min(size, (i + 1) * step) - 1
+        start = lo + done[i]
+        if start > hi:
+            return
+        req = urllib.request.Request(final, headers={"Range": f"bytes={start}-{hi}", "User-Agent": "ns-vqa-fetch"})
+        with urllib.request.urlopen(req, timeout=60) as r, open(out, "r+b") as f:
+            f.seek(start)
+            since = 0
+            while chunk := r.read(1 << 16):
+                f.write(chunk)
+                done[i] += len(chunk)
+                since += len(chunk)
+                if since >= 64 << 20:
+                    f.flush()
+                    save()
+                    since = 0
+            f.flush()
+        save()
+
+    save()
     for attempt in range(30):
         try:
             with cf.ThreadPoolExecutor(n) as ex:
-                list(ex.map(lambda i: _range(final, parts[i], i * step, min(size, (i + 1) * step) - 1), range(n)))
+                list(ex.map(part, range(n)))
             break
         except OSError as e:
             print(f"  retry {attempt + 1}: {e}", flush=True)
     else:
         sys.exit(f"download failed: {url}")
-    with open(out, "wb") as f:
-        for p in parts:
-            with open(p, "rb") as g:
-                while chunk := g.read(1 << 20):
-                    f.write(chunk)
-    for p in parts:
-        p.unlink()
+    progress.unlink()
 
 
 def get(entry: dict) -> Path:
     p = ROOT / entry["path"]
-    if not (p.is_file() and p.stat().st_size == entry["bytes"]):
+    unfinished = p.with_name(p.name + ".progress").exists()      # the file has its final size from the start
+    if unfinished or not (p.is_file() and p.stat().st_size == entry["bytes"]):
         print(f"downloading {entry['url']}", flush=True)
         download(entry["url"], p, entry["bytes"])
     got = sha256(p)
