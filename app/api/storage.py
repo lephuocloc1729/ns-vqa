@@ -15,7 +15,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, Float, ForeignKey, String, Text, create_engine, select
+from sqlalchemy import JSON, Float, ForeignKey, String, Text, create_engine, inspect, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 
@@ -53,6 +53,7 @@ class Turn(Base):
     citations: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     proof: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     signs: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
+    retrieved: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)  # RAG laws
     stages: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
     seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -81,7 +82,16 @@ class Store:
         else:
             self.engine = create_engine(url, pool_pre_ping=True)
         Base.metadata.create_all(self.engine)
+        self._add_missing_columns()
         self._sessions = sessionmaker(self.engine, expire_on_commit=False)
+
+    def _add_missing_columns(self) -> None:
+        """Additive migration: a database made by an older version gets the newer nullable columns."""
+        cols = {c["name"] for c in inspect(self.engine).get_columns("turn")}
+        with self.engine.begin() as conn:
+            for col in Turn.__table__.columns:
+                if col.name not in cols:
+                    conn.execute(text(f'ALTER TABLE turn ADD COLUMN {col.name} {col.type.compile(self.engine.dialect)}'))
 
     def db(self) -> Session:
         return self._sessions()
