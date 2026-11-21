@@ -257,3 +257,22 @@ def test_a_replay_folder_git_does_not_ignore_is_refused(setup):
     with pytest.raises(SystemExit, match="does not ignore"):
         _run(setup, ignored=lambda p: False)
     assert not (tmp / "private_rag_ran.json").exists()
+
+
+def test_rag_alone_is_scored_on_the_same_questions_as_each_part_of_v2(setup):
+    rep = json.loads(_run(setup)[0].read_text())
+    sq = rep["same_questions"]
+    rd = sq["rules_decided"]                                  # p1: the rules are right, the RAG alone wrong
+    assert rd["v2_rules"]["n"] == 1 and rd["v2_rules"]["overall"] == 1.0 and rd["rag_alone"]["overall"] == 0.0
+    assert rd["paired"] == {"n": 1, "both_right": 0, "only_v2_right": 1, "only_rag_alone_right": 0,
+                            "both_wrong": 0, "mcnemar_exact_p": 1.0}
+    tr = sq["triggered"]                                      # p2 and p3: live and saved both right
+    assert tr["v2_live_rag"]["n"] == 2 and tr["paired"]["both_right"] == 2
+    assert sq["all"]["paired"]["n"] == 3 and sq["all"]["paired"]["only_v2_right"] == 1
+
+
+def test_the_exact_mcnemar_p_value():
+    assert er._mcnemar_p(0, 0) is None
+    assert er._mcnemar_p(5, 5) == 1.0
+    assert er._mcnemar_p(10, 0) == pytest.approx(2 / 2 ** 10)
+    assert er._mcnemar_p(8, 2) == pytest.approx(2 * (1 + 10 + 45) / 1024)

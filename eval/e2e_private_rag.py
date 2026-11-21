@@ -48,6 +48,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import math
 import sys
 from collections import Counter
 from pathlib import Path
@@ -214,10 +215,45 @@ def _figs(rs: list[dict]) -> dict[str, Any]:
             "judge_labels": dict(Counter(r.get("judge_label") for r in nq))}
 
 
+def _mcnemar_p(b: int, c: int) -> float | None:
+    """Exact two-sided McNemar p-value from the discordant counts (binomial, p = 1/2)."""
+    n = b + c
+    if n == 0:
+        return None
+    k = min(b, c)
+    return min(1.0, 2 * sum(math.comb(n, i) for i in range(k + 1)) / 2 ** n)
+
+
+def paired(a: list[dict], b: list[dict]) -> dict[str, Any]:
+    """Question-by-question comparison of two systems' strict grades (correct = 1) on the same
+    questions, in the same order: a = V2, b = RAG alone."""
+    pairs = [(x["strict"], y["strict"]) for x, y in zip(a, b) if x["strict"] is not None and y["strict"] is not None]
+    both = sum(x == 1 and y == 1 for x, y in pairs)
+    only_a = sum(x == 1 and y != 1 for x, y in pairs)
+    only_b = sum(x != 1 and y == 1 for x, y in pairs)
+    neither = len(pairs) - both - only_a - only_b
+    return {"n": len(pairs), "both_right": both, "only_v2_right": only_a, "only_rag_alone_right": only_b,
+            "both_wrong": neither, "mcnemar_exact_p": _mcnemar_p(only_a, only_b)}
+
+
+def same_questions(v2: list[dict], b2: list[dict]) -> dict[str, Any]:
+    """RAG alone on the same questions as each part of V2 (owner, 2026-11-21): the rules-decided
+    questions and the triggered ones, with paired counts. v2 and b2 are in the same question order."""
+    idx = {src: [i for i, r in enumerate(v2) if r["source"] == src] for src in ("rules", "rag")}
+    return {"rules_decided": {"v2_rules": _figs([v2[i] for i in idx["rules"]]),
+                              "rag_alone": _figs([b2[i] for i in idx["rules"]]),
+                              "paired": paired([v2[i] for i in idx["rules"]], [b2[i] for i in idx["rules"]])},
+            "triggered": {"v2_live_rag": _figs([v2[i] for i in idx["rag"]]),
+                          "rag_alone_saved": _figs([b2[i] for i in idx["rag"]]),
+                          "paired": paired([v2[i] for i in idx["rag"]], [b2[i] for i in idx["rag"]])},
+            "all": {"paired": paired(v2, b2)}}
+
+
 def aggregate(v2: list[dict], b2: list[dict]) -> dict[str, Any]:
     rag_part = [r for r in v2 if r["source"] == "rag"]
     keys = sorted({r["trigger"] for r in rag_part})
-    return {"v2_rules_plus_rag_fallback": {**_figs(v2),
+    return {"same_questions": same_questions(v2, b2),
+            "v2_rules_plus_rag_fallback": {**_figs(v2),
                                             "rules_answered": sum(r["source"] == "rules" for r in v2),
                                             "rag_answered": len(rag_part),
                                             "rules_part": _figs([r for r in v2 if r["source"] == "rules"]),
