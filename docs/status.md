@@ -1692,6 +1692,20 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### Private benchmark, hand-graded by the owner (2026-11-21): V2 82.2% (sd 1.8), V1 decides at 82.3%
+
+- **The owner hand-graded** the V1 and V2 workbooks (3 runs × 146 questions each; `eval/owner_workbooks.py`, kept outside the repo). Aggregates from `eval/owner_workbook_scores.py`, run by the owner; the assistant did not read the workbooks.
+
+| private, 146 questions | run 1 | run 2 | run 3 | **mean (sd), human** | judge mean |
+|---|---|---|---|---|---|
+| V1, rules only, non-decided wrong | 54.8% | 54.8% | 55.5% | **55.0% (0.4)** | 54.9% |
+| V1 on the rules-decided questions | 83.3% (96) | 80.8% (99) | 82.7% (98) | **82.3% (1.3)** | 82.1% |
+| **V2, rules + live RAG fallback** | 82.9% | 80.1% | 83.6% | **82.2% (1.8)** | 82.2% |
+| V2's RAG part (triggered questions) | 82.0% (50) | 78.7% (47) | 85.4% (48) | 82.0% | |
+
+- **The judge agrees with the owner on 140–142 of 146 answers per run** (4–6 changed, almost all "Một phần" resolved to Đúng or Sai; one Đúng → Sai in V2 run 1). The hand grades leave every mean within 0.1 point of the judge's, so the judge-graded figures above stand and the main table can be reported as human-graded.
+- **Like-for-like with the baselines** (owner's hand grades): V2 82.2% vs LowCost and LexiSignVQA ~78%. RAG alone (79.2%) is judge-graded only.
+
 ### Error analysis on the public test, phase52 (2026-11-21; no API calls)
 
 - **Full write-up** (local, gitignored, quotes dataset questions): `eval/runs/public52_error_analysis.md`. Here ids and categories only.
