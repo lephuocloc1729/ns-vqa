@@ -122,7 +122,8 @@ def test_the_report_has_the_determinism_check_and_the_live_seconds(setup):
     lv = json.loads(out.read_text())["rag_live"]
     assert lv["answers"] == 2 and lv["identical_to_saved"] == 1 and lv["incomplete_captions"] == 1
     assert lv["seconds"]["total"]["mean"] == pytest.approx((3 + 0.1 + 8 + 0.9 + 5 + 0.1 + 10 + 0.9) / 2, abs=0.01)
-    assert lv["seconds"]["retrieval_per_question"] == 0.9 and lv["config"] == {"fewshot_k": 5}
+    assert lv["seconds"]["retrieval"]["mean"] == 0.9
+    assert lv["live_runs"] == [{"run_config_sha256": "abc", "config": {"fewshot_k": 5}}]
 
 
 def test_v2_grades_the_live_answer_not_the_saved_one(setup):
@@ -133,12 +134,67 @@ def test_v2_grades_the_live_answer_not_the_saved_one(setup):
     assert rep["v2_rules_plus_rag_fallback"]["natural_qa_score"] == 0.0
 
 
-def test_live_answers_must_cover_exactly_the_triggered_questions(setup):
+def test_live_answers_must_cover_every_triggered_question(setup):
     tmp, _, _ = setup
     (tmp / "live" / "rag_live.jsonl").write_text(json.dumps(LIVE[0]), encoding="utf-8")
-    with pytest.raises(SystemExit, match="cover 1 questions, not the 2 triggered"):
+    with pytest.raises(SystemExit, match="miss 1 of the 2 triggered questions"):
         _run(setup)
     assert not (tmp / "private_rag_ran.json").exists()
+
+
+def test_a_live_file_may_hold_more_questions_than_the_triggered_ones(setup):
+    tmp, _, _ = setup
+    extra = {"id": "p1", "status": "FAILED", "answer": ""}          # not triggered: neither used nor checked
+    (tmp / "live" / "rag_live.jsonl").write_text("\n".join(json.dumps(r, ensure_ascii=False)
+                                                           for r in [*LIVE, extra]), encoding="utf-8")
+    rep = json.loads(_run(setup)[0].read_text())
+    assert rep["rag_live"]["answers"] == 2 and rep["v2_rules_plus_rag_fallback"]["rag_answered"] == 2
+
+
+def test_two_live_files_are_read_together(setup):
+    tmp, _, _ = setup
+    (tmp / "live" / "rag_live.jsonl").write_text(json.dumps(LIVE[0], ensure_ascii=False), encoding="utf-8")
+    rest = tmp / "live_rest" / "rag_live.jsonl"
+    rest.parent.mkdir()
+    rest.write_text(json.dumps(LIVE[1], ensure_ascii=False), encoding="utf-8")
+    rep = json.loads(_run(setup, rag_live=[tmp / "live" / "rag_live.jsonl", rest])[0].read_text())
+    assert rep["rag_live"]["answers"] == 2 and len(rep["rag_live"]["files_sha256"]) == 2
+
+
+def test_a_question_in_two_live_files_is_refused(setup):
+    tmp, _, _ = setup
+    dup = tmp / "live_dup" / "rag_live.jsonl"
+    dup.parent.mkdir()
+    dup.write_text(json.dumps(LIVE[0], ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(SystemExit, match="more than one live RAG file"):
+        _run(setup, rag_live=[tmp / "live" / "rag_live.jsonl", dup])
+
+
+def test_run_2_uses_its_own_sentinels_and_records(setup):
+    tmp, _, priv = setup
+    run2 = tmp / "private_run" / "run2"
+    run2.mkdir()
+    (run2 / "records.jsonl").write_text((tmp / "private_run" / "run1" / "records.jsonl").read_text(encoding="utf-8"),
+                                        encoding="utf-8")
+    with pytest.raises(SystemExit, match="has not run yet"):
+        _run(setup, run=2)                                   # no private_ran_2.json yet
+    (tmp / "private_ran_2.json").write_text(json.dumps({"run_id": "run2", "status": "finished"}), encoding="utf-8")
+    out, _ = _run(setup, run=2)
+    assert json.loads(out.read_text())["run"] == 2 and out.name == "private_rag_aggregate_run2.json"
+    assert json.loads((tmp / "private_rag_ran_2.json").read_text())["private_run_id"] == "run2"
+    assert not (tmp / "private_rag_ran.json").exists()      # run 1's merge is still open
+    with pytest.raises(SystemExit, match="must be one of"):
+        _run(setup, run=4)
+
+
+def test_the_ids_export_takes_a_run(setup):
+    tmp, _, priv = setup
+    (tmp / "private_run" / "run2").mkdir()
+    (tmp / "private_run" / "run2" / "records.jsonl").write_text(json.dumps({**RECORDS[0], "trace": {}}),
+                                                                encoding="utf-8")
+    (tmp / "private_ran_2.json").write_text(json.dumps({"run_id": "run2", "status": "finished"}), encoding="utf-8")
+    out = er.write_ids(run=2, private_sentinel=priv, replay_root=tmp / "private_run", ignored=lambda p: True)
+    assert out.parent.name == "run2" and json.loads(out.read_text()) == []
 
 
 def test_an_incomplete_live_answer_is_refused(setup):

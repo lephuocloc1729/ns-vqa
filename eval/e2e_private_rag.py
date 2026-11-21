@@ -15,6 +15,12 @@ with the rules and recorded, per question, whether a fallback trigger fired. The
 The report also counts the live answers that equal the saved ones (the determinism check) and
 gives the live fallback's seconds per question.
 
+**Runs 1–3 (owner, 2026-11-21).** The private test runs 3 times (`e2e_private.py --run N`); each run
+is merged once with `--run N` (its own sentinel: `private_rag_ran.json` for run 1,
+`private_rag_ran_N.json` for runs 2 and 3). The live file may cover more questions than the run's
+triggered ones (the RAG ran live on all 146 private questions once; each answer depends on its own
+question only): it must contain every triggered question, and only those are used.
+
 It is scoring code, like `eval/e2e_private.py`, whose question loader it uses: the private
 answers are read here in memory, graded and summed. No per-question line is printed; the report
 holds no question or image id. **The owner's grading sheet** (owner, 2026-11-20; phase-5 P6):
@@ -30,8 +36,8 @@ It refuses to start unless:
 - the records, the RAG predictions and the private questions cover the same questions, the
   live answers cover exactly the triggered ones, and every RAG answer completed, non-empty.
 
-    .venv/bin/python eval/e2e_private_rag.py ids
-    .venv/bin/python eval/e2e_private_rag.py run --confirm --max-spend 1 \\
+    .venv/bin/python eval/e2e_private_rag.py ids [--run N]
+    .venv/bin/python eval/e2e_private_rag.py run [--run N] --confirm --max-spend 1 \\
         --rag-predictions <RAG repo>/artifacts/.../private_test/predictions.jsonl \\
         --rag-live <RAG repo>/outputs/private_live/rag_live.jsonl
 """
@@ -88,20 +94,33 @@ def load_rag(path: Path) -> dict[str, str]:
     return out
 
 
-def load_live(path: Path) -> dict[str, dict]:
-    """The live RAG answers on the triggered questions: id -> row. Every one must have completed."""
-    out, bad = {}, 0
-    for line in Path(path).read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        r = json.loads(line)
-        if r.get("status") != "COMPLETED" or not str(r.get("answer") or "").strip():
-            bad += 1
-            continue
-        out[r["id"]] = r
+def merge_sentinel(run: int, base: Path = SENTINEL) -> Path:
+    """Run 1's merge sentinel is `base` (eval/private_rag_ran.json); run N's is private_rag_ran_N.json."""
+    return ep.sentinel_for(run, base)
+
+
+def load_live(paths: list[Path], needed: set[str]) -> dict[str, dict]:
+    """The live RAG answers for the `needed` (triggered) questions: id -> row. The files (one per
+    live RAG run) may hold more questions; every needed one must be in exactly one of them and
+    have completed."""
+    rows = {}
+    for path in paths:
+        for line in Path(path).read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                r = json.loads(line)
+                if r["id"] in rows:
+                    raise SystemExit("a question is in more than one live RAG file")
+                rows[r["id"]] = {**r, "_meta": live_meta(path)}
+    if missing := needed - set(rows):
+        raise SystemExit(f"the live RAG answers miss {len(missing)} of the {len(needed)} triggered questions")
+    bad = sum(rows[i].get("status") != "COMPLETED" or not str(rows[i].get("answer") or "").strip() for i in needed)
     if bad:
         raise SystemExit(f"{bad} live RAG answers did not complete")       # a count only
-    return out
+    return {i: rows[i] for i in needed}
+
+
+def _live_files(rag_live) -> list[Path]:
+    return [Path(rag_live)] if isinstance(rag_live, (str, Path)) else [Path(p) for p in rag_live]
 
 
 def live_meta(live: Path) -> dict[str, Any]:
@@ -117,26 +136,32 @@ def _secs(xs: list[float]) -> dict[str, Any] | None:
             "p95": round(s[min(len(s) - 1, round(0.95 * (len(s) - 1)))], 2), "max": round(s[-1], 2), "n": len(s)}
 
 
-def live_figures(live: dict[str, dict], saved: dict[str, str], meta: dict) -> dict[str, Any]:
-    retrieval = meta.get("retrieval_seconds_per_question") or 0.0
+def live_figures(live: dict[str, dict], saved: dict[str, str]) -> dict[str, Any]:
+    """Each row carries its live run's meta (`_meta`): retrieval seconds per question and config."""
+    def retrieval(r: dict) -> float:
+        return r.get("_meta", {}).get("retrieval_seconds_per_question") or 0.0
     stage = {k: [r[k] for r in live.values() if isinstance(r.get(k), (int, float))]
              for k in ("caption_seconds", "embed_seconds", "answer_seconds")}
-    total = [sum(r.get(k, 0.0) for k in stage) + retrieval for r in live.values()]
+    total = [sum(r.get(k, 0.0) for k in stage) + retrieval(r) for r in live.values()]
+    metas = {r["_meta"].get("run_config_sha256"): r["_meta"] for r in live.values() if r.get("_meta")}
     return {"answers": len(live),
             "identical_to_saved": sum(r["answer"].strip() == saved[i].strip() for i, r in live.items()),
             "incomplete_captions": sum(r.get("caption_status") != "COMPLETED" for r in live.values()),
             "seconds": {**{k.removesuffix("_seconds"): _secs(v) for k, v in stage.items()},
-                        "retrieval_per_question": retrieval or None, "total": _secs(total)},
-            "config": meta.get("config", {}), "run_config_sha256": meta.get("run_config_sha256")}
+                        "retrieval": _secs([retrieval(r) for r in live.values()]), "total": _secs(total)},
+            "live_runs": [{"run_config_sha256": k, "config": m.get("config", {})} for k, m in metas.items()]}
 
 
 def triggered(records: dict[str, dict]) -> list[str]:
     return sorted(i for i, r in records.items() if r["trigger"] is not None)
 
 
-def write_ids(*, private_sentinel: Path = ep.SENTINEL, replay_root: Path = ep.REPLAY,
+def write_ids(*, run: int = 1, private_sentinel: Path = ep.SENTINEL, replay_root: Path = ep.REPLAY,
               ignored=ep.git_ignores) -> Path:
-    """Write the triggered question ids (ids only, no question text or gold) for the live RAG run."""
+    """Write run N's triggered question ids (ids only, no question text or gold) for the live RAG run.
+    `private_sentinel` is run 1's; run N's is `ep.sentinel_for(N, private_sentinel)`."""
+    ep.check_run_number(run)
+    private_sentinel = ep.sentinel_for(run, private_sentinel)
     if not Path(private_sentinel).exists():
         raise SystemExit("the private run has not run yet (no private sentinel)")
     mark = json.loads(Path(private_sentinel).read_text(encoding="utf-8"))
@@ -204,12 +229,15 @@ def aggregate(v2: list[dict], b2: list[dict]) -> dict[str, Any]:
 
 # ---------------------------------------------------------------- the run
 
-def run_merge(max_spend: float, *, confirm: bool = False, records: Path | None = None, rag_predictions: Path,
-              rag_live: Path, questions: list[dict] | None = None, sdk=None, out_dir: Path = OUT, sentinel: Path = SENTINEL,
-              private_sentinel: Path = ep.SENTINEL, replay_root: Path = ep.REPLAY,
+def run_merge(max_spend: float, *, run: int = 1, confirm: bool = False, records: Path | None = None,
+              rag_predictions: Path, rag_live: Path, questions: list[dict] | None = None, sdk=None, out_dir: Path = OUT,
+              sentinel: Path = SENTINEL, private_sentinel: Path = ep.SENTINEL, replay_root: Path = ep.REPLAY,
               ignored=ep.git_ignores) -> Path:
+    """`sentinel` and `private_sentinel` are run 1's; run N uses merge_sentinel(N) and ep.sentinel_for(N)."""
     if not confirm:
-        raise SystemExit("the RAG merge runs once: pass --confirm")
+        raise SystemExit("the RAG merge runs once per private run: pass --confirm")
+    ep.check_run_number(run)
+    sentinel, private_sentinel = merge_sentinel(run, sentinel), ep.sentinel_for(run, private_sentinel)
     if records is None:
         if not Path(private_sentinel).exists():
             raise SystemExit("the private run has not run yet (no private sentinel)")
@@ -219,20 +247,20 @@ def run_merge(max_spend: float, *, confirm: bool = False, records: Path | None =
     sheet_path = Path(records).parent / OWNER_SHEET
     if not ignored(sheet_path):
         raise SystemExit("git does not ignore the replay folder: the grading sheet must stay local")
-    recs, rag, live = load_records(records), load_rag(rag_predictions), load_live(rag_live)
+    recs, rag = load_records(records), load_rag(rag_predictions)
     qs = questions if questions is not None else ep.load_questions()
     ids = {q["id"] for q in qs}
     if set(recs) != ids or set(rag) != ids:
         raise SystemExit(f"the inputs cover different questions: {len(ids)} private, {len(recs)} records, "
                          f"{len(rag)} RAG answers")                              # counts only
-    if set(live) != set(triggered(recs)):
-        raise SystemExit(f"the live RAG answers cover {len(live)} questions, not the {len(triggered(recs))} "
-                         f"triggered ones")                                        # counts only
+    live_paths = _live_files(rag_live)
+    live = load_live(live_paths, set(triggered(recs)))
     started = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
     pred_sha = hashlib.sha256(Path(rag_predictions).read_bytes()).hexdigest()
-    live_sha = hashlib.sha256(Path(rag_live).read_bytes()).hexdigest()
+    live_sha = {p.name if len(live_paths) == 1 else str(p.parent.name) + "/" + p.name:
+                hashlib.sha256(p.read_bytes()).hexdigest() for p in live_paths}
     me = {"what": "the one RAG merge on the private test (docs/plans/rag-fallback.md F4.4); blocks a second run",
-          "private_run_id": mark["run_id"], "started": started, "status": "started",
+          "run": run, "private_run_id": mark["run_id"], "started": started, "status": "started",
           "rag_predictions_sha256": pred_sha, "rag_live_sha256": live_sha}
     Path(sentinel).write_text(json.dumps(me, indent=2) + "\n", encoding="utf-8")
 
@@ -275,13 +303,12 @@ def run_merge(max_spend: float, *, confirm: bool = False, records: Path | None =
     graded.clear()
     sheet_f.close()
     report = {"what": "private test, RAG merge, aggregate only (docs/plans/rag-fallback.md F4.3)",
-              "private_run_id": mark["run_id"], "private_run_commit": mark.get("git_commit"),
+              "run": run, "private_run_id": mark["run_id"], "private_run_commit": mark.get("git_commit"),
               "questions": len(qs), "started": started,
               "finished": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
               "rag_predictions": {"file": Path(rag_predictions).name, "sha256": pred_sha,
                                   "config": rag_config(rag_predictions)},
-              "rag_live": {"file": Path(rag_live).name, "sha256": live_sha,
-                           **live_figures(live, rag, live_meta(rag_live))},
+              "rag_live": {"files_sha256": live_sha, **live_figures(live, rag)},
               "spent_usd": round(guard.spent, 4), **aggregate(v2, b2)}
     v2.clear(), b2.clear()
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -296,18 +323,21 @@ def run_merge(max_spend: float, *, confirm: bool = False, records: Path | None =
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("ids", help="write the triggered question ids for the live RAG run")
+    i = sub.add_parser("ids", help="write the triggered question ids for the live RAG run")
+    i.add_argument("--run", type=int, default=1, help="the private run (1, 2 or 3)")
     r = sub.add_parser("run")
     r.add_argument("--confirm", action="store_true")
+    r.add_argument("--run", type=int, default=1, help="the private run (1, 2 or 3)")
     r.add_argument("--max-spend", type=float, required=True)
     r.add_argument("--rag-predictions", type=Path, required=True, help="the RAG's saved answers (B2)")
-    r.add_argument("--rag-live", type=Path, required=True, help="the live RAG answers on the triggered ids (V2)")
+    r.add_argument("--rag-live", type=Path, nargs="+", required=True,
+                   help="the live RAG answer files (V2); together they must cover the triggered ids")
     r.add_argument("--records", type=Path, default=None, help="default: the finished private run's records")
     a = ap.parse_args()
     if a.cmd == "ids":
-        write_ids()
+        write_ids(run=a.run)
         return
-    run_merge(a.max_spend, confirm=a.confirm, records=a.records, rag_predictions=a.rag_predictions,
+    run_merge(a.max_spend, run=a.run, confirm=a.confirm, records=a.records, rag_predictions=a.rag_predictions,
               rag_live=a.rag_live)
 
 
