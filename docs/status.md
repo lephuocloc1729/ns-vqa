@@ -1,5 +1,29 @@
 # Project status
 
+## Where things stand (2026-11-21)
+
+**The evaluation is complete** (branch `phase-5`). On the private test, three runs on the frozen phase52 system, hand-graded by the owner:
+
+| System | Private, mean (sd) |
+|---|---|
+| **V2, rules + live RAG fallback** | **82.2% (1.8)** |
+| V1, rules only | decides 66.9% of questions at 82.3% |
+| RAG alone | 79.2% (judge-graded) |
+| Baselines LowCost / LexiSignVQA | ~78% (owner's hand grades) |
+
+- On the public test (public_dev + public_holdout, 100 questions), V2 scores 84.5%.
+- The error analysis is done: mostly perception misreads, 3 small rules gaps, and a routing signal for future work.
+- The lane-sign payload fix (QCVN 41 D.14, `05e4b3b`) is post-benchmark and never scored on private.
+- Details are in the entries below.
+
+**Next:**
+1. The demo: the RAG service (F2), the client (F3) and the UI.
+2. The RAG's Q4 vs BF16 table.
+3. The defense slides.
+4. Merge `phase-5` into `main`.
+
+---
+
 Last updated 2026-11-16. Branch `phase-4`, from `main` at `7ec1134` (`phase-3` merged locally, not pushed; plan D10). **Phase 3 is closed** (see "Phase 3: closing"). **Phase 4 is approved** (`docs/plans/phase-4.md`, owner, 2026-11-16) and in progress.
 
 ## Done
