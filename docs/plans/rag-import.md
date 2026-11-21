@@ -22,7 +22,7 @@ The RAG (`trafficvqa-rag`, local folder `~/UNIVERSITY/Capstone/RAG`, branch `exp
 | Kind | Where in `services/rag/` | In git? |
 |---|---|---|
 | Code: `src/`, `experiments/`, `pyproject.toml`, `README.md`, `.gitignore` | as in the original | **yes**, with history |
-| Asset manifest: every runtime file's path, size, sha256 and source | `assets_manifest.yaml` | **yes** |
+| Asset manifest: every runtime file's path, size, sha256 and source | `assets_manifest.json` | **yes** |
 | Fetch and verify scripts | `scripts/fetch_assets.sh`, `scripts/verify_assets.py` | **yes** |
 | Origin record: source repo, branch, old → new hashes | `ORIGIN.md` | **yes** |
 | The index: law-corpus chunks and vectors, train-bank captions and embeddings, as config C reads them | `artifacts/` | no, gitignored |
@@ -79,7 +79,7 @@ The README admits that its list of required assets is partial, so the inventory 
    Only `--fresh-captions` takes the `load_fresh_caption_artifacts` path. Without it the runner falls into `load_existing_captions`, fails on the missing `query/` folder, and the trace proves nothing. If no traced open touches `query/`, that confirms S0.
 2. **On a CUDA machine (any freshly rented GPU):** config C (the README's run command and `run_private_live.sh` flags) on 3 public_test questions: live captions, live embeddings, answer. This adds the model, llama.cpp and caption files to the list.
 
-The union, plus every path pinned by a `run_config.json` / manifest hash check, becomes `assets_manifest.yaml`. Each entry gets a category (index, dataset, model, binary, evidence) and a source (bundle, or a download URL with its pinned revision).
+The union, plus every path pinned by a `run_config.json` / manifest hash check, becomes `assets_manifest.json`. Each entry gets a category (index, dataset, model, binary, evidence) and a source (bundle, or a download URL with its pinned revision).
 
 Absolute paths stored in caches (the train captions hold `/Users/...` image paths) are checked in the trace. If the runner only stores them, nothing changes. If it opens them, the plan stops for a decision, because rewriting them changes hashed files.
 
@@ -149,7 +149,7 @@ git remote remove rag-import
 
 - `eval/e2e_private_rag.py`, its docstring and status.md: `<RAG repo>` → `services/rag`. Default paths point to `services/rag/evidence/...`.
 - **CLAUDE.md:** add the `services/rag/` layout line; the leakage guard still covers `vqa/` and `app/` only (owner decision of 2026-11-20); the asset and evidence rules above.
-- **CI:** a second job installs the RAG's CPU-only dependencies, byte-compiles `services/rag/src`, runs `natural_qa_runner --help`, and checks that `assets_manifest.yaml` is well-formed. No assets in CI.
+- **CI:** a second job installs the RAG's CPU-only dependencies, byte-compiles `services/rag/src`, runs `natural_qa_runner --help`, and checks that `assets_manifest.json` is well-formed. No assets in CI.
 - Root `.gitignore`: `services/rag/{data,artifacts,models,evidence,outputs,.venv}`.
 
 ### S6. Acceptance: proof that it behaves the same
@@ -178,7 +178,7 @@ git remote remove rag-import
 |---|---|---|
 | D1 | A rented CUDA machine for S1 step 2 and S6-D (any fresh one; the files come from the Mac and public URLs) | One session of about 30 minutes |
 | D2 | Is the merge commit itself also by stfutien? | Yes, so the whole import is one identity |
-| D3 | Dataset: symlink to ns-vqa's copy if identical, or a separate copy? | Symlink if identical |
+| D3 | Dataset: symlink to ns-vqa's copy if identical, or a separate copy? | **Done (2026-11-21):** the copies are identical except the train questions (the RAG index needs the original file, sha256 `9e70f80f…`, 2026-11-05; ns-vqa has the owner's rewrite of 2026-11-15). So the images, law_db and test splits are links, and the RAG keeps its own original train JSON |
 | D4 | Download the BF16 GGUF (~18 GB) now, or only when the Q4 vs BF16 table is measured? | Only for the table |
 | D5 | Private evidence (saved private predictions, live outputs, `Natural_Private_Benchmark.xlsx`) copied unopened into `evidence/private/`? | Yes, so B2 and V2 stay reproducible without the original |
 
