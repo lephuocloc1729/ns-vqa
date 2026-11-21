@@ -6,7 +6,9 @@
 # Base: the PyTorch build the saved runs recorded (torch 2.14.1+cu130).
 FROM pytorch/pytorch:2.14.1-cuda13.0-cudnn9-runtime
 
-ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 DEBIAN_FRONTEND=noninteractive
+# The base marks its Python as externally managed (PEP 668); torch lives in that environment,
+# so our packages are installed into it on purpose.
+ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 DEBIAN_FRONTEND=noninteractive PIP_BREAK_SYSTEM_PACKAGES=1
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl libgomp1 libcurl4 tar gzip \
  && rm -rf /var/lib/apt/lists/*

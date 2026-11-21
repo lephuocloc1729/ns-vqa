@@ -17,6 +17,8 @@ cd "$(dirname "$0")/.."
 BF16=""
 [ "${1:-}" = "--bf16" ] && BF16="--bf16"
 PY=${PY:-python3}
+# CUDA images often mark their Python as externally managed (PEP 668); torch lives there, so install into it.
+export PIP_BREAK_SYSTEM_PACKAGES=1 UV_BREAK_SYSTEM_PACKAGES=1
 mkdir -p logs dist
 t0=$SECONDS
 nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader || { echo "no NVIDIA GPU"; exit 1; }
