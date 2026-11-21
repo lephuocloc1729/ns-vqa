@@ -1,4 +1,4 @@
-"""The one private-test benchmark run (docs/plans/phase-5.md, item 1). Aggregate only.
+"""The private-test benchmark runs (docs/plans/phase-5.md, item 1). Aggregate only.
 
 This is the only code that names the private question file. It is the scoring code:
 the private answers are read here, in memory, graded and summed, and never printed
@@ -17,6 +17,14 @@ or written (CLAUDE.md, "Dataset rules").
   - git ignores the replay folder.
   The sentinel is written before the first call, so a run that stops part way also
   counts as the one run.
+- **Three runs in all (owner, 2026-11-21)**, for the mean and spread: perception, parsing and the
+  writer are Claude calls whose output varies from run to run. Run 1 is the run above
+  (`eval/private_ran.json`, unchanged). `--run 2` and `--run 3` each have their own sentinel
+  (`eval/private_ran_2.json`, `eval/private_ran_3.json`), run id, replay folder, fresh scene cache and
+  aggregate file, with the same frozen phase52 record and every guard above. A run refuses unless every
+  earlier run has finished on the same freeze record, its own sentinel does not exist, and every private
+  aggregate file present belongs to an earlier run. Nothing is tuned between runs, and all three are
+  reported, never the best one.
 - **Fresh perception** into a new, empty scene cache under the replay folder.
 - **Answer fallback off** (owner, 2026-11-20, `docs/plans/rag-fallback.md`): non-decided questions get
   the engine's template answer; the RAG fallback is merged in afterwards (`eval/e2e_private_rag.py`).
@@ -41,7 +49,9 @@ or written (CLAUDE.md, "Dataset rules").
   private file.
 
     .venv/bin/python eval/e2e_private.py estimate
-    .venv/bin/python eval/e2e_private.py run --confirm-frozen --max-spend 3
+    .venv/bin/python eval/e2e_private.py run --confirm-frozen --max-spend 3            # run 1 (done)
+    .venv/bin/python eval/e2e_private.py run --run 2 --confirm-frozen --max-spend 2.25
+    .venv/bin/python eval/e2e_private.py run --run 3 --confirm-frozen --max-spend 2.25
 """
 
 from __future__ import annotations
@@ -80,6 +90,9 @@ EXPECTED_TYPES = {"Yes/No": 70, "Natural QA": 76}
 DECIDED = ("yes", "no", "value")
 OUT = ROOT / "eval" / "runs" / "e2e"
 SENTINEL = ROOT / "eval" / "private_ran.json"
+# Owner, 2026-11-21: the private test runs 3 times on the frozen phase52 setup, for the mean and
+# spread. Run 1 is SENTINEL; runs 2 and 3 are the only further runs allowed.
+EXTRA_RUNS = (2, 3)
 REPLAY = ROOT / "cache" / "private_run"
 CATALOGS = (ROOT / "kb" / "sign_catalog.yaml", ROOT / "kb" / "sign_catalog_meaning.yaml")
 
@@ -301,10 +314,41 @@ def frozen_perception_model(frozen: Path = freeze.FROZEN_PHASE52) -> str:
     return freeze.load(frozen)["pipeline_config"]["perception_model"]
 
 
-def guards(*, out_dir: Path = OUT, sentinel: Path = SENTINEL, frozen: Path = freeze.FROZEN_PHASE52,
+def sentinel_for(run: int, base: Path = SENTINEL) -> Path:
+    """Run 1's sentinel is `base` (eval/private_ran.json); run N's is private_ran_N.json beside it."""
+    return Path(base) if run == 1 else Path(base).with_name(f"{Path(base).stem}_{run}{Path(base).suffix}")
+
+
+def check_run_number(run: int) -> None:
+    if run != 1 and run not in EXTRA_RUNS:
+        raise SystemExit(f"--run must be one of {list(EXTRA_RUNS)} (run 1 is done); got {run}")
+
+
+def _earlier_runs(run: int, base: Path, frozen: Path) -> set[str]:
+    """Every earlier run must have finished on the same freeze record. Returns their report names."""
+    sha = hashlib.sha256(Path(frozen).read_bytes()).hexdigest()
+    reports = set()
+    for k in range(1, run):
+        p = sentinel_for(k, base)
+        if not p.exists():
+            raise SystemExit(f"run {k} has not run ({p.name} is missing): run {run} comes after it")
+        mark = json.loads(p.read_text(encoding="utf-8"))
+        if mark.get("status") != "finished":
+            raise SystemExit(f"run {k} has not finished ({p.name} is {mark.get('status')!r}): "
+                             f"run {run} comes after it")
+        if mark.get("frozen_record_sha256") != sha:
+            raise SystemExit(f"run {k} used another freeze record ({p.name}): every run uses the same one")
+        if mark.get("report"):
+            reports.add(mark["report"])
+    return reports
+
+
+def guards(*, run: int = 1, out_dir: Path = OUT, sentinel: Path = SENTINEL, frozen: Path = freeze.FROZEN_PHASE52,
            replay_root: Path = REPLAY, git=freeze.git_state, ignored=git_ignores) -> dict:
     """Refuses (SystemExit) unless the tree is clean, the configuration is the frozen
-    one, the private test has never run and git ignores the replay folder."""
+    one, this run has never run (and every earlier one has finished) and git ignores the
+    replay folder. `sentinel` is run 1's; run N's is `sentinel_for(N, sentinel)`."""
+    check_run_number(run)
     g = git()
     if not g["clean"]:
         raise SystemExit("the git working tree is not clean: commit or remove these first:\n  "
@@ -313,10 +357,21 @@ def guards(*, out_dir: Path = OUT, sentinel: Path = SENTINEL, frozen: Path = fre
         raise SystemExit(f"the private test runs with the phase-5.2 freeze only; {Path(frozen).name} is {prof}")
     if d := freeze.check(frozen, frozen_perception_model(frozen)):
         raise SystemExit("the live configuration differs from the freeze record:\n  " + "\n  ".join(d))
-    if Path(sentinel).exists():
-        raise SystemExit(f"the private test has already run ({Path(sentinel).name}); it runs once")
-    if Path(out_dir).exists() and any(Path(out_dir).glob("private_aggregate_*.json")):
-        raise SystemExit(f"a private aggregate file already exists in {out_dir}; it runs once")
+    if run == 1:
+        if Path(sentinel).exists():
+            raise SystemExit(f"the private test has already run ({Path(sentinel).name}); "
+                             f"the further runs are --run {' and --run '.join(map(str, EXTRA_RUNS))}")
+        if Path(out_dir).exists() and any(Path(out_dir).glob("private_aggregate_*.json")):
+            raise SystemExit(f"a private aggregate file already exists in {out_dir}; it runs once")
+    else:
+        mine = sentinel_for(run, sentinel)
+        if mine.exists():
+            raise SystemExit(f"private run {run} has already run ({mine.name}); each run runs once")
+        allowed = _earlier_runs(run, Path(sentinel), Path(frozen))
+        present = {p.name for p in Path(out_dir).glob("private_aggregate_*.json")} if Path(out_dir).exists() else set()
+        if extra := sorted(present - allowed):
+            raise SystemExit(f"a private aggregate file already exists in {out_dir} that no earlier run "
+                             f"wrote ({', '.join(extra)}); run {run} runs once")
     if not ignored(Path(replay_root) / "probe"):
         raise SystemExit(f"git does not ignore {replay_root}: the replay records must stay local")
     return g
@@ -324,13 +379,14 @@ def guards(*, out_dir: Path = OUT, sentinel: Path = SENTINEL, frozen: Path = fre
 
 # ---------------------------------------------------------------- the run
 
-def run_private(max_spend: float, *, confirm_frozen: bool = False, sdk=None, questions: list[dict] | None = None,
+def run_private(max_spend: float, *, run: int = 1, confirm_frozen: bool = False, sdk=None, questions: list[dict] | None = None,
                 out_dir: Path = OUT, image_path=None, sentinel: Path = SENTINEL, frozen: Path = freeze.FROZEN_PHASE52,
                 replay_root: Path = REPLAY, git=freeze.git_state, ignored=git_ignores,
                 expected: dict | None = EXPECTED) -> Path:
     if not confirm_frozen:
-        raise SystemExit("the private test runs once, with the frozen system: pass --confirm-frozen")
-    g = guards(out_dir=out_dir, sentinel=sentinel, frozen=frozen, replay_root=replay_root, git=git, ignored=ignored)
+        raise SystemExit("the private test runs with the frozen system: pass --confirm-frozen")
+    check_run_number(run)
+    g = guards(run=run, out_dir=out_dir, sentinel=sentinel, frozen=frozen, replay_root=replay_root, git=git, ignored=ignored)
     perception_model = frozen_perception_model(frozen)
     profile = freeze.profile_of(freeze.load(frozen))
     config = freeze.live(perception_model, profile)
@@ -342,8 +398,11 @@ def run_private(max_spend: float, *, confirm_frozen: bool = False, sdk=None, que
     if replay.exists():
         raise SystemExit(f"the replay folder {replay} already exists")
     started = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
-    mark = {"what": "the one private-test benchmark run (phase 5, item 1); its existence blocks a second run",
-            "run_id": run_id, "started": started, "git_commit": g["commit"], "status": "started",
+    sentinel = sentinel_for(run, sentinel)
+    what = ("the one private-test benchmark run (phase 5, item 1); its existence blocks a second run" if run == 1
+            else f"private-test benchmark run {run} of 3 (owner, 2026-11-21: mean and spread); "
+                 f"its existence blocks a second run {run}")
+    mark = {"what": what, "run": run, "run_id": run_id, "started": started, "git_commit": g["commit"], "status": "started",
             "frozen_record_sha256": hashlib.sha256(Path(frozen).read_bytes()).hexdigest(),
             "replay_dir": f"{Path(replay_root).name}/{run_id}"}
     Path(sentinel).write_text(json.dumps(mark, indent=2) + "\n", encoding="utf-8")
@@ -384,7 +443,7 @@ def run_private(max_spend: float, *, confirm_frozen: bool = False, sdk=None, que
             records.append({k: rec.get(k) for k in _KEEP})
             del a, t, rec
             print(f"[{n}/{len(qs)}]  spent ${guard.spent:.4f}")        # a counter only
-    report = {"what": "private test, aggregate only (phase 5, item 1)", "run_id": run_id,
+    report = {"what": "private test, aggregate only (phase 5, item 1)", "run": run, "run_id": run_id,
               "perception_model": perception_model, "answer_fallback": ANSWER_FALLBACK, **counts, "started": started,
               "finished": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
               "git_commit": g["commit"], "frozen_config": config,
@@ -467,6 +526,7 @@ def main() -> None:
     r = sub.add_parser("run")
     r.add_argument("--confirm-frozen", action="store_true")
     r.add_argument("--max-spend", type=float, required=True)
+    r.add_argument("--run", type=int, default=1, help="2 or 3 (owner, 2026-11-21); run 1 is done")
     a = ap.parse_args()
     if a.cmd == "estimate":
         print(json.dumps({"phase48_at_dev_decided_share": estimate(),
@@ -474,7 +534,7 @@ def main() -> None:
                           "phase48_at_validation_decided_share": estimate(decided_share=DECIDED_SHARE)},
                          indent=2, ensure_ascii=False))
     else:
-        run_private(a.max_spend, confirm_frozen=a.confirm_frozen)
+        run_private(a.max_spend, run=a.run, confirm_frozen=a.confirm_frozen)
 
 
 if __name__ == "__main__":

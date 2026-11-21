@@ -1692,7 +1692,13 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
-### The private benchmark, once, on phase52, rules only (owner run, 2026-11-20): V1 decides 65.8% at 81.8%
+### Private benchmark: 3 runs for the mean and spread (owner, 2026-11-21; no API calls)
+
+- **Rule change (owner, 2026-11-21):** the private test runs 3 times on the frozen phase52 setup, because perception, parsing and the writer are Claude calls whose output varies from run to run. All 3 runs are reported (mean and spread), never the best one, and nothing is tuned between them. Recorded in CLAUDE.md and `docs/plans/rag-fallback.md` F4.
+- **Runner:** `eval/e2e_private.py run --run N` with N in {2, 3}. Run 1 stays `a51605785ace` (`eval/private_ran.json`, unchanged). Runs 2 and 3 write `eval/private_ran_2.json` and `eval/private_ran_3.json` before the first call, each with its own run id, replay folder `cache/private_run/<run_id>/` (fresh scene cache, `records.jsonl`, `owner_grading.csv`) and aggregate `eval/runs/e2e/private_aggregate_<run_id>.json`. It refuses N outside {2, 3}, a run whose sentinel exists, a run before every earlier one has finished on the same freeze record, and a private aggregate no earlier run wrote; every run-1 guard stays (`--confirm-frozen`, clean tree, phase52 only, ignored replay folder, no resume, answer fallback off, spend guard).
+- **Estimate:** $1.49 per run with the fallback off ($1.19–1.93), about 42 minutes; run 1 cost $1.33 in 44 minutes. **Next (owner's terminal, one after the other):** `run --run 2 --confirm-frozen --max-spend 2.25`, then `--run 3`. The RAG merge for runs 2 and 3 is adapted separately.
+
+### The private benchmark, run 1, on phase52, rules only (owner run, 2026-11-20): V1 decides 65.8% at 81.8%
 
 - **Run:** `a51605785ace`, 14:11–14:55 UTC, at `3f45ba6` (phase52: scene v5 + guide, Haiku 5.5 perception, parser v18, writer v3, policy A, signals off, no scene re-run), **answer fallback off**. Sentinel `eval/private_ran.json` (status finished); aggregate `eval/runs/e2e/private_aggregate_a51605785ace.json` (local, no ids). **$1.33** (estimate $1.49), 16.5 s and $0.0091 per question. Replay records and the owner's grading sheet `owner_grading.csv` in `cache/private_run/a51605785ace/` (gitignored).
 - **V1, rules only** (146 questions, 104 images; judge `judge/v1`, Opus 5.5):

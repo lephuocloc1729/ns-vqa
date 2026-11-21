@@ -371,3 +371,158 @@ def test_the_owner_sheet_is_written_in_the_replay_folder_only(fake_set):
     assert tuple(rows[0]) == ep.OWNER_SHEET_FIELDS and {r["system"] for r in rows} == {"v1_rules_only"}
     assert all("secret-gold" in r["gold_answer"] for r in rows)
     assert "secret-gold" not in (folder / "records.jsonl").read_text() and "secret-gold" not in out.read_text()
+
+
+# ---------------------------------------------------------------- three runs in all (owner, 2026-11-21)
+
+def _finished(fake_set, run, run_id, *, status="finished", frozen=fz.FROZEN_PHASE52, aggregate=True):
+    """A hand-made sentinel for an earlier run, with its aggregate file."""
+    import hashlib
+    report = f"private_aggregate_{run_id}.json"
+    mark = {"run_id": run_id, "status": status,
+            "frozen_record_sha256": hashlib.sha256(frozen.read_bytes()).hexdigest()}
+    if status == "finished":
+        mark["report"] = report
+        if aggregate:
+            (fake_set / "agg").mkdir(exist_ok=True)
+            (fake_set / "agg" / report).write_text("{}")
+    ep.sentinel_for(run, fake_set / "private_ran.json").write_text(json.dumps(mark))
+
+
+def test_run_sentinels_sit_beside_run_ones():
+    assert ep.sentinel_for(1) == ep.SENTINEL
+    assert ep.sentinel_for(2) == ep.ROOT / "eval" / "private_ran_2.json"
+    assert ep.sentinel_for(3) == ep.ROOT / "eval" / "private_ran_3.json"
+    assert ep.EXTRA_RUNS == (2, 3)
+
+
+@pytest.mark.parametrize("run", [0, 4, -1, 5])
+def test_a_run_number_outside_2_and_3_is_refused(fake_set, run):
+    _finished(fake_set, 1, "r1")
+    with pytest.raises(SystemExit, match="--run must be one of"):
+        _run(fake_set, run=run)
+    assert not list(fake_set.glob("private_ran_*.json"))
+
+
+def test_run_2_runs_after_run_1_with_its_own_sentinel_replay_and_aggregate(fake_set):
+    _finished(fake_set, 1, "r1")
+    run1 = (fake_set / "private_ran.json").read_text()
+    out, sdk = _run(fake_set, run=2)
+    assert (fake_set / "private_ran.json").read_text() == run1                 # run 1 untouched
+    mark = json.loads((fake_set / "private_ran_2.json").read_text())
+    rep = json.loads(out.read_text())
+    assert mark["status"] == "finished" and mark["run"] == 2 and mark["report"] == out.name
+    assert rep["run"] == 2 and rep["run_id"] == mark["run_id"] != "r1"
+    assert out.name == f"private_aggregate_{mark['run_id']}.json"
+    folder = fake_set / "private_run" / mark["run_id"]
+    assert (folder / "records.jsonl").exists() and (folder / ep.OWNER_SHEET).exists()
+    assert any((folder / "scenes").rglob("*.json")) and "perception" in sdk.created   # fresh perception
+    assert rep["answer_fallback"] is False
+
+
+def test_run_2_cannot_run_twice(fake_set):
+    _finished(fake_set, 1, "r1")
+    _run(fake_set, run=2)
+    with pytest.raises(SystemExit, match="run 2 has already run"):
+        _run(fake_set, run=2)
+
+
+def test_a_stopped_run_2_still_counts_and_blocks_run_3(fake_set):
+    class Boom(Exception):
+        pass
+
+    _finished(fake_set, 1, "r1")
+    sdk = _e2e_sdk()
+
+    def fail(**kw):
+        assert json.loads((fake_set / "private_ran_2.json").read_text())["status"] == "started"
+        raise Boom
+
+    sdk.create = fail
+    with pytest.raises(Boom):
+        _run(fake_set, sdk=sdk, run=2)
+    with pytest.raises(SystemExit, match="run 2 has already run"):
+        _run(fake_set, run=2)
+    with pytest.raises(SystemExit, match="run 2 has not finished"):
+        _run(fake_set, run=3)
+    assert not (fake_set / "private_ran_3.json").exists()
+
+
+def test_run_3_before_run_2_is_refused(fake_set):
+    _finished(fake_set, 1, "r1")
+    with pytest.raises(SystemExit, match="run 2 has not run"):
+        _run(fake_set, run=3)
+    assert not (fake_set / "private_ran_3.json").exists()
+
+
+@pytest.mark.parametrize("run", [2, 3])
+def test_no_extra_run_before_run_1(fake_set, run):
+    with pytest.raises(SystemExit, match="run 1 has not run"):
+        _run(fake_set, run=run)
+    assert not list(fake_set.glob("private_ran*.json"))
+
+
+def test_no_extra_run_while_run_1_is_unfinished(fake_set):
+    _finished(fake_set, 1, "r1", status="started")
+    with pytest.raises(SystemExit, match="run 1 has not finished"):
+        _run(fake_set, run=2)
+    assert not (fake_set / "private_ran_2.json").exists()
+
+
+def test_run_3_runs_after_runs_1_and_2(fake_set):
+    _finished(fake_set, 1, "r1")
+    _finished(fake_set, 2, "r2")
+    out, _ = _run(fake_set, run=3)
+    assert json.loads((fake_set / "private_ran_3.json").read_text())["report"] == out.name
+    assert sorted(p.name for p in (fake_set / "agg").iterdir()) == sorted(
+        ["private_aggregate_r1.json", "private_aggregate_r2.json", out.name])
+    with pytest.raises(SystemExit, match="run 3 has already run"):
+        _run(fake_set, run=3)
+
+
+def test_an_earlier_run_on_another_freeze_record_is_refused(fake_set):
+    _finished(fake_set, 1, "r1", frozen=fz.FROZEN_PHASE51)
+    with pytest.raises(SystemExit, match="another freeze record"):
+        _run(fake_set, run=2)
+    assert not (fake_set / "private_ran_2.json").exists()
+
+
+def test_an_aggregate_file_no_earlier_run_wrote_is_refused(fake_set):
+    _finished(fake_set, 1, "r1")
+    (fake_set / "agg" / "private_aggregate_stray.json").write_text("{}")
+    with pytest.raises(SystemExit, match="no earlier run wrote"):
+        _run(fake_set, run=2)
+    assert not (fake_set / "private_ran_2.json").exists()
+
+
+@pytest.mark.parametrize("bad", [
+    {"git": lambda: {"commit": "c0ffee", "clean": False, "dirty": [" M x"]}},
+    {"ignored": lambda p: False},
+    {"frozen": fz.FROZEN_PHASE51},
+    {"expected": ep.EXPECTED},
+])
+def test_run_2_keeps_every_run_1_guard(fake_set, bad):
+    _finished(fake_set, 1, "r1")
+    with pytest.raises(SystemExit):
+        _run(fake_set, run=2, **bad)
+    assert not (fake_set / "private_ran_2.json").exists()
+
+
+def test_run_2_needs_the_confirm_flag(fake_set):
+    _finished(fake_set, 1, "r1")
+    with pytest.raises(SystemExit, match="confirm-frozen"):
+        _run(fake_set, run=2, confirm_frozen=False)
+
+
+def test_the_default_run_1_is_refused_once_run_1_exists(fake_set):
+    _finished(fake_set, 1, "r1")
+    with pytest.raises(SystemExit, match="--run 2 and --run 3"):
+        _run(fake_set)
+
+
+def test_the_cli_passes_the_run_number(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(ep, "run_private", lambda m, **kw: seen.update(kw, max_spend=m))
+    monkeypatch.setattr("sys.argv", ["e2e_private.py", "run", "--run", "2", "--confirm-frozen", "--max-spend", "2"])
+    ep.main()
+    assert seen == {"run": 2, "confirm_frozen": True, "max_spend": 2.0}
