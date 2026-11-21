@@ -1,0 +1,14 @@
+# The GPU image holds code only: no data, weights, caches, environments or bundles.
+artifacts/
+data/
+models/
+outputs/
+evidence/
+reports/
+dist/
+downloads/
+.venv/
+**/__pycache__/
+**/*.egg-info/
+tests/
+.DS_Store

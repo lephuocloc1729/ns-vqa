@@ -1,0 +1,34 @@
+# The RAG service's GPU image: the code, its Python packages and llama.cpp b11624.
+# No data and no weights: gpu_setup.sh pulls the bundle and the model at start.
+#
+#   docker build -f docker/Dockerfile.gpu -t ns-vqa-rag .          (context: services/rag)
+#
+# Base: the PyTorch build the saved runs recorded (torch 2.14.1+cu130).
+FROM pytorch/pytorch:2.14.1-cuda13.0-cudnn9-runtime
+
+# The base marks its Python as externally managed (PEP 668); torch lives in that environment,
+# so our packages are installed into it on purpose.
+ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 DEBIAN_FRONTEND=noninteractive PIP_BREAK_SYSTEM_PACKAGES=1
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl libgomp1 libcurl4 tar gzip \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY pyproject.toml README.md ORIGIN.md assets_manifest.json ./
+COPY src ./src
+COPY experiments ./experiments
+COPY scripts ./scripts
+
+# The package, the service, the encoder stack (f2llm-v2-0.6b through sentence-transformers)
+# and the Hugging Face CLI for the asset bundle.
+RUN pip install -e '.[service]' \
+      "transformers==4.56.2" "sentence-transformers==5.1.1" "huggingface_hub[cli]>=0.34" \
+ && python -c "import torch, transformers, sentence_transformers, fastapi; print('torch', torch.__version__)"
+
+# llama.cpp b11624 and its CUDA 12.8 runtime, sha256-checked against the manifest, unpacked
+# where the runner looks for it (.venv/tools/llama.cpp-b11624/llama-server).
+RUN python scripts/fetch.py llama \
+ && .venv/tools/llama.cpp-b11624/llama-server --version 2>&1 | head -n 2 || true
+
+EXPOSE 8100
+CMD ["bash"]
