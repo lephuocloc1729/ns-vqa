@@ -1692,6 +1692,24 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### Error analysis on the public test, phase52 (2026-11-21; no API calls)
+
+- **Full write-up** (local, gitignored, quotes dataset questions): `eval/runs/public52_error_analysis.md`. Here ids and categories only.
+- **V2 loses points on 19 of 100 questions:** 14 rules answers wrong or partial, 5 RAG fallback answers wrong.
+
+| Cause | Cases | Ids (public_natural_) |
+|---|---|---|
+| Perception: sign misread | 6 | dev 0002, 0014, 0025; holdout 0069, 0081, 0100 |
+| Perception: guide-board text | 1 | holdout 0079 |
+| Rules / KB gap | 3 | dev 0011 (P.125: B.25's "được phép vượt xe máy 2 bánh, xe gắn máy" not modelled), 0051 (plate text "XE GẮN MÁY" mapped to `motorbike`, the question's `moped` not covered); holdout 0064 (W.203c answered with the family row's name) |
+| Writer / explanation | 1 | dev 0092 |
+| Gold or question ambiguous | 3 | dev 0043 (two-photo collage); holdout 0007 (plate says rush hour), 0052 (R.420 is a mandatory sign, D.18) |
+| RAG fallback wrong | 5 | dev 0083 (starts from a P.131a → P.130 misread); holdout 0006, 0046, 0077, 0089 |
+
+- **Perception dominates** (7 of 14 rules errors, plus one RAG error that starts from a misread). The three rules / KB gaps are one-line fixes, post-benchmark only. None involves the payload fix.
+- **Routing (future work):** on decided questions the writer's low-confidence hedge separates the two: hedged (6) rules 58.3% vs RAG 83.3%; not hedged (75) rules 89.3% vs RAG 84.0%. Routing the hedged ones to the RAG: decided accuracy 87.0% → 88.9%. Measured on public (tuning data) and 6 questions; not part of the benchmarked system.
+- **Worked examples** for Chapter 4 (proof trees replayed from the stored scenes and programs): dev 0042 (time window cleared, QCVN 41 B.30 / F.10), dev 0048 (P.106b covers tractors and special machines, B.6), dev 0082 (IE.452 makes an expressway, Law 36 art. 25 keeps motorbikes off it).
+
 ### phase52 on the whole public test, with the RAG fallback (2026-11-21): V2 84.5%, RAG alone 82.0%
 
 - **Runs** (frozen phase52, rules only, fresh perception): public_dev `a30895cfad39` ($0.50, at `59425af`) and public_holdout `32cf475921a1` ($0.58, from the worktree `~/abc-phase52`, branch `phase52-holdout` at `f30e048`, the pre-fix code). **Merges** with the RAG's saved public predictions (config C): $0.14 and $0.18; the rules' grades are reused, only the RAG's Natural QA answers are judged. Combined report `eval/public52_report.py` -> `eval/runs/public52_report.json` (gitignored).
