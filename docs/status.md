@@ -1692,6 +1692,22 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 .venv/bin/python eval/e2e_private.py estimate
 ```
 
+### The RAG merge, run 1 (owner run, 2026-11-21): V2 82.2%, RAG alone 79.1%
+
+- **Live RAG** (owner's vast RTX 5090, RAG repo `db75c4b`, config C as plan F1): the private questions captioned and embedded live, the law-corpus and train-bank index from their hash-verified caches. Run 1's 50 triggered questions, then the other 96, so all 146 are covered for runs 2 and 3. **A second live pass on the 50 matched the first on 50 of 50.** Files `rag_live.jsonl` in `cache/private_run/a51605785ace/` and `cache/private_run/live_rest/` (gitignored).
+- **Merge:** `e2e_private_rag.py run --run 1`, sentinel `eval/private_rag_ran.json`, aggregate `eval/runs/e2e/private_rag_aggregate_a51605785ace.json` (no ids), **$0.72**. A first start stopped at the first judge call (no API key in that shell, $0) and its sentinel was removed (owner).
+
+| | overall | 95% CI | strict | Yes/No | Natural QA |
+|---|---|---|---|---|---|
+| V1, rules only (run 1, non-decided wrong) | 53.8% | 45.7–61.7% | | 54.3% | 53.3% |
+| **V2, rules + live RAG fallback** | **82.2%** | 75.2–87.5% | 80.8% | 82.9% | 81.6% |
+| RAG alone (B2, saved predictions) | 79.1% | 71.8–84.9% | 76.7% | 75.7% | 82.2% |
+
+- **V2 by part:** the rules' 96 decided answers 82.3% (re-judged; V1 graded them 81.8%, a one-answer judge difference); the live RAG on the 50 triggered 82.0% (Yes/No 76.9%, Natural QA 87.5%). By trigger: out of scope 85.7% (21), unknown 73.7% (19), unreadable sign 83.3% (6), program cannot run 3 of 3, parse failed 1 of 1.
+- **Live vs saved RAG answers: 33 of 50 identical.** The live pipeline reproduces itself exactly but not the saved batch run; possible causes: torch 2.15.0+cu132 vs the saved run's build, the encoder's unpinned revision, caption differences. Not investigated.
+- **Live fallback latency per question** (warm models): total mean 7.2 s (p50 6.5, p95 12.9, max 22.5); caption 2.7 s, embedding 0.01 s, retrieval 0.02 s, answer 4.4 s.
+- **Next:** private runs 2 and 3, then their merges (`--run 2`, `--run 3`, same two live files); the report gives V1, V2 and RAG alone as means over the three runs.
+
 ### Private benchmark: 3 runs for the mean and spread (owner, 2026-11-21; no API calls)
 
 - **Rule change (owner, 2026-11-21):** the private test runs 3 times on the frozen phase52 setup, because perception, parsing and the writer are Claude calls whose output varies from run to run. All 3 runs are reported (mean and spread), never the best one, and nothing is tuned between them. Recorded in CLAUDE.md and `docs/plans/rag-fallback.md` F4.
