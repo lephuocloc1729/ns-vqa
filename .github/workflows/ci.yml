@@ -21,6 +21,9 @@ jobs:
       VQA_DATASET_DIR: /nonexistent
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The freeze tests hash vqa/ and kb/ at older commits (git archive).
+          fetch-depth: 0
 
       - name: Install SWI-Prolog (>= 9.1)
         run: |
