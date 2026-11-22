@@ -1,4 +1,4 @@
-# Mắt Luật: the whole system in containers.
+# SignCite: the whole system in containers.
 #
 #   docker compose up -d --build        # a clean machine: no .env, no API key, no GPU needed
 #   open http://localhost:8080          # the UI (a red banner says the pipeline is the fake one)
@@ -8,12 +8,12 @@
 # phase52 pipeline needs the override file and an API key: docs/deploy.md.
 # Services talk over the internal network by REST (web -> api, api -> rag) and SQL (api -> postgres).
 
-name: mat-luat
+name: signcite
 
 services:
   web:                                  # the UI (nginx), and the one public entry point
     build: { context: ., dockerfile: docker/web.Dockerfile }
-    image: ${WEB_IMAGE:-mat-luat-web:local}
+    image: ${WEB_IMAGE:-signcite-web:local}
     ports: ["${WEB_PORT:-8080}:80"]
     environment:
       BASIC_AUTH_USER: ${BASIC_AUTH_USER:-}
@@ -24,7 +24,7 @@ services:
 
   api:                                  # backend API gateway + the rules pipeline (Python, SWI-Prolog)
     build: { context: ., dockerfile: docker/api.Dockerfile }
-    image: ${API_IMAGE:-mat-luat-api:local}
+    image: ${API_IMAGE:-signcite-api:local}
     environment:
       VQA_PIPELINE: ${VQA_PIPELINE:-fake}
       VQA_DATABASE_URL: postgresql+psycopg://vqa:${POSTGRES_PASSWORD:-vqa-local}@postgres:5432/vqa
@@ -74,13 +74,13 @@ services:
     volumes: ["/:/host:ro"]
     restart: unless-stopped
 
-  grafana:                              # the monitoring dashboard ("Mắt Luật – hệ thống")
+  grafana:                              # the monitoring dashboard ("SignCite – hệ thống")
     image: grafana/grafana:11.3.1
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/mat-luat.json
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/signcite.json
     volumes:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro

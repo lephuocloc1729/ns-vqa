@@ -1,4 +1,4 @@
-# Running Mắt Luật with Docker Compose
+# Running SignCite with Docker Compose
 
 ## The services
 
@@ -9,7 +9,7 @@
 | `postgres` | Sessions, turns (answers, proofs, timings, cost) and feedback. | internal only |
 | `prometheus` | Collects the API's `/metrics` and the server's CPU and RAM. | 127.0.0.1:9090 |
 | `node-exporter` | The server's CPU, RAM, disk and network. | internal only |
-| `grafana` | The dashboard "Mắt Luật – hệ thống". | 127.0.0.1:3000 |
+| `grafana` | The dashboard "SignCite – hệ thống". | 127.0.0.1:3000 |
 | `rag` | The RAG inference server. Opt-in profile `gpu`; needs an NVIDIA GPU. | internal only |
 
 The services talk over Compose's internal network: REST from `web` to `api` and from `api` to `rag`, and SQL from `api` to `postgres`.

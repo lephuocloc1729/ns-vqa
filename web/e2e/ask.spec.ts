@@ -174,6 +174,57 @@ test("voice: Vietnamese speech fills the question box; a desktop shows the mic i
   expect(await page.evaluate(() => (window as unknown as { speechLang: string }).speechLang)).toBe("vi-VN");
 });
 
+test("the side bars fold and unfold from buttons that never move, and the choice is remembered", async ({ page }, info) => {
+  await page.goto("/");
+  const sideBtn = page.locator(".side-toggle");
+  const photoBtn = page.locator(".photo-toggle");
+  if (info.project.name !== "desktop") {
+    await expect(sideBtn).toBeHidden(); // phones: the drawer and the photo's own arrow instead
+    await expect(photoBtn).toBeHidden();
+    return;
+  }
+  const sidebar = page.locator("aside.sidebar");
+  const photo = page.getByRole("region", { name: "Ảnh" });
+  const at = async () => [await sideBtn.boundingBox(), await photoBtn.boundingBox()];
+  const before = await at();
+  const box = page.locator(".composer");
+  const boxBefore = await box.boundingBox();
+
+  await expect(sideBtn).toHaveAccessibleName("Thu gọn thanh bên");
+  await sideBtn.click();
+  await expect(sidebar).toBeHidden();
+  await expect(sideBtn).toHaveAccessibleName("Mở thanh bên");
+  // the question box only moves sideways, and no extra buttons appear in its place
+  const boxAfter = await box.boundingBox();
+  expect(boxAfter!.y).toBe(boxBefore!.y);
+  expect(boxAfter!.x).toBeLessThan(boxBefore!.x);
+  await expect(page.getByRole("button", { name: "Cuộc trò chuyện mới" })).toBeHidden();
+  await expect(page.getByRole("button", { name: /^Giao diện/ })).toBeHidden();
+  // also when the greeting wraps differently (fonts differ by system): force it to wrap with the sidebar
+  // open and fit on fewer lines with it folded; the box must still keep its height
+  await sideBtn.click();
+  await page.addStyleTag({ content: ".hero-anchor > h2 { font-size: 44px !important; }" });
+  const wrapped = await box.boundingBox();
+  await sideBtn.click();
+  expect((await box.boundingBox())!.y).toBe(wrapped!.y);
+  await page.addStyleTag({ content: ".hero-anchor > h2 { font-size: revert-layer !important; }" });
+  await photoBtn.click();
+  await expect(photo).toBeHidden();
+  await expect(photoBtn).toHaveAccessibleName("Mở khung ảnh");
+  expect(await at()).toEqual(before); // same place, folded or not
+  await expect(page.getByLabel("Câu hỏi", { exact: true })).toBeVisible();
+
+  await page.reload();
+  await expect(sidebar).toBeHidden();
+  await expect(photo).toBeHidden();
+  expect(await at()).toEqual(before);
+  await sideBtn.click();
+  await photoBtn.click();
+  await expect(sidebar).toBeVisible();
+  await expect(photo).toBeVisible();
+  expect(await at()).toEqual(before);
+});
+
 test("a wrong file type is refused before upload", async ({ page }) => {
   await page.goto("/");
   await page.getByTestId("file-input").setInputFiles({ name: "a.gif", mimeType: "image/gif", buffer: Buffer.from("GIF89a") });

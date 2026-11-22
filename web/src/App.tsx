@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { ApiError, askStream, getTurn, getTurns, imageUrl, recoverTurn } from "./lib/api";
 import {
-  forgetSession, loadSessionId, loadSessions, loadTheme, rememberSession, saveSessionId, saveTheme,
+  forgetSession, loadFlag, loadSessionId, loadSessions, loadTheme, rememberSession, saveFlag, saveSessionId, saveTheme,
   type KnownSession, type Theme,
 } from "./lib/storage";
 import { newTurn, turnFromStored, turnReducer, type TurnAction, type TurnState } from "./lib/turn";
-import { PRODUCT } from "./lib/brand";
 import Composer, { ACCEPTED } from "./components/Composer";
-import { Menu, Pencil } from "./components/Icons";
+import { Menu, PanelLeft, PanelRight, Pencil } from "./components/Icons";
 import PhotoPanel from "./components/PhotoPanel";
 import Sidebar, { THEME_LABEL, THEME_NEXT, ThemeIcon } from "./components/Sidebar";
 import TurnView from "./components/TurnView";
@@ -72,6 +71,11 @@ export default function App() {
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
   const [drawer, setDrawer] = useState(false);
+  // wide screens: the side bars can be folded away; the choice is remembered in this browser
+  const [sideOpen, setSideOpen] = useState(() => loadFlag("vqa.sideOpen", true));
+  const [photoOpen, setPhotoOpen] = useState(() => loadFlag("vqa.photoOpen", true));
+  useEffect(() => saveFlag("vqa.sideOpen", sideOpen), [sideOpen]);
+  useEffect(() => saveFlag("vqa.photoOpen", photoOpen), [photoOpen]);
   const [theme, setTheme] = useState<Theme>(() => loadTheme());
   const [server, setServer] = useState<{ ok: boolean; fallback?: string; profile?: string } | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -263,7 +267,7 @@ export default function App() {
 
   const shown = turns.find((t) => t.key === selected) ?? null;
   const panelUrl = shown?.imageUrl ?? photo?.url ?? null;
-  const title = turns.length ? turns[0].question : PRODUCT;
+  const title = turns.length ? turns[0].question : "";
   const serverNote = server?.ok && server.fallback
     ? `Dự phòng: ${server.fallback === "rag" ? "RAG" : server.fallback === "off" ? "tắt" : server.fallback}`
     : null;
@@ -291,10 +295,18 @@ export default function App() {
   );
 
   return (
-    <div className="shell">
+    <div className={`shell${sideOpen ? "" : " no-side"}${photoOpen ? "" : " no-photo"}`}>
+      {/* wide screens: one button per side bar, pinned to its corner, open or folded */}
+      <button type="button" className="icon-btn bar-toggle side-toggle" onClick={() => setSideOpen(!sideOpen)}
+        aria-expanded={sideOpen} aria-label={sideOpen ? "Thu gọn thanh bên" : "Mở thanh bên"}
+        title={sideOpen ? "Thu gọn thanh bên" : "Mở thanh bên"}><PanelLeft size={19} /></button>
+      <button type="button" className="icon-btn bar-toggle photo-toggle" onClick={() => setPhotoOpen(!photoOpen)}
+        aria-expanded={photoOpen} aria-label={photoOpen ? "Thu gọn khung ảnh" : "Mở khung ảnh"}
+        title={photoOpen ? "Thu gọn khung ảnh" : "Mở khung ảnh"}><PanelRight size={19} /></button>
       <aside className="sidebar">{sidebar(false)}</aside>
-      <header className="topbar">
-        <button type="button" className="icon-btn narrow-only" onClick={() => setDrawer(true)} aria-label="Mở lịch sử">
+      <header className={`topbar${turns.length ? "" : " empty"}`}>
+        <button type="button" className="icon-btn narrow-only drawer-btn" aria-label="Mở lịch sử" title="Mở lịch sử"
+          onClick={() => setDrawer(true)}>
           <Menu size={20} />
         </button>
         <h1 className="topbar-title">{title}</h1>
@@ -318,9 +330,11 @@ export default function App() {
         {loadErr && <div className="notice warn" role="status">{loadErr}</div>}
         {turns.length === 0 ? (
           <div className="hero">
-            <h2>Hỏi về biển báo trong ảnh của bạn</h2>
-            <p className="muted">Mỗi câu trả lời của hệ luật kèm căn cứ pháp lý và chứng minh từng bước.</p>
-            {composer}
+            {/* the box is the anchor: the greeting sits just above it and grows upward if it wraps */}
+            <div className="hero-anchor">
+              <h2>Hỏi về biển báo trong ảnh của bạn</h2>
+              {composer}
+            </div>
             <div className="examples">
               {EXAMPLES.map((q) => (
                 <button key={q} type="button" className="example" disabled={busy} onClick={() => {

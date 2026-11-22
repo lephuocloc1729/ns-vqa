@@ -60,3 +60,10 @@ export const loadTheme = (): Theme => {
   return t === "light" || t === "dark" ? t : "auto";
 };
 export const saveTheme = (t: Theme) => write(THEME, t === "auto" ? null : t);
+
+/** Remembered on/off choices (e.g. whether a side bar is open); `fallback` when unset or unreadable. */
+export function loadFlag(key: string, fallback: boolean): boolean {
+  const v = read(key);
+  return v === "1" ? true : v === "0" ? false : fallback;
+}
+export const saveFlag = (key: string, on: boolean) => write(key, on ? "1" : "0");
