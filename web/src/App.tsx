@@ -5,7 +5,6 @@ import {
   type KnownSession, type Theme,
 } from "./lib/storage";
 import { newTurn, turnFromStored, turnReducer, type TurnAction, type TurnState } from "./lib/turn";
-import { PRODUCT } from "./lib/brand";
 import Composer, { ACCEPTED } from "./components/Composer";
 import { Menu, Pencil } from "./components/Icons";
 import PhotoPanel from "./components/PhotoPanel";
@@ -263,7 +262,7 @@ export default function App() {
 
   const shown = turns.find((t) => t.key === selected) ?? null;
   const panelUrl = shown?.imageUrl ?? photo?.url ?? null;
-  const title = turns.length ? turns[0].question : PRODUCT;
+  const title = turns.length ? turns[0].question : "";
   const serverNote = server?.ok && server.fallback
     ? `Dự phòng: ${server.fallback === "rag" ? "RAG" : server.fallback === "off" ? "tắt" : server.fallback}`
     : null;
@@ -293,11 +292,11 @@ export default function App() {
   return (
     <div className="shell">
       <aside className="sidebar">{sidebar(false)}</aside>
-      <header className="topbar">
+      <header className={`topbar${turns.length ? "" : " empty"}`}>
         <button type="button" className="icon-btn narrow-only" onClick={() => setDrawer(true)} aria-label="Mở lịch sử">
           <Menu size={20} />
         </button>
-        <h1 className={`topbar-title${turns.length ? "" : " brand-name"}`}>{title}</h1>
+        <h1 className="topbar-title">{title}</h1>
         <button type="button" className="icon-btn narrow-only" onClick={() => setTheme(THEME_NEXT[theme])}
           aria-label={THEME_LABEL[theme]} title={THEME_LABEL[theme]}><ThemeIcon theme={theme} size={19} /></button>
         <button type="button" className="icon-btn narrow-only" disabled={busy} onClick={newConversation}

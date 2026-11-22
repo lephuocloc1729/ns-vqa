@@ -136,8 +136,10 @@ button:disabled { cursor: not-allowed; opacity: .5; }
   display: flex; align-items: center; gap: 4px; padding: 3px 12px; min-height: 44px;
   border-bottom: 1px solid var(--border); background: var(--bg); position: sticky; top: 0; z-index: 20;
 }
-.topbar-title { flex: 1; min-width: 0; margin: 0; font-size: 14.5px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-@media (min-width: 1180px) { .topbar { padding: 3px 24px; } }
+.topbar-title { flex: 1; min-width: 0; margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14.5px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (min-width: 1180px) { .topbar { padding: 3px 24px; } .topbar.empty { display: none; } }
+/* before the first question: no title and no line; on narrow screens only the buttons remain */
+.topbar.empty { border-bottom-color: transparent; }
 .topbar .icon-btn { width: 36px; height: 36px; }
 
 /* conversation */
@@ -303,7 +305,6 @@ details.block > summary { cursor: pointer; font-size: 12px; font-weight: 600; co
 /* the product name: a serif wordmark (Newsreader, bundled) */
 .brand-name { font-family: "Newsreader Variable", Georgia, "Times New Roman", serif; font-weight: 500; letter-spacing: -0.01em; }
 .brand .brand-name { font-size: 28px; }
-.topbar-title.brand-name { font-size: 21px; }
 .brand-tag { font-size: 11.5px; font-weight: 400; color: var(--muted); }
 /* voice: the camera button is for touch devices; a desktop shows the microphone instead */
 @media (hover: hover) and (pointer: fine) { .touch-only { display: none !important; } }
