@@ -39,7 +39,10 @@ test("ask, stream, boxes, citations, proof, feedback, RAG and history", async ({
   expect(reset, JSON.stringify(seen)).toBeGreaterThan(draft);
   expect(final, JSON.stringify(seen)).toBeGreaterThan(reset);
   expect(seen.slice(final).some((t) => t.includes("Có,"))).toBe(false);
-  await expect(turn.getByTestId("notes")).toContainText("Độ tin cậy thấp");
+  // sign 2 is low-confidence but the answer does not rest on it: no note; who answered is in the stats line
+  await expect(turn.getByTestId("notes")).toHaveCount(0);
+  await expect(turn.getByTestId("stats")).toContainText("Hệ luật");
+  await expect(turn.locator(".badge")).toHaveCount(0);
 
   // boxes: numbered, code and name on tap
   await expect(page.getByTestId("box-1")).toBeVisible();
@@ -86,6 +89,15 @@ test("ask, stream, boxes, citations, proof, feedback, RAG and history", async ({
   await page.getByRole("button", { name: "Lịch sử" }).click();
   await page.getByRole("dialog").getByText("Xe ô tô có được đi vào đường này không?").click();
   await expect(page.getByTestId("turn")).toHaveCount(2);
+});
+
+test("notes for a low-confidence sign and a local plate the answer rests on", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("file-input").setInputFiles(PHOTO);
+  await ask(page, "Theo biển phụ, xe máy có được đi vào không?");
+  const notes = page.getByTestId("turn").first().getByTestId("notes");
+  await expect(notes).toContainText("độ tin cậy thấp: biển 2 (W.207a)");
+  await expect(notes).toContainText("Câu trả lời dựa trên chữ ghi trên biển phụ: “CẤM XE 2 VÀ 3 BÁNH”");
 });
 
 test("a dropped stream recovers the stored answer", async ({ page }) => {

@@ -1,4 +1,4 @@
-import { ANSWERED_BY, VERDICT, fmtSeconds, stageLabel } from "../lib/labels";
+import { ANSWERED_BY, fmtSeconds, stageLabel } from "../lib/labels";
 import type { TurnState } from "../lib/turn";
 import type { Feedback } from "../lib/types";
 import Details from "./Details";
@@ -38,7 +38,8 @@ function Stages({ t }: { t: TurnState }) {
   if (live || !t.stages.length) return live ? list : null;
   return (
     <details className="block">
-      <summary className="muted" style={{ fontWeight: 400 }}>
+      <summary className="muted" style={{ fontWeight: 400 }} data-testid="stats">
+        {t.result?.answered_by ? `${ANSWERED_BY[t.result.answered_by] ?? t.result.answered_by} · ` : ""}
         {t.stages.length > 1 ? `${t.stages.length} bước` : "Đã trả lời"}
         {t.result?.seconds != null ? ` · ${fmtSeconds(t.result.seconds)}` : ""}
         {t.result?.cost_usd != null ? ` · $${t.result.cost_usd.toFixed(4)}` : ""}
@@ -83,10 +84,6 @@ export default function TurnView({ t, selected, onSelect, onFeedback }: {
       {r && t.phase === "done" && (
         <>
           <div className="answer" data-testid="answer">{r.answer}</div>
-          <div className="badges">
-            {r.verdict && <span className={`badge ${r.verdict}`}>{VERDICT[r.verdict] ?? r.verdict}</span>}
-            {r.answered_by && <span className="badge">{ANSWERED_BY[r.answered_by] ?? r.answered_by}</span>}
-          </div>
           <Details t={r} signs={t.signs} />
           {t.turnId && <FeedbackBar turnId={t.turnId} given={t.feedback} onSent={onFeedback} />}
         </>

@@ -1,4 +1,5 @@
 import { CONFIDENCE } from "../lib/labels";
+import { localPlates, lowConfidenceRelied } from "../lib/notes";
 import type { SignBox, TurnOut } from "../lib/types";
 import ProofTree from "./ProofTree";
 
@@ -44,20 +45,33 @@ function Notes({ t, signs }: { t: TurnOut; signs: SignBox[] }) {
       body: <>Không đọc rõ {uncertain.map(label).join(", ")}; kết luận có thể thay đổi nếu đọc được biển này.</>,
     });
   }
-  const low = signs.map((s, i) => ({ s, n: i + 1 })).filter((x) => x.s.confidence === "low");
+  // only the low-confidence signs the answer rests on; the dotted box already marks the others
+  const low = lowConfidenceRelied(signs, proof);
   if (low.length) {
     notes.push({
       id: "low", kind: "warn",
       body: (
         <>
-          Độ tin cậy {CONFIDENCE.low} khi đọc: {low.map((x) => `biển ${x.n} (${x.s.code ?? "?"})`).join(", ")}.
-          Hãy kiểm tra lại khung trên ảnh.
+          Câu trả lời dựa vào biển đọc với độ tin cậy {CONFIDENCE.low}:{" "}
+          {low.map((x) => `biển ${x.n} (${x.s.code ?? "?"})`).join(", ")}. Hãy kiểm tra lại khung trên ảnh.
         </>
       ),
     });
   }
   if (t.basis.includes("non_standard_plate")) {
-    notes.push({ id: "local", kind: "info", body: <>Dựa trên biển phụ không theo QCVN 41 (nội dung được giữ nguyên văn).</> });
+    const plates = localPlates(proof);
+    notes.push({
+      id: "local", kind: "info",
+      body: plates.length ? (
+        <>
+          Câu trả lời dựa trên chữ ghi trên biển phụ:{" "}
+          {plates.map((p, i) => <span key={i}>{i > 0 && ", "}<strong>“{p.text}”</strong></span>)}{" "}
+          (biển phụ địa phương, không có trong QCVN 41).
+        </>
+      ) : (
+        <>Câu trả lời dựa trên chữ ghi trên một biển phụ địa phương (không có trong QCVN 41).</>
+      ),
+    });
   }
   if (t.answered_by === "fallback" && !t.basis.includes("rag")) {
     notes.push({ id: "fb", kind: "warn", body: <>Trả lời bởi mô hình dự phòng – chưa được hệ luật kiểm chứng.</> });

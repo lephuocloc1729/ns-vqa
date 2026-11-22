@@ -50,6 +50,17 @@ PROOF_NO = {
     }],
 }
 
+PROOF_PLATE = {
+    **PROOF_NO, "basis": ["non_standard_plate"],
+    "reasons": [{
+        "sign_id": "s2", "truth": "true", "detail": "biển phụ địa phương cấm xe 2 và 3 bánh",
+        "proof": {"type": "rule", "rule": "forbids", "goal": "forbids(s2, motorbike, enter)", "children": [
+            {"type": "fact", "goal": "local_plate(s2,'CẤM XE 2 VÀ 3 BÁNH')", "children": []},
+            {"type": "cite", "goal": "cite(r_non_standard_plate_not_in_qcvn41)", "children": []},
+        ]},
+    }],
+}
+
 RAG_LAWS = [
     {"law_id": "QCVN 41:2024/BGTVT", "article_id": "B.3", "rank": 1, "score": 0.812,
      "text": "Biển số P.103a \"Cấm xe ô tô\": để báo đường cấm các loại xe cơ giới bốn bánh trở lên ..."},
@@ -119,9 +130,12 @@ class FakePipeline:
                 cost_usd=0.003, seconds=round(time.monotonic() - t0, 2))
         self.engine.answer(res.scene, "no")
         w = self.writer.write(question, "no")
+        # "biển phụ": the answer rests on the low-confidence sign 2 and its local plate
+        plate = "biển phụ" in question
         return SimpleNamespace(
-            text=w.text, verdict="no", answered_by="rules", basis=["rules"],
-            citations=["QCVN 41:2024/BGTVT B.3"], proof=PROOF_NO,
+            text=w.text, verdict="no", answered_by="rules",
+            basis=["rules", "non_standard_plate"] if plate else ["rules"],
+            citations=["QCVN 41:2024/BGTVT B.3"], proof=PROOF_PLATE if plate else PROOF_NO,
             trace={"writer": {"status": "retry", "cost_usd": 0.001}},
             cost_usd=0.002, seconds=round(time.monotonic() - t0, 2))
 
