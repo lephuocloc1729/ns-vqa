@@ -99,11 +99,12 @@ The `caddy_data` volume holds the certificates; keep it. CI runs the same overla
 `.github/workflows/cd.yml` runs after CI passes on a push to `main` (or by hand: Actions › CD › Run workflow).
 
 1. **Build:** the `api` and `web` images, pushed to GHCR as `ghcr.io/<owner>/signcite-{api,web}:<commit>` and `:latest`.
-2. **Deploy:** copies the commit's files to `/opt/signcite` over SSH (`.env` and the pictogram copies are not in git, so they stay). It logs the server in to GHCR with the run's short-lived token, runs `docker/deploy.sh`, then logs out.
+2. **Deploy:** sends the commit's files (`git archive`) to the server over SSH, logs the server in to GHCR with the run's short-lived token, runs the commit's own `docker/deploy.sh`, then logs out.
 3. **`docker/deploy.sh` on the server:**
-   - pulls the new images, records them in `.env` (`API_IMAGE`, `WEB_IMAGE`) and restarts what changed;
-   - then checks the stack: the containers are healthy, the API's `/health` reports the database, and `https://DOMAIN/healthz` answers;
-   - if the check fails, it switches back to the previous images, checks again and fails the run.
+   - pulls the new images (if the registry fails, nothing has changed yet);
+   - saves the files the commit replaces, notes the ones it adds, unpacks the commit's files (`.env` and the pictogram copies are not in git, so they stay), records the images in `.env` (`API_IMAGE`, `WEB_IMAGE`) and restarts what changed;
+   - checks the stack: the containers are healthy, the API's `/health` reports the database, and `https://DOMAIN/healthz` answers;
+   - if the check fails, it puts back the previous files and images, removes the files the commit added, checks again and fails the run.
 4. **Check:** GitHub confirms the public site answers.
 
 Each run shows as a `production` deployment on the repository's Deployments page.
@@ -112,6 +113,8 @@ Each run shows as a `production` deployment on the repository's Deployments page
 - `DEPLOY_HOST`: the server's address.
 - `DEPLOY_SSH_KEY`: a key used only by CD, its public half in the server's `authorized_keys` (comment `github-actions-cd signcite`).
 - `DEPLOY_KNOWN_HOSTS`: the server's host keys (`ssh-keyscan <host>`), so the runner never trusts an unknown host.
+
+**Tested (2026-11-22):** a deliberately broken `web` deployed through CD failed its check and was rolled back automatically (the run turned red, the site gave errors for about 90 s, then served the previous version); the file restore was tested on the server by hand.
 
 **Roll back by hand:** set `API_IMAGE` and `WEB_IMAGE` in `.env` to an earlier commit's tags and run `docker compose up -d`.
 
