@@ -265,7 +265,8 @@ details.block > summary { cursor: pointer; font-size: 12px; font-weight: 600; co
 
 /* empty state */
 .hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 40px 16px; max-width: 760px; width: 100%; margin: 0 auto; }
-.hero h2 { margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.01em; text-align: center; line-height: 1.25; }
+/* the greeting: the brand's serif (Newsreader), a little lighter than the name's 500 */
+.hero h2 { margin: 0; font-family: "Newsreader Variable", Georgia, "Times New Roman", serif; font-size: 32px; font-weight: 400; letter-spacing: -0.01em; text-align: center; line-height: 1.2; }
 .hero p { margin: 0; text-align: center; }
 /* wide screens: the greeting and the box sit at a fixed height, so folding
    a side bar moves the box sideways only, never up or down */
@@ -407,6 +408,6 @@ details.block > summary { cursor: pointer; font-size: 12px; font-weight: 600; co
   /* before the first question: the greeting in the middle, the box at the bottom */
   .hero { justify-content: flex-start; align-items: stretch; gap: 14px; padding: 0 16px 12px; }
   .hero-anchor { display: contents; }
-  .hero h2 { margin-top: auto; text-align: left; font-size: 26px; }
+  .hero h2 { margin-top: auto; text-align: left; font-size: 30px; }
   .hero .composer { order: 2; margin-top: auto; position: sticky; bottom: 12px; }
 }
