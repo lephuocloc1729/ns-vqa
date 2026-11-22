@@ -200,6 +200,14 @@ test("the side bars fold and unfold from buttons that never move, and the choice
   expect(boxAfter!.x).toBeLessThan(boxBefore!.x);
   await expect(page.getByRole("button", { name: "Cuộc trò chuyện mới" })).toBeHidden();
   await expect(page.getByRole("button", { name: /^Giao diện/ })).toBeHidden();
+  // also when the greeting wraps differently (fonts differ by system): force it to wrap with the sidebar
+  // open and fit on fewer lines with it folded; the box must still keep its height
+  await sideBtn.click();
+  await page.addStyleTag({ content: ".hero-anchor > h2 { font-size: 44px !important; }" });
+  const wrapped = await box.boundingBox();
+  await sideBtn.click();
+  expect((await box.boundingBox())!.y).toBe(wrapped!.y);
+  await page.addStyleTag({ content: ".hero-anchor > h2 { font-size: revert-layer !important; }" });
   await photoBtn.click();
   await expect(photo).toBeHidden();
   await expect(photoBtn).toHaveAccessibleName("Mở khung ảnh");

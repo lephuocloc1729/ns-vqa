@@ -330,8 +330,11 @@ export default function App() {
         {loadErr && <div className="notice warn" role="status">{loadErr}</div>}
         {turns.length === 0 ? (
           <div className="hero">
-            <h2>Hỏi về biển báo trong ảnh của bạn</h2>
-            {composer}
+            {/* the box is the anchor: the greeting sits just above it and grows upward if it wraps */}
+            <div className="hero-anchor">
+              <h2>Hỏi về biển báo trong ảnh của bạn</h2>
+              {composer}
+            </div>
             <div className="examples">
               {EXAMPLES.map((q) => (
                 <button key={q} type="button" className="example" disabled={busy} onClick={() => {

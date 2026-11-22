@@ -261,7 +261,14 @@ details.block > summary { cursor: pointer; font-size: 12px; font-weight: 600; co
 .hero p { margin: 0; text-align: center; }
 /* wide screens: the greeting and the box sit at a fixed height (the examples hang below), so folding
    a side bar moves the box sideways only, never up or down */
-@media (min-width: 900px) { .hero { justify-content: flex-start; padding-top: max(48px, calc(44vh - 52px)); } }   /* the box's top edge at ~44% of the window, as in Claude */
+.hero-anchor { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+@media (min-width: 900px) {
+  /* the box's top edge at ~44% of the window, as in Claude; the greeting is placed above the box,
+     so whether it fits on one line or wraps (fonts differ by system) never moves the box */
+  .hero { justify-content: flex-start; padding-top: max(120px, 44vh); }
+  .hero-anchor { position: relative; }
+  .hero-anchor > h2 { position: absolute; left: 0; right: 0; bottom: calc(100% + 16px); }
+}
 .examples { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .example { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 8px 14px; min-height: 40px; font-size: 14px; }
 .example:hover:not(:disabled) { background: var(--hover); }
