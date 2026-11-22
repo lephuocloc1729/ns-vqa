@@ -191,6 +191,13 @@ test("the side bars fold and unfold from buttons that never move, and the choice
   }
   const sidebar = page.locator("aside.sidebar");
   const photo = page.getByRole("region", { name: "Ảnh" });
+  // the desktop is drawn at 80%, like the browser's 80% zoom, and the side bars still fill the window
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).zoom)).toBe("0.8");
+  const vh = page.viewportSize()!.height;
+  for (const bar of [sidebar, photo]) {
+    const b = (await bar.boundingBox())!;
+    expect(Math.abs(b.y + b.height - vh)).toBeLessThan(2);
+  }
   const at = async () => [await sideBtn.boundingBox(), await photoBtn.boundingBox()];
   const before = await at();
   const box = page.locator(".composer");
@@ -240,12 +247,14 @@ test("a wrong file type is refused before upload", async ({ page }) => {
 test("phone layout as in the mockup: name in the bar, a one-line box, a short pinned photo with sign chips", async ({ page }, info) => {
   test.skip(info.project.name !== "phone", "phone only");
   await page.goto("/");
-  // before the first question: the name in the bar, no "new chat", the box under the examples
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).zoom)).toBe("1"); // phones at 100%
+  // before the first question: the name in the bar, no "new chat", the box under the greeting, no example questions
   await expect(page.locator(".topbar-brand")).toHaveText("SignCite");
   await expect(page.getByRole("button", { name: "Cuộc trò chuyện mới" })).toBeHidden();
   const box = page.locator("form.composer");
-  const lastExample = page.locator(".example").last();
-  expect((await box.boundingBox())!.y).toBeGreaterThan((await lastExample.boundingBox())!.y);
+  const greeting = page.getByRole("heading", { name: "Hỏi về biển báo trong ảnh của bạn" });
+  expect((await box.boundingBox())!.y).toBeGreaterThan((await greeting.boundingBox())!.y + 100);
+  await expect(page.locator(".example")).toHaveCount(0);
   // a picked photo is a chip in the box; the photo panel waits for the first question
   await page.getByTestId("file-input").setInputFiles(PHOTO);
   await expect(page.locator(".composer-photo")).toContainText("road.jpg");

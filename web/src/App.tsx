@@ -54,13 +54,6 @@ function setHash(turnId: string | null) {
   }
 }
 
-// written for the demo, not taken from the dataset
-const EXAMPLES = [
-  "Xe ô tô có được đi vào đường này không?",
-  "Đây là biển báo gì?",
-  "Tốc độ tối đa cho xe máy là bao nhiêu?",
-  "Xe tải có được đi qua đoạn đường này không?",
-];
 
 export default function App() {
   const [turns, dispatch] = useReducer(convReducer, []);
@@ -321,30 +314,24 @@ export default function App() {
       <PhotoPanel imageUrl={panelUrl} imageSize={shown?.imageSize ?? null} signs={shown?.signs ?? []}
         busy={busy} onDropFile={pickFile} />
       <main className={`chat${turns.length ? "" : " empty"}`} aria-label="Cuộc trò chuyện" {...chatDrop}>
-        {server && !server.ok && (
-          <div className="notice bad" role="alert">Không kết nối được máy chủ API. Hãy kiểm tra máy chủ rồi tải lại trang.</div>
-        )}
-        {server?.profile?.startsWith("fake") && (
-          <div className="notice bad" role="alert" data-testid="fake-banner">
-            <strong>Máy chủ thử nghiệm (pipeline giả, profile “{server.profile}”).</strong> Mọi câu trả lời đều là
-            dữ liệu mẫu cố định, không phải từ hệ thống thật.
-          </div>
-        )}
-        {loadErr && <div className="notice warn" role="status">{loadErr}</div>}
+        <div className="notices">
+          {server && !server.ok && (
+            <div className="notice bad" role="alert">Không kết nối được máy chủ API. Hãy kiểm tra máy chủ rồi tải lại trang.</div>
+          )}
+          {server?.profile?.startsWith("fake") && (
+            <div className="notice bad" role="alert" data-testid="fake-banner">
+              <strong>Máy chủ thử nghiệm (pipeline giả, profile “{server.profile}”).</strong> Mọi câu trả lời đều là
+              dữ liệu mẫu cố định, không phải từ hệ thống thật.
+            </div>
+          )}
+          {loadErr && <div className="notice warn" role="status">{loadErr}</div>}
+        </div>
         {turns.length === 0 ? (
           <div className="hero">
             {/* the box is the anchor: the greeting sits just above it and grows upward if it wraps */}
             <div className="hero-anchor">
               <h2>Hỏi về biển báo trong ảnh của bạn</h2>
               {composer}
-            </div>
-            <div className="examples">
-              {EXAMPLES.map((q) => (
-                <button key={q} type="button" className="example" disabled={busy} onClick={() => {
-                  if (photo) void ask(q);
-                  else { setQuestion(q); setPhotoErr("Hãy đính kèm ảnh có biển báo trước khi hỏi."); textRef.current?.focus(); }
-                }}>{q}</button>
-              ))}
             </div>
           </div>
         ) : (
