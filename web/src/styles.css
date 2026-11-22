@@ -298,3 +298,13 @@ details.block > summary { cursor: pointer; font-size: 12px; font-weight: 600; co
   .composer-dock { padding: 8px 10px 12px; }
   .footnote { display: none; }
 }
+.brand-text { display: flex; flex-direction: column; line-height: 1.2; }
+.brand-tag { font-size: 11.5px; font-weight: 400; color: var(--muted); }
+/* voice: the camera button is for touch devices; a desktop shows the microphone instead */
+@media (hover: hover) and (pointer: fine) { .touch-only { display: none !important; } }
+.mic.listening { color: #fff; background: var(--low); }
+.mic.listening:hover:not(:disabled) { color: #fff; background: var(--low); }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgb(201 53 43 / 45%); } 100% { box-shadow: 0 0 0 10px rgb(201 53 43 / 0%); } }
+.mic.listening { animation: pulse 1.2s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) { .mic.listening { animation: none; } }
+.listening-hint { margin: 0 2px; font-size: 13px; color: var(--low); }

@@ -22,6 +22,7 @@ export const Clip = (p: P) => <Svg {...p}><path d="M21.4 11.1l-9.2 9.2a6 6 0 0 1
 export const Camera = (p: P) => (
   <Svg {...p}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></Svg>
 );
+export const Mic = (p: P) => <Svg {...p}><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v4" /></Svg>;
 export const Send = (p: P) => <Svg {...p} sw={2.2}><path d="M12 19V5M5 12l7-7 7 7" /></Svg>;
 export const Close = (p: P) => <Svg {...p} sw={2.2}><path d="M18 6L6 18M6 6l12 12" /></Svg>;
 export const Check = (p: P) => <Svg {...p} sw={3}><path d="M5 12l5 5L20 7" /></Svg>;

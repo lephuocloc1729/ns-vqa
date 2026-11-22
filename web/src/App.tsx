@@ -5,6 +5,7 @@ import {
   type KnownSession, type Theme,
 } from "./lib/storage";
 import { newTurn, turnFromStored, turnReducer, type TurnAction, type TurnState } from "./lib/turn";
+import { PRODUCT } from "./lib/brand";
 import Composer, { ACCEPTED } from "./components/Composer";
 import { Menu, Pencil } from "./components/Icons";
 import PhotoPanel from "./components/PhotoPanel";
@@ -262,7 +263,7 @@ export default function App() {
 
   const shown = turns.find((t) => t.key === selected) ?? null;
   const panelUrl = shown?.imageUrl ?? photo?.url ?? null;
-  const title = turns.length ? turns[0].question : "Cuộc trò chuyện mới";
+  const title = turns.length ? turns[0].question : PRODUCT;
   const serverNote = server?.ok && server.fallback
     ? `Dự phòng: ${server.fallback === "rag" ? "RAG" : server.fallback === "off" ? "tắt" : server.fallback}`
     : null;

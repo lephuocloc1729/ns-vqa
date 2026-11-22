@@ -140,6 +140,40 @@ test("a dropped stream recovers the stored answer", async ({ page }) => {
   await expect(turn).toHaveAttribute("data-phase", "done");
 });
 
+test("voice: Vietnamese speech fills the question box; a desktop shows the mic instead of the camera", async ({ page }, info) => {
+  // a fake recognizer: an interim result, then the final one, then the end of listening
+  await page.addInitScript(() => {
+    class FakeRecognition {
+      lang = "";
+      interimResults = false;
+      continuous = false;
+      onresult: ((e: unknown) => void) | null = null;
+      onerror: ((e: unknown) => void) | null = null;
+      onend: (() => void) | null = null;
+      start() {
+        (window as unknown as { speechLang: string }).speechLang = this.lang;
+        setTimeout(() => this.onresult?.({ results: [{ isFinal: false, 0: { transcript: "xe ô tô" } }] }), 50);
+        setTimeout(() => {
+          this.onresult?.({ results: [{ isFinal: true, 0: { transcript: "xe ô tô có được đi vào không" } }] });
+          this.onend?.();
+        }, 300);
+      }
+      stop() { this.onend?.(); }
+      abort() {}
+    }
+    (window as unknown as { webkitSpeechRecognition: unknown }).webkitSpeechRecognition = FakeRecognition;
+  });
+  await page.goto("/");
+  const camera = page.getByRole("button", { name: "Chụp ảnh" });
+  if (info.project.name === "desktop") await expect(camera).toHaveCount(0); // hidden: no touch
+  else await expect(camera).toBeVisible();
+  await page.getByRole("button", { name: "Hỏi bằng giọng nói" }).click();
+  await expect(page.getByRole("button", { name: "Dừng nghe" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Câu hỏi", { exact: true })).toHaveValue("Xe ô tô có được đi vào không");
+  await expect(page.getByRole("button", { name: "Hỏi bằng giọng nói" })).toHaveAttribute("aria-pressed", "false");
+  expect(await page.evaluate(() => (window as unknown as { speechLang: string }).speechLang)).toBe("vi-VN");
+});
+
 test("a wrong file type is refused before upload", async ({ page }) => {
   await page.goto("/");
   await page.getByTestId("file-input").setInputFiles({ name: "a.gif", mimeType: "image/gif", buffer: Buffer.from("GIF89a") });

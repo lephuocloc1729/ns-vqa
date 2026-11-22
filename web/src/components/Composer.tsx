@@ -1,5 +1,6 @@
-import { forwardRef, useRef } from "react";
-import { Camera, Clip, Close, Send } from "./Icons";
+import { forwardRef, useCallback, useRef } from "react";
+import { useSpeech } from "../lib/speech";
+import { Camera, Clip, Close, Mic, Send } from "./Icons";
 
 export const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
 
@@ -27,9 +28,17 @@ const Composer = forwardRef<HTMLTextAreaElement, {
     const f = files && files[0];
     if (f) onPick(f);
   };
+  const latest = useRef(question);
+  latest.current = question;
+  const speech = useSpeech(useCallback(() => latest.current, []), onQuestion);
   const canSend = !busy && !!question.trim() && !!photo;
+  const submit = () => {
+    if (!canSend) return;
+    speech.stop();
+    onSubmit();
+  };
   return (
-    <form className="composer" onSubmit={(e) => { e.preventDefault(); if (canSend) onSubmit(); }}>
+    <form className="composer" onSubmit={(e) => { e.preventDefault(); submit(); }}>
       {photo && (
         <div className="composer-photo">
           <img src={photo.url} alt="" />
@@ -54,7 +63,7 @@ const Composer = forwardRef<HTMLTextAreaElement, {
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault();
-              if (canSend) onSubmit();
+              submit();
             }
           }} />
         <input ref={fileRef} type="file" accept={ACCEPTED.join(",")} hidden data-testid="file-input"
@@ -63,13 +72,21 @@ const Composer = forwardRef<HTMLTextAreaElement, {
           onChange={(e) => { take(e.target.files); e.target.value = ""; }} />
         <button type="button" className="icon-btn" disabled={busy} onClick={() => fileRef.current?.click()}
           aria-label="Đính kèm ảnh" title="Đính kèm ảnh"><Clip /></button>
-        <button type="button" className="icon-btn" disabled={busy} onClick={() => camRef.current?.click()}
+        {/* the camera is for phones and tablets; a desktop gets the microphone in its place */}
+        <button type="button" className="icon-btn touch-only" disabled={busy} onClick={() => camRef.current?.click()}
           aria-label="Chụp ảnh" title="Chụp ảnh"><Camera /></button>
+        {speech.supported && (
+          <button type="button" className={`icon-btn mic${speech.listening ? " listening" : ""}`} disabled={busy}
+            aria-pressed={speech.listening} aria-label={speech.listening ? "Dừng nghe" : "Hỏi bằng giọng nói"}
+            title={speech.listening ? "Dừng nghe" : "Hỏi bằng giọng nói (tiếng Việt)"}
+            onClick={() => (speech.listening ? speech.stop() : speech.start())}><Mic /></button>
+        )}
         <button type="submit" className="send-btn" disabled={!canSend} aria-label="Gửi" title="Gửi">
           <Send />
         </button>
       </div>
-      {error && <p className="err" role="alert">{error}</p>}
+      {speech.listening && <p className="listening-hint" role="status">Đang nghe… nói câu hỏi bằng tiếng Việt.</p>}
+      {(error || speech.error) && <p className="err" role="alert">{error ?? speech.error}</p>}
     </form>
   );
 });

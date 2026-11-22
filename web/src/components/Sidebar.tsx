@@ -1,3 +1,4 @@
+import { PRODUCT, TAGLINE } from "../lib/brand";
 import type { KnownSession, Theme } from "../lib/storage";
 import { Close, Contrast, Logo, Moon, Plus, Sun } from "./Icons";
 
@@ -30,7 +31,7 @@ export default function Sidebar({ sessions, current, busy, theme, serverNote, on
     <div className="sidebar-inner">
       <div className="brand">
         <Logo />
-        <span>Biển báo VQA</span>
+        <span className="brand-text"><span>{PRODUCT}</span><span className="brand-tag">{TAGLINE}</span></span>
         {onClose && (
           <button type="button" className="icon-btn" style={{ marginLeft: "auto" }} onClick={onClose} aria-label="Đóng lịch sử">
             <Close />
