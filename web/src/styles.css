@@ -25,24 +25,25 @@
   --rag-border: #8b67d1;
   --shadow: 0 2px 12px rgb(0 0 0 / 6%);
   --composer: #ffffff;
+  --new-chat: #e6e5df;
   --composer-border: #dcdbd4;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #141413; --sidebar: #191917; --panel: #171715; --surface: #1f1f1d; --text: #ecebe6; --muted: #a3a29c;
-    --border: #34332f; --chip: #262623; --hover: #2c2b28; --user-bubble: #2a2a27; --accent: #7ea6ff;
+    --bg: #191919; --sidebar: #1f1f1f; --panel: #1f1f1f; --surface: #262626; --text: #ecebe6; --muted: #a3a29c;
+    --border: #383838; --chip: #2a2a2a; --hover: #333333; --user-bubble: #2e2e2e; --accent: #7ea6ff;
     --accent-soft: #34466e; --accent-text: #0b1220; --high: #3ddc84; --medium: #ffc44d; --low: #ff7a70;
     --warn: #f2c063; --warn-bg: #3a2e12; --bad: #ff8a80; --bad-bg: #3d1a18; --rag: #cdb6ff; --rag-bg: #2b2140;
-    --rag-border: #8b67d1; --shadow: none; --composer: #303030; --composer-border: #414141; color-scheme: dark;
+    --rag-border: #8b67d1; --shadow: none; --composer: #303030; --composer-border: #414141; --new-chat: #404040; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #141413; --sidebar: #191917; --panel: #171715; --surface: #1f1f1d; --text: #ecebe6; --muted: #a3a29c;
-  --border: #34332f; --chip: #262623; --hover: #2c2b28; --user-bubble: #2a2a27; --accent: #7ea6ff;
+  --bg: #191919; --sidebar: #1f1f1f; --panel: #1f1f1f; --surface: #262626; --text: #ecebe6; --muted: #a3a29c;
+  --border: #383838; --chip: #2a2a2a; --hover: #333333; --user-bubble: #2e2e2e; --accent: #7ea6ff;
   --accent-soft: #34466e; --accent-text: #0b1220; --high: #3ddc84; --medium: #ffc44d; --low: #ff7a70;
   --warn: #f2c063; --warn-bg: #3a2e12; --bad: #ff8a80; --bad-bg: #3d1a18; --rag: #cdb6ff; --rag-bg: #2b2140;
-  --rag-border: #8b67d1; --shadow: none; --composer: #303030; --composer-border: #414141; color-scheme: dark;
+  --rag-border: #8b67d1; --shadow: none; --composer: #303030; --composer-border: #414141; --new-chat: #404040; color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -108,7 +109,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 /* like Claude's "New": a filled row with no border */
 .new-chat {
   display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 10px;
-  border: 0; background: var(--hover); font-size: 15.5px; font-weight: 500; text-align: left;
+  border: 0; background: var(--new-chat); font-size: 15.5px; font-weight: 500; text-align: left;
 }
 .new-chat:hover:not(:disabled) { background: var(--chip); filter: brightness(0.97); }
 .history ul { list-style: none; margin: 0; padding: 0; }
