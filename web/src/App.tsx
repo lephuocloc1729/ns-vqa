@@ -330,7 +330,7 @@ export default function App() {
           <div className="hero">
             {/* the box is the anchor: the greeting sits just above it and grows upward if it wraps */}
             <div className="hero-anchor">
-              <h2>Hỏi về biển báo trong ảnh của bạn</h2>
+              <h2>Hỏi biển báo trong ảnh của bạn</h2>
               {composer}
             </div>
           </div>

@@ -11,7 +11,7 @@ async function ask(page: Page, question: string) {
 test("ask, stream, boxes, citations, proof, feedback, RAG and history", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("fake-banner")).toContainText("pipeline giả");
-  await expect(page.getByRole("heading", { name: "Hỏi về biển báo trong ảnh của bạn" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hỏi biển báo trong ảnh của bạn" })).toBeVisible();
   await page.getByTestId("file-input").setInputFiles(PHOTO);
   // record every text the streaming box shows (a draft is on screen for only a few hundred ms)
   await page.evaluate(() => {
@@ -252,7 +252,7 @@ test("phone layout as in the mockup: name in the bar, a one-line box, a short pi
   await expect(page.locator(".topbar-brand")).toHaveText("SignCite");
   await expect(page.getByRole("button", { name: "Cuộc trò chuyện mới" })).toBeHidden();
   const box = page.locator("form.composer");
-  const greeting = page.getByRole("heading", { name: "Hỏi về biển báo trong ảnh của bạn" });
+  const greeting = page.getByRole("heading", { name: "Hỏi biển báo trong ảnh của bạn" });
   expect((await box.boundingBox())!.y).toBeGreaterThan((await greeting.boundingBox())!.y + 100);
   await expect(page.locator(".example")).toHaveCount(0);
   // a picked photo is a chip in the box; the photo panel waits for the first question
