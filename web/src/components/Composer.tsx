@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useRef } from "react";
+import { forwardRef, useCallback, useEffect, useRef } from "react";
 import { useSpeech } from "../lib/speech";
 import { Camera, Close, Mic, Plus, Send } from "./Icons";
 
@@ -31,6 +31,16 @@ const Composer = forwardRef<HTMLTextAreaElement, {
   const latest = useRef(question);
   latest.current = question;
   const speech = useSpeech(useCallback(() => latest.current, []), onQuestion);
+  const box = useRef<HTMLTextAreaElement | null>(null);
+  const setBox = (el: HTMLTextAreaElement | null) => {
+    box.current = el;
+    if (typeof ref === "function") ref(el);
+    else if (ref) ref.current = el;
+  };
+  // a sent (cleared) question gives the box back its normal height
+  useEffect(() => {
+    if (!question && box.current) box.current.style.height = "";
+  }, [question]);
   const canSend = !busy && !!question.trim() && !!photo;
   const submit = () => {
     if (!canSend) return;
@@ -40,7 +50,7 @@ const Composer = forwardRef<HTMLTextAreaElement, {
   return (
     <form className="composer" onSubmit={(e) => { e.preventDefault(); submit(); }}>
       {photo && (
-        <div className="composer-photo">
+        <div className={`composer-photo${photo.name == null ? " followup" : ""}`}>
           <img src={photo.url} alt="" />
           <div className="composer-photo-text">
             <span>{photo.name ?? "Hỏi tiếp về ảnh này"}</span>
@@ -52,7 +62,7 @@ const Composer = forwardRef<HTMLTextAreaElement, {
         </div>
       )}
       <label htmlFor="question" className="sr-only">Câu hỏi</label>
-      <textarea id="question" ref={ref} rows={2} maxLength={500} value={question}
+      <textarea id="question" ref={setBox} rows={2} maxLength={500} value={question}
         placeholder="Tôi có thể giúp gì cho bạn?"
         onChange={(e) => {
           onQuestion(e.target.value);
@@ -70,11 +80,14 @@ const Composer = forwardRef<HTMLTextAreaElement, {
       <input ref={camRef} type="file" accept="image/*" capture="environment" hidden
         onChange={(e) => { take(e.target.files); e.target.value = ""; }} />
       <div className="composer-actions">
-        <button type="button" className="icon-btn" disabled={busy} onClick={() => fileRef.current?.click()}
+        <button type="button" className="icon-btn wide-only" disabled={busy} onClick={() => fileRef.current?.click()}
           aria-label="Đính kèm ảnh" title="Đính kèm ảnh"><Plus size={20} /></button>
-        {/* the camera is for phones and tablets; a desktop gets the microphone in its place */}
-        <button type="button" className="icon-btn touch-only" disabled={busy} onClick={() => camRef.current?.click()}
+        {/* the camera is for tablets; a desktop gets the microphone in its place */}
+        <button type="button" className="icon-btn touch-only wide-only" disabled={busy} onClick={() => camRef.current?.click()}
           aria-label="Chụp ảnh" title="Chụp ảnh"><Camera /></button>
+        {/* phones: one button; the phone itself offers the camera or the photo library */}
+        <button type="button" className="icon-btn phone-only" disabled={busy} onClick={() => fileRef.current?.click()}
+          aria-label="Chụp hoặc chọn ảnh" title="Chụp hoặc chọn ảnh"><Camera /></button>
         <span className="composer-spacer" />
         {speech.supported && (
           <button type="button" className={`icon-btn mic${speech.listening ? " listening" : ""}`} disabled={busy}

@@ -165,8 +165,14 @@ test("voice: Vietnamese speech fills the question box; a desktop shows the mic i
   });
   await page.goto("/");
   const camera = page.getByRole("button", { name: "Chụp ảnh" });
-  if (info.project.name === "desktop") await expect(camera).toHaveCount(0); // hidden: no touch
-  else await expect(camera).toBeVisible();
+  const pick = page.getByRole("button", { name: "Chụp hoặc chọn ảnh" });
+  if (info.project.name === "desktop") {
+    await expect(camera).toHaveCount(0); // hidden: no touch
+    await expect(pick).toHaveCount(0);
+  } else {
+    await expect(pick).toBeVisible(); // a phone has one button: it offers the camera or the library
+    await expect(camera).toHaveCount(0);
+  }
   await page.getByRole("button", { name: "Hỏi bằng giọng nói" }).click();
   await expect(page.getByRole("button", { name: "Dừng nghe" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByLabel("Câu hỏi", { exact: true })).toHaveValue("Xe ô tô có được đi vào không");
@@ -229,4 +235,45 @@ test("a wrong file type is refused before upload", async ({ page }) => {
   await page.goto("/");
   await page.getByTestId("file-input").setInputFiles({ name: "a.gif", mimeType: "image/gif", buffer: Buffer.from("GIF89a") });
   await expect(page.getByRole("alert").filter({ hasText: "Không nhận ảnh" })).toContainText("image/gif");
+});
+
+test("phone layout as in the mockup: name in the bar, a one-line box, a short pinned photo with sign chips", async ({ page }, info) => {
+  test.skip(info.project.name !== "phone", "phone only");
+  await page.goto("/");
+  // before the first question: the name in the bar, no "new chat", the box under the examples
+  await expect(page.locator(".topbar-brand")).toHaveText("SignCite");
+  await expect(page.getByRole("button", { name: "Cuộc trò chuyện mới" })).toBeHidden();
+  const box = page.locator("form.composer");
+  const lastExample = page.locator(".example").last();
+  expect((await box.boundingBox())!.y).toBeGreaterThan((await lastExample.boundingBox())!.y);
+  // a picked photo is a chip in the box; the photo panel waits for the first question
+  await page.getByTestId("file-input").setInputFiles(PHOTO);
+  await expect(page.locator(".composer-photo")).toContainText("road.jpg");
+  await expect(page.locator(".photo-panel")).toBeHidden();
+  // one line: the text, the camera, the mic and send share a row
+  const text = await page.getByLabel("Câu hỏi", { exact: true }).boundingBox();
+  const send = await page.getByRole("button", { name: "Gửi", exact: true }).boundingBox();
+  expect(Math.abs(text!.y + text!.height / 2 - (send!.y + send!.height / 2))).toBeLessThan(12);
+
+  await ask(page, "Xe ô tô có được đi vào đường này không?");
+  await expect(page.getByTestId("turn").first()).toHaveAttribute("data-phase", "done");
+  // the photo is pinned under the bar, not repeated in the thread; the follow-up has no photo chip
+  await expect(page.locator(".photo-panel")).toBeVisible();
+  await expect(page.locator(".photo-head")).toBeHidden();
+  await expect(page.getByTestId("user-photo")).toBeHidden();
+  await expect(page.locator(".composer-photo")).toBeHidden();
+  // short chips: code and confidence
+  const chips = page.locator(".sign-list button");
+  await expect(chips).toHaveCount(2);
+  await expect(chips.first().locator(".sign-code")).toHaveText("P.103a");
+  await expect(chips.first().locator(".sign-name")).toBeHidden();
+  await expect(chips.first()).toContainText("cao");
+  // folding hides the picture and keeps the chips and the button
+  await page.getByRole("button", { name: "Thu gọn ảnh" }).click();
+  await expect(page.locator(".photo-wrap")).toBeHidden();
+  await expect(chips.first()).toBeVisible();
+  await page.getByRole("button", { name: "Mở ảnh" }).click();
+  await expect(page.locator(".photo-wrap")).toBeVisible();
+  // the sent question's box is one line again
+  expect((await page.getByLabel("Câu hỏi", { exact: true }).boundingBox())!.height).toBeLessThan(50);
 });
