@@ -74,6 +74,7 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
   - `kb/sign_catalog_meaning.yaml`: meaning-only W/I/IE rows drafted by `tools/draft_catalog_rows.py`. Their review list is `kb/review/meaning_rows_review.md`.
 - `tools/`: offline authoring tools. They may read law_db; inference code may not.
 - `docs/`: `status.md` (status and next steps) and `plans/` (approved phase plans).
+- `web/`: the web UI (React + Vite + TypeScript; `web/README.md`). It talks to `app/api` only. `web/e2e/fake_api.py` runs the real API with a fake pipeline for the Playwright test.
 - `eval/`: splits, duplicates, reports (`report.py`), audits, gold-intent tooling. Not inference code.
 - `vqa/parsing/dsl.py`: rewrites run before the engine. `Forbidden` becomes `Verify(Permitted, expect=False)` with the quantifier flipped.
 - `vqa/parsing/`, the question parser (phase 2):

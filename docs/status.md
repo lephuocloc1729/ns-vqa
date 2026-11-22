@@ -31,6 +31,16 @@ Plan: `docs/plans/task-3-review-3.md` (proposed; 9-day schedule). All work goes 
 | #6 | Fast GPU setup: bundle on the private HF dataset `lephuocloc/ns-vqa-rag-assets` (109 MB, no private-test files), `fetch.py`, `gpu_setup.sh`, GPU image `ghcr.io/lephuocloc1729/ns-vqa-rag` (public; code only) built by `.github/workflows/rag-image.yml`, runbook `docs/runbooks/gpu-session.md` | `0009e0f` |
 | #7 | GPU-session fixes (UTF-8 streaming, in-place downloads), results `docs/results/gpu-session-2026-11-21.md`, and setup without an interactive HF login (`HF_TOKEN` from the container, `scripts/onstart.sh`) | `7ebae48` |
 
+**Day 3 (2026-11-22), branch `task3/web-ui`:** the web UI in `web/` (React + Vite + TypeScript; `web/README.md`).
+- Ask screen: photo by picker, drag and drop, paste or phone camera; streamed stages and answer; numbered sign boxes; notes, rule citations, proof tree, the RAG badge and its laws; feedback; history.
+- Tests: Vitest for the SSE parser and turn reducer (20); Playwright on the real API with a fake pipeline, desktop and phone (3 tests each). CI jobs `web` and `web-e2e`.
+- Live check on 2026-11-22: the phase52 API with fallback off, the owner's key, 3 questions on public_dev image `public_test_3_6`, **$0.084** in total.
+  - The first question was sent by curl: cold cache, 12.8 s, $0.073.
+  - Two follow-ups went through the UI. The scene cache was hit (`đã lưu`): one was `out_of_scope` (not decided, $0.008); the other was answered by the rules with the writer's text streaming live ($0.004).
+  - Boxes line up on the real photo, feedback is stored, and the `#turn=` link works.
+  - Fixed from this check: the spinner label (perception and parsing arrive in either order) and links followed while the page is open.
+- Not done: the RAG fallback live behind the UI (needs the GPU box); the day-4 items (microphone, video frame, dashboard, RAG progress events).
+
 **Measured** (details in `docs/results/gpu-session-2026-11-21.md`):
 
 - **Live API test on the Mac, 3 public_dev questions, cold cache:** $0.1019; 1 correct, 1 sign misread, 1 undecided with the fallback off.
