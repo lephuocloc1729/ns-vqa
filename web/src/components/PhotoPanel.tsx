@@ -1,17 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { CONFIDENCE } from "../lib/labels";
 import type { SignBox } from "../lib/types";
-
-export const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
+import { ChevronDown, ChevronUp, Image } from "./Icons";
 
 interface Props {
   imageUrl: string | null;
   imageSize: [number, number] | null; // original-photo pixels, from the `started` event
   signs: SignBox[];
+  onDropFile: (file: File) => void;
   busy: boolean;
-  onPick: (file: File) => void;
-  onClear: () => void;
-  error: string | null;
 }
 
 const confClass = (c: unknown) => (c === "high" || c === "medium" || c === "low" ? `conf-${c}` : "conf-none");
@@ -31,12 +28,11 @@ function signDetail(s: SignBox): string {
   return bits.join(" · ");
 }
 
-export default function PhotoPanel({ imageUrl, imageSize, signs, busy, onPick, onClear, error }: Props) {
+export default function PhotoPanel({ imageUrl, imageSize, signs, onDropFile, busy }: Props) {
   const [drag, setDrag] = useState(false);
   const [natural, setNatural] = useState<[number, number] | null>(null);
   const [active, setActive] = useState<number | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const camRef = useRef<HTMLInputElement>(null);
+  const [collapsed, setCollapsed] = useState(false); // phone only
 
   useEffect(() => {
     setActive(null);
@@ -46,48 +42,41 @@ export default function PhotoPanel({ imageUrl, imageSize, signs, busy, onPick, o
   const size = imageSize ?? natural;
   const boxed = signs.map((s, i) => ({ s, n: i + 1 })).filter((x) => x.s.box && x.s.box.length === 4);
   const tag = size ? Math.max(size[0], size[1]) / 28 : 20;
-
-  function take(files: FileList | null | undefined) {
-    const f = files && files[0];
-    if (f) onPick(f);
-  }
+  const cur = active != null ? signs[active - 1] : undefined;
 
   const dropProps = {
-    onDragOver: (e: React.DragEvent) => {
-      e.preventDefault();
-      setDrag(true);
-    },
+    onDragOver: (e: React.DragEvent) => { e.preventDefault(); setDrag(true); },
     onDragLeave: () => setDrag(false),
     onDrop: (e: React.DragEvent) => {
       e.preventDefault();
       setDrag(false);
-      if (!busy) take(e.dataTransfer.files);
+      const f = e.dataTransfer.files[0];
+      if (f && !busy) onDropFile(f);
     },
   };
 
-  const pickers = (
-    <>
-      <input ref={fileRef} type="file" accept={ACCEPTED.join(",")} hidden data-testid="file-input"
-        onChange={(e) => { take(e.target.files); e.target.value = ""; }} />
-      <input ref={camRef} type="file" accept="image/*" capture="environment" hidden
-        onChange={(e) => { take(e.target.files); e.target.value = ""; }} />
-      <button type="button" className="btn" disabled={busy} onClick={() => fileRef.current?.click()}>🖼️ Chọn ảnh</button>
-      <button type="button" className="btn" disabled={busy} onClick={() => camRef.current?.click()}>📷 Chụp ảnh</button>
-    </>
-  );
-
   return (
-    <section className="card photo-card" aria-label="Ảnh">
+    <section className={`photo-panel${collapsed ? " collapsed" : ""}${imageUrl ? "" : " no-photo"}`} aria-label="Ảnh" {...dropProps}>
+      <div className="photo-head">
+        <span className="photo-title">Ảnh</span>
+        {imageUrl && <span className="muted small">{signs.length ? `${signs.length} biển báo tìm thấy` : ""}</span>}
+        {imageUrl && (
+          <button type="button" className="icon-btn small collapse-btn" onClick={() => setCollapsed(!collapsed)}
+            aria-expanded={!collapsed} aria-label={collapsed ? "Mở ảnh" : "Thu gọn ảnh"}>
+            {collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+          </button>
+        )}
+      </div>
       {!imageUrl ? (
-        <div className={`dropzone${drag ? " drag" : ""}`} {...dropProps}>
-          <div style={{ fontSize: 34 }} aria-hidden>🚦</div>
-          <p style={{ margin: "6px 0 0" }}>Kéo thả ảnh vào đây, dán ảnh (Ctrl/⌘+V), hoặc chọn ảnh có biển báo.</p>
-          <div className="photo-actions">{pickers}</div>
+        <div className={`photo-empty${drag ? " drag" : ""}`}>
+          <Image size={34} />
+          <div>Ảnh và các khung biển báo sẽ hiện ở đây.</div>
+          <div className="muted small">Kéo thả ảnh vào đây, dán ảnh, hoặc đính kèm ở ô câu hỏi.</div>
         </div>
       ) : (
-        <>
-          <div className={`photo-wrap${drag ? " drag" : ""}`} {...dropProps}>
-            <img src={imageUrl} alt="Ảnh đã chọn"
+        <div className="photo-body">
+          <div className={`photo-wrap${drag ? " drag" : ""}`}>
+            <img src={imageUrl} alt="Ảnh đang xem"
               onLoad={(e) => setNatural([e.currentTarget.naturalWidth, e.currentTarget.naturalHeight])} />
             {size && boxed.length > 0 && (
               <svg className="overlay" viewBox={`0 0 ${size[0]} ${size[1]}`} preserveAspectRatio="xMidYMid meet"
@@ -100,13 +89,12 @@ export default function PhotoPanel({ imageUrl, imageSize, signs, busy, onPick, o
                       <rect className={`box ${cls}${active === n ? " active" : ""}`} x={x0} y={y0}
                         width={Math.max(1, x1 - x0)} height={Math.max(1, y1 - y0)} tabIndex={0}
                         data-testid={`box-${n}`} aria-label={`${n}. ${signTitle(s)}, ${signDetail(s)}`}
-                        onMouseEnter={() => setActive(n)} onFocus={() => setActive(n)}
-                        onClick={() => setActive(n)}>
+                        onMouseEnter={() => setActive(n)} onFocus={() => setActive(n)} onClick={() => setActive(n)}>
                         <title>{`${n}. ${signTitle(s)} (${signDetail(s)})`}</title>
                       </rect>
                       <g className="tag" transform={`translate(${x0}, ${Math.max(0, y0 - tag * 1.1)})`}>
                         <rect width={tag * (String(n).length * 0.62 + 0.6)} height={tag} rx={tag / 4}
-                          className={`num ${cls}`} style={{ fill: `var(--${cls.replace("conf-none", "muted")})` }} />
+                          style={{ fill: `var(--${cls === "conf-none" ? "muted" : cls.slice(5)})` }} />
                         <text x={tag * 0.3} y={tag * 0.78} fontSize={tag * 0.8} fontWeight={700} fill="#fff">{n}</text>
                       </g>
                     </g>
@@ -114,47 +102,36 @@ export default function PhotoPanel({ imageUrl, imageSize, signs, busy, onPick, o
                 })}
               </svg>
             )}
+            {cur && (
+              <div className="sign-caption" aria-live="polite" data-testid="sign-info">
+                <strong>{active}. {signTitle(cur)}</strong>
+                <span>{signDetail(cur)}</span>
+              </div>
+            )}
           </div>
           {boxed.length > 0 && (
             <div className="legend" aria-hidden>
-              <span><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="var(--conf-high)" strokeWidth="3" /></svg> tin cậy cao</span>
-              <span><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="var(--conf-medium)" strokeWidth="3" strokeDasharray="7 4" /></svg> trung bình</span>
-              <span><svg width="26" height="8"><line x1="1" y1="4" x2="26" y2="4" stroke="var(--conf-low)" strokeWidth="3" strokeDasharray="1 5" strokeLinecap="round" /></svg> thấp</span>
+              <span><i className="line high" /> tin cậy cao</span>
+              <span><i className="line medium" /> trung bình</span>
+              <span><i className="line low" /> thấp</span>
             </div>
           )}
           {signs.length > 0 && (
-            <>
-              <div className="sign-info" aria-live="polite" data-testid="sign-info">
-                {active != null && signs[active - 1] ? (
-                  <>
-                    <strong>{active}. {signTitle(signs[active - 1])}</strong>
-                    <div className="muted">{signDetail(signs[active - 1])}</div>
-                  </>
-                ) : (
-                  <span className="muted">Chạm hoặc rê chuột lên khung (hoặc danh sách) để xem mã và tên biển.</span>
-                )}
-              </div>
-              <ul className="sign-list">
-                {signs.map((s, i) => (
-                  <li key={s.id + i}>
-                    <button type="button" className={active === i + 1 ? "active" : ""}
-                      onMouseEnter={() => setActive(i + 1)} onClick={() => setActive(i + 1)}>
-                      <span className={`num ${confClass(s.confidence)}`}>{i + 1}</span>
-                      <span style={{ flex: 1, minWidth: 0 }}>{signTitle(s)}</span>
-                      <span className="muted">{CONFIDENCE[String(s.confidence)] ?? ""}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </>
+            <ul className="sign-list">
+              {signs.map((s, i) => (
+                <li key={s.id + i}>
+                  <button type="button" className={active === i + 1 ? "active" : ""}
+                    onMouseEnter={() => setActive(i + 1)} onFocus={() => setActive(i + 1)} onClick={() => setActive(i + 1)}>
+                    <span className={`num ${confClass(s.confidence)}`}>{i + 1}</span>
+                    <span className="sign-name">{signTitle(s)}</span>
+                    <span className="muted small">{CONFIDENCE[String(s.confidence)] ?? ""}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
-          <div className="photo-meta">
-            <div className="photo-actions" style={{ marginTop: 0 }}>{pickers}</div>
-            <button type="button" className="btn small" disabled={busy} onClick={onClear}>Bỏ ảnh</button>
-          </div>
-        </>
+        </div>
       )}
-      {error && <p className="err" role="alert">{error}</p>}
     </section>
   );
 }

@@ -37,7 +37,7 @@ export default function ProofTree({ proof, signs }: { proof: EngineAnswer; signs
     return i >= 0 ? `${i + 1}. ${signs[i].code ?? ""}` : id ?? "";
   };
   return (
-    <details className="block" data-testid="proof">
+    <details className="block" data-testid="proof" open>
       <summary>Chứng minh của hệ luật ({reasons.length} lý do)</summary>
       <div className="proof">
         <ul>

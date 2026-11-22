@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { ANSWERED_BY, fmtSeconds, stageLabel } from "../lib/labels";
 import type { TurnState } from "../lib/turn";
 import type { Feedback } from "../lib/types";
-import Details from "./Details";
+import { Evidence, Notes, RagBadge, RagSources, hasEvidence } from "./Details";
 import FeedbackBar from "./FeedbackBar";
+import { Check, ChevronDown, ChevronRight, Spinner } from "./Icons";
 
 // What the spinner says, from the stages seen so far. Perception and parsing run in parallel,
 // so their events come in either order.
@@ -18,76 +20,83 @@ function pending(t: TurnState): string {
   return "Hệ luật đang suy luận…";
 }
 
-function Stages({ t }: { t: TurnState }) {
-  const live = t.phase === "streaming";
-  const list = (
-    <ul className="stages" data-testid="stages">
-      {t.stages.map((s, i) => (
-        <li key={i} data-stage={s.name}>
-          <span>✓ {stageLabel(s)}</span>
-          <span className="t">{fmtSeconds(s.t)}</span>
+function LiveStages({ t }: { t: TurnState }) {
+  const shown = t.stages.filter((s) => s.name !== "started" && s.name !== "route");
+  return (
+    <ul className="pills" data-testid="stages" aria-live="polite">
+      {shown.map((s, i) => (
+        <li key={i} className="pill" data-stage={s.name}>
+          <span className="ok"><Check size={12} /></span>{stageLabel(s)}{s.t != null && <span className="t"> · {fmtSeconds(s.t)}</span>}
         </li>
       ))}
-      {live && (
-        <li className="pending">
-          <span><span className="spinner" aria-hidden />{pending(t)}</span>
-        </li>
-      )}
+      <li className="pill pending"><Spinner size={12} />{pending(t)}</li>
     </ul>
-  );
-  if (live || !t.stages.length) return live ? list : null;
-  return (
-    <details className="block">
-      <summary className="muted" style={{ fontWeight: 400 }} data-testid="stats">
-        {t.result?.answered_by ? `${ANSWERED_BY[t.result.answered_by] ?? t.result.answered_by} · ` : ""}
-        {t.stages.length > 1 ? `${t.stages.length} bước` : "Đã trả lời"}
-        {t.result?.seconds != null ? ` · ${fmtSeconds(t.result.seconds)}` : ""}
-        {t.result?.cost_usd != null ? ` · $${t.result.cost_usd.toFixed(4)}` : ""}
-      </summary>
-      {list}
-    </details>
   );
 }
 
-export default function TurnView({ t, selected, onSelect, onFeedback }: {
+export default function TurnView({ t, showImage, selected, onSelect, onFeedback }: {
   t: TurnState;
+  showImage: boolean; // the photo differs from the previous question's
   selected: boolean;
   onSelect: () => void;
   onFeedback: (f: Feedback) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const r = t.result;
+  const rag = !!r && r.basis.includes("rag");
   return (
-    <article className={`card turn${selected ? " selected" : ""}`} data-testid="turn" data-phase={t.phase}>
-      <div className="q">
-        {t.imageUrl && (
-          <button type="button" className="q-thumb" onClick={onSelect} title="Xem ảnh của câu hỏi này"
-            aria-label="Xem ảnh của câu hỏi này">
-            <img src={t.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 5 }} />
+    <article className="turn" data-testid="turn" data-phase={t.phase}>
+      <div className="msg-user">
+        {showImage && t.imageUrl && (
+          <button type="button" className={`user-photo${selected ? " selected" : ""}`} onClick={onSelect} data-testid="user-photo"
+            aria-label="Xem ảnh của câu hỏi này" title="Xem ảnh và các khung biển báo">
+            <img src={t.imageUrl} alt="" />
           </button>
         )}
-        <div className="q-text">{t.question}</div>
+        <div className="bubble" onClick={onSelect}>{t.question}</div>
       </div>
-      <Stages t={t} />
-      {t.phase === "streaming" && (
-        <div className="answer" aria-live="polite" data-testid="stream">
-          {t.streamText}
-          <span className="caret" aria-hidden />
-        </div>
-      )}
-      {t.phase === "interrupted" && (
-        <div className="notice warn" role="status">
-          Mất kết nối với luồng trả lời. Đang lấy lại câu trả lời đã lưu…
-          {t.streamText && <div className="answer" style={{ marginTop: 6 }}>{t.streamText}</div>}
-        </div>
-      )}
-      {t.phase === "error" && <div className="notice bad" role="alert">Lỗi: {t.error}</div>}
-      {r && t.phase === "done" && (
-        <>
-          <div className="answer" data-testid="answer">{r.answer}</div>
-          <Details t={r} signs={t.signs} />
-          {t.turnId && <FeedbackBar turnId={t.turnId} given={t.feedback} onSent={onFeedback} />}
-        </>
-      )}
+
+      <div className="msg-bot">
+        {t.phase === "streaming" && (
+          <>
+            <LiveStages t={t} />
+            {t.streamText && (
+              <div className="answer" data-testid="stream">{t.streamText}<span className="caret" aria-hidden /></div>
+            )}
+          </>
+        )}
+        {t.phase === "interrupted" && (
+          <div className="notice warn" role="status">
+            Mất kết nối với luồng trả lời. Đang lấy lại câu trả lời đã lưu…
+            {t.streamText && <div className="answer" style={{ marginTop: 6 }}>{t.streamText}</div>}
+          </div>
+        )}
+        {t.phase === "error" && <div className="notice bad" role="alert">Lỗi: {t.error}</div>}
+        {r && t.phase === "done" && (
+          <>
+            {rag && <RagBadge />}
+            <div className="answer" data-testid="answer">{r.answer}</div>
+            <div className="stats" data-testid="stats">
+              {[
+                r.answered_by ? ANSWERED_BY[r.answered_by] ?? r.answered_by : null,
+                r.seconds != null ? fmtSeconds(r.seconds) : null,
+                r.cost_usd != null ? `$${r.cost_usd.toFixed(4)}` : null,
+              ].filter(Boolean).join(" · ")}
+            </div>
+            <Notes t={r} signs={t.signs} />
+            {rag && <RagSources t={r} />}
+            {hasEvidence(r, t.stages) && (
+              <>
+                <button type="button" className="evidence-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+                  {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />} Căn cứ và chứng minh
+                </button>
+                {open && <Evidence t={r} signs={t.signs} stages={t.stages} />}
+              </>
+            )}
+            {t.turnId && <FeedbackBar turnId={t.turnId} answer={r.answer ?? ""} given={t.feedback} onSent={onFeedback} />}
+          </>
+        )}
+      </div>
     </article>
   );
 }

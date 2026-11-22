@@ -1,6 +1,6 @@
 # Web UI
 
-React + Vite + TypeScript, with no component library. The UI text is in Vietnamese, and it has light and dark modes. On a phone the photo sits on top with the conversation below; on a desktop they are two columns.
+React + Vite + TypeScript, with no component library. The UI text is in Vietnamese, and it has light and dark modes. It is laid out like a chat app. On a wide screen there are three columns: the history sidebar, the conversation with the question box at the bottom, and the photo with its sign boxes. Below 1180 px the history moves into a drawer. On a phone the photo sits under the top bar and can be collapsed.
 
 ## Run
 
