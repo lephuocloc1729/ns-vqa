@@ -50,6 +50,10 @@ jobs:
         run: |
           locust -f eval/load/locustfile.py --headless --host http://localhost:8080 \
             --csv out/capacity --html out/capacity.html --only-summary 2>&1 | tail -30
+      - name: Restart the API (drop answers still queued from the capacity ramp)
+        # the API finishes and stores every answer it accepted, even if the user leaves, so the
+        # capacity ramp leaves a queue behind; the stress test starts from an idle API
+        run: docker compose restart api && docker compose up -d --wait --wait-timeout 120 api
       - name: Stress (100, then 1000 users, then 20 for recovery)
         env: { LOAD_PROFILE: stress, LOAD_OUT: out/stress }
         run: |
