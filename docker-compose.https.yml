@@ -1,0 +1,25 @@
+# HTTPS for a server with a domain: Caddy on ports 80 and 443 in front of `web`.
+#
+#   in .env:  DOMAIN=signcite.xyz
+#             WEB_PORT=127.0.0.1:8080        # the plain-HTTP port, then reachable from the server only
+#             COMPOSE_FILE=docker-compose.yml:docker-compose.https.yml
+#   docker compose up -d --build
+#
+# The domain's A record must point at the server, and ports 80 and 443 must be open: Let's Encrypt
+# checks them before it issues the certificate. Caddy renews it by itself. docs/deploy.md.
+services:
+  caddy:
+    image: caddy:2.8.4-alpine
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env, e.g. DOMAIN=signcite.xyz}
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data                # the certificates and the ACME account: keep this volume
+      - caddy_config:/config
+    depends_on: [web]
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

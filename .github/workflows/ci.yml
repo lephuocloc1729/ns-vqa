@@ -187,9 +187,26 @@ jobs:
           done
           curl -fsS 'http://localhost:9090/api/v1/query?query=sum(vqa_answers_total)' | tee /dev/stderr | grep -q '"1"'
           curl -fsS -u admin:admin 'http://localhost:3000/api/dashboards/uid/signcite' | grep -q 'SignCite'
+      - name: HTTPS through Caddy (DOMAIN=localhost, Caddy's own local CA)
+        env:
+          DOMAIN: localhost
+          COMPOSE_FILE: docker-compose.yml:docker-compose.https.yml
+        run: |
+          set -e
+          docker compose up -d --wait --wait-timeout 120 caddy
+          for i in $(seq 1 30); do curl -fsSk https://localhost/healthz && break; sleep 2; done
+          curl -fsSk https://localhost/health | grep -q '"database":true'
+          curl -sSkI https://localhost/ | tee /dev/stderr | grep -qi '^strict-transport-security'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost/)" = 308      # plain HTTP redirects
+          curl -fsSNk -F image=@web/e2e/fixtures/road.jpg --form-string "question=Xe ô tô có được đi vào không?" \
+            https://localhost/v1/ask/stream > stream-tls.txt
+          grep -q '^event: answer' stream-tls.txt
+          grep -q '^event: done' stream-tls.txt
       - name: Logs on failure
         if: failure()
-        run: docker compose logs --no-color --tail=200
+        run: docker compose -f docker-compose.yml -f docker-compose.https.yml logs --no-color --tail=200
+        env: { DOMAIN: localhost }
       - name: Stop
         if: always()
-        run: docker compose down -v
+        run: docker compose -f docker-compose.yml -f docker-compose.https.yml down -v
+        env: { DOMAIN: localhost }

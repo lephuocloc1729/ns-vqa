@@ -64,10 +64,38 @@ Nothing depends on absolute paths or a personal environment. Every setting has a
 
 4. **The RAG fallback** (`VQA_ANSWER_FALLBACK=rag`). The RAG runs on a GPU machine (`docs/runbooks/gpu-session.md`). Point `VQA_RAG_URL` at it through an SSH tunnel; the RAG service is never exposed to the internet. On a machine with an NVIDIA GPU, use `--profile gpu` instead to start the `rag` service in the same stack.
 
-## Still to do (the server step)
+## HTTPS on a server with a domain
 
-- The server itself (provider not chosen yet).
-- HTTPS. Browsers allow the microphone and camera only over HTTPS: a domain or a free subdomain, plus automatic certificates.
+`docker-compose.https.yml` puts Caddy in front of `web`. Caddy:
+- serves the domain on ports 80 and 443;
+- gets and renews the Let's Encrypt certificate by itself;
+- redirects plain HTTP and `www.` to `https://` plus the domain.
+
+Browsers allow the microphone and camera only over HTTPS.
+
+1. Point the domain's A record (`@`, and `www` if wanted) at the server, and open ports 80 and 443.
+2. Add to `.env`:
+
+   ```bash
+   DOMAIN=signcite.xyz
+   WEB_PORT=127.0.0.1:8080          # the plain port, then reachable from the server only
+   COMPOSE_FILE=docker-compose.yml:docker-compose.https.yml
+   ```
+
+   For the real pipeline, add `:docker-compose.real.yml` to `COMPOSE_FILE`.
+3. `docker compose up -d --build`. The first certificate takes a few seconds once the domain resolves (`docker compose logs caddy`).
+
+The `caddy_data` volume holds the certificates; keep it. CI runs the same overlay with `DOMAIN=localhost` (Caddy's own local CA) and streams one answer through it.
+
+## The demo server
+
+- A CloudNest VPS (Ubuntu 24.04, 2 vCPU, 4 GB RAM), domain `signcite.xyz`.
+- The stack lives in `/opt/signcite`, a copy of one commit (named in `DEPLOYED_COMMIT`), with its `.env` (root only).
+- The firewall (ufw) allows 22, 80 and 443.
+- Grafana is reached through an SSH tunnel (above).
+
+## Still to do
+
 - CD: GitHub Actions builds the images, pushes them to GHCR, deploys over SSH and checks `/health`.
 
 ## Data and backups
