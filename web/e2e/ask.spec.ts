@@ -10,6 +10,7 @@ async function ask(page: Page, question: string) {
 
 test("ask, stream, boxes, citations, proof, feedback, RAG and history", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByTestId("fake-banner")).toContainText("pipeline giả");
   await page.getByTestId("file-input").setInputFiles(PHOTO);
   // record every text the streaming box shows (a draft is on screen for only a few hundred ms)
   await page.evaluate(() => {
@@ -123,5 +124,5 @@ test("a dropped stream recovers the stored answer", async ({ page }) => {
 test("a wrong file type is refused before upload", async ({ page }) => {
   await page.goto("/");
   await page.getByTestId("file-input").setInputFiles({ name: "a.gif", mimeType: "image/gif", buffer: Buffer.from("GIF89a") });
-  await expect(page.getByRole("alert")).toContainText("Không nhận ảnh dạng image/gif");
+  await expect(page.getByRole("alert").filter({ hasText: "Không nhận ảnh" })).toContainText("image/gif");
 });

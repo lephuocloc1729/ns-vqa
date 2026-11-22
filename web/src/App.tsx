@@ -64,7 +64,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [drawer, setDrawer] = useState(false);
   const [theme, setTheme] = useState<Theme>(() => loadTheme());
-  const [server, setServer] = useState<{ ok: boolean; fallback?: string } | null>(null);
+  const [server, setServer] = useState<{ ok: boolean; fallback?: string; profile?: string } | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
@@ -108,7 +108,8 @@ export default function App() {
     fetch("/health")
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(() => fetch("/version").then((r) => (r.ok ? r.json() : {})).catch(() => ({})))
-      .then((v: { answer_fallback?: string }) => setServer({ ok: true, fallback: v.answer_fallback }))
+      .then((v: { answer_fallback?: string; profile?: string }) =>
+        setServer({ ok: true, fallback: v.answer_fallback, profile: v.profile }))
       .catch(() => setServer({ ok: false }));
     const linked = turnFromHash();
     if (linked) {
@@ -264,6 +265,12 @@ export default function App() {
       {server && !server.ok && (
         <div className="notice bad" role="alert" style={{ margin: "12px 16px 0" }}>
           Không kết nối được máy chủ API. Hãy kiểm tra máy chủ rồi tải lại trang.
+        </div>
+      )}
+      {server?.profile?.startsWith("fake") && (
+        <div className="notice bad" role="alert" data-testid="fake-banner" style={{ margin: "12px 16px 0" }}>
+          <strong>Máy chủ thử nghiệm (pipeline giả, profile “{server.profile}”).</strong> Mọi câu trả lời đều là
+          dữ liệu mẫu cố định, không phải từ hệ thống thật.
         </div>
       )}
       <main className="layout">

@@ -8,7 +8,8 @@ fallback), so every stream event comes from the real runner and endpoint code:
   (streamed text, `basis` gains "rag", the laws it used in `retrieved`);
 - any other question is answered by the "rules": the writer streams a first draft, withdraws
   it (`token_reset`) and streams the final text, as on a retry.
-Each start uses a fresh temporary database and upload folder.
+Each start uses a fresh temporary database and upload folder. `/version` reports the profile
+"fake-e2e", and the UI shows a warning banner for it, so the fake is never mistaken for the real system.
 """
 
 from __future__ import annotations
@@ -130,7 +131,7 @@ def main() -> None:
     ap.add_argument("--port", type=int, default=8765)
     args = ap.parse_args()
     tmp = Path(tempfile.mkdtemp(prefix="vqa-e2e-"))
-    settings = Settings(database_url=f"sqlite:///{tmp / 'app.db'}", upload_dir=tmp / "uploads", heartbeat_s=1.0)
+    settings = Settings(profile="fake-e2e", database_url=f"sqlite:///{tmp / 'app.db'}", upload_dir=tmp / "uploads", heartbeat_s=1.0)
     pipe = FakePipeline()
     uvicorn.run(create_app(settings, pipeline_factory=lambda: pipe), host="127.0.0.1", port=args.port,
                 log_level="warning")
