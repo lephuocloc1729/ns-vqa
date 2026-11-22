@@ -24,6 +24,8 @@
   --rag-bg: #f1ebfb;
   --rag-border: #8b67d1;
   --shadow: 0 2px 12px rgb(0 0 0 / 6%);
+  --composer: #ffffff;
+  --composer-border: #dcdbd4;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -32,7 +34,7 @@
     --border: #34332f; --chip: #262623; --hover: #2c2b28; --user-bubble: #2a2a27; --accent: #7ea6ff;
     --accent-soft: #34466e; --accent-text: #0b1220; --high: #3ddc84; --medium: #ffc44d; --low: #ff7a70;
     --warn: #f2c063; --warn-bg: #3a2e12; --bad: #ff8a80; --bad-bg: #3d1a18; --rag: #cdb6ff; --rag-bg: #2b2140;
-    --rag-border: #8b67d1; --shadow: none; color-scheme: dark;
+    --rag-border: #8b67d1; --shadow: none; --composer: #30302d; --composer-border: #42413c; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
@@ -40,7 +42,7 @@
   --border: #34332f; --chip: #262623; --hover: #2c2b28; --user-bubble: #2a2a27; --accent: #7ea6ff;
   --accent-soft: #34466e; --accent-text: #0b1220; --high: #3ddc84; --medium: #ffc44d; --low: #ff7a70;
   --warn: #f2c063; --warn-bg: #3a2e12; --bad: #ff8a80; --bad-bg: #3d1a18; --rag: #cdb6ff; --rag-bg: #2b2140;
-  --rag-border: #8b67d1; --shadow: none; color-scheme: dark;
+  --rag-border: #8b67d1; --shadow: none; --composer: #30302d; --composer-border: #42413c; color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -202,7 +204,7 @@ details.block > summary { cursor: pointer; font-size: 12px; font-weight: 600; co
 
 /* composer: like Claude's box — the text on top, an action row underneath */
 .composer {
-  width: 100%; border: 1px solid var(--border); border-radius: 20px; background: var(--surface);
+  width: 100%; border: 1px solid var(--composer-border); border-radius: 20px; background: var(--composer);
   padding: 14px 12px 10px 16px; display: flex; flex-direction: column; gap: 6px; box-shadow: var(--shadow);
 }
 .composer-photo { display: flex; align-items: center; gap: 10px; padding-bottom: 2px; }
