@@ -5,31 +5,37 @@ const PHOTO = fileURLToPath(new URL("./fixtures/road.jpg", import.meta.url));
 
 async function ask(page: Page, question: string) {
   await page.getByLabel("Câu hỏi", { exact: true }).fill(question);
-  await page.getByRole("button", { name: "Hỏi", exact: true }).click();
+  await page.getByRole("button", { name: "Gửi", exact: true }).click();
 }
 
 test("ask, stream, boxes, citations, proof, feedback, RAG and history", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("fake-banner")).toContainText("pipeline giả");
+  await expect(page.getByRole("heading", { name: "Hỏi về biển báo trong ảnh của bạn" })).toBeVisible();
   await page.getByTestId("file-input").setInputFiles(PHOTO);
   // record every text the streaming box shows (a draft is on screen for only a few hundred ms)
   await page.evaluate(() => {
     const seen: string[] = ((window as unknown as { streamSeen: string[] }).streamSeen = []);
     new MutationObserver(() => {
+      // an empty stream box is not rendered: its disappearance after a draft counts as ""
       const el = document.querySelector('[data-testid="stream"]');
-      const text = el?.textContent ?? "";
-      if (el && seen[seen.length - 1] !== text) seen.push(text);
+      const text = el ? el.textContent ?? "" : seen.length ? "" : null;
+      if (text !== null && seen[seen.length - 1] !== text) seen.push(text);
     }).observe(document.body, { subtree: true, childList: true, characterData: true });
   });
   await ask(page, "Xe ô tô có được đi vào đường này không?");
 
   const turn = page.getByTestId("turn").first();
-  await expect(turn.locator('[data-stage="perception"]')).toContainText("2 biển báo");
 
   // the final answer event replaces the stream
   await expect(turn).toHaveAttribute("data-phase", "done");
   await expect(turn.getByTestId("answer")).toHaveText("Không. Biển số 1 (P.103a) cấm xe ô tô đi vào.");
+  // citations, proof and stage times are folded under one button
+  await expect(turn.getByTestId("evidence")).toHaveCount(0);
+  await turn.getByRole("button", { name: "Căn cứ và chứng minh" }).click();
   await expect(turn.getByTestId("citations")).toContainText("QCVN 41:2024/BGTVT B.3");
+  await expect(turn.getByTestId("proof")).toContainText("forbids(s1, car, enter)");
+  await expect(turn.locator('[data-stage="perception"]')).toContainText("2 biển báo");
   // streaming: the first draft grew token by token, token_reset cleared it, the final text streamed
   const seen = await page.evaluate(() => (window as unknown as { streamSeen: string[] }).streamSeen);
   const draft = seen.findIndex((t) => t.includes("Có, xe ô tô"));
@@ -39,7 +45,10 @@ test("ask, stream, boxes, citations, proof, feedback, RAG and history", async ({
   expect(reset, JSON.stringify(seen)).toBeGreaterThan(draft);
   expect(final, JSON.stringify(seen)).toBeGreaterThan(reset);
   expect(seen.slice(final).some((t) => t.includes("Có,"))).toBe(false);
-  await expect(turn.getByTestId("notes")).toContainText("Độ tin cậy thấp");
+  // sign 2 is low-confidence but the answer does not rest on it: no note; who answered is in the stats line
+  await expect(turn.getByTestId("notes")).toHaveCount(0);
+  await expect(turn.getByTestId("stats")).toContainText("Hệ luật");
+  await expect(turn.locator(".badge")).toHaveCount(0);
 
   // boxes: numbered, code and name on tap
   await expect(page.getByTestId("box-1")).toBeVisible();
@@ -47,34 +56,34 @@ test("ask, stream, boxes, citations, proof, feedback, RAG and history", async ({
   await expect(page.getByTestId("sign-info")).toContainText("W.207a");
   await expect(page.getByTestId("sign-info")).toContainText("độ tin cậy thấp");
 
-  // proof tree
-  await turn.getByText("Chứng minh của hệ luật").click();
-  await expect(turn.getByTestId("proof")).toContainText("forbids(s1, car, enter)");
-
   // feedback
-  await turn.getByRole("button", { name: "👍 Đúng" }).click();
-  await expect(turn.getByRole("button", { name: "👍 Đúng" })).toHaveAttribute("aria-pressed", "true");
-  await turn.getByRole("button", { name: "✏️ Sửa đáp án" }).click();
+  await turn.getByRole("button", { name: "Câu trả lời đúng" }).click();
+  await expect(turn.getByRole("button", { name: "Câu trả lời đúng" })).toHaveAttribute("aria-pressed", "true");
+  await turn.getByRole("button", { name: "Sửa đáp án" }).click();
   await turn.getByPlaceholder("Đáp án đúng").fill("Không được đi vào.");
   await turn.getByPlaceholder("Ghi chú (không bắt buộc)").fill("kiểm thử");
-  await turn.getByRole("button", { name: "Gửi" }).click();
+  await turn.getByRole("button", { name: "Gửi sửa" }).click();
   await expect(turn.getByTestId("feedback")).toContainText("Đã gửi: “Không được đi vào.”");
 
   // a follow-up on the same photo, answered by the RAG fallback
   await ask(page, "Hỏi RAG: xe ô tô có được đi vào không?");
   const rag = page.getByTestId("turn").nth(1);
   await expect(rag).toHaveAttribute("data-phase", "done");
-  await expect(rag.getByTestId("rag")).toContainText("Trả lời bằng RAG – chưa được hệ luật kiểm chứng");
+  await expect(rag.getByTestId("rag-badge")).toHaveText("Trả lời bằng RAG – chưa được hệ luật kiểm chứng");
+  await expect(rag.getByTestId("rag")).toContainText("QCVN 41:2024/BGTVT – B.3");
+  await expect(rag.getByTestId("rag")).toContainText("Biển số P.103a"); // the first law is open
+  await expect(rag.getByTestId("stats")).toContainText("Dự phòng");
+  await rag.getByRole("button", { name: "Căn cứ và chứng minh" }).click();
+  await expect(rag.getByTestId("evidence")).toBeVisible();
   await expect(rag.getByTestId("citations")).toHaveCount(0); // RAG laws are not rule citations
-  await rag.getByText("QCVN 41:2024/BGTVT – B.3").click();
-  await expect(rag.getByTestId("rag")).toContainText("Biển số P.103a");
+  await expect(rag.getByTestId("user-photo")).toHaveCount(0); // same photo: shown once
 
   // history: a reload restores the session with its turns and feedback
   await page.reload();
   await expect(page.getByTestId("turn")).toHaveCount(2);
   const first = page.getByTestId("turn").first();
   await expect(first.getByTestId("answer")).toHaveText("Không. Biển số 1 (P.103a) cấm xe ô tô đi vào.");
-  await expect(first.getByRole("button", { name: "👍 Đúng" })).toHaveAttribute("aria-pressed", "true");
+  await expect(first.getByRole("button", { name: "Câu trả lời đúng" })).toHaveAttribute("aria-pressed", "true");
   await expect(first.getByTestId("feedback")).toContainText("Không được đi vào.");
   await expect(page.getByTestId("turn").nth(1).getByTestId("rag")).toBeVisible();
 
@@ -83,9 +92,19 @@ test("ask, stream, boxes, citations, proof, feedback, RAG and history", async ({
   expect(url).toMatch(/#turn=[0-9a-f]+/);
   await page.getByRole("button", { name: "Cuộc trò chuyện mới" }).click();
   await expect(page.getByTestId("turn")).toHaveCount(0);
-  await page.getByRole("button", { name: "Lịch sử" }).click();
-  await page.getByRole("dialog").getByText("Xe ô tô có được đi vào đường này không?").click();
+  const menu = page.getByRole("button", { name: "Mở lịch sử" }); // phone: the history is in a drawer
+  if (await menu.isVisible()) await menu.click();
+  await page.getByRole("navigation", { name: "Lịch sử" }).getByText("Xe ô tô có được đi vào đường này không?").click();
   await expect(page.getByTestId("turn")).toHaveCount(2);
+});
+
+test("notes for a low-confidence sign and a local plate the answer rests on", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("file-input").setInputFiles(PHOTO);
+  await ask(page, "Theo biển phụ, xe máy có được đi vào không?");
+  const notes = page.getByTestId("turn").first().getByTestId("notes");
+  await expect(notes).toContainText("độ tin cậy thấp: biển 2 (W.207a)");
+  await expect(notes).toContainText("Câu trả lời dựa trên chữ ghi trên biển phụ: “CẤM XE 2 VÀ 3 BÁNH”");
 });
 
 test("a dropped stream recovers the stored answer", async ({ page }) => {
@@ -119,6 +138,40 @@ test("a dropped stream recovers the stored answer", async ({ page }) => {
   const turn = page.getByTestId("turn").first();
   await expect(turn.getByTestId("answer")).toHaveText("Không. Biển số 1 (P.103a) cấm xe ô tô đi vào.");
   await expect(turn).toHaveAttribute("data-phase", "done");
+});
+
+test("voice: Vietnamese speech fills the question box; a desktop shows the mic instead of the camera", async ({ page }, info) => {
+  // a fake recognizer: an interim result, then the final one, then the end of listening
+  await page.addInitScript(() => {
+    class FakeRecognition {
+      lang = "";
+      interimResults = false;
+      continuous = false;
+      onresult: ((e: unknown) => void) | null = null;
+      onerror: ((e: unknown) => void) | null = null;
+      onend: (() => void) | null = null;
+      start() {
+        (window as unknown as { speechLang: string }).speechLang = this.lang;
+        setTimeout(() => this.onresult?.({ results: [{ isFinal: false, 0: { transcript: "xe ô tô" } }] }), 50);
+        setTimeout(() => {
+          this.onresult?.({ results: [{ isFinal: true, 0: { transcript: "xe ô tô có được đi vào không" } }] });
+          this.onend?.();
+        }, 300);
+      }
+      stop() { this.onend?.(); }
+      abort() {}
+    }
+    (window as unknown as { webkitSpeechRecognition: unknown }).webkitSpeechRecognition = FakeRecognition;
+  });
+  await page.goto("/");
+  const camera = page.getByRole("button", { name: "Chụp ảnh" });
+  if (info.project.name === "desktop") await expect(camera).toHaveCount(0); // hidden: no touch
+  else await expect(camera).toBeVisible();
+  await page.getByRole("button", { name: "Hỏi bằng giọng nói" }).click();
+  await expect(page.getByRole("button", { name: "Dừng nghe" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("Câu hỏi", { exact: true })).toHaveValue("Xe ô tô có được đi vào không");
+  await expect(page.getByRole("button", { name: "Hỏi bằng giọng nói" })).toHaveAttribute("aria-pressed", "false");
+  expect(await page.evaluate(() => (window as unknown as { speechLang: string }).speechLang)).toBe("vi-VN");
 });
 
 test("a wrong file type is refused before upload", async ({ page }) => {

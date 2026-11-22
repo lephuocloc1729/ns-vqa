@@ -1,5 +1,8 @@
-import { CONFIDENCE } from "../lib/labels";
+import { CONFIDENCE, fmtSeconds, stageLabel } from "../lib/labels";
+import { localPlates, lowConfidenceRelied } from "../lib/notes";
+import type { Stage } from "../lib/turn";
 import type { SignBox, TurnOut } from "../lib/types";
+import { Warning } from "./Icons";
 import ProofTree from "./ProofTree";
 
 export const RAG_BADGE = "Trả lời bằng RAG – chưa được hệ luật kiểm chứng";
@@ -44,20 +47,33 @@ function Notes({ t, signs }: { t: TurnOut; signs: SignBox[] }) {
       body: <>Không đọc rõ {uncertain.map(label).join(", ")}; kết luận có thể thay đổi nếu đọc được biển này.</>,
     });
   }
-  const low = signs.map((s, i) => ({ s, n: i + 1 })).filter((x) => x.s.confidence === "low");
+  // only the low-confidence signs the answer rests on; the dotted box already marks the others
+  const low = lowConfidenceRelied(signs, proof);
   if (low.length) {
     notes.push({
       id: "low", kind: "warn",
       body: (
         <>
-          Độ tin cậy {CONFIDENCE.low} khi đọc: {low.map((x) => `biển ${x.n} (${x.s.code ?? "?"})`).join(", ")}.
-          Hãy kiểm tra lại khung trên ảnh.
+          Câu trả lời dựa vào biển đọc với độ tin cậy {CONFIDENCE.low}:{" "}
+          {low.map((x) => `biển ${x.n} (${x.s.code ?? "?"})`).join(", ")}. Hãy kiểm tra lại khung trên ảnh.
         </>
       ),
     });
   }
   if (t.basis.includes("non_standard_plate")) {
-    notes.push({ id: "local", kind: "info", body: <>Dựa trên biển phụ không theo QCVN 41 (nội dung được giữ nguyên văn).</> });
+    const plates = localPlates(proof);
+    notes.push({
+      id: "local", kind: "info",
+      body: plates.length ? (
+        <>
+          Câu trả lời dựa trên chữ ghi trên biển phụ:{" "}
+          {plates.map((p, i) => <span key={i}>{i > 0 && ", "}<strong>“{p.text}”</strong></span>)}{" "}
+          (biển phụ địa phương, không có trong QCVN 41).
+        </>
+      ) : (
+        <>Câu trả lời dựa trên chữ ghi trên một biển phụ địa phương (không có trong QCVN 41).</>
+      ),
+    });
   }
   if (t.answered_by === "fallback" && !t.basis.includes("rag")) {
     notes.push({ id: "fb", kind: "warn", body: <>Trả lời bởi mô hình dự phòng – chưa được hệ luật kiểm chứng.</> });
@@ -70,35 +86,47 @@ function Notes({ t, signs }: { t: TurnOut; signs: SignBox[] }) {
   );
 }
 
-export default function Details({ t, signs }: { t: TurnOut; signs: SignBox[] }) {
-  const rag = t.basis.includes("rag");
+export { Notes };
+
+export function RagBadge() {
   return (
-    <>
-      <Notes t={t} signs={signs} />
-      {rag && (
-        <div className="rag-box" data-testid="rag">
-          <div className="rag-badge" role="note">⚠️ {RAG_BADGE}</div>
-          {t.retrieved.length > 0 ? (
-            <>
-              <div className="section-title" style={{ marginTop: 10 }}>Điều luật RAG đã tìm và dùng</div>
-              {t.retrieved.map((r, i) => (
-                <details key={`${r.law_id}-${r.article_id}-${i}`}>
-                  <summary>
-                    <strong>{r.law_id} – {r.article_id}</strong>
-                    <span className="muted">
-                      {r.rank != null ? ` · hạng ${r.rank}` : ""}
-                      {r.score != null ? ` · điểm ${Number(r.score).toFixed(3)}` : ""}
-                    </span>
-                  </summary>
-                  {r.text ? <div className="law-text">{r.text}</div> : <p className="muted">Không có văn bản.</p>}
-                </details>
-              ))}
-            </>
-          ) : (
-            <p className="muted">RAG không trả về điều luật nào.</p>
-          )}
-        </div>
+    <div className="rag-badge" role="note" data-testid="rag-badge">
+      <Warning size={16} /> {RAG_BADGE}
+    </div>
+  );
+}
+
+/** The laws the RAG used: always visible, kept apart from the rule citations. */
+export function RagSources({ t }: { t: TurnOut }) {
+  return (
+    <div className="rag-box" data-testid="rag">
+      {t.retrieved.length > 0 ? (
+        <>
+          <div className="section-title">Điều luật RAG đã tìm và dùng</div>
+          {t.retrieved.map((r, i) => (
+            <details key={`${r.law_id}-${r.article_id}-${i}`} open={i === 0}>
+              <summary>
+                <strong>{r.law_id} – {r.article_id}</strong>
+                <span className="muted">
+                  {r.rank != null ? ` · hạng ${r.rank}` : ""}
+                  {r.score != null ? ` · điểm ${Number(r.score).toFixed(3)}` : ""}
+                </span>
+              </summary>
+              {r.text ? <div className="law-text">{r.text}</div> : <p className="muted">Không có văn bản.</p>}
+            </details>
+          ))}
+        </>
+      ) : (
+        <p className="muted">RAG không trả về điều luật nào.</p>
       )}
+    </div>
+  );
+}
+
+/** Folded under the answer: the rule citations, the proof and the stage timings. */
+export function Evidence({ t, signs, stages }: { t: TurnOut; signs: SignBox[]; stages: Stage[] }) {
+  return (
+    <div className="evidence" data-testid="evidence">
       {t.citations.length > 0 && (
         <div>
           <div className="section-title">Căn cứ của hệ luật</div>
@@ -107,7 +135,20 @@ export default function Details({ t, signs }: { t: TurnOut; signs: SignBox[] }) 
           </div>
         </div>
       )}
-      {t.proof && <ProofTree proof={t.proof} signs={signs} />}
-    </>
+      {t.proof && (t.proof.reasons ?? []).length > 0 && <ProofTree proof={t.proof} signs={signs} />}
+      {stages.length > 1 && (
+        <div>
+          <div className="section-title">Các bước xử lý</div>
+          <ul className="stages" data-testid="stages">
+            {stages.map((s, i) => (
+              <li key={i} data-stage={s.name}><span>{stageLabel(s)}</span><span className="t">{fmtSeconds(s.t)}</span></li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
+
+export const hasEvidence = (t: TurnOut, stages: Stage[]) =>
+  t.citations.length > 0 || (t.proof?.reasons ?? []).length > 0 || stages.length > 1;

@@ -5,8 +5,11 @@ import {
   type KnownSession, type Theme,
 } from "./lib/storage";
 import { newTurn, turnFromStored, turnReducer, type TurnAction, type TurnState } from "./lib/turn";
-import HistoryDrawer from "./components/HistoryDrawer";
-import PhotoPanel, { ACCEPTED } from "./components/PhotoPanel";
+import { PRODUCT } from "./lib/brand";
+import Composer, { ACCEPTED } from "./components/Composer";
+import { Menu, Pencil } from "./components/Icons";
+import PhotoPanel from "./components/PhotoPanel";
+import Sidebar, { THEME_LABEL, THEME_NEXT, ThemeIcon } from "./components/Sidebar";
 import TurnView from "./components/TurnView";
 
 const MAX_BYTES = 10 * 1024 * 1024; // the API's default VQA_MAX_IMAGE_MB
@@ -30,6 +33,8 @@ function convReducer(turns: TurnState[], a: ConvAction): TurnState[] {
 interface Photo {
   url: string;
   blob: Blob | null; // null for a stored image; fetched again when asked about
+  name: string | null; // a new file's name; null for the photo of an earlier question
+  size: number | null;
 }
 
 const newKey = () =>
@@ -49,9 +54,13 @@ function setHash(turnId: string | null) {
   }
 }
 
-const THEME_NEXT: Record<Theme, Theme> = { auto: "light", light: "dark", dark: "auto" };
-const THEME_ICON: Record<Theme, string> = { auto: "🌓", light: "☀️", dark: "🌙" };
-const THEME_LABEL: Record<Theme, string> = { auto: "Tự động", light: "Sáng", dark: "Tối" };
+// written for the demo, not taken from the dataset
+const EXAMPLES = [
+  "Xe ô tô có được đi vào đường này không?",
+  "Đây là biển báo gì?",
+  "Tốc độ tối đa cho xe máy là bao nhiêu?",
+  "Xe tải có được đi qua đoạn đường này không?",
+];
 
 export default function App() {
   const [turns, dispatch] = useReducer(convReducer, []);
@@ -81,7 +90,7 @@ export default function App() {
     saveSessionId(id);
   }, []);
 
-  const openSession = useCallback(async (id: string, turnId?: string) => {
+  const openSession = useCallback(async (id: string, turnId?: string, quiet = false) => {
     setLoadErr(null);
     try {
       const stored = await getTurns(id);
@@ -90,13 +99,13 @@ export default function App() {
       dispatch({ type: "set", turns: list });
       const pick = list.find((t) => t.turnId === turnId) ?? list[list.length - 1];
       setSelected(pick ? pick.key : null);
-      setPhoto(pick?.imageUrl ? { url: pick.imageUrl, blob: null } : null);
+      setPhoto(pick?.imageUrl ? { url: pick.imageUrl, blob: null, name: null, size: null } : null);
       if (pick?.turnId) setHash(pick.turnId);
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) {
         setSessions(forgetSession(id));
         if (loadSessionId() === id) adoptSession(null);
-        setLoadErr("Cuộc trò chuyện này không còn trên máy chủ.");
+        if (!quiet) setLoadErr("Cuộc trò chuyện này không còn trên máy chủ.");
       } else {
         setLoadErr("Không tải được lịch sử. Kiểm tra kết nối tới máy chủ.");
       }
@@ -118,7 +127,7 @@ export default function App() {
         .catch(() => setLoadErr("Không tìm thấy câu hỏi trong đường dẫn."));
     } else {
       const sid = loadSessionId();
-      if (sid) void openSession(sid);
+      if (sid) void openSession(sid, undefined, true); // a session the server no longer has is dropped quietly
     }
   }, [openSession]);
 
@@ -149,7 +158,7 @@ export default function App() {
       return;
     }
     setPhotoErr(null);
-    setPhoto({ url: URL.createObjectURL(f), blob: f });
+    setPhoto({ url: URL.createObjectURL(f), blob: f, name: f.name || "Ảnh đã dán", size: f.size });
     setSelected(null);
     setHash(null);
     textRef.current?.focus();
@@ -207,20 +216,23 @@ export default function App() {
     }
   }
 
-  async function ask() {
-    const q = question.trim();
+  async function ask(override?: string) {
+    const q = (override ?? question).trim();
     if (!q || busy) return;
     if (!photo) {
       setPhotoErr("Hãy chọn ảnh trước khi hỏi.");
       return;
     }
     setBusy(true);
+    setLoadErr(null);
     try {
       const blob = photo.blob ?? (await (await fetch(photo.url)).blob());
       const key = newKey();
       dispatch({ type: "add", turn: newTurn(key, q, photo.url) });
       setSelected(key);
       setQuestion("");
+      setPhotoErr(null);
+      setPhoto((p) => (p ? { ...p, name: null, size: null } : p)); // now the photo of a question
       await run(key, blob, q, sessionId, true);
     } catch {
       setPhotoErr("Không đọc được ảnh đã chọn. Hãy chọn lại ảnh.");
@@ -231,7 +243,7 @@ export default function App() {
 
   function selectTurn(t: TurnState) {
     setSelected(t.key);
-    if (t.imageUrl) setPhoto((p) => (p && p.url === t.imageUrl ? p : { url: t.imageUrl as string, blob: null }));
+    if (t.imageUrl) setPhoto((p) => (p && p.url === t.imageUrl ? p : { url: t.imageUrl as string, blob: null, name: null, size: null }));
     if (t.turnId) {
       setHash(t.turnId);
       if (!t.result && t.phase !== "streaming") {
@@ -251,74 +263,99 @@ export default function App() {
 
   const shown = turns.find((t) => t.key === selected) ?? null;
   const panelUrl = shown?.imageUrl ?? photo?.url ?? null;
+  const title = turns.length ? turns[0].question : PRODUCT;
+  const serverNote = server?.ok && server.fallback
+    ? `Dự phòng: ${server.fallback === "rag" ? "RAG" : server.fallback === "off" ? "tắt" : server.fallback}`
+    : null;
+  const chatDrop = {
+    onDragOver: (e: React.DragEvent) => e.preventDefault(),
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      const f = e.dataTransfer.files[0];
+      if (f && !busy) pickFile(f);
+    },
+  };
+  const sidebar = (inDrawer: boolean) => (
+    <Sidebar sessions={sessions} current={sessionId} busy={busy} theme={theme} serverNote={serverNote}
+      onNew={() => { setDrawer(false); newConversation(); }}
+      onOpen={(id) => { setDrawer(false); void openSession(id); }}
+      onForget={(id) => setSessions(forgetSession(id))}
+      onTheme={() => setTheme(THEME_NEXT[theme])}
+      onClose={inDrawer ? () => setDrawer(false) : undefined} />
+  );
+  const composer = (
+    <Composer ref={textRef} busy={busy} error={photoErr} question={question} onQuestion={setQuestion}
+      photo={photo ? { url: photo.url, name: photo.name, size: photo.size } : null}
+      onPick={pickFile} onSubmit={() => void ask()}
+      onClearPhoto={() => { setPhoto(null); setSelected(null); setHash(null); }} />
+  );
 
   return (
-    <div className="app">
+    <div className="shell">
+      <aside className="sidebar">{sidebar(false)}</aside>
       <header className="topbar">
-        <h1>🚦 Hỏi đáp biển báo giao thông</h1>
-        <button type="button" className="btn small" onClick={() => setTheme(THEME_NEXT[theme])}
-          aria-label={`Giao diện: ${THEME_LABEL[theme]}`} title={`Giao diện: ${THEME_LABEL[theme]}`}>
-          {THEME_ICON[theme]}<span className="lbl">{THEME_LABEL[theme]}</span></button>
-        <button type="button" className="btn small" onClick={() => setDrawer(true)} aria-label="Lịch sử">🕘<span className="lbl">Lịch sử</span></button>
-        <button type="button" className="btn small" disabled={busy} onClick={newConversation} aria-label="Cuộc trò chuyện mới">＋<span className="lbl">Mới</span></button>
+        <button type="button" className="icon-btn narrow-only" onClick={() => setDrawer(true)} aria-label="Mở lịch sử">
+          <Menu size={20} />
+        </button>
+        <h1 className="topbar-title">{title}</h1>
+        <button type="button" className="icon-btn narrow-only" onClick={() => setTheme(THEME_NEXT[theme])}
+          aria-label={THEME_LABEL[theme]} title={THEME_LABEL[theme]}><ThemeIcon theme={theme} size={19} /></button>
+        <button type="button" className="icon-btn narrow-only" disabled={busy} onClick={newConversation}
+          aria-label="Cuộc trò chuyện mới" title="Cuộc trò chuyện mới"><Pencil size={19} /></button>
       </header>
-      {server && !server.ok && (
-        <div className="notice bad" role="alert" style={{ margin: "12px 16px 0" }}>
-          Không kết nối được máy chủ API. Hãy kiểm tra máy chủ rồi tải lại trang.
-        </div>
-      )}
-      {server?.profile?.startsWith("fake") && (
-        <div className="notice bad" role="alert" data-testid="fake-banner" style={{ margin: "12px 16px 0" }}>
-          <strong>Máy chủ thử nghiệm (pipeline giả, profile “{server.profile}”).</strong> Mọi câu trả lời đều là
-          dữ liệu mẫu cố định, không phải từ hệ thống thật.
-        </div>
-      )}
-      <main className="layout">
-        <div className="photo-col">
-          <PhotoPanel imageUrl={panelUrl} imageSize={shown?.imageSize ?? null} signs={shown?.signs ?? []}
-            busy={busy} onPick={pickFile} error={photoErr}
-            onClear={() => { setPhoto(null); setSelected(null); setHash(null); }} />
-          {server?.ok && server.fallback && (
-            <p className="muted" style={{ margin: "8px 4px 0" }}>
-              Chế độ dự phòng: {server.fallback === "rag" ? "RAG" : server.fallback === "off" ? "tắt" : server.fallback}
-            </p>
-          )}
-        </div>
-        <section className="conv" aria-label="Cuộc trò chuyện">
-          {loadErr && <div className="notice warn" role="status">{loadErr}</div>}
-          {turns.length === 0 && (
-            <div className="card empty">
-              Chọn một ảnh có biển báo, rồi đặt câu hỏi, ví dụ: “Xe ô tô có được đi vào đường này không?”
+      <PhotoPanel imageUrl={panelUrl} imageSize={shown?.imageSize ?? null} signs={shown?.signs ?? []}
+        busy={busy} onDropFile={pickFile} />
+      <main className={`chat${turns.length ? "" : " empty"}`} aria-label="Cuộc trò chuyện" {...chatDrop}>
+        {server && !server.ok && (
+          <div className="notice bad" role="alert">Không kết nối được máy chủ API. Hãy kiểm tra máy chủ rồi tải lại trang.</div>
+        )}
+        {server?.profile?.startsWith("fake") && (
+          <div className="notice bad" role="alert" data-testid="fake-banner">
+            <strong>Máy chủ thử nghiệm (pipeline giả, profile “{server.profile}”).</strong> Mọi câu trả lời đều là
+            dữ liệu mẫu cố định, không phải từ hệ thống thật.
+          </div>
+        )}
+        {loadErr && <div className="notice warn" role="status">{loadErr}</div>}
+        {turns.length === 0 ? (
+          <div className="hero">
+            <h2>Hỏi về biển báo trong ảnh của bạn</h2>
+            <p className="muted">Mỗi câu trả lời của hệ luật kèm căn cứ pháp lý và chứng minh từng bước.</p>
+            {composer}
+            <div className="examples">
+              {EXAMPLES.map((q) => (
+                <button key={q} type="button" className="example" disabled={busy} onClick={() => {
+                  if (photo) void ask(q);
+                  else { setQuestion(q); setPhotoErr("Hãy đính kèm ảnh có biển báo trước khi hỏi."); textRef.current?.focus(); }
+                }}>{q}</button>
+              ))}
             </div>
-          )}
-          {turns.map((t) => (
-            <TurnView key={t.key} t={t} selected={t.key === selected && turns.length > 1}
-              onSelect={() => selectTurn(t)}
-              onFeedback={(f) => dispatch({ type: "turn", key: t.key, action: { type: "feedback", feedback: f } })} />
-          ))}
-          <div ref={endRef} />
-          <form className="card ask" onSubmit={(e) => { e.preventDefault(); void ask(); }}>
-            <label htmlFor="question" className="sr-only">Câu hỏi</label>
-            <textarea id="question" ref={textRef} rows={1} maxLength={500} value={question}
-              placeholder={photo ? "Đặt câu hỏi về ảnh…" : "Chọn ảnh, rồi đặt câu hỏi…"}
-              onChange={(e) => setQuestion(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  void ask();
-                }
-              }} />
-            <button type="submit" className="btn primary" disabled={busy || !question.trim() || !photo}>
-              {busy ? "Đang trả lời…" : "Hỏi"}
-            </button>
-          </form>
-        </section>
+          </div>
+        ) : (
+          <>
+            <div className="thread">
+              {turns.map((t, i) => {
+                const prev = turns[i - 1];
+                const same = prev && (t.imageSha && prev.imageSha ? t.imageSha === prev.imageSha : t.imageUrl === prev.imageUrl);
+                return (
+                  <TurnView key={t.key} t={t} showImage={!same} selected={t.key === selected && turns.some((o) => o.imageUrl !== t.imageUrl)}
+                    onSelect={() => selectTurn(t)}
+                    onFeedback={(f) => dispatch({ type: "turn", key: t.key, action: { type: "feedback", feedback: f } })} />
+                );
+              })}
+              <div ref={endRef} />
+            </div>
+            <div className="composer-dock">
+              {composer}
+              <p className="footnote">Câu trả lời của hệ luật có căn cứ và chứng minh; câu trả lời RAG chưa được hệ luật kiểm chứng.</p>
+            </div>
+          </>
+        )}
       </main>
       {drawer && (
-        <HistoryDrawer sessions={sessions} current={sessionId}
-          onOpen={(id) => { setDrawer(false); void openSession(id); }}
-          onForget={(id) => setSessions(forgetSession(id))}
-          onClose={() => setDrawer(false)} />
+        <>
+          <div className="drawer-bg" onClick={() => setDrawer(false)} />
+          <aside className="drawer" role="dialog" aria-modal="true" aria-label="Lịch sử">{sidebar(true)}</aside>
+        </>
       )}
     </div>
   );
