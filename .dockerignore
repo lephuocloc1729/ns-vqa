@@ -1,0 +1,20 @@
+# Whitelist: only the code the images need goes into the build context.
+# Dataset files, law_db figure copies, caches, logs and run records never do.
+*
+!pyproject.toml
+!vqa/
+!app/
+!kb/
+!prompts/
+!web/
+!docker/
+
+# re-excluded inside the whitelisted folders
+**/__pycache__
+**/*.pyc
+prompts/scene/*/pictograms/
+web/node_modules/
+web/dist/
+web/test-results/
+web/playwright-report/
+web/e2e/.data/

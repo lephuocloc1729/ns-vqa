@@ -1,0 +1,623 @@
+{
+ "uid": "mat-luat",
+ "title": "Mắt Luật – hệ thống",
+ "tags": [
+  "mat-luat"
+ ],
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "time": {
+  "from": "now-24h",
+  "to": "now"
+ },
+ "refresh": "30s",
+ "editable": false,
+ "panels": [
+  {
+   "id": 1,
+   "title": "Answers",
+   "type": "stat",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum(increase(vqa_answers_total[$__range]))",
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "none",
+    "graphMode": "none",
+    "textMode": "value"
+   },
+   "description": "Answers finished in the selected time range"
+  },
+  {
+   "id": 2,
+   "title": "Claude cost",
+   "type": "stat",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 4,
+    "y": 0,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum(increase(vqa_cost_usd_total[$__range]))",
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "currencyUSD",
+     "decimals": 3
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "none",
+    "graphMode": "none",
+    "textMode": "value"
+   }
+  },
+  {
+   "id": 3,
+   "title": "Answer time p50",
+   "type": "stat",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 0,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "histogram_quantile(0.5, sum by (le) (increase(vqa_answer_seconds_bucket[$__range])))",
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "none",
+    "graphMode": "none",
+    "textMode": "value"
+   }
+  },
+  {
+   "id": 4,
+   "title": "Answer time p95",
+   "type": "stat",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 0,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "histogram_quantile(0.95, sum by (le) (increase(vqa_answer_seconds_bucket[$__range])))",
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "none",
+    "graphMode": "none",
+    "textMode": "value"
+   }
+  },
+  {
+   "id": 5,
+   "title": "Thumbs-up rate",
+   "type": "stat",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 0,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum(increase(vqa_feedback_total{kind=\"up\"}[$__range])) / sum(increase(vqa_feedback_total{kind=~\"up|down\"}[$__range]))",
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "none",
+    "graphMode": "none",
+    "textMode": "value"
+   },
+   "description": "👍 / (👍 + 👎) in the selected range"
+  },
+  {
+   "id": 6,
+   "title": "Failed requests",
+   "type": "stat",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 20,
+    "y": 0,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum(increase(vqa_requests_total{status=\"error\"}[$__range])) or vector(0)",
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "none",
+    "graphMode": "none",
+    "textMode": "value"
+   }
+  },
+  {
+   "id": 7,
+   "title": "Answers by route",
+   "type": "piechart",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 4,
+    "w": 8,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum by (answered_by) (increase(vqa_answers_total[$__range]))",
+     "legendFormat": "{{answered_by}}",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none"
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "values": [
+      "value"
+     ]
+    },
+    "pieType": "donut",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    }
+   },
+   "description": "rules = the rule engine decided; fallback = the RAG or Claude fallback; not_decided = no answer from the rules and the fallback off"
+  },
+  {
+   "id": 8,
+   "title": "Answers per minute, by route",
+   "type": "timeseries",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 4,
+    "w": 16,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum by (answered_by) (rate(vqa_answers_total[5m])) * 60",
+     "legendFormat": "{{answered_by}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8,
+      "spanNulls": true
+     }
+    },
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "id": 9,
+   "title": "Answer time (p50, p95)",
+   "type": "timeseries",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 12,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "histogram_quantile(0.5, sum by (le) (rate(vqa_answer_seconds_bucket[10m])))",
+     "legendFormat": "p50"
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "histogram_quantile(0.95, sum by (le) (rate(vqa_answer_seconds_bucket[10m])))",
+     "legendFormat": "p95"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8,
+      "spanNulls": true
+     }
+    },
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "id": 10,
+   "title": "Seconds from start to each stage (p50)",
+   "type": "timeseries",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 12,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "histogram_quantile(0.5, sum by (le, stage) (rate(vqa_stage_seconds_bucket[10m])))",
+     "legendFormat": "{{stage}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8,
+      "spanNulls": true
+     }
+    },
+    "overrides": []
+   },
+   "options": {},
+   "description": "perception and parsing run in parallel; token events are the answer text streaming"
+  },
+  {
+   "id": 11,
+   "title": "Claude cost per hour",
+   "type": "timeseries",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 20,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum by (answered_by) (increase(vqa_cost_usd_total[1h]))",
+     "legendFormat": "{{answered_by}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "currencyUSD",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8,
+      "spanNulls": true
+     }
+    },
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "id": 12,
+   "title": "Feedback",
+   "type": "timeseries",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 20,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum by (kind) (increase(vqa_feedback_total[1h]))",
+     "legendFormat": "{{kind}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8,
+      "spanNulls": true
+     }
+    },
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "id": 13,
+   "title": "Server CPU",
+   "type": "timeseries",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 28,
+    "w": 12,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[2m])))",
+     "legendFormat": "CPU %"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8,
+      "spanNulls": true
+     }
+    },
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "id": 14,
+   "title": "Server memory",
+   "type": "timeseries",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 28,
+    "w": 12,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)",
+     "legendFormat": "RAM %"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8,
+      "spanNulls": true
+     }
+    },
+    "overrides": []
+   },
+   "options": {}
+  }
+ ],
+ "description": "Answers, latency, Claude cost and feedback from the API's /metrics; CPU and RAM from node-exporter."
+}

@@ -52,3 +52,6 @@ services/rag/.venv/
 
 # app/api local database and uploads
 var/
+
+# Docker Compose secrets (API key, passwords): never committed
+.env

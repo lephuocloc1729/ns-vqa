@@ -115,6 +115,7 @@ class Metrics:
         self.cost = Counter("vqa_cost_usd", "Claude API spend in USD", ["answered_by"], registry=self.registry)
         self.seconds = Histogram("vqa_answer_seconds", "Seconds per answer", registry=self.registry,
                                  buckets=(1, 2, 5, 10, 15, 20, 30, 45, 60, 90, 120))
+        self.feedback = Counter("vqa_feedback", "Feedback received, by kind", ["kind"], registry=self.registry)
         self.stage = Histogram("vqa_stage_seconds", "Seconds from start to each stage event", ["stage"],
                                registry=self.registry, buckets=(0.5, 1, 2, 5, 10, 15, 20, 30, 60))
 
@@ -250,6 +251,10 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
             raise HTTPException(400, "empty feedback")
         f = store.add_feedback(turn_id, body.thumb, body.corrected_answer, body.note)
         metrics.requests.labels("feedback", "ok").inc()
+        if body.thumb:
+            metrics.feedback.labels(body.thumb).inc()
+        if body.corrected_answer:
+            metrics.feedback.labels("corrected").inc()
         return FeedbackOut(id=f.id, thumb=f.thumb, corrected_answer=f.corrected_answer, note=f.note)
 
     @app.get("/v1/images/{sha256}")
