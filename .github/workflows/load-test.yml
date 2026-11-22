@@ -1,0 +1,86 @@
+name: Load test
+
+# Plan item 3.2: the capacity ramp (10 to 500 users) and the stress test (1000 users, then recovery)
+# against the whole Docker Compose stack (nginx, API, Postgres) with the fake pipeline: no Claude
+# calls, so the numbers measure our own system. One job per API_WORKERS value, each on its own
+# runner. Results: the job summary, and the artifact "load-<workers>-workers" (per-step tables,
+# Locust's CSV and HTML, container CPU and memory).
+on:
+  pull_request:                 # a change to the load test runs it (about 25 min)
+    paths: ["eval/load/**", ".github/workflows/load-test.yml"]
+  workflow_dispatch:
+    inputs:
+      step_seconds:
+        description: Seconds per load step
+        default: "60"
+
+permissions:
+  contents: read
+
+jobs:
+  load:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        workers: [1, 2, 4]
+    env:
+      API_WORKERS: ${{ matrix.workers }}
+      LOAD_STEP_S: ${{ inputs.step_seconds || '60' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - name: Install Locust
+        run: pip install "locust==2.32.4"
+      - name: Machine
+        run: |
+          echo "CPU: $(nproc) x $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)" | tee machine.txt
+          echo "RAM: $(free -g | awk '/Mem:/{print $2}') GB" | tee -a machine.txt
+      - name: Build and start the stack (fake pipeline, API_WORKERS=${{ matrix.workers }})
+        run: docker compose up -d --build --wait --wait-timeout 300 web api postgres
+      - name: Container CPU and memory, every 5 s
+        run: |
+          mkdir -p out
+          (while true; do docker stats --no-stream --format '{{.Name}},{{.CPUPerc}},{{.MemUsage}}' \
+             | sed "s/^/$(date +%s),/" >> out/docker-stats.csv; sleep 5; done) &
+      - name: Capacity ramp (10 to 500 users)
+        env: { LOAD_PROFILE: capacity, LOAD_OUT: out/capacity }
+        run: |
+          locust -f eval/load/locustfile.py --headless --host http://localhost:8080 \
+            --csv out/capacity --html out/capacity.html --only-summary 2>&1 | tail -30
+      - name: Stress (100, then 1000 users, then 20 for recovery)
+        env: { LOAD_PROFILE: stress, LOAD_OUT: out/stress }
+        run: |
+          locust -f eval/load/locustfile.py --headless --host http://localhost:8080 \
+            --csv out/stress --html out/stress.html --only-summary 2>&1 | tail -30
+      - name: The stack after the test
+        if: always()
+        run: |
+          docker compose ps
+          curl -fsS http://localhost:8080/health | tee out/health-after.json
+          docker compose logs --no-color --tail=100 api > out/api-log-tail.txt 2>&1 || true
+          grep -ciE 'error|traceback' out/api-log-tail.txt || true
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## API_WORKERS=${{ matrix.workers }}"
+            cat machine.txt; echo
+            echo "### Capacity"; cat out/capacity.md 2>/dev/null || echo "(no result)"
+            echo "### Stress"; cat out/stress.md 2>/dev/null || echo "(no result)"
+            echo "### Peak container use"
+            echo '```'
+            sort -t, -k3 -rn out/docker-stats.csv 2>/dev/null | awk -F, '!seen[$2]++{print $2, "CPU", $3, "mem", $4}'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cp machine.txt out/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: load-${{ matrix.workers }}-workers
+          path: out/
+      - name: Stop
+        if: always()
+        run: docker compose down -v

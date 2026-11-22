@@ -144,20 +144,32 @@ class FakePipeline:
             cost_usd=0.002, seconds=round(time.monotonic() - t0, 2))
 
 
+def make_app():
+    """The app for one server process (uvicorn calls this in each worker)."""
+    settings = dataclasses.replace(
+        Settings.from_env(), profile="fake-e2e", answer_fallback="off",
+        database_url=os.environ["VQA_DATABASE_URL"], upload_dir=Path(os.environ["VQA_UPLOAD_DIR"]),
+        heartbeat_s=1.0)
+    pipe = FakePipeline()
+    return create_app(settings, pipeline_factory=lambda: pipe)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--workers", type=int, default=int(os.environ.get("API_WORKERS", "1")),
+                    help="server processes; each answers one question at a time (the load test compares 1, 2, 4)")
     args = ap.parse_args()
     tmp = Path(tempfile.mkdtemp(prefix="vqa-e2e-"))
-    settings = dataclasses.replace(
-        Settings.from_env(), profile="fake-e2e", answer_fallback="off",
-        database_url=os.environ.get("VQA_DATABASE_URL") or f"sqlite:///{tmp / 'app.db'}",
-        upload_dir=Path(os.environ.get("VQA_UPLOAD_DIR") or tmp / "uploads"),
-        heartbeat_s=1.0)
-    pipe = FakePipeline()
-    uvicorn.run(create_app(settings, pipeline_factory=lambda: pipe), host=args.host, port=args.port,
-                log_level="warning")
+    # set here so every worker process uses the same database and upload folder
+    os.environ.setdefault("VQA_DATABASE_URL", f"sqlite:///{tmp / 'app.db'}")
+    os.environ.setdefault("VQA_UPLOAD_DIR", str(tmp / "uploads"))
+    if args.workers == 1:
+        uvicorn.run(make_app(), host=args.host, port=args.port, log_level="warning")
+    else:
+        uvicorn.run("fake_api:make_app", factory=True, app_dir=str(Path(__file__).parent),
+                    host=args.host, port=args.port, workers=args.workers, log_level="warning")
 
 
 if __name__ == "__main__":
