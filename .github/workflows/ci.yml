@@ -186,7 +186,7 @@ jobs:
             sleep 2
           done
           curl -fsS 'http://localhost:9090/api/v1/query?query=sum(vqa_answers_total)' | tee /dev/stderr | grep -q '"1"'
-          curl -fsS -u admin:admin 'http://localhost:3000/api/dashboards/uid/mat-luat' | grep -q 'Mắt Luật'
+          curl -fsS -u admin:admin 'http://localhost:3000/api/dashboards/uid/signcite' | grep -q 'SignCite'
       - name: Logs on failure
         if: failure()
         run: docker compose logs --no-color --tail=200
