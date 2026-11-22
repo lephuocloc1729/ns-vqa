@@ -10,6 +10,7 @@ import { Menu, PanelLeft, PanelRight, Pencil } from "./components/Icons";
 import PhotoPanel from "./components/PhotoPanel";
 import Sidebar, { THEME_LABEL, THEME_NEXT, ThemeIcon } from "./components/Sidebar";
 import TurnView from "./components/TurnView";
+import { PRODUCT } from "./lib/brand";
 
 const MAX_BYTES = 10 * 1024 * 1024; // the API's default VQA_MAX_IMAGE_MB
 
@@ -53,13 +54,6 @@ function setHash(turnId: string | null) {
   }
 }
 
-// written for the demo, not taken from the dataset
-const EXAMPLES = [
-  "Xe ô tô có được đi vào đường này không?",
-  "Đây là biển báo gì?",
-  "Tốc độ tối đa cho xe máy là bao nhiêu?",
-  "Xe tải có được đi qua đoạn đường này không?",
-];
 
 export default function App() {
   const [turns, dispatch] = useReducer(convReducer, []);
@@ -295,7 +289,7 @@ export default function App() {
   );
 
   return (
-    <div className={`shell${sideOpen ? "" : " no-side"}${photoOpen ? "" : " no-photo"}`}>
+    <div className={`shell${sideOpen ? "" : " no-side"}${photoOpen ? "" : " no-photo"}${turns.length ? "" : " empty"}`}>
       {/* wide screens: one button per side bar, pinned to its corner, open or folded */}
       <button type="button" className="icon-btn bar-toggle side-toggle" onClick={() => setSideOpen(!sideOpen)}
         aria-expanded={sideOpen} aria-label={sideOpen ? "Thu gọn thanh bên" : "Mở thanh bên"}
@@ -310,43 +304,39 @@ export default function App() {
           <Menu size={20} />
         </button>
         <h1 className="topbar-title">{title}</h1>
+        {/* phones, before the first question: the product name in the middle of the bar */}
+        {!turns.length && <span className="topbar-brand brand-name" aria-hidden>{PRODUCT}</span>}
         <button type="button" className="icon-btn narrow-only" onClick={() => setTheme(THEME_NEXT[theme])}
           aria-label={THEME_LABEL[theme]} title={THEME_LABEL[theme]}><ThemeIcon theme={theme} size={19} /></button>
-        <button type="button" className="icon-btn narrow-only" disabled={busy} onClick={newConversation}
+        <button type="button" className="icon-btn narrow-only new-btn" disabled={busy} onClick={newConversation}
           aria-label="Cuộc trò chuyện mới" title="Cuộc trò chuyện mới"><Pencil size={19} /></button>
       </header>
       <PhotoPanel imageUrl={panelUrl} imageSize={shown?.imageSize ?? null} signs={shown?.signs ?? []}
         busy={busy} onDropFile={pickFile} />
       <main className={`chat${turns.length ? "" : " empty"}`} aria-label="Cuộc trò chuyện" {...chatDrop}>
-        {server && !server.ok && (
-          <div className="notice bad" role="alert">Không kết nối được máy chủ API. Hãy kiểm tra máy chủ rồi tải lại trang.</div>
-        )}
-        {server?.profile?.startsWith("fake") && (
-          <div className="notice bad" role="alert" data-testid="fake-banner">
-            <strong>Máy chủ thử nghiệm (pipeline giả, profile “{server.profile}”).</strong> Mọi câu trả lời đều là
-            dữ liệu mẫu cố định, không phải từ hệ thống thật.
-          </div>
-        )}
-        {loadErr && <div className="notice warn" role="status">{loadErr}</div>}
+        <div className="notices">
+          {server && !server.ok && (
+            <div className="notice bad" role="alert">Không kết nối được máy chủ API. Hãy kiểm tra máy chủ rồi tải lại trang.</div>
+          )}
+          {server?.profile?.startsWith("fake") && (
+            <div className="notice bad" role="alert" data-testid="fake-banner">
+              <strong>Máy chủ thử nghiệm (pipeline giả, profile “{server.profile}”).</strong> Mọi câu trả lời đều là
+              dữ liệu mẫu cố định, không phải từ hệ thống thật.
+            </div>
+          )}
+          {loadErr && <div className="notice warn" role="status">{loadErr}</div>}
+        </div>
         {turns.length === 0 ? (
           <div className="hero">
             {/* the box is the anchor: the greeting sits just above it and grows upward if it wraps */}
             <div className="hero-anchor">
-              <h2>Hỏi về biển báo trong ảnh của bạn</h2>
+              <h2>Hỏi biển báo trong ảnh của bạn</h2>
               {composer}
-            </div>
-            <div className="examples">
-              {EXAMPLES.map((q) => (
-                <button key={q} type="button" className="example" disabled={busy} onClick={() => {
-                  if (photo) void ask(q);
-                  else { setQuestion(q); setPhotoErr("Hãy đính kèm ảnh có biển báo trước khi hỏi."); textRef.current?.focus(); }
-                }}>{q}</button>
-              ))}
             </div>
           </div>
         ) : (
           <>
-            <div className="thread">
+            <div className={`thread${turns.every((o) => o.imageUrl === turns[0].imageUrl) ? " one-photo" : ""}`}>
               {turns.map((t, i) => {
                 const prev = turns[i - 1];
                 const same = prev && (t.imageSha && prev.imageSha ? t.imageSha === prev.imageSha : t.imageUrl === prev.imageUrl);

@@ -28,6 +28,13 @@
   --new-chat: #e6e5df;
   --composer-border: #dcdbd4;
   color-scheme: light;
+  --vh: 1vh;   /* one percent of the window's height; see the desktop scale below */
+}
+/* desktop: everything at 80% of its size, like the browser's 80% zoom. Under CSS zoom the window's
+   vh shrinks too, so heights tied to the window use --vh, which undoes that. Phones stay at 100%. */
+@media (min-width: 900px) {
+  html { zoom: 0.8; }
+  :root { --vh: calc(1vh / 0.8); }
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -84,7 +91,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 
 /* layout: phone first (top bar, photo, conversation); two columns from 900 px; sidebar from 1180 px */
 .shell {
-  min-height: 100vh; display: grid;
+  min-height: calc(100 * var(--vh)); display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas: "top" "photo" "chat";
   grid-template-rows: auto auto 1fr;
@@ -95,11 +102,11 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .chat { grid-area: chat; }
 @media (min-width: 900px) {
   .shell { grid-template-columns: minmax(0, 1fr) minmax(340px, 420px); grid-template-areas: "top photo" "chat photo"; grid-template-rows: auto 1fr; }
-  .photo-panel { position: sticky; top: 0; height: 100vh; overflow-y: auto; border-left: 1px solid var(--border); }
+  .photo-panel { position: sticky; top: 0; height: calc(100 * var(--vh)); overflow-y: auto; border-left: 1px solid var(--border); }
 }
 @media (min-width: 1180px) {
   .shell { grid-template-columns: 264px minmax(0, 1fr) minmax(380px, 460px); grid-template-areas: "side top photo" "side chat photo"; }
-  .sidebar { display: block; position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--sidebar); border-right: 1px solid var(--border); }
+  .sidebar { display: block; position: sticky; top: 0; height: calc(100 * var(--vh)); overflow-y: auto; background: var(--sidebar); border-right: 1px solid var(--border); }
   .narrow-only { display: none !important; }   /* wide screens: the sidebar has new chat and the theme */
   /* folded bars */
   .shell.no-side { grid-template-columns: minmax(0, 1fr) minmax(380px, 460px); grid-template-areas: "top photo" "chat photo"; }
@@ -173,7 +180,8 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 
 /* conversation */
 .chat { display: flex; flex-direction: column; min-width: 0; }
-.chat > .notice { margin: 12px 16px 0; }
+.notices { display: flex; flex-direction: column; gap: 8px; margin: 12px 16px 0; }
+.notices:empty { display: none; }
 .thread { flex: 1; width: 100%; max-width: 780px; margin: 0 auto; padding: 24px 16px 8px; display: flex; flex-direction: column; gap: 26px; }
 .turn { display: flex; flex-direction: column; gap: 14px; }
 .msg-user { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
@@ -257,25 +265,25 @@ details.block > summary { cursor: pointer; font-size: 12px; font-weight: 600; co
 
 /* empty state */
 .hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 40px 16px; max-width: 760px; width: 100%; margin: 0 auto; }
-.hero h2 { margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.01em; text-align: center; line-height: 1.25; }
+/* the greeting: the brand's serif (Newsreader), a little lighter than the name's 500 */
+.hero h2 { margin: 0; font-family: "Newsreader Variable", Georgia, "Times New Roman", serif; font-size: 32px; font-weight: 400; letter-spacing: -0.01em; text-align: center; line-height: 1.2; }
 .hero p { margin: 0; text-align: center; }
-/* wide screens: the greeting and the box sit at a fixed height (the examples hang below), so folding
+/* wide screens: the greeting and the box sit at a fixed height, so folding
    a side bar moves the box sideways only, never up or down */
 .hero-anchor { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 16px; }
 @media (min-width: 900px) {
   /* the box's top edge at ~44% of the window, as in Claude; the greeting is placed above the box,
      so whether it fits on one line or wraps (fonts differ by system) never moves the box */
-  .hero { justify-content: flex-start; padding-top: max(120px, 44vh); }
+  .hero { justify-content: flex-start; padding-top: max(120px, calc(44 * var(--vh))); }
   .hero-anchor { position: relative; }
   .hero-anchor > h2 { position: absolute; left: 0; right: 0; bottom: calc(100% + 16px); }
+  /* notices (the test-server banner) lie over the top of the empty screen, so whether they wrap
+     never moves the box either */
+  .chat.empty { position: relative; }
+  .chat.empty > .notices { position: absolute; top: 0; left: 0; right: 0; z-index: 5; }
 }
-.examples { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-.example { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 8px 14px; min-height: 40px; font-size: 14px; }
-.example:hover:not(:disabled) { background: var(--hover); }
 @media (max-width: 899px) {
   .hero h2 { font-size: 24px; }
-  .examples { flex-direction: column; align-items: stretch; width: 100%; }
-  .example { border-radius: 12px; text-align: left; }
 }
 
 /* photo panel */
@@ -290,7 +298,7 @@ details.block > summary { cursor: pointer; font-size: 12px; font-weight: 600; co
 .photo-empty.drag, .photo-wrap.drag { border-color: var(--accent); background: var(--chip); }
 .photo-body { display: flex; flex-direction: column; gap: 12px; }
 .photo-wrap { position: relative; border-radius: 12px; overflow: hidden; line-height: 0; border: 2px solid transparent; }
-.photo-wrap img { width: 100%; height: auto; display: block; max-height: 70vh; object-fit: contain; background: #000; }
+.photo-wrap img { width: 100%; height: auto; display: block; max-height: calc(70 * var(--vh)); object-fit: contain; background: #000; }
 .overlay { position: absolute; inset: 0; width: 100%; height: 100%; }
 .overlay .box { fill: transparent; cursor: pointer; vector-effect: non-scaling-stroke; stroke-width: 3; }
 .overlay .box.active { stroke-width: 5; fill: rgb(255 255 255 / 14%); }
@@ -357,3 +365,49 @@ details.block > summary { cursor: pointer; font-size: 12px; font-weight: 600; co
 .mic.listening { animation: pulse 1.2s ease-out infinite; }
 @media (prefers-reduced-motion: reduce) { .mic.listening { animation: none; } }
 .listening-hint { margin: 0 2px; font-size: 13px; color: var(--low); }
+
+/* ---- phones (under 900 px), as in the mockup: a short photo with one row of sign chips, a one-line box,
+   and before the first question the name in the bar, the greeting, the box at the bottom ---- */
+.topbar-brand, .phone-only, .sign-code { display: none; }
+@media (max-width: 899px) {
+  .wide-only { display: none !important; }
+  .shell { min-height: 100dvh; }
+  .phone-only { display: inline-grid; }
+  /* top bar: before the first question, the name sits in the middle and "new chat" has nothing to clear */
+  .topbar.empty .topbar-title, .topbar.empty .new-btn { display: none; }
+  .topbar-brand { display: block; flex: 1; text-align: center; font-size: 22px; line-height: 1; }
+  /* photo: no heading; a short picture; the signs in one scrolling row, the fold button at its end */
+  .photo-head { display: none; }
+  .shell.empty .photo-panel { display: none; }   /* before the first question the picked photo is the chip in the box */
+  .photo-panel { padding: 10px 12px; gap: 8px; position: sticky; top: 44px; z-index: 15; }   /* pinned under the bar */
+  .photo-wrap img { max-height: 200px; background: transparent; }
+  .photo-panel.collapsed .photo-body { display: flex; }
+  .photo-panel.collapsed .photo-wrap { display: none; }
+  .sign-row { display: flex; align-items: center; gap: 6px; }
+  .sign-row .collapse-btn { margin-left: auto; width: 36px; height: 36px; }
+  .sign-list { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; min-width: 0; }
+  .sign-list::-webkit-scrollbar { display: none; }
+  .sign-list button { white-space: nowrap; gap: 6px; padding: 4px 10px 4px 6px; }
+  .sign-list .sign-name { display: none; }
+  .sign-list .sign-code { display: inline; }
+  .sign-list .sign-code + .small::before { content: "· "; }
+  .sign-list .num { min-width: 20px; height: 20px; font-size: 11px; }
+  /* the conversation: the photo is pinned above, so a single-photo thread doesn't repeat it */
+  .thread.one-photo .user-photo { display: none; }
+  /* the box: one line (text, camera, mic, send); a newly picked photo shows above it */
+  .composer { flex-direction: row; flex-wrap: wrap; align-items: flex-end; gap: 2px; padding: 6px 6px 6px 12px; border-radius: 22px; }
+  .composer-photo { flex-basis: 100%; padding: 4px 0 2px; }
+  .composer-photo.followup { display: none; }
+  .composer textarea { flex: 1; width: auto; min-width: 0; height: 44px; min-height: 44px; padding: 10px 0; }
+  .composer textarea::placeholder { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .composer-actions { margin-left: 0; gap: 0; }
+  .composer-spacer { display: none; }
+  .composer-actions .icon-btn { width: 40px; height: 44px; }
+  .send-btn { width: 44px; height: 44px; border-radius: 12px; }
+  .composer .listening-hint, .composer .err { flex-basis: 100%; }
+  /* before the first question: the greeting in the middle, the box at the bottom */
+  .hero { justify-content: flex-start; align-items: stretch; gap: 14px; padding: 0 16px 12px; }
+  .hero-anchor { display: contents; }
+  .hero h2 { margin-top: auto; text-align: left; font-size: 30px; }
+  .hero .composer { order: 2; margin-top: auto; position: sticky; bottom: 12px; }
+}

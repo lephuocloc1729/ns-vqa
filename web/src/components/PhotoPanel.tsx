@@ -55,17 +55,18 @@ export default function PhotoPanel({ imageUrl, imageSize, signs, onDropFile, bus
     },
   };
 
+  const fold = (
+    <button type="button" className="icon-btn small collapse-btn" onClick={() => setCollapsed(!collapsed)}
+      aria-expanded={!collapsed} aria-label={collapsed ? "Mở ảnh" : "Thu gọn ảnh"}>
+      {collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+    </button>
+  );
+
   return (
     <section className={`photo-panel${collapsed ? " collapsed" : ""}${imageUrl ? "" : " no-photo"}`} aria-label="Ảnh" {...dropProps}>
       <div className="photo-head">
         <span className="photo-title">Ảnh</span>
         {imageUrl && <span className="muted small">{signs.length ? `${signs.length} biển báo tìm thấy` : ""}</span>}
-        {imageUrl && (
-          <button type="button" className="icon-btn small collapse-btn" onClick={() => setCollapsed(!collapsed)}
-            aria-expanded={!collapsed} aria-label={collapsed ? "Mở ảnh" : "Thu gọn ảnh"}>
-            {collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-          </button>
-        )}
       </div>
       {!imageUrl ? (
         <div className={`photo-empty${drag ? " drag" : ""}`}>
@@ -116,20 +117,25 @@ export default function PhotoPanel({ imageUrl, imageSize, signs, onDropFile, bus
               <span><i className="line low" /> thấp</span>
             </div>
           )}
-          {signs.length > 0 && (
-            <ul className="sign-list">
-              {signs.map((s, i) => (
-                <li key={s.id + i}>
-                  <button type="button" className={active === i + 1 ? "active" : ""}
-                    onMouseEnter={() => setActive(i + 1)} onFocus={() => setActive(i + 1)} onClick={() => setActive(i + 1)}>
-                    <span className={`num ${confClass(s.confidence)}`}>{i + 1}</span>
-                    <span className="sign-name">{signTitle(s)}</span>
-                    <span className="muted small">{CONFIDENCE[String(s.confidence)] ?? ""}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          {/* phone: the signs are one row of short chips, with the fold button at its end */}
+          <div className="sign-row">
+            {signs.length > 0 && (
+              <ul className="sign-list">
+                {signs.map((s, i) => (
+                  <li key={s.id + i}>
+                    <button type="button" className={active === i + 1 ? "active" : ""}
+                      onMouseEnter={() => setActive(i + 1)} onFocus={() => setActive(i + 1)} onClick={() => setActive(i + 1)}>
+                      <span className={`num ${confClass(s.confidence)}`}>{i + 1}</span>
+                      <span className="sign-name">{signTitle(s)}</span>
+                      <span className="sign-code">{s.code && s.code !== "UNKNOWN" ? s.code : "Không đọc được"}</span>
+                      <span className="muted small">{CONFIDENCE[String(s.confidence)] ?? ""}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {fold}
+          </div>
         </div>
       )}
     </section>
