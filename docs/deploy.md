@@ -114,7 +114,12 @@ Each run shows as a `production` deployment on the repository's Deployments page
 - `DEPLOY_SSH_KEY`: a key used only by CD, its public half in the server's `authorized_keys` (comment `github-actions-cd signcite`).
 - `DEPLOY_KNOWN_HOSTS`: the server's host keys (`ssh-keyscan <host>`), so the runner never trusts an unknown host.
 
-**Tested (2026-11-22):** a deliberately broken `web` deployed through CD failed its check and was rolled back automatically (the run turned red, the site gave errors for about 90 s, then served the previous version); the file restore was tested on the server by hand.
+**Tested (2026-11-22):**
+- **A merge deploys itself:** PRs #15 and #16 each ran CI → build → GHCR → deploy → checks.
+- **A broken build rolls back by itself:** a `web` whose `/healthz` gives 503, deployed through CD by hand (Run workflow), failed its check and was rolled back. The run turned red; the site gave errors for about 90 s, then served the previous version.
+- **Files are restored on rollback:** by hand on the server, the replaced files came back and an added file was removed.
+- **The registry is unreachable** (an image tag that doesn't exist): the pull fails before anything changes. `.env`, the files and the running containers stay as they were.
+- **A server reboot:** the site answered again after 25 s. All 7 services came back (restart policy `unless-stopped`; Docker, containerd and ufw start at boot). The database kept its rows, Caddy reused its stored certificates, and only 22, 80 and 443 answer from outside.
 
 **Roll back by hand:** set `API_IMAGE` and `WEB_IMAGE` in `.env` to an earlier commit's tags and run `docker compose up -d`.
 
