@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { CONFIDENCE } from "../lib/labels";
 import type { SignBox } from "../lib/types";
-import { ChevronDown, ChevronUp, Image } from "./Icons";
+import { ChevronDown, ChevronUp, Image, PanelRight } from "./Icons";
 
 interface Props {
   imageUrl: string | null;
@@ -9,6 +9,7 @@ interface Props {
   signs: SignBox[];
   onDropFile: (file: File) => void;
   busy: boolean;
+  onHide: () => void; // wide screens: fold the panel away
 }
 
 const confClass = (c: unknown) => (c === "high" || c === "medium" || c === "low" ? `conf-${c}` : "conf-none");
@@ -28,7 +29,7 @@ function signDetail(s: SignBox): string {
   return bits.join(" · ");
 }
 
-export default function PhotoPanel({ imageUrl, imageSize, signs, onDropFile, busy }: Props) {
+export default function PhotoPanel({ imageUrl, imageSize, signs, onDropFile, busy, onHide }: Props) {
   const [drag, setDrag] = useState(false);
   const [natural, setNatural] = useState<[number, number] | null>(null);
   const [active, setActive] = useState<number | null>(null);
@@ -60,6 +61,10 @@ export default function PhotoPanel({ imageUrl, imageSize, signs, onDropFile, bus
       <div className="photo-head">
         <span className="photo-title">Ảnh</span>
         {imageUrl && <span className="muted small">{signs.length ? `${signs.length} biển báo tìm thấy` : ""}</span>}
+        <button type="button" className="icon-btn small hide-photo-btn" onClick={onHide}
+          aria-label="Thu gọn khung ảnh" title="Thu gọn khung ảnh" aria-expanded={true}>
+          <PanelRight size={18} />
+        </button>
         {imageUrl && (
           <button type="button" className="icon-btn small collapse-btn" onClick={() => setCollapsed(!collapsed)}
             aria-expanded={!collapsed} aria-label={collapsed ? "Mở ảnh" : "Thu gọn ảnh"}>

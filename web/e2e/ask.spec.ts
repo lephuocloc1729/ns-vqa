@@ -174,6 +174,35 @@ test("voice: Vietnamese speech fills the question box; a desktop shows the mic i
   expect(await page.evaluate(() => (window as unknown as { speechLang: string }).speechLang)).toBe("vi-VN");
 });
 
+test("the side bars fold away and come back, and the choice is remembered", async ({ page }, info) => {
+  await page.goto("/");
+  const foldSide = page.getByRole("button", { name: "Thu gọn thanh bên" });
+  const foldPhoto = page.getByRole("button", { name: "Thu gọn khung ảnh" });
+  if (info.project.name !== "desktop") {
+    await expect(foldSide).toHaveCount(0); // phones: the drawer and the photo's own arrow instead
+    await expect(foldPhoto).toHaveCount(0);
+    return;
+  }
+  const sidebar = page.locator("aside.sidebar");
+  const photo = page.getByRole("region", { name: "Ảnh" });
+  await expect(sidebar).toBeVisible();
+  await foldSide.click();
+  await expect(sidebar).toBeHidden();
+  await foldPhoto.click();
+  await expect(photo).toBeHidden();
+  // with both folded, the top bar shows the buttons to bring them back, and the chat still works
+  await expect(page.getByRole("button", { name: "Mở khung ảnh" })).toBeVisible();
+  await expect(page.getByLabel("Câu hỏi", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(sidebar).toBeHidden();
+  await expect(photo).toBeHidden();
+  await page.getByRole("button", { name: "Mở lịch sử" }).click();
+  await expect(sidebar).toBeVisible();
+  await page.getByRole("button", { name: "Mở khung ảnh" }).click();
+  await expect(photo).toBeVisible();
+  await expect(page.getByRole("button", { name: "Mở khung ảnh" })).toBeHidden();
+});
+
 test("a wrong file type is refused before upload", async ({ page }) => {
   await page.goto("/");
   await page.getByTestId("file-input").setInputFiles({ name: "a.gif", mimeType: "image/gif", buffer: Buffer.from("GIF89a") });

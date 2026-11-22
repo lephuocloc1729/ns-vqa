@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { ApiError, askStream, getTurn, getTurns, imageUrl, recoverTurn } from "./lib/api";
 import {
-  forgetSession, loadSessionId, loadSessions, loadTheme, rememberSession, saveSessionId, saveTheme,
+  forgetSession, loadFlag, loadSessionId, loadSessions, loadTheme, rememberSession, saveFlag, saveSessionId, saveTheme,
   type KnownSession, type Theme,
 } from "./lib/storage";
 import { newTurn, turnFromStored, turnReducer, type TurnAction, type TurnState } from "./lib/turn";
 import Composer, { ACCEPTED } from "./components/Composer";
-import { Menu, Pencil } from "./components/Icons";
+import { Menu, PanelRight, Pencil } from "./components/Icons";
 import PhotoPanel from "./components/PhotoPanel";
 import Sidebar, { THEME_LABEL, THEME_NEXT, ThemeIcon } from "./components/Sidebar";
 import TurnView from "./components/TurnView";
@@ -71,6 +71,11 @@ export default function App() {
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
   const [drawer, setDrawer] = useState(false);
+  // wide screens: the side bars can be folded away; the choice is remembered in this browser
+  const [sideOpen, setSideOpen] = useState(() => loadFlag("vqa.sideOpen", true));
+  const [photoOpen, setPhotoOpen] = useState(() => loadFlag("vqa.photoOpen", true));
+  useEffect(() => saveFlag("vqa.sideOpen", sideOpen), [sideOpen]);
+  useEffect(() => saveFlag("vqa.photoOpen", photoOpen), [photoOpen]);
   const [theme, setTheme] = useState<Theme>(() => loadTheme());
   const [server, setServer] = useState<{ ok: boolean; fallback?: string; profile?: string } | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -280,7 +285,8 @@ export default function App() {
       onOpen={(id) => { setDrawer(false); void openSession(id); }}
       onForget={(id) => setSessions(forgetSession(id))}
       onTheme={() => setTheme(THEME_NEXT[theme])}
-      onClose={inDrawer ? () => setDrawer(false) : undefined} />
+      onClose={inDrawer ? () => setDrawer(false) : undefined}
+      onCollapse={inDrawer ? undefined : () => setSideOpen(false)} />
   );
   const composer = (
     <Composer ref={textRef} busy={busy} error={photoErr} question={question} onQuestion={setQuestion}
@@ -290,10 +296,11 @@ export default function App() {
   );
 
   return (
-    <div className="shell">
+    <div className={`shell${sideOpen ? "" : " no-side"}${photoOpen ? "" : " no-photo"}`}>
       <aside className="sidebar">{sidebar(false)}</aside>
       <header className={`topbar${turns.length ? "" : " empty"}`}>
-        <button type="button" className="icon-btn narrow-only" onClick={() => setDrawer(true)} aria-label="Mở lịch sử">
+        <button type="button" className="icon-btn narrow-only" aria-label="Mở lịch sử" title="Mở lịch sử"
+          onClick={() => (window.matchMedia("(min-width: 1180px)").matches ? setSideOpen(true) : setDrawer(true))}>
           <Menu size={20} />
         </button>
         <h1 className="topbar-title">{title}</h1>
@@ -301,9 +308,11 @@ export default function App() {
           aria-label={THEME_LABEL[theme]} title={THEME_LABEL[theme]}><ThemeIcon theme={theme} size={19} /></button>
         <button type="button" className="icon-btn narrow-only" disabled={busy} onClick={newConversation}
           aria-label="Cuộc trò chuyện mới" title="Cuộc trò chuyện mới"><Pencil size={19} /></button>
+        <button type="button" className="icon-btn photo-open" onClick={() => setPhotoOpen(true)}
+          aria-label="Mở khung ảnh" title="Mở khung ảnh"><PanelRight size={19} /></button>
       </header>
       <PhotoPanel imageUrl={panelUrl} imageSize={shown?.imageSize ?? null} signs={shown?.signs ?? []}
-        busy={busy} onDropFile={pickFile} />
+        busy={busy} onDropFile={pickFile} onHide={() => setPhotoOpen(false)} />
       <main className={`chat${turns.length ? "" : " empty"}`} aria-label="Cuộc trò chuyện" {...chatDrop}>
         {server && !server.ok && (
           <div className="notice bad" role="alert">Không kết nối được máy chủ API. Hãy kiểm tra máy chủ rồi tải lại trang.</div>
