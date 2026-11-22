@@ -31,6 +31,11 @@ Plan: `docs/plans/task-3-review-3.md` (proposed; 9-day schedule). All work goes 
 | #6 | Fast GPU setup: bundle on the private HF dataset `lephuocloc/ns-vqa-rag-assets` (109 MB, no private-test files), `fetch.py`, `gpu_setup.sh`, GPU image `ghcr.io/lephuocloc1729/ns-vqa-rag` (public; code only) built by `.github/workflows/rag-image.yml`, runbook `docs/runbooks/gpu-session.md` | `0009e0f` |
 | #7 | GPU-session fixes (UTF-8 streaming, in-place downloads), results `docs/results/gpu-session-2026-11-21.md`, and setup without an interactive HF login (`HF_TOKEN` from the container, `scripts/onstart.sh`) | `7ebae48` |
 
+**Day 3 (2026-11-22), branch `task3/web-ui`:** the web UI in `web/` (React + Vite + TypeScript; `web/README.md`).
+- Ask screen: photo by picker, drag and drop, paste or phone camera; streamed stages and answer; numbered sign boxes; notes, rule citations, proof tree, the RAG badge and its laws; feedback; history.
+- Tests: Vitest for the SSE parser and turn reducer (20); Playwright on the real API with a fake pipeline, desktop and phone (3 tests each). CI jobs `web` and `web-e2e`.
+- Not done: a live check with the real pipeline (needs the API key); the day-4 items (microphone, video frame, dashboard, RAG progress events).
+
 **Measured** (details in `docs/results/gpu-session-2026-11-21.md`):
 
 - **Live API test on the Mac, 3 public_dev questions, cold cache:** $0.1019; 1 correct, 1 sign misread, 1 undecided with the fallback off.
