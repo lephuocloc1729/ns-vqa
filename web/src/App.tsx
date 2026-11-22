@@ -318,7 +318,6 @@ export default function App() {
         {turns.length === 0 ? (
           <div className="hero">
             <h2>Hỏi về biển báo trong ảnh của bạn</h2>
-            <p className="muted">Mỗi câu trả lời của hệ luật kèm căn cứ pháp lý và chứng minh từng bước.</p>
             {composer}
             <div className="examples">
               {EXAMPLES.map((q) => (

@@ -54,7 +54,7 @@ const Composer = forwardRef<HTMLTextAreaElement, {
       <div className="composer-row">
         <label htmlFor="question" className="sr-only">Câu hỏi</label>
         <textarea id="question" ref={ref} rows={1} maxLength={500} value={question}
-          placeholder={photo ? "Đặt câu hỏi về ảnh…" : "Thêm ảnh rồi hỏi…"}
+          placeholder="Tôi có thể giúp gì cho bạn?"
           onChange={(e) => {
             onQuestion(e.target.value);
             e.target.style.height = "auto";
