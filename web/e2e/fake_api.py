@@ -8,14 +8,18 @@ fallback), so every stream event comes from the real runner and endpoint code:
   (streamed text, `basis` gains "rag", the laws it used in `retrieved`);
 - any other question is answered by the "rules": the writer streams a first draft, withdraws
   it (`token_reset`) and streams the final text, as on a retry.
-Each start uses a fresh temporary database and upload folder. `/version` reports the profile
-"fake-e2e", and the UI shows a warning banner for it, so the fake is never mistaken for the real system.
+By default each start uses a fresh temporary database and upload folder; VQA_DATABASE_URL and
+VQA_UPLOAD_DIR override them (the Docker Compose stack's demo mode uses its Postgres).
+`/version` reports the profile "fake-e2e", and the UI shows a warning banner for it, so the fake
+is never mistaken for the real system.
 """
 
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
+import os
 import sys
 import tempfile
 import time
@@ -142,12 +146,17 @@ class FakePipeline:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
     args = ap.parse_args()
     tmp = Path(tempfile.mkdtemp(prefix="vqa-e2e-"))
-    settings = Settings(profile="fake-e2e", database_url=f"sqlite:///{tmp / 'app.db'}", upload_dir=tmp / "uploads", heartbeat_s=1.0)
+    settings = dataclasses.replace(
+        Settings.from_env(), profile="fake-e2e", answer_fallback="off",
+        database_url=os.environ.get("VQA_DATABASE_URL") or f"sqlite:///{tmp / 'app.db'}",
+        upload_dir=Path(os.environ.get("VQA_UPLOAD_DIR") or tmp / "uploads"),
+        heartbeat_s=1.0)
     pipe = FakePipeline()
-    uvicorn.run(create_app(settings, pipeline_factory=lambda: pipe), host="127.0.0.1", port=args.port,
+    uvicorn.run(create_app(settings, pipeline_factory=lambda: pipe), host=args.host, port=args.port,
                 log_level="warning")
 
 

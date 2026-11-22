@@ -1,0 +1,15 @@
+# The benchmarked phase52 pipeline instead of the fake one:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.real.yml up -d
+#
+# Needs in .env: ANTHROPIC_API_KEY (never committed) and a VQA_SPEND_LIMIT you agreed to.
+# Needs on the host: the scene prompt's pictogram copies (law_db figures, gitignored; dataset rule
+# exception of 2026-11-15), mounted read-only. They are never built into an image. docs/deploy.md.
+services:
+  api:
+    environment:
+      VQA_PIPELINE: real
+    volumes:
+      - ./prompts/scene/v5/pictograms:/app/prompts/scene/v5/pictograms:ro
+      - ./prompts/scene/v5-crop/pictograms:/app/prompts/scene/v5-crop/pictograms:ro
+      - ./prompts/scene/v5-tile/pictograms:/app/prompts/scene/v5-tile/pictograms:ro

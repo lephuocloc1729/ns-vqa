@@ -1,0 +1,110 @@
+# Mắt Luật: the whole system in containers.
+#
+#   docker compose up -d --build        # a clean machine: no .env, no API key, no GPU needed
+#   open http://localhost:8080          # the UI (a red banner says the pipeline is the fake one)
+#   open http://localhost:3000          # Grafana (admin / admin unless GRAFANA_ADMIN_PASSWORD is set)
+#
+# By default `api` runs the real API code with a fake pipeline (VQA_PIPELINE=fake). The benchmarked
+# phase52 pipeline needs the override file and an API key: docs/deploy.md.
+# Services talk over the internal network by REST (web -> api, api -> rag) and SQL (api -> postgres).
+
+name: mat-luat
+
+services:
+  web:                                  # the UI (nginx), and the one public entry point
+    build: { context: ., dockerfile: docker/web.Dockerfile }
+    image: ${WEB_IMAGE:-mat-luat-web:local}
+    ports: ["${WEB_PORT:-8080}:80"]
+    environment:
+      BASIC_AUTH_USER: ${BASIC_AUTH_USER:-}
+      BASIC_AUTH_PASSWORD: ${BASIC_AUTH_PASSWORD:-}
+    depends_on:
+      api: { condition: service_healthy }
+    restart: unless-stopped
+
+  api:                                  # backend API gateway + the rules pipeline (Python, SWI-Prolog)
+    build: { context: ., dockerfile: docker/api.Dockerfile }
+    image: ${API_IMAGE:-mat-luat-api:local}
+    environment:
+      VQA_PIPELINE: ${VQA_PIPELINE:-fake}
+      VQA_DATABASE_URL: postgresql+psycopg://vqa:${POSTGRES_PASSWORD:-vqa-local}@postgres:5432/vqa
+      VQA_UPLOAD_DIR: /app/var/uploads
+      VQA_PROFILE: phase52
+      VQA_ANSWER_FALLBACK: ${VQA_ANSWER_FALLBACK:-off}
+      VQA_RAG_URL: ${VQA_RAG_URL:-http://rag:8100}
+      VQA_SPEND_LIMIT: ${VQA_SPEND_LIMIT:-2}
+      VQA_CORS_ORIGINS: ${VQA_CORS_ORIGINS:-*}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    volumes:
+      - uploads:/app/var
+      - scenes:/app/cache/scenes        # the scene cache (model outputs only)
+      - apilogs:/app/logs               # the Claude usage log (tokens, cost)
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+
+  postgres:                             # users' sessions, turns (answers, proofs, timings, cost), feedback
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vqa
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vqa-local}
+      POSTGRES_DB: vqa
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vqa -d vqa"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  prometheus:                           # metrics: the API's /metrics and the server's CPU/RAM
+    image: prom/prometheus:v2.55.1
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=30d"]
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    ports: ["127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    restart: unless-stopped
+
+  node-exporter:                        # CPU, RAM, disk and network of the machine
+    image: prom/node-exporter:v1.8.2
+    command: ["--path.rootfs=/host"]
+    pid: host
+    volumes: ["/:/host:ro"]
+    restart: unless-stopped
+
+  grafana:                              # the monitoring dashboard ("Mắt Luật – hệ thống")
+    image: grafana/grafana:11.3.1
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/mat-luat.json
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafdata:/var/lib/grafana
+    ports: ["127.0.0.1:${GRAFANA_PORT:-3000}:3000"]
+    depends_on: [prometheus]
+    restart: unless-stopped
+
+  rag:                                  # AI inference server for the RAG fallback (GPU only; opt in)
+    profiles: ["gpu"]                   # docker compose --profile gpu up -d  (on a machine with an NVIDIA GPU)
+    image: ghcr.io/lephuocloc1729/ns-vqa-rag:latest
+    command: ["bash", "-c", "bash scripts/gpu_setup.sh && exec uvicorn --factory text_based_rag.service_api:create_app --host 0.0.0.0 --port 8100"]
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}           # read-only token for the private asset bundle
+    deploy:
+      resources:
+        reservations:
+          devices: [{ driver: nvidia, count: 1, capabilities: [gpu] }]
+    restart: unless-stopped
+
+volumes:
+  uploads:
+  scenes:
+  apilogs:
+  pgdata:
+  promdata:
+  grafdata:

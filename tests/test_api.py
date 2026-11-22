@@ -212,6 +212,17 @@ def test_metrics_count_answers(make):
     assert 'vqa_answers_total{answered_by="rules"} 1.0' in body and "vqa_answer_seconds_bucket" in body
 
 
+def test_metrics_count_feedback_by_kind(make):
+    c, _ = make()
+    tid = ask(c).json()["turn_id"]
+    c.post(f"/v1/turns/{tid}/feedback", json={"thumb": "up"})
+    c.post(f"/v1/turns/{tid}/feedback", json={"thumb": "down", "corrected_answer": "Không."})
+    c.post(f"/v1/turns/{tid}/feedback", json={"note": "chỉ ghi chú"})       # counted nowhere by kind
+    body = c.get("/metrics").text
+    for kind in ("up", "down", "corrected"):
+        assert f'vqa_feedback_total{{kind="{kind}"}} 1.0' in body
+
+
 # ---------------------------------------------------------------------- the real pipeline
 def test_the_api_answer_is_the_pipelines_answer(make, tmp_path, monkeypatch):
     monkeypatch.setenv("VQA_LOG_DIR", str(tmp_path / "logs"))
