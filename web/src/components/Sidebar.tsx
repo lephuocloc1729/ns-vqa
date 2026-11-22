@@ -1,6 +1,6 @@
 import { PRODUCT, TAGLINE } from "../lib/brand";
 import type { KnownSession, Theme } from "../lib/storage";
-import { Close, Contrast, Logo, Moon, Plus, Sun } from "./Icons";
+import { Close, Contrast, Moon, Plus, Sun } from "./Icons";
 
 export const THEME_NEXT: Record<Theme, Theme> = { auto: "light", light: "dark", dark: "auto" };
 export const THEME_LABEL: Record<Theme, string> = { auto: "Giao diện: tự động", light: "Giao diện: sáng", dark: "Giao diện: tối" };
@@ -30,8 +30,7 @@ export default function Sidebar({ sessions, current, busy, theme, serverNote, on
   return (
     <div className="sidebar-inner">
       <div className="brand">
-        <Logo />
-        <span className="brand-text"><span>{PRODUCT}</span><span className="brand-tag">{TAGLINE}</span></span>
+        <span className="brand-text"><span className="brand-name">{PRODUCT}</span><span className="brand-tag">{TAGLINE}</span></span>
         {onClose && (
           <button type="button" className="icon-btn" style={{ marginLeft: "auto" }} onClick={onClose} aria-label="Đóng lịch sử">
             <Close />
