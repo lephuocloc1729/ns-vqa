@@ -187,11 +187,19 @@ test("the side bars fold and unfold from buttons that never move, and the choice
   const photo = page.getByRole("region", { name: "Ảnh" });
   const at = async () => [await sideBtn.boundingBox(), await photoBtn.boundingBox()];
   const before = await at();
+  const box = page.locator(".composer");
+  const boxBefore = await box.boundingBox();
 
   await expect(sideBtn).toHaveAccessibleName("Thu gọn thanh bên");
   await sideBtn.click();
   await expect(sidebar).toBeHidden();
   await expect(sideBtn).toHaveAccessibleName("Mở thanh bên");
+  // the question box only moves sideways, and no extra buttons appear in its place
+  const boxAfter = await box.boundingBox();
+  expect(boxAfter!.y).toBe(boxBefore!.y);
+  expect(boxAfter!.x).toBeLessThan(boxBefore!.x);
+  await expect(page.getByRole("button", { name: "Cuộc trò chuyện mới" })).toBeHidden();
+  await expect(page.getByRole("button", { name: /^Giao diện/ })).toBeHidden();
   await photoBtn.click();
   await expect(photo).toBeHidden();
   await expect(photoBtn).toHaveAccessibleName("Mở khung ảnh");
