@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
-# Runs on the server (from CD, over SSH): switch `api` and `web` to the given images, check the
-# stack, and roll back to the previous images if the check fails.
+# Runs on the server (from CD, over SSH): install a commit's files, switch `api` and `web` to its
+# images, check the stack, and roll back files and images together if the check fails.
 #
-#   bash docker/deploy.sh <api image> <web image>
+#   APP_DIR=/opt/signcite bash deploy.sh <api image> <web image> [<files.tar>]
 #
+# <files.tar> is `git archive` of the commit. Its files replace the ones in APP_DIR; the files they
+# replace are saved first, so a rollback restores them (and removes files the commit added). .env
+# and the pictogram copies are not in git, so they are never touched.
 # The images are recorded in .env (API_IMAGE, WEB_IMAGE), so a manual `docker compose up -d` keeps
 # them. The registry login, if one is needed, is done by the caller before this script.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "${APP_DIR:-$(dirname "$0")/..}"
 API_NEW=$1
 WEB_NEW=$2
+FILES=${3:-}
 
 envget() { grep -E "^$1=" .env | tail -1 | cut -d= -f2- || true; }
 envset() {   # replace or add KEY=VALUE in .env, keeping its permissions
@@ -41,6 +45,22 @@ print('api health', h)" || return 1
 for img in "$API_NEW" "$WEB_NEW"; do
   docker image inspect "$img" > /dev/null 2>&1 || docker pull --quiet "$img"
 done
+
+# the commit's files: save the ones they replace, note the ones they add, then unpack
+SAVE=$(mktemp -d)
+trap 'rm -rf "$SAVE"' EXIT
+if [ -n "$FILES" ]; then
+  tar -tf "$FILES" | grep -v '/$' > "$SAVE/all"
+  : > "$SAVE/existing"; : > "$SAVE/added"
+  while IFS= read -r f; do
+    if [ -e "$f" ]; then echo "$f" >> "$SAVE/existing"; else echo "$f" >> "$SAVE/added"; fi
+  done < "$SAVE/all"
+  tar -cf "$SAVE/old.tar" --files-from "$SAVE/existing"
+  cp -p DEPLOYED_COMMIT "$SAVE/DEPLOYED_COMMIT" 2>/dev/null || true
+  tar -xf "$FILES"
+  echo "${API_NEW##*:}" > DEPLOYED_COMMIT
+  echo "deploy: $(wc -l < "$SAVE/all") files installed ($(wc -l < "$SAVE/added") new)"
+fi
 envset API_IMAGE "$API_NEW"
 envset WEB_IMAGE "$WEB_NEW"
 
@@ -52,7 +72,13 @@ fi
 
 echo "deploy: the check failed; rolling back" >&2
 docker compose logs --no-color --tail=80 api web >&2 || true
+if [ -n "$FILES" ]; then
+  xargs -r -d '\n' rm -f < "$SAVE/added"
+  tar -xf "$SAVE/old.tar"
+  if [ -f "$SAVE/DEPLOYED_COMMIT" ]; then cp -p "$SAVE/DEPLOYED_COMMIT" DEPLOYED_COMMIT; fi
+  echo "deploy: restored the previous files" >&2
+fi
 envset API_IMAGE "$API_OLD"
 envset WEB_IMAGE "$WEB_OLD"
-if check; then echo "deploy: rolled back to the previous images" >&2; else echo "deploy: ROLLBACK FAILED TOO" >&2; fi
+if check; then echo "deploy: rolled back to the previous files and images" >&2; else echo "deploy: ROLLBACK FAILED TOO" >&2; fi
 exit 1

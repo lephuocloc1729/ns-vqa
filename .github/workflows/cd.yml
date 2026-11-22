@@ -106,14 +106,18 @@ jobs:
           printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts
           printf 'Host server\n  HostName %s\n  User root\n  IdentityFile ~/.ssh/deploy\n  StrictHostKeyChecking yes\n' \
             "${{ secrets.DEPLOY_HOST }}" > ~/.ssh/config
-      - name: Copy this commit's files (compose files, configs, the deploy script)
-        # .env and the pictogram copies on the server are not in git, so they are left as they are
-        run: |
-          git archive --format=tar HEAD | ssh server "tar -x -C $APP_DIR && echo ${{ needs.build.outputs.sha }} > $APP_DIR/DEPLOYED_COMMIT"
+      - name: Send this commit's files (compose files, configs, the deploy script)
+        # unpacked by deploy.sh, which can restore the previous files on a rollback;
+        # .env and the pictogram copies on the server are not in git, so they stay as they are
+        run: git archive --format=tar HEAD | ssh server "cat > $APP_DIR/.incoming.tar"
       - name: Registry login on the server (this run's short-lived token)
         run: echo "${{ secrets.GITHUB_TOKEN }}" | ssh server docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-      - name: Deploy, check, roll back on failure
-        run: ssh server bash "$APP_DIR/docker/deploy.sh" "${{ needs.build.outputs.api }}" "${{ needs.build.outputs.web }}"
+      - name: Deploy, check, roll back files and images on failure
+        # the commit's own deploy script, taken from its files
+        run: |
+          ssh server "tar -xOf $APP_DIR/.incoming.tar docker/deploy.sh > /tmp/signcite-deploy.sh && \
+            APP_DIR=$APP_DIR bash /tmp/signcite-deploy.sh '${{ needs.build.outputs.api }}' '${{ needs.build.outputs.web }}' $APP_DIR/.incoming.tar; \
+            rc=\$?; rm -f $APP_DIR/.incoming.tar /tmp/signcite-deploy.sh; exit \$rc"
       - name: Registry logout on the server
         if: always()
         run: ssh server docker logout ghcr.io || true
