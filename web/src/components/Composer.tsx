@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useRef } from "react";
 import { useSpeech } from "../lib/speech";
-import { Camera, Clip, Close, Mic, Send } from "./Icons";
+import { Camera, Close, Mic, Plus, Send } from "./Icons";
 
 export const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
 
@@ -51,30 +51,31 @@ const Composer = forwardRef<HTMLTextAreaElement, {
           </button>
         </div>
       )}
-      <div className="composer-row">
-        <label htmlFor="question" className="sr-only">Câu hỏi</label>
-        <textarea id="question" ref={ref} rows={1} maxLength={500} value={question}
-          placeholder="Tôi có thể giúp gì cho bạn?"
-          onChange={(e) => {
-            onQuestion(e.target.value);
-            e.target.style.height = "auto";
-            e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-              e.preventDefault();
-              submit();
-            }
-          }} />
-        <input ref={fileRef} type="file" accept={ACCEPTED.join(",")} hidden data-testid="file-input"
-          onChange={(e) => { take(e.target.files); e.target.value = ""; }} />
-        <input ref={camRef} type="file" accept="image/*" capture="environment" hidden
-          onChange={(e) => { take(e.target.files); e.target.value = ""; }} />
+      <label htmlFor="question" className="sr-only">Câu hỏi</label>
+      <textarea id="question" ref={ref} rows={2} maxLength={500} value={question}
+        placeholder="Tôi có thể giúp gì cho bạn?"
+        onChange={(e) => {
+          onQuestion(e.target.value);
+          e.target.style.height = "auto";
+          e.target.style.height = `${Math.min(Math.max(e.target.scrollHeight, 48), 200)}px`;
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            submit();
+          }
+        }} />
+      <input ref={fileRef} type="file" accept={ACCEPTED.join(",")} hidden data-testid="file-input"
+        onChange={(e) => { take(e.target.files); e.target.value = ""; }} />
+      <input ref={camRef} type="file" accept="image/*" capture="environment" hidden
+        onChange={(e) => { take(e.target.files); e.target.value = ""; }} />
+      <div className="composer-actions">
         <button type="button" className="icon-btn" disabled={busy} onClick={() => fileRef.current?.click()}
-          aria-label="Đính kèm ảnh" title="Đính kèm ảnh"><Clip /></button>
+          aria-label="Đính kèm ảnh" title="Đính kèm ảnh"><Plus size={20} /></button>
         {/* the camera is for phones and tablets; a desktop gets the microphone in its place */}
         <button type="button" className="icon-btn touch-only" disabled={busy} onClick={() => camRef.current?.click()}
           aria-label="Chụp ảnh" title="Chụp ảnh"><Camera /></button>
+        <span className="composer-spacer" />
         {speech.supported && (
           <button type="button" className={`icon-btn mic${speech.listening ? " listening" : ""}`} disabled={busy}
             aria-pressed={speech.listening} aria-label={speech.listening ? "Dừng nghe" : "Hỏi bằng giọng nói"}
