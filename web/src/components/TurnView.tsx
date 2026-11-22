@@ -4,17 +4,21 @@ import type { Feedback } from "../lib/types";
 import Details from "./Details";
 import FeedbackBar from "./FeedbackBar";
 
-const NEXT: Record<string, string> = {
-  "": "Đang gửi ảnh…",
-  started: "Đang đọc biển báo trong ảnh…",
-  perception: "Đang hiểu câu hỏi…",
-  parsed: "Hệ luật đang suy luận…",
-  engine: "Đang chuẩn bị câu trả lời…",
-  route: "Đang viết câu trả lời…",
-};
+// What the spinner says, from the stages seen so far. Perception and parsing run in parallel,
+// so their events come in either order.
+function pending(t: TurnState): string {
+  const has = (n: string) => t.stages.some((s) => s.name === n);
+  if (!has("started")) return "Đang gửi ảnh…";
+  if (has("route")) return t.stages.some((s) => s.name === "route" && s.info.to === "fallback")
+    ? "Đang trả lời bằng phương án dự phòng…" : "Đang viết câu trả lời…";
+  if (has("engine")) return "Đang chuẩn bị câu trả lời…";
+  if (!has("perception") && !has("parsed")) return "Đang đọc biển báo và hiểu câu hỏi…";
+  if (!has("perception")) return "Đang đọc biển báo trong ảnh…";
+  if (!has("parsed")) return "Đang hiểu câu hỏi…";
+  return "Hệ luật đang suy luận…";
+}
 
 function Stages({ t }: { t: TurnState }) {
-  const last = t.stages.length ? t.stages[t.stages.length - 1].name : "";
   const live = t.phase === "streaming";
   const list = (
     <ul className="stages" data-testid="stages">
@@ -26,7 +30,7 @@ function Stages({ t }: { t: TurnState }) {
       ))}
       {live && (
         <li className="pending">
-          <span><span className="spinner" aria-hidden />{NEXT[last] ?? "Đang xử lý…"}</span>
+          <span><span className="spinner" aria-hidden />{pending(t)}</span>
         </li>
       )}
     </ul>

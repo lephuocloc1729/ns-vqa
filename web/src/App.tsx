@@ -121,6 +121,19 @@ export default function App() {
     }
   }, [openSession]);
 
+  // a #turn=… link followed while the page is open (replaceState in setHash does not fire this)
+  useEffect(() => {
+    const onHash = () => {
+      const linked = turnFromHash();
+      if (!linked) return;
+      getTurn(linked)
+        .then((t) => openSession(t.session_id, t.turn_id))
+        .catch(() => setLoadErr("Không tìm thấy câu hỏi trong đường dẫn."));
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, [openSession]);
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [turns.length]);
