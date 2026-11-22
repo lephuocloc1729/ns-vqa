@@ -90,13 +90,30 @@ The `caddy_data` volume holds the certificates; keep it. CI runs the same overla
 ## The demo server
 
 - A CloudNest VPS (Ubuntu 24.04, 2 vCPU, 4 GB RAM), domain `signcite.xyz`.
-- The stack lives in `/opt/signcite`, a copy of one commit (named in `DEPLOYED_COMMIT`), with its `.env` (root only).
+- The stack lives in `/opt/signcite`: the files of the deployed commit (named in `DEPLOYED_COMMIT`), its `.env` (root only) and the pictogram copies. CD keeps it up to date.
 - The firewall (ufw) allows 22, 80 and 443.
 - Grafana is reached through an SSH tunnel (above).
 
-## Still to do
+## CD: every merge to `main` deploys itself
 
-- CD: GitHub Actions builds the images, pushes them to GHCR, deploys over SSH and checks `/health`.
+`.github/workflows/cd.yml` runs after CI passes on a push to `main` (or by hand: Actions › CD › Run workflow).
+
+1. **Build:** the `api` and `web` images, pushed to GHCR as `ghcr.io/<owner>/signcite-{api,web}:<commit>` and `:latest`.
+2. **Deploy:** copies the commit's files to `/opt/signcite` over SSH (`.env` and the pictogram copies are not in git, so they stay). It logs the server in to GHCR with the run's short-lived token, runs `docker/deploy.sh`, then logs out.
+3. **`docker/deploy.sh` on the server:**
+   - pulls the new images, records them in `.env` (`API_IMAGE`, `WEB_IMAGE`) and restarts what changed;
+   - then checks the stack: the containers are healthy, the API's `/health` reports the database, and `https://DOMAIN/healthz` answers;
+   - if the check fails, it switches back to the previous images, checks again and fails the run.
+4. **Check:** GitHub confirms the public site answers.
+
+Each run shows as a `production` deployment on the repository's Deployments page.
+
+**Secrets** (repository settings › Secrets and variables › Actions):
+- `DEPLOY_HOST`: the server's address.
+- `DEPLOY_SSH_KEY`: a key used only by CD, its public half in the server's `authorized_keys` (comment `github-actions-cd signcite`).
+- `DEPLOY_KNOWN_HOSTS`: the server's host keys (`ssh-keyscan <host>`), so the runner never trusts an unknown host.
+
+**Roll back by hand:** set `API_IMAGE` and `WEB_IMAGE` in `.env` to an earlier commit's tags and run `docker compose up -d`.
 
 ## Data and backups
 
