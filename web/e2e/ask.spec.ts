@@ -174,33 +174,39 @@ test("voice: Vietnamese speech fills the question box; a desktop shows the mic i
   expect(await page.evaluate(() => (window as unknown as { speechLang: string }).speechLang)).toBe("vi-VN");
 });
 
-test("the side bars fold away and come back, and the choice is remembered", async ({ page }, info) => {
+test("the side bars fold and unfold from buttons that never move, and the choice is remembered", async ({ page }, info) => {
   await page.goto("/");
-  const foldSide = page.getByRole("button", { name: "Thu gọn thanh bên" });
-  const foldPhoto = page.getByRole("button", { name: "Thu gọn khung ảnh" });
+  const sideBtn = page.locator(".side-toggle");
+  const photoBtn = page.locator(".photo-toggle");
   if (info.project.name !== "desktop") {
-    await expect(foldSide).toHaveCount(0); // phones: the drawer and the photo's own arrow instead
-    await expect(foldPhoto).toHaveCount(0);
+    await expect(sideBtn).toBeHidden(); // phones: the drawer and the photo's own arrow instead
+    await expect(photoBtn).toBeHidden();
     return;
   }
   const sidebar = page.locator("aside.sidebar");
   const photo = page.getByRole("region", { name: "Ảnh" });
-  await expect(sidebar).toBeVisible();
-  await foldSide.click();
+  const at = async () => [await sideBtn.boundingBox(), await photoBtn.boundingBox()];
+  const before = await at();
+
+  await expect(sideBtn).toHaveAccessibleName("Thu gọn thanh bên");
+  await sideBtn.click();
   await expect(sidebar).toBeHidden();
-  await foldPhoto.click();
+  await expect(sideBtn).toHaveAccessibleName("Mở thanh bên");
+  await photoBtn.click();
   await expect(photo).toBeHidden();
-  // with both folded, the top bar shows the buttons to bring them back, and the chat still works
-  await expect(page.getByRole("button", { name: "Mở khung ảnh" })).toBeVisible();
+  await expect(photoBtn).toHaveAccessibleName("Mở khung ảnh");
+  expect(await at()).toEqual(before); // same place, folded or not
   await expect(page.getByLabel("Câu hỏi", { exact: true })).toBeVisible();
+
   await page.reload();
   await expect(sidebar).toBeHidden();
   await expect(photo).toBeHidden();
-  await page.getByRole("button", { name: "Mở lịch sử" }).click();
+  expect(await at()).toEqual(before);
+  await sideBtn.click();
+  await photoBtn.click();
   await expect(sidebar).toBeVisible();
-  await page.getByRole("button", { name: "Mở khung ảnh" }).click();
   await expect(photo).toBeVisible();
-  await expect(page.getByRole("button", { name: "Mở khung ảnh" })).toBeHidden();
+  expect(await at()).toEqual(before);
 });
 
 test("a wrong file type is refused before upload", async ({ page }) => {

@@ -100,7 +100,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 @media (min-width: 1180px) {
   .shell { grid-template-columns: 264px minmax(0, 1fr) minmax(380px, 460px); grid-template-areas: "side top photo" "side chat photo"; }
   .sidebar { display: block; position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--sidebar); border-right: 1px solid var(--border); }
-  .shell:not(.no-side) .narrow-only { display: none !important; }
+  .shell:not(.no-side) .narrow-only, .drawer-btn { display: none !important; }
   /* folded bars */
   .shell.no-side { grid-template-columns: minmax(0, 1fr) minmax(380px, 460px); grid-template-areas: "top photo" "chat photo"; }
   .shell.no-side .sidebar { display: none; }
@@ -146,13 +146,23 @@ button:disabled { cursor: not-allowed; opacity: .5; }
   border-bottom: 1px solid var(--border); background: var(--bg); position: sticky; top: 0; z-index: 20;
 }
 .topbar-title { flex: 1; min-width: 0; margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14.5px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-@media (min-width: 1180px) { .topbar { padding: 3px 24px; } .shell:not(.no-side):not(.no-photo) .topbar.empty { display: none; } }
-/* the buttons that fold and unfold the side bars (wide screens only) */
-.hide-photo-btn, .photo-open { display: none !important; }
+@media (min-width: 1180px) { .topbar { padding: 3px 24px; } .shell:not(.no-side) .topbar.empty { display: none; } }
+/* the side bars' toggles: pinned to the top corners, so they never move when a bar opens or folds */
+.bar-toggle { display: none; position: fixed; top: 6px; z-index: 25; width: 36px; height: 36px; }
+.side-toggle { left: 10px; }
+.photo-toggle { right: 10px; }
 @media (min-width: 900px) {
-  .hide-photo-btn { display: inline-grid !important; }
-  .shell.no-photo .photo-open { display: inline-grid !important; }
+  .photo-toggle { display: inline-grid; }
   .shell.no-photo .photo-panel { display: none; }
+  .photo-panel { padding-top: 6px; }
+  .photo-head { padding-right: 40px; min-height: 36px; }   /* room for the pinned toggle, on its line */
+  .topbar { padding-right: 52px; }
+}
+@media (min-width: 1180px) {
+  .side-toggle { display: inline-grid; }
+  .sidebar-inner { padding-top: 6px; }
+  .brand { padding-left: 44px; padding-top: 2px; }   /* the toggle sits left of the name, on its line */
+  .shell.no-side .topbar { padding-left: 56px; }
 }
 @media (min-width: 900px) and (max-width: 1179px) {
   .shell.no-photo { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "chat"; }

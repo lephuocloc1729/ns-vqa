@@ -1,6 +1,6 @@
 import { PRODUCT, TAGLINE } from "../lib/brand";
 import type { KnownSession, Theme } from "../lib/storage";
-import { Close, Contrast, Moon, PanelLeft, Plus, Sun } from "./Icons";
+import { Close, Contrast, Moon, Plus, Sun } from "./Icons";
 
 export const THEME_NEXT: Record<Theme, Theme> = { auto: "light", light: "dark", dark: "auto" };
 export const THEME_LABEL: Record<Theme, string> = { auto: "Giao diện: tự động", light: "Giao diện: sáng", dark: "Giao diện: tối" };
@@ -15,7 +15,7 @@ function groups(sessions: KnownSession[]): [string, KnownSession[]][] {
   return ([["Hôm nay", today], ["Trước đó", older]] as [string, KnownSession[]][]).filter(([, l]) => l.length);
 }
 
-export default function Sidebar({ sessions, current, busy, theme, serverNote, onNew, onOpen, onForget, onTheme, onClose, onCollapse }: {
+export default function Sidebar({ sessions, current, busy, theme, serverNote, onNew, onOpen, onForget, onTheme, onClose }: {
   sessions: KnownSession[];
   current: string | null;
   busy: boolean;
@@ -26,18 +26,11 @@ export default function Sidebar({ sessions, current, busy, theme, serverNote, on
   onForget: (id: string) => void;
   onTheme: () => void;
   onClose?: () => void; // in the phone drawer
-  onCollapse?: () => void; // on a wide screen: fold the bar away
 }) {
   return (
     <div className="sidebar-inner">
       <div className="brand">
         <span className="brand-text"><span className="brand-name">{PRODUCT}</span><span className="brand-tag">{TAGLINE}</span></span>
-        {onCollapse && (
-          <button type="button" className="icon-btn" style={{ marginLeft: "auto" }} onClick={onCollapse}
-            aria-label="Thu gọn thanh bên" title="Thu gọn thanh bên" aria-expanded={true}>
-            <PanelLeft size={19} />
-          </button>
-        )}
         {onClose && (
           <button type="button" className="icon-btn" style={{ marginLeft: "auto" }} onClick={onClose} aria-label="Đóng lịch sử">
             <Close />
