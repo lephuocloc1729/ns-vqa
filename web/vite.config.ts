@@ -8,6 +8,10 @@ const api = process.env.VQA_API_URL ?? "http://localhost:8000";
 
 export default defineConfig({
   plugins: [react()],
+  // two pages: the app (index.html) and the admin site (admin.html, served on admin.<domain>)
+  build: {
+    rollupOptions: { input: { main: "index.html", admin: "admin.html" } },
+  },
   server: {
     port: 5173,
     proxy: {

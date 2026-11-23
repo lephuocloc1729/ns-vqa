@@ -30,8 +30,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/swipl-debs
-          key: swipl-debs-noble-${{ github.run_id }}-${{ github.job }}
-          restore-keys: swipl-debs-noble-
+          key: swipl-debs-v2-noble-${{ github.run_id }}-${{ github.job }}
+          restore-keys: swipl-debs-v2-noble-
       - name: Install SWI-Prolog (>= 9.1, from its PPA; retries, then the saved packages, else fails clearly)
         run: sudo SWIPL_DEB_DIR="$HOME/swipl-debs" bash docker/install-swipl.sh
 
@@ -126,8 +126,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/swipl-debs
-          key: swipl-debs-noble-${{ github.run_id }}-${{ github.job }}
-          restore-keys: swipl-debs-noble-
+          key: swipl-debs-v2-noble-${{ github.run_id }}-${{ github.job }}
+          restore-keys: swipl-debs-v2-noble-
       - name: Install SWI-Prolog (the API imports the pipeline)
         run: sudo SWIPL_DEB_DIR="$HOME/swipl-debs" bash docker/install-swipl.sh
       - uses: actions/setup-python@v5

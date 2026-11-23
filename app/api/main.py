@@ -14,12 +14,16 @@ Endpoints:
 - POST /v1/turns/{id}/feedback           thumbs up/down, a corrected answer, a note
 - GET  /v1/images/{sha256}               an uploaded image
 - GET  /health, GET /version, GET /metrics (Prometheus)
+- /v1/admin/...                          the admin site (app/api/admin.py): its own login, live settings,
+                                         site accounts, stored answers and feedback
 """
 
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import hashlib
+import threading
 import io
 import json
 import re
@@ -36,6 +40,8 @@ from pydantic import BaseModel, Field
 
 from vqa.llm.spend import SpendLimitExceeded
 
+from app.api import live as live_mod
+from app.api.admin import admin_router, sync_users
 from app.api.profiles import PROFILES, pipeline_config
 from app.api.runner import PipelineRunner
 from app.api.settings import Settings
@@ -148,16 +154,57 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
     def default_factory() -> Any:
         from vqa.pipeline import Pipeline
         pipe = Pipeline(pipeline_config(settings))
-        if settings.answer_fallback == "rag":
-            from vqa.answer.rag_fallback import RagFallback
-            pipe.fallback = RagFallback(settings.rag_url, timeout=settings.rag_timeout_s)
-            if settings.rag_cache:                 # the RAG's own earlier answers, for repeats
-                from app.api.rag_cache import CachedRagFallback, RagAnswerCache
-                pipe.fallback = CachedRagFallback(pipe.fallback, RagAnswerCache(
-                    settings.rag_cache_dir, max_days=settings.rag_cache_max_days))
+        applier.claude_fallback = pipe.fallback     # the Sonnet answer fallback, for the "claude" mode
         return pipe
 
-    runner = PipelineRunner(pipeline_factory or default_factory, slots=settings.answer_slots)
+    def live_now() -> live_mod.Live:
+        return live_mod.effective(settings, store.settings_overrides())
+
+    class LiveApplier:
+        """Brings the pipeline in line with the live settings before each answer (app/api/live.py).
+
+        The fallback object is swapped only on the API's own pipeline (default_factory); a test's or
+        demo's pipeline keeps its own, and gets only the switch and the spend limit."""
+
+        def __init__(self) -> None:
+            self.applied: live_mod.Live | None = None
+            self.claude_fallback: Any = None
+            self._lock = threading.Lock()
+            self._rag_cache: Any = None
+
+        def __call__(self, pipe: Any) -> None:
+            want = live_now()
+            with self._lock:
+                if want == self.applied:
+                    return
+                self._apply(pipe, want)
+                self.applied = want
+
+        def _apply(self, pipe: Any, want: live_mod.Live) -> None:
+            config = getattr(pipe, "config", None)
+            if dataclasses.is_dataclass(config) and hasattr(config, "answer_fallback"):
+                pipe.config = dataclasses.replace(config, answer_fallback=want.answer_fallback != "off")
+            if self.claude_fallback is not None:
+                if want.answer_fallback == "rag":
+                    from vqa.answer.rag_fallback import RagFallback
+                    fb: Any = RagFallback(want.rag_url, timeout=settings.rag_timeout_s)
+                    if want.rag_cache:             # the RAG's own earlier answers, for repeats
+                        from app.api.rag_cache import CachedRagFallback, RagAnswerCache
+                        if self._rag_cache is None:
+                            self._rag_cache = RagAnswerCache(settings.rag_cache_dir,
+                                                             max_days=settings.rag_cache_max_days)
+                        fb = CachedRagFallback(fb, self._rag_cache)
+                    pipe.fallback = runner.instrument_fallback(fb)
+                else:
+                    pipe.fallback = self.claude_fallback
+            guard = getattr(pipe, "guard", None)
+            if guard is not None and hasattr(guard, "limit"):
+                from vqa.llm.spend import default_limit
+                guard.limit = want.spend_limit if want.spend_limit is not None else default_limit()
+
+    applier = LiveApplier()
+    runner = PipelineRunner(pipeline_factory or default_factory, slots=settings.answer_slots, prepare=applier)
+    sync_users(settings, store)                     # the web server's password file, from the database
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -170,6 +217,7 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_methods=["*"],
                        allow_headers=["*"])
     app.state.settings, app.state.store, app.state.runner, app.state.metrics = settings, store, runner, metrics
+    app.include_router(admin_router(settings, store, live_now, runner, lambda: settings.rag_cache_dir))
 
     # ------------------------------------------------------------------ helpers
     async def save_upload(image: UploadFile) -> tuple[str, Path]:
@@ -199,6 +247,11 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
         if len(q) > settings.max_question_chars:
             raise HTTPException(400, f"question longer than {settings.max_question_chars} characters")
         return q
+
+    def account_of(request: Request) -> str | None:
+        """The site login that asked: set by the web server (it overwrites what a browser sends)."""
+        name = (request.headers.get("x-remote-user") or "").strip()
+        return name[:64] or None
 
     def session_for(session_id: str | None) -> str:
         if session_id:
@@ -244,9 +297,10 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
 
     @app.get("/version")
     def version() -> dict[str, Any]:
+        now = live_now()
         return {"profile": settings.profile, "pipeline": PROFILES.get(settings.profile),
-                "answer_fallback": settings.answer_fallback, "answer_slots": runner.slots,
-                "rag_cache": settings.rag_cache and settings.answer_fallback == "rag"}
+                "answer_fallback": now.answer_fallback, "answer_slots": runner.slots,
+                "rag_cache": now.rag_cache and now.answer_fallback == "rag"}
 
     @app.get("/metrics")
     def prom() -> Response:
@@ -294,12 +348,12 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
         raise HTTPException(404, "unknown image")
 
     @app.post("/v1/ask", response_model=TurnOut)
-    async def ask(image: UploadFile = File(...), question: str = Form(...),
+    async def ask(request: Request, image: UploadFile = File(...), question: str = Form(...),
                   session_id: str | None = Form(None)) -> TurnOut:
         q = check_question(question)
         sid = session_for(session_id)
         sha, path = await save_upload(image)
-        turn = store.start_turn(sid, q, sha)
+        turn = store.start_turn(sid, q, sha, account_of(request))
         signs: list[dict[str, Any]] = []
 
         def emit(name: str, payload: dict[str, Any]) -> None:
@@ -321,7 +375,7 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
         q = check_question(question)
         sid = session_for(session_id)
         sha, path = await save_upload(image)
-        turn = store.start_turn(sid, q, sha)
+        turn = store.start_turn(sid, q, sha, account_of(request))
         loop = asyncio.get_running_loop()
         queue: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue(maxsize=8192)
         signs: list[dict[str, Any]] = []

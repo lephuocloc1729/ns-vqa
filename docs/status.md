@@ -101,12 +101,14 @@ Plan: `docs/plans/task-3-review-3.md` (proposed; 9-day schedule). All work goes 
 
 **Next, before Review 3 (2026-11-30):**
 1. **UAT**: the pack is ready in `eval/uat/` (`README.md`: task sheet, form questions with SUS in Vietnamese, moderator notes, observation log, `score_sus.py`, `turn_stats.py` for the server's aggregates, report template).
-   - Owner: recruit 15–20 testers, take ~5 street photos for the fixed tasks, decide the spend cap (about $15–20 suggested) and the format.
+   - Owner (2026-11-23): at least 15 testers by video call, 5 fixed tasks + 2 free questions, 20 street photos (3 fixed + 2 backups, 15 spare); targets SUS ≥ 68, task success ≥ 80%, CSAT 4–5 ≥ 70%, every task ≥ 60%.
+   - Each tester gets an account on the admin site, so their questions are stored with it.
    - Sessions around 26–28/11, with a GPU rented for their hours (`rag-session.sh on`/`off`); the RAG cache was cleared on 2026-11-23.
-2. **A 3–5 minute backup demo video.**
-3. **Thesis Chapter 5 material** (UI, deployment, tests) from the results docs above.
+2. **The admin site** (`docs/plans/admin-page.md`, PR 1): admin.signcite.xyz with its own login; overview charts (the 1.3 dashboard page), feedback inbox, questions, tester accounts, live settings. Owner: the DNS record and `ADMIN_PASSWORD`. PR 2 after the UAT: GPU connect/disconnect from the page.
+3. **A 3–5 minute backup demo video.**
+4. **Thesis Chapter 5 material** (UI, deployment, tests) from the results docs above.
 
-**After Review 3, for the defense (2026-12-19):** the dashboard page with charts (1.3), the red-team guardrail set (W4), the RAG's Q4 vs BF16 accuracy, and the slides.
+**After Review 3, for the defense (2026-12-19):** the red-team guardrail set (W4), the RAG's Q4 vs BF16 accuracy, and the slides.
 
 **Open:**
 - The thesis's location, format and status (D1, owner).

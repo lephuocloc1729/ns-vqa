@@ -29,8 +29,8 @@ COPY docker/api-entrypoint.sh /usr/local/bin/api-entrypoint
 RUN pip install --no-cache-dir --no-deps -e . \
  && swipl -q -g "consult('kb/load.pl'), halt" -t "halt(1)" \
  && useradd --create-home --uid 10001 vqa \
- && mkdir -p var/uploads cache/scenes logs \
- && chown -R vqa:vqa var cache logs \
+ && mkdir -p var/uploads cache/scenes logs /run/signcite-auth \
+ && chown -R vqa:vqa var cache logs /run/signcite-auth \
  && chmod +x /usr/local/bin/api-entrypoint
 
 USER vqa

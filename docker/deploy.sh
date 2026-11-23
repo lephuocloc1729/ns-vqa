@@ -33,6 +33,10 @@ check() {   # the stack is healthy: containers, the API's own health, and the pu
   core=$(docker compose config --services | grep -vx rag-tunnel | tr '\n' ' ')
   # shellcheck disable=SC2086
   docker compose up -d --no-build --wait --wait-timeout 180 $core || return 1
+  # Caddy reads its Caddyfile (a mounted file) only at start or on reload: a changed one needs this
+  if echo " $core " | grep -q " caddy "; then
+    docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile || return 1
+  fi
   docker compose exec -T api python -c "
 import json, urllib.request
 h = json.load(urllib.request.urlopen('http://127.0.0.1:8000/health'))
