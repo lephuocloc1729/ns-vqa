@@ -7,7 +7,8 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # a newer push cancels an older run on a branch, but never on main: every merge keeps its own record
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   test:
@@ -177,6 +178,14 @@ jobs:
           grep -q '^event: token_reset' stream.txt
           grep -q '^event: answer' stream.txt
           grep -q '^event: done' stream.txt
+      - name: The image can load every module the API uses in real mode
+        # the fake pipeline never imports the real pipeline, the RAG client or the cache, so a
+        # package missing from the image would only show once VQA_PIPELINE=real or the RAG is on
+        run: |
+          docker compose exec -T api python -c "
+          import vqa.pipeline, vqa.answer.rag_fallback, app.api.rag_cache, app.api.main, app.api.profiles
+          from app.api.main import create_app
+          print('real-mode imports ok')"
       - name: Monitoring is up and scraping the API
         run: |
           set -e
