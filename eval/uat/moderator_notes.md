@@ -1,31 +1,74 @@
 # SignCite UAT: moderator notes
 
-These notes are for the person who runs the sessions. Testers get `task_sheet.md` and the form (`form_questions.md`). Results are scored by `score_sus.py` and `turn_stats.py`, then written up in `report_template.md`.
+These notes are for the person who runs the sessions. Testers get `task_sheet.md` one task at a time, then the form (`form_questions.md`). Results are scored by `score_sus.py` and `turn_stats.py`, then written up in `report_template.md`.
 
-**Target (plan 3.3, reduced in the 9-day schedule):**
-- 15–20 testers; 10–12 is the floor.
-- Mix: drivers, students, and **2–3 people who know traffic law**.
-- Each tester does 5 fixed tasks, asks 5 questions of their own, then fills in the form. That takes about 30 minutes in all.
+**The plan:**
+- **Testers:** at least 15, ideally 20.
+  - A mix of drivers, students, and **2–3 people who know traffic law**.
+  - **About half on phones.**
+- **Each tester:** 5 fixed tasks, then 2 questions on one new photo, then the form. That takes about 20–25 minutes.
+
+## Acceptance targets (owner, 2026-11-23)
+
+These are fixed before the first session and are not changed afterwards. `score_sus.py` prints each one with pass or fail.
+
+| Target | Meaning |
+|---|---|
+| Mean SUS ≥ 68 | easier to use than the average product (68 = the average across published studies) |
+| Task success ≥ 80% | of all fixed-task attempts, counting only full successes |
+| CSAT 4–5 ≥ 70% | of testers say they are satisfied or very satisfied |
+| Every task ≥ 60% | no single feature fails for more than 4 testers in 10 |
+
+**If a target is missed,** report it with its cause (issue tags, notes) and a fix, or say why it can't be fixed. Never re-run sessions to improve a number.
 
 ## 1. Before the first session (once)
 
-**The five photos** (`Ảnh 1`–`Ảnh 5`):
-- **The owner takes them on the street.** Never use dataset photos: testers would see train or test images, and the pipeline has seen most train scenes.
-- **What each one needs to show:**
+### Photos
 
-  | Photo | Used in | Needs |
-  |---|---|---|
-  | Ảnh 1 | T1, T5 | One clear sign, any kind |
-  | Ảnh 2 | T2, T3 | A prohibitory sign that treats cars and motorbikes differently. For example: P.103a "cấm ô tô" (car: no, motorbike: yes), or a P.104/P.106 family sign. |
-  | Ảnh 3 | T4 | A speed limit sign (P.127, a number in a red circle) |
-  | Ảnh 4, Ảnh 5 | free questions | Several signs, or a sign with an auxiliary plate (times, vehicle types) |
+You need about **20**, all taken by you on the street. **Never use dataset photos:** testers would see train or test images, and the pipeline has seen most train scenes.
 
-- **Rules for the photos:** daylight; the sign at least about 80 px tall; no readable faces or number plates; JPEG or PNG under 10 MB.
+**Fixed-task photos: 3 used, plus 2 backups.**
 
-**Dry run** (owner's go-ahead on cost first, about $0.10):
-- Ask each fixed task's question once on signcite.xyz and write down the expected answer, the sign code and the cited article in the table below.
-- **If an answer is wrong or undecided, change the photo**, not the task. The fixed tasks test the interface, not the model.
-- The dry run fills the scene cache for these photos. Testers will therefore get faster answers on T1–T4 than on their own photos. The report states this (section 6).
+| Photo | Used in | What it must show |
+|---|---|---|
+| Ảnh 1 | T1, T5 | one clear sign, any kind |
+| Ảnh 2 | T2, T3 | a ban that treats cars and motorbikes differently, e.g. P.103a "cấm ô tô" (car: no; motorbike: yes) |
+| Ảnh 3 | T4 | a speed limit (a number in a red circle, P.127) |
+| 2 backups | — | another Ảnh 2-type and another Ảnh 3-type photo, in case the dry run fails on one |
+
+**Spare photos for the free questions: 15 (Ảnh 6 to Ảnh 20), plus 3–5 extra if easy.** Testers without a street photo of their own get one each. Mix them:
+
+| How many | What |
+|---|---|
+| ~5 | a ban or mandatory sign with an extra plate (times, vehicle types, weight) |
+| ~3 | several signs on one pole or one gantry |
+| ~2 | a speed limit with lanes, or a lane board |
+| ~2 | warning or information signs |
+| ~3 | hard ones: far away, at an angle, partly hidden, faded, or a local plate with text |
+
+**Rules for every photo:**
+- daylight;
+- the sign at least about 80 px tall;
+- no readable faces or number plates;
+- JPEG or PNG under 10 MB.
+
+**Rules for the spare photos:**
+- **Never ask SignCite about a spare photo before its session.** The first question on a photo caches its scene. A tester's first question must be the real first one, because that is where the report gets the real wait.
+- **One spare photo per tester, never reused.**
+- Record who got which in `eval/runs/uat/photos_used.csv`, with the columns `participant,photo` (e.g. `P03,Ảnh 9`). For unmoderated sessions, assign them in advance by ID: P01 gets Ảnh 6, P02 gets Ảnh 7, and so on.
+- You can check the hard ones by eye. Don't run them.
+
+**Sending photos to testers:**
+- Use a Google Drive folder or a zip file.
+- Don't use Zalo or Messenger: they re-compress photos. A re-compressed fixed photo is a different file, so the dry run's cache wouldn't apply to it.
+
+### Dry run (fixed photos only)
+
+**Cost:** about $0.10, with the owner's go-ahead first.
+
+- Ask each fixed task's question once on signcite.xyz. Write down the expected answer, the sign code and the cited article.
+- **If an answer is wrong or undecided, switch to the backup photo,** not a different task. The fixed tasks test the interface, not the model.
+- The dry run caches these photos, so T1–T4 answers will be faster than a first question on a new photo. `turn_stats.py` reports the two kinds separately.
 
 | Task | Question | Expected answer | Sign | Article |
 |---|---|---|---|---|
@@ -34,62 +77,87 @@ These notes are for the person who runs the sessions. Testers get `task_sheet.md
 | T3 | Xe máy có được đi vào không? | | | |
 | T4 | Tốc độ tối đa cho phép ở đây là bao nhiêu? | | | |
 
-**Other preparation:**
+### Other preparation
+
 - **Participant IDs:** `P01`, `P02`, … in the order people come. Write each ID on that person's task sheet; the form asks for it.
-- **The form:** build it from `form_questions.md` and test it once with a dummy answer.
-  - Then download the CSV and run `score_sus.py` on it.
-  - Delete the dummy row before the real sessions.
-- **The spend cap** (owner's decision): about 20 testers × ~12 questions × $0.015 ≈ $3.6, plus retries.
-  - Set `VQA_SPEND_LIMIT` in the server's `.env`.
-  - Restart the API before each session day, because the cap counts from a restart.
+- **The form:**
+  1. Submit one dummy response.
+  2. Download the CSV and run `score_sus.py` on it.
+  3. Delete the dummy response.
+- **Form settings:** emails not collected; not limited to one response.
+- **The spend cap** (owner's decision):
+  - Expect about 20 testers × ~6 questions × $0.015 ≈ $2, plus retries.
+  - Set `VQA_SPEND_LIMIT` in the server's `.env`, then restart the API before each session day, since the cap counts from a restart.
 
 ## 2. Each session day (the server)
 
 **Before the first tester:**
-1. Rent the GPU and run `bash docker/rag-session.sh on <host> <port>` on the server (`docs/runbooks/gpu-session.md`).
+1. Rent the GPU, then run `bash docker/rag-session.sh on <host> <port>` on the server (`docs/runbooks/gpu-session.md`).
 2. Check `/version`: the fallback is `rag`, there are 10 answer slots, and the RAG cache is on.
-3. Write down the start time in UTC. `turn_stats.py` uses it.
-4. Ask one question yourself to warm everything up.
+3. Write down the start time in UTC, for `turn_stats.py`.
+4. Ask one question on a **fixed** photo to warm everything up. Never use a spare photo for this.
 
 **After the last tester:**
-1. `bash docker/rag-session.sh off`, then destroy the GPU.
+1. Run `bash docker/rag-session.sh off`, then destroy the GPU.
 2. Write down the end time.
 
-**If the RAG or GPU is down mid-session:**
+**If the RAG or GPU goes down mid-session:**
 - Answers the rules can't decide show "Hệ luật chưa quyết định được…". Testing continues.
 - Tag the attempt `fallback_off` and note the time.
 
 ## 3. Running a session
 
 **Formats:**
-- **In person or on a video call with screen sharing (preferred):** you fill in the observation log.
-- **Unmoderated:** the tester gets the sheet and the form only. The form's `[OK1]`–`[OK5]` answers stand in for the log, and the report must call those rates **self-reported**.
+- **In person, or a video call with screen sharing (preferred):** you fill in the observation log.
+- **Unmoderated:** the tester gets the tasks and the form only. The form's `[OK1]`–`[OK5]` answers stand in for the log, and the report must call those rates **self-reported**.
 
-**Script (say it in your own words):**
+**Introduction (in your own words):**
 1. *"Cảm ơn bạn. Hôm nay mình thử phần mềm, không thử bạn. Không có câu trả lời sai."*
 2. *"Bạn vừa làm vừa nói to suy nghĩ nhé: đang tìm gì, mong đợi gì, thấy lạ chỗ nào."*
 3. *"Mình sẽ không giúp trong lúc làm, vì mình muốn biết phần mềm tự nó có rõ không. Bí quá 3 phút thì mình chuyển nhiệm vụ."*
-4. Give them the password for the site, never in a group chat. Then give them Ảnh 1–5.
+4. Give the site's password privately, never in a group chat. Then give them Ảnh 1–3.
 
-**While they work:**
-- **Don't help.** If asked, answer *"Bạn nghĩ nên làm gì?"*.
+**Handing out tasks:**
+- **One task at a time,** on a card, a slide, or pasted into the call's chat.
+- The tester reads it aloud. **Start the timer when they finish reading.**
+- **Don't explain further, and never use the app's button names.**
+  - The wording deliberately avoids words such as "Căn cứ và chứng minh", "khung biển báo", "Lịch sử" or "Sửa đáp án".
+  - If asked *"bấm vào đâu?"*, answer *"Bạn nghĩ nên làm gì?"*.
 - After 3 minutes on one task, mark it `fail` and move on.
-- **Time each task:** from the moment the tester starts reading it to the moment they state the result. The answer's waiting time is included.
-- **Outcomes:**
-  - `success`: the task sheet's ✅ condition is met without help.
-  - `partial`: half of the condition is met (e.g. T2's verdict but not the article; T4 typed instead of spoken), or it is met after one hint.
-  - `fail`: otherwise, or the tester gave up.
-- The answer being *legally wrong* is not a task failure. Tag it `answer_wrong` and write what was asked.
+- **Stop the timer** when the tester says the result aloud. Every task ends with "→ say it to the moderator".
+
+**Outcomes:**
+- `success`: the result is said without help.
+- `partial`: half the result, or the whole result after one hint. Examples:
+  - T2: the verdict but not the article;
+  - T3: the answer, but the photo was re-attached or a new chat was opened;
+  - T4: typed instead of spoken.
+- `fail`: otherwise, or the tester gave up.
+
+**What each task needs:**
+
+| Task | Success needs | What to watch |
+|---|---|---|
+| T1 | the sign's meaning, said aloud | finding attach; reaction to the wait |
+| T2 | the verdict **and** the law and article (they are folded under the answer) | do they find and open the folded part? |
+| T3 | the motorbike answer **and** pointing to the right sign on the photo | do they re-attach the photo? do they find the photo with the boxes? |
+| T4 | the question recognised from speech, and the answer said | the microphone permission, recognition errors; note the browser and device |
+| T5 | the T1 chat reopened **and** a rating sent (the thanks message appears) | on a phone, finding the history; understanding the icon buttons |
+
+**The answer being *legally wrong* is not a task failure.** Tag it `answer_wrong` and write what was asked.
+
+**The 2 free questions (not timed or scored as tasks):**
+- If the tester has no street photo, give them the next unused spare photo and record it in `photos_used.csv`.
+- Phone testers should take the photo with the app's camera if they can.
 
 **Afterwards (2 minutes):**
-- *"Điều gì làm bạn khó chịu nhất?"*
-- *"Bạn có tin câu trả lời không? Vì sao?"*
+- Ask *"Điều gì làm bạn khó chịu nhất?"* and *"Bạn có tin câu trả lời không? Vì sao?"*
 - Write the answers in `notes`, then send the form link.
 
 ## 4. The observation log
 
 - **Where:** copy `observation_log_template.csv` to `eval/runs/uat/observations.csv`. That folder is gitignored, so the log never gets committed.
-- **Rows:** one row per participant and task.
+- **Rows:** one per participant and task.
   - `participant`: P01…
   - `task`: T1–T5
   - `outcome`: `success`, `partial` or `fail`
@@ -109,8 +177,8 @@ These notes are for the person who runs the sessions. Testers get `task_sheet.md
 | `proof_confusing` | opened the proof or steps and was confused |
 | `boxes_hard_to_find` | couldn't find the photo with the sign boxes |
 | `followup_unclear` | re-attached the photo or opened a new chat for a follow-up |
-| `history_hard_to_find` | couldn't find Lịch sử or the old chat |
-| `feedback_hard_to_find` | couldn't find đúng/sai or Sửa đáp án |
+| `history_hard_to_find` | couldn't find the history or the old chat |
+| `feedback_hard_to_find` | couldn't find the right/wrong or correction buttons |
 | `fallback_confusing` | confused by the RAG badge ("chưa được hệ luật kiểm chứng") |
 | `fallback_off` | the RAG was down, so a question stayed undecided |
 | `mobile_layout` | a layout problem on a phone |
@@ -122,15 +190,24 @@ These notes are for the person who runs the sessions. Testers get `task_sheet.md
 .venv/bin/python eval/uat/score_sus.py eval/runs/uat/responses.csv --observations eval/runs/uat/observations.csv --json eval/runs/uat/summary.json
 ```
 
-**Server-side numbers, aggregates only.** Run this on the server for each session day's window, then add up the days:
+It prints:
+- the four targets, with pass or fail;
+- SUS, CSAT and task success, each with its 95% CI;
+- results by tester group and by device;
+- where the free-question photos came from;
+- the issue tags.
+
+**Server-side numbers, aggregates only.** Run this on the server for each session day's window, then add the days together:
 
 ```bash
 docker compose exec -T api python - --since 2026-11-26T01:00 --until 2026-11-26T11:00 < eval/uat/turn_stats.py
 ```
 
+It reports answers on a **photo seen before** (the fixed photos, after the dry run) separately from the **first question on a new photo** (the real wait).
+
 Then fill in `report_template.md` and save it as `docs/results/uat-<date>.md`.
 
 ## 6. Afterwards
 
-- **Raw files stay local:** the form's CSV, the log and the notes go in `eval/runs/uat/`, which is gitignored. Delete them after the defense, along with the server's data (`docs/status.md`, open items).
+- **Raw files stay local:** the form's CSV, the log, `photos_used.csv` and the notes go in `eval/runs/uat/`, which is gitignored. Delete them after the defense, along with the server's data (`docs/status.md`, open items).
 - **Commit only** the aggregate report.

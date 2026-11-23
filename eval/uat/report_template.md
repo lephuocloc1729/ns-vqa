@@ -5,20 +5,34 @@
 ## Setup
 
 - **When and where:** dates; in person / video call / unmoderated (task success is then *self-reported*).
-- **Participants:** n = __ (drivers __, students __, people who know traffic law __); devices: computer __, phone __.
+- **Participants:** n = __ (drivers __, students __, people who know traffic law __); devices: computer __, phone __, tablet __.
 - **System:** https://signcite.xyz, API image `____`, frozen phase52 pipeline, 10 answer slots, RAG fallback on an RTX 5090 (Qwen3.5-9B Q4_K_M, 1 slot), RAG answer cache on.
-- **Tasks:** 5 fixed tasks on the owner's own street photos (`eval/uat/task_sheet.md`), then 5 questions of the tester's own, then the form (`eval/uat/form_questions.md`: SUS, CSAT, per-task ease).
-- **Caveat:** the fixed tasks' photos were asked once in a dry run, so their perception came from the scene cache: T1–T4 waits are shorter than a first question on a new photo. The free questions show the cold wait.
+- **Tasks:**
+  1. 5 fixed tasks, written as situations, on 3 of the owner's street photos (`eval/uat/task_sheet.md`), handed out one at a time.
+  2. 2 free questions on one new photo: the tester's own (__), taken in the app (__), or one of the owner's 15 spare photos never asked about before (__).
+  3. The form (`eval/uat/form_questions.md`): SUS, CSAT, and per-task completion and ease.
+- **Caching:** the fixed photos were asked once in a dry run, so their scenes came from the cache. Waits are therefore reported separately: the first question on a photo (the real wait) and a photo seen before.
 
-## Headline
+## Acceptance targets (fixed before the sessions)
 
-| Measure | Result | Target / reference |
+| Target | Result (95% CI) | Pass |
 |---|---|---|
-| SUS, mean (95% CI) | __ (__–__), grade __ | 68 = average; ≥ 72.6 = B- or better |
-| CSAT, share giving 4–5 (95% CI) | __% (__–__%) | — |
-| Task success, all attempts (95% CI) | __% (__–__%) | — |
+| Mean SUS ≥ 68 | __ (__–__), grade __ | |
+| Task success ≥ 80% | __% (__–__%) | |
+| CSAT 4–5 ≥ 70% | __% (__–__%) | |
+| Every task ≥ 60% | lowest: T_ at __% | |
+
+Task success is **observed** (moderator's log) / **self-reported** (form): pick one.
+
+## Other measures
+
+| Measure | Result | Reference |
+|---|---|---|
+| SUS on computer / phone | __ / __ | — |
+| Task success on computer / phone | __% / __% | — |
 | In-app 👍 share | __% of __ rated answers | — |
-| Seconds per answer, p50 / p95 | __ / __ | load test: p95 ≤ 2 s at the API with the fake pipeline |
+| Seconds, first question on a photo: p50 / p90 | __ / __ | the real wait |
+| Seconds, photo seen before: p50 / p90 | __ / __ | cached scene |
 | Answered by rules / fallback | __ / __ | private benchmark coverage: __% |
 | Claude API cost | $__ (≈ $__ per answer) | cap $__ |
 
@@ -28,7 +42,7 @@
 
 ## Tasks
 
-(paste the task table: success, partial, fail, rate with CI, median time, ease)
+(paste the task table: success, partial, fail, rate with CI, median time, ease; and task success by device)
 
 Notes per task: what failed and why, in one line each.
 
@@ -52,6 +66,7 @@ Two or three points with evidence (tags absent, high-ease tasks, quotes).
 
 - Small sample (n = __): CIs are wide; no claim beyond this group.
 - Recruited from the team's contacts, so not a random sample of drivers.
-- Fixed tasks used cached photos (see Setup); free questions were cold.
+- Fixed tasks used cached photos (see Setup). Only the first question on each new photo shows the real wait, so that figure rests on about one question per tester.
+- The SUS wording is our Vietnamese translation, not a validated one; each item keeps the original's direction.
 - Testers judged legal correctness themselves; the 👍 share is perceived, not graded, correctness.
-- Unmoderated sessions only: task success is self-reported.
+- If any session was unmoderated, its task success is self-reported.

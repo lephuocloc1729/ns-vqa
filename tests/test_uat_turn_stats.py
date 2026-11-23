@@ -15,8 +15,8 @@ def store(tmp_path):
     return Store(f"sqlite:///{tmp_path / 'app.db'}")
 
 
-def _turn(store, sid, **fields):
-    t = store.start_turn(sid, "câu hỏi", "0" * 64)
+def _turn(store, sid, image="0" * 64, **fields):
+    t = store.start_turn(sid, "câu hỏi", image)
     store.finish_turn(t.id, **fields)
     return t.id
 
@@ -54,3 +54,18 @@ def test_collect_outside_window_is_empty(store):
     s = collect(store.engine.url.render_as_string(hide_password=False), later, later + timedelta(hours=1))
     assert s["questions"] == 0 and s["seconds"]["p50"] is None
     assert "Questions: **0**" in format_report(s)
+
+
+def test_first_question_on_a_photo_vs_seen_before(store):
+    sid = store.new_session().id
+    _turn(store, sid, image="a" * 64, status="done", answered_by="rules", seconds=4.0)   # before the window
+    cut = datetime.now(timezone.utc)
+    _turn(store, sid, image="a" * 64, status="done", answered_by="rules", seconds=6.0)   # cached photo
+    _turn(store, sid, image="b" * 64, status="done", answered_by="rules", seconds=25.0)  # first on b
+    _turn(store, sid, image="b" * 64, status="done", answered_by="rules", seconds=7.0)   # follow-up on b
+    s = collect(store.engine.url.render_as_string(hide_password=False), cut, cut + timedelta(hours=1))
+    assert s["questions"] == 3 and s["photos"] == 2
+    assert s["seconds_by_photo"]["first_on_photo"] == {"n": 1, "p50": 25.0, "p90": 25.0}
+    assert s["seconds_by_photo"]["photo_seen_before"]["n"] == 2
+    assert s["seconds_by_photo"]["photo_seen_before"]["p50"] == 6.5
+    assert "**first question on a photo** p50 25.0" in format_report(s)

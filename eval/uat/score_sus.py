@@ -2,9 +2,10 @@
 
 Inputs (both stay local: put them in eval/runs/uat/, which is gitignored):
 - the form's responses, exported as CSV (Google Forms › Responses › Download). Columns are found
-  by the code in square brackets at the start of each question title ([ID], [GROUP], [SUS1] …
-  [SUS10], [CSAT], [T1] … [T5] for ease, [OK1] … [OK5] for self-reported completion), so the order
-  and the rest of the title do not matter (eval/uat/form_questions.md).
+  by the code in square brackets at the start of each question title ([ID], [GROUP], [DEVICE],
+  [SUS1] … [SUS10], [CSAT], [T1] … [T5] for ease, [OK1] … [OK5] for self-reported completion,
+  [PHOTO] for the free questions' photo), so the order and the rest of the title do not matter
+  (eval/uat/form_questions.md).
 - optionally, the moderator's observation log (observation_log_template.csv): one row per
   participant and task, outcome success | partial | fail, the time in seconds, and issue tags.
   Without it, task success comes from the form's [OK1] … [OK5] answers and is labelled self-reported.
@@ -17,6 +18,7 @@ Prints a Markdown report with aggregates only. Nothing here calls an API.
 SUS (Brooke 1996): odd items score (answer - 1), even items (5 - answer); the sum times 2.5 gives
 0-100. The grade is the Sauro-Lewis curved scale (A+ 84.1 and up ... F below 51.7; mean 68 = C).
 The mean has a t-based 95% CI. Rates (CSAT 4-5, task success) have Wilson 95% CIs.
+The acceptance targets (TARGETS, fixed by the owner before the sessions) are printed with pass/fail.
 """
 
 from __future__ import annotations
@@ -38,6 +40,14 @@ OUTCOMES = ("success", "partial", "fail")
 _SELF = [("mot phan", "partial"), ("một phần", "partial"), ("partial", "partial"),
          ("co", "success"), ("có", "success"), ("yes", "success"),
          ("khong", "fail"), ("không", "fail"), ("no", "fail")]
+
+# Acceptance targets (owner, 2026-11-23; eval/uat/moderator_notes.md): (key, label, threshold)
+TARGETS = [
+    ("sus_mean", "Mean SUS ≥ 68", 68.0),
+    ("task_success", "Task success ≥ 80% (full successes, all attempts)", 0.80),
+    ("csat_4_5", "CSAT 4–5 ≥ 70% of testers", 0.70),
+    ("every_task", "Every task ≥ 60%", 0.60),
+]
 
 # Sauro & Lewis (2016), curved grading scale: (lowest score of the grade, grade)
 SUS_GRADES = [(84.1, "A+"), (80.8, "A"), (78.9, "A-"), (77.2, "B+"), (74.1, "B"), (72.6, "B-"),
@@ -126,6 +136,8 @@ def read_responses(path: Path) -> list[dict]:
         out.append({
             "id": get("ID").strip().upper() or None,
             "group": get("GROUP").strip() or None,
+            "device": get("DEVICE").strip() or None,
+            "photo": get("PHOTO").strip() or None,
             "sus": sus if all(a is not None for a in sus) else None,
             "csat": _int(get("CSAT")),
             "ease": {t: _int(get(t)) for t in TASKS if t in cols},
@@ -163,12 +175,17 @@ def summarize(responses: list[dict], observations: list[dict] | None = None) -> 
         s["sus"] = {"mean": m, "ci95": [lo, hi], "sd": statistics.stdev(xs) if len(xs) > 1 else 0.0,
                     "median": statistics.median(xs), "min": min(xs), "max": max(xs),
                     "grade": sus_grade(m), "above_68": sum(x > 68 for x in xs)}
-        groups: dict[str, list[float]] = defaultdict(list)
-        for r in responses:
-            if r["sus"] and r.get("group"):
-                groups[r["group"]].append(sus_score(r["sus"]))
-        if groups:
-            s["sus_by_group"] = {g: {"n": len(v), "mean": statistics.fmean(v)} for g, v in sorted(groups.items())}
+        for key in ("group", "device"):
+            groups: dict[str, list[float]] = defaultdict(list)
+            for r in responses:
+                if r["sus"] and r.get(key):
+                    groups[r[key]].append(sus_score(r["sus"]))
+            if groups:
+                s[f"sus_by_{key}"] = {g: {"n": len(v), "mean": statistics.fmean(v)}
+                                      for g, v in sorted(groups.items())}
+    photos = Counter(r["photo"] for r in responses if r.get("photo"))
+    if photos:
+        s["free_question_photo"] = dict(photos.most_common())
     cs = [r["csat"] for r in responses if r["csat"] in (1, 2, 3, 4, 5)]
     if cs:
         k = sum(c >= 4 for c in cs)
@@ -206,11 +223,33 @@ def summarize(responses: list[dict], observations: list[dict] | None = None) -> 
         s["task_success"] = {"attempts": n, "success": k, "partial": kp, "rate": k / n,
                              "ci95": list(wilson(k, n)), "rate_with_partial_half": (k + kp / 2) / n,
                              "participants": len({o["participant"] for o in observations})}
+        device = {r["id"]: r["device"] for r in responses if r.get("id") and r.get("device")}
+        by_dev: dict[str, list[dict]] = defaultdict(list)
+        for o in observations:
+            if o["participant"] in device:
+                by_dev[device[o["participant"]]].append(o)
+        if by_dev:
+            s["task_success_by_device"] = {
+                d: {"attempts": len(v), "rate": sum(o["outcome"] == "success" for o in v) / len(v)}
+                for d, v in sorted(by_dev.items())}
         issues = Counter()
         for p, tags in _issues_by_participant(observations).items():
             issues.update(tags)         # each participant counts a tag once
         s["issues"] = issues.most_common()
+    s["targets"] = check_targets(s)
     return s
+
+
+def check_targets(s: dict) -> list[dict]:
+    """Each target: its value (None when there is no data yet) and whether it passes."""
+    values = {
+        "sus_mean": s.get("sus", {}).get("mean"),
+        "task_success": s.get("task_success", {}).get("rate"),
+        "csat_4_5": s.get("csat", {}).get("share_4_5"),
+        "every_task": min((t["success_rate"] for t in s["tasks"].values()), default=None) if "tasks" in s else None,
+    }
+    return [{"key": k, "label": label, "threshold": th, "value": values[k],
+             "pass": None if values[k] is None else values[k] >= th} for k, label, th in TARGETS]
 
 
 def _issues_by_participant(observations: list[dict]) -> dict[str, set[str]]:
@@ -226,6 +265,17 @@ def _pct(x: float) -> str:
 
 def format_report(s: dict) -> str:
     out = ["# UAT results", "", f"Form responses: {s['responses']} (SUS complete: {s['sus_n']})", ""]
+    if s.get("targets"):
+        out += ["## Acceptance targets", "", "| Target | Result | Pass |", "|---|---:|---|"]
+        for t in s["targets"]:
+            v = t["value"]
+            shown = "–" if v is None else (f"{v:.1f}" if t["key"] == "sus_mean" else _pct(v))
+            if t["key"] == "every_task" and v is not None:
+                worst = min(s["tasks"], key=lambda k: s["tasks"][k]["success_rate"])
+                shown += f" (lowest: {worst})"
+            ok = "no data" if t["pass"] is None else ("✅ pass" if t["pass"] else "❌ fail")
+            out.append(f"| {t['label']} | {shown} | {ok} |")
+        out.append("")
     if "sus" in s:
         u = s["sus"]
         out += ["## SUS", "",
@@ -233,10 +283,11 @@ def format_report(s: dict) -> str:
                 f"grade **{u['grade']}** on the Sauro-Lewis scale (68 = average).",
                 f"- SD {u['sd']:.1f}, median {u['median']:.1f}, range {u['min']:.1f}–{u['max']:.1f}; "
                 f"{u['above_68']} of {s['sus_n']} above 68.", ""]
-        if "sus_by_group" in s:
-            out += ["| Group | n | mean SUS |", "|---|---:|---:|"]
-            out += [f"| {g} | {r['n']} | {r['mean']:.1f} |" for g, r in s["sus_by_group"].items()]
-            out.append("")
+        for key, head in (("group", "Group"), ("device", "Device")):
+            if f"sus_by_{key}" in s:
+                out += [f"| {head} | n | mean SUS |", "|---|---:|---:|"]
+                out += [f"| {g} | {r['n']} | {r['mean']:.1f} |" for g, r in s[f"sus_by_{key}"].items()]
+                out.append("")
     if "csat" in s:
         c = s["csat"]
         lo, hi = c["share_4_5_ci95"]
@@ -261,11 +312,18 @@ def format_report(s: dict) -> str:
             out.append(f"| {name} | {r['n']} | {r['success']} | {r['partial']} | {r['fail']} | "
                        f"{_pct(r['success_rate'])} ({_pct(lo)}–{_pct(hi)}) | {tm} | {e} |")
         out.append("")
+        if "task_success_by_device" in s:
+            out += ["Task success by device: " + "; ".join(
+                f"{d} {_pct(r['rate'])} of {r['attempts']}" for d, r in s["task_success_by_device"].items()), ""]
         if s["issues"]:
             out += ["## Issues (participants reporting each tag)", ""]
             out += [f"- `{tag}`: {n}" for tag, n in s["issues"][:10]]
             out.append("")
-    elif "task_ease" in s:
+    if "free_question_photo" in s:
+        out += ["## Free questions: whose photo", ""]
+        out += [f"- {p}: {n}" for p, n in s["free_question_photo"].items()]
+        out.append("")
+    if "task_ease" in s and "tasks" not in s:
         out += ["## Task ease (self-reported, 1–5)", ""]
         out += [f"- {t}: {r['mean']:.1f} (n = {r['n']})" for t, r in s["task_ease"].items()]
         out.append("")
