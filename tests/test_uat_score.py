@@ -162,3 +162,32 @@ def test_log_wins_over_self_report(tmp_path):
     resp = [{"id": "P01", "group": None, "sus": None, "csat": None, "ease": {}, "done": {"T1": "success"}}]
     s = summarize(resp, read_observations(obs))
     assert s["task_source"] == "observed" and s["task_success"]["success"] == 0
+
+
+def _resp(pid, sus, csat, done, device=None, photo=None):
+    return {"id": pid, "group": None, "device": device, "photo": photo, "sus": sus, "csat": csat,
+            "ease": {}, "done": done}
+
+
+def test_targets_pass_and_fail():
+    ok = {f"T{i}": "success" for i in range(1, 6)}
+    rs = [_resp("P01", BEST, 5, ok, "Máy tính"), _resp("P02", [4, 2] * 5, 4, ok, "Điện thoại"),
+          _resp("P03", [4, 2] * 5, 3, {**ok, "T4": "fail"}, "Điện thoại", "Ảnh người điều phối gửi")]
+    s = summarize(rs)
+    t = {x["key"]: x for x in s["targets"]}
+    assert t["sus_mean"]["value"] == pytest.approx(250 / 3) and t["sus_mean"]["pass"]
+    assert t["task_success"]["value"] == pytest.approx(14 / 15) and t["task_success"]["pass"]
+    assert t["csat_4_5"]["value"] == pytest.approx(2 / 3) and t["csat_4_5"]["pass"] is False
+    assert t["every_task"]["value"] == pytest.approx(2 / 3) and t["every_task"]["pass"]
+    assert s["sus_by_device"]["Điện thoại"]["n"] == 2
+    assert s["task_success_by_device"]["Máy tính"] == {"attempts": 5, "rate": 1.0}
+    assert s["free_question_photo"] == {"Ảnh người điều phối gửi": 1}
+    rep = format_report(s)
+    assert "| CSAT 4–5 ≥ 70% of testers | 67% | ❌ fail |" in rep
+    assert "(lowest: T4)" in rep and "| Điện thoại | 2 |" in rep
+
+
+def test_targets_without_data():
+    s = summarize([_resp("P01", None, None, {})])
+    assert all(t["value"] is None and t["pass"] is None for t in s["targets"])
+    assert "no data" in format_report(s)

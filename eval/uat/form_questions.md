@@ -3,7 +3,8 @@
 Build the form exactly from this file.
 - **Every scored question's title starts with its code in square brackets** (`[ID]`, `[SUS1]` …). `eval/uat/score_sus.py` finds columns by these codes, so the codes must stay; the rest of the title can change.
 - Linear-scale questions export the number, which is what the script reads.
-- Choice questions (`[OK1]`…, `[GROUP]`) export the option text; keep the options' first words as written.
+- Choice questions (`[OK1]`…, `[GROUP]`, `[DEVICE]`, `[PHOTO]`) export the option text; keep the options' first words as written.
+- Built by the owner on 2026-11-23 to this spec, including `[DEVICE]` and `[PHOTO]`.
 - Mark every question **Required** except the open questions in section 5.
 - Settings: don't collect email addresses; don't limit to one response (testers may lack a Google account).
 
@@ -27,7 +28,7 @@ Description (paste as is):
 | `[GROUP]` | **[GROUP] Bạn thuộc nhóm nào nhất?** | Multiple choice | Người lái xe · Sinh viên · Người am hiểu luật giao thông (giảng viên, cán bộ, luật sư, giáo viên dạy lái…) · Khác |
 | — | Bạn có giấy phép lái xe không? | Multiple choice | Không có · Hạng A1/A (xe máy) · Hạng B trở lên (ô tô) |
 | — | Tuổi | Multiple choice | Dưới 18 · 18–24 · 25–34 · 35–49 · 50 trở lên |
-| — | Bạn đã dùng thiết bị nào để thử? | Multiple choice | Máy tính · Điện thoại · Máy tính bảng |
+| `[DEVICE]` | **[DEVICE] Bạn đã dùng thiết bị nào để thử?** | Multiple choice | Máy tính · Điện thoại · Máy tính bảng |
 | — | Bạn có hay dùng các trợ lý AI dạng trò chuyện (ChatGPT, Gemini…) không? | Multiple choice | Chưa bao giờ · Thỉnh thoảng · Hằng tuần · Hằng ngày |
 
 ## Section 3. Năm nhiệm vụ
@@ -46,6 +47,7 @@ For each task, ask two questions. `[OKn]` records whether the tester finished th
 | `[T4]` | **[T4] Nhiệm vụ 4 dễ hay khó?** | 1–5 |
 | `[OK5]` | **[OK5] Nhiệm vụ 5 (đánh giá câu trả lời, xem lại lịch sử): bạn có hoàn thành không?** | Có · Một phần · Không |
 | `[T5]` | **[T5] Nhiệm vụ 5 dễ hay khó?** | 1–5 |
+| `[PHOTO]` | **[PHOTO] Với 2 câu hỏi tự do, bạn đã dùng ảnh nào?** (optional) | Multiple choice: Ảnh tôi tự chụp từ trước · Ảnh tôi chụp bằng nút chụp ảnh trong SignCite · Ảnh người điều phối gửi |
 
 ## Section 4. Đánh giá chung (SUS)
 
