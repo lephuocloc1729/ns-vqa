@@ -3,7 +3,8 @@ name: Load test
 # Plan item 3.2: the capacity ramp (10 to 500 users) and the stress test (1000 users, then recovery)
 # against the whole Docker Compose stack (nginx, API, Postgres) with the fake pipeline: no Claude
 # calls, so the numbers measure our own system. One job per API_WORKERS value, each on its own
-# runner. Results: the job summary, and the artifact "load-<workers>-workers" (per-step tables,
+# runner; VQA_ANSWER_SLOTS sets the answers at once per process. Results: the job summary, and the
+# artifact "load-w<workers>-s<slots>" (per-step tables,
 # Locust's CSV and HTML, container CPU and memory).
 on:
   pull_request:                 # a change to the load test runs it (about 25 min)
@@ -13,6 +14,9 @@ on:
       step_seconds:
         description: Seconds per load step
         default: "60"
+      configs:
+        description: 'Setups to compare, as JSON: [{"workers": API processes, "slots": answers at once per process}]'
+        default: '[{"workers":1,"slots":1},{"workers":1,"slots":6},{"workers":2,"slots":1},{"workers":4,"slots":1}]'
 
 permissions:
   contents: read
@@ -24,9 +28,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        workers: [1, 2, 4]
+        cfg: ${{ fromJSON(inputs.configs || '[{"workers":1,"slots":1},{"workers":1,"slots":6},{"workers":2,"slots":1},{"workers":4,"slots":1}]') }}
+    name: load (${{ matrix.cfg.workers }} process(es), ${{ matrix.cfg.slots }} slot(s))
     env:
-      API_WORKERS: ${{ matrix.workers }}
+      API_WORKERS: ${{ matrix.cfg.workers }}
+      VQA_ANSWER_SLOTS: ${{ matrix.cfg.slots }}
       LOAD_STEP_S: ${{ inputs.step_seconds || '60' }}
     steps:
       - uses: actions/checkout@v4
@@ -38,7 +44,7 @@ jobs:
         run: |
           echo "CPU: $(nproc) x $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)" | tee machine.txt
           echo "RAM: $(free -g | awk '/Mem:/{print $2}') GB" | tee -a machine.txt
-      - name: Build and start the stack (fake pipeline, API_WORKERS=${{ matrix.workers }})
+      - name: Build and start the stack (fake pipeline, API_WORKERS=${{ matrix.cfg.workers }}, VQA_ANSWER_SLOTS=${{ matrix.cfg.slots }})
         run: docker compose up -d --build --wait --wait-timeout 300 web api postgres
       - name: Container CPU and memory, every 5 s
         run: |
@@ -70,7 +76,7 @@ jobs:
         if: always()
         run: |
           {
-            echo "## API_WORKERS=${{ matrix.workers }}"
+            echo "## API_WORKERS=${{ matrix.cfg.workers }}, VQA_ANSWER_SLOTS=${{ matrix.cfg.slots }}"
             cat machine.txt; echo
             echo "### Capacity"; cat out/capacity.md 2>/dev/null || echo "(no result)"
             echo "### Stress"; cat out/stress.md 2>/dev/null || echo "(no result)"
@@ -83,7 +89,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: load-${{ matrix.workers }}-workers
+          name: load-w${{ matrix.cfg.workers }}-s${{ matrix.cfg.slots }}
           path: out/
       - name: Stop
         if: always()
