@@ -114,9 +114,20 @@ export function TurnTable({ items, onOpen, showFeedback = false }: {
 const ROUTES = ["", "rules", "rag", "rag_cache", "fallback", "not_decided", "error"];
 const RATINGS: Record<string, string> = { "": "Mọi đánh giá", up: "👍", down: "👎", corrected: "Có sửa đáp án", none: "Chưa đánh giá" };
 
-export default function Turns({ range, onError }: { range: Range; onError: (e: unknown) => void }) {
-  const [route, setRoute] = useState("");
-  const [rating, setRating] = useState("");
+export interface TurnFilters {
+  route?: string;
+  verdict?: string;
+  rating?: string;
+}
+
+export default function Turns({ range, onError, initial = {} }: {
+  range: Range;
+  onError: (e: unknown) => void;
+  initial?: TurnFilters;
+}) {
+  const [route, setRoute] = useState(initial.route ?? "");
+  const [verdict, setVerdict] = useState(initial.verdict ?? "");
+  const [rating, setRating] = useState(initial.rating ?? "");
   const [account, setAccount] = useState("");
   const [q, setQ] = useState("");
   const [offset, setOffset] = useState(0);
@@ -124,14 +135,14 @@ export default function Turns({ range, onError }: { range: Range; onError: (e: u
   const [open, setOpen] = useState<string | null>(null);
   const limit = 50;
 
-  useEffect(() => setOffset(0), [range, route, rating, account, q]);
+  useEffect(() => setOffset(0), [range, route, verdict, rating, account, q]);
   useEffect(() => {
     const t = window.setTimeout(() => {
-      admin.turns(range, { route, rating, account: account.trim().toLowerCase(), q: q.trim(), limit, offset })
+      admin.turns(range, { route, verdict, rating, account: account.trim().toLowerCase(), q: q.trim(), limit, offset })
         .then(setPage, onError);
     }, 250);
     return () => window.clearTimeout(t);
-  }, [range, route, rating, account, q, offset, onError]);
+  }, [range, route, verdict, rating, account, q, offset, onError]);
 
   return (
     <div className="adm-stack">
@@ -139,12 +150,17 @@ export default function Turns({ range, onError }: { range: Range; onError: (e: u
         <select value={route} onChange={(e) => setRoute(e.target.value)} aria-label="Cách trả lời">
           {ROUTES.map((r) => <option key={r} value={r}>{r ? ROUTE[r] : "Mọi cách trả lời"}</option>)}
         </select>
+        <select value={verdict} onChange={(e) => setVerdict(e.target.value)} aria-label="Kết luận">
+          <option value="">Mọi kết luận</option>
+          {Object.entries(VERDICT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
         <select value={rating} onChange={(e) => setRating(e.target.value)} aria-label="Đánh giá">
           {Object.entries(RATINGS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         <input value={account} onChange={(e) => setAccount(e.target.value)} placeholder="Tài khoản" aria-label="Tài khoản" />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm trong câu hỏi, câu trả lời" aria-label="Tìm" />
       </div>
+      {page && <p className="adm-muted">{page.total} câu hỏi</p>}
       {page && <TurnTable items={page.items} onOpen={setOpen} />}
       {page && page.total > limit && (
         <div className="adm-pager">
