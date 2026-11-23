@@ -35,10 +35,12 @@ services:
       VQA_RAG_URL: ${VQA_RAG_URL:-http://rag:8100}
       VQA_SPEND_LIMIT: ${VQA_SPEND_LIMIT:-2}
       VQA_ANSWER_SLOTS: ${VQA_ANSWER_SLOTS:-1}   # questions answered at once (docs/plans/concurrent-answers.md)
+      VQA_RAG_CACHE: ${VQA_RAG_CACHE:-on}          # repeated RAG questions answered from the RAG's own earlier answer (off disables)
+      VQA_RAG_CACHE_DIR: /app/var/rag_cache
       VQA_CORS_ORIGINS: ${VQA_CORS_ORIGINS:-*}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     volumes:
-      - uploads:/app/var
+      - uploads:/app/var                # uploads, and the RAG answer cache (var/rag_cache)
       - scenes:/app/cache/scenes        # the scene cache (model outputs only)
       - apilogs:/app/logs               # the Claude usage log (tokens, cost)
     depends_on:

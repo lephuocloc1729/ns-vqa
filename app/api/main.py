@@ -133,6 +133,10 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
         if settings.answer_fallback == "rag":
             from vqa.answer.rag_fallback import RagFallback
             pipe.fallback = RagFallback(settings.rag_url, timeout=settings.rag_timeout_s)
+            if settings.rag_cache:                 # the RAG's own earlier answers, for repeats
+                from app.api.rag_cache import CachedRagFallback, RagAnswerCache
+                pipe.fallback = CachedRagFallback(pipe.fallback, RagAnswerCache(
+                    settings.rag_cache_dir, max_days=settings.rag_cache_max_days))
         return pipe
 
     runner = PipelineRunner(pipeline_factory or default_factory, slots=settings.answer_slots)
@@ -220,7 +224,8 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
     @app.get("/version")
     def version() -> dict[str, Any]:
         return {"profile": settings.profile, "pipeline": PROFILES.get(settings.profile),
-                "answer_fallback": settings.answer_fallback, "answer_slots": runner.slots}
+                "answer_fallback": settings.answer_fallback, "answer_slots": runner.slots,
+                "rag_cache": settings.rag_cache and settings.answer_fallback == "rag"}
 
     @app.get("/metrics")
     def prom() -> Response:
