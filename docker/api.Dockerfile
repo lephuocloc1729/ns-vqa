@@ -4,12 +4,14 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     PATH=/opt/venv/bin:$PATH
+# SWI-Prolog from its PPA with a retry and a version check (docker/install-swipl.sh): an unreachable
+# PPA must fail the build, not silently install Ubuntu's older swi-prolog
+COPY docker/install-swipl.sh /tmp/install-swipl.sh
 RUN apt-get update -q \
  && apt-get install -y -q --no-install-recommends software-properties-common gpg-agent ca-certificates curl \
- && add-apt-repository -y ppa:swi-prolog/stable \
- && apt-get update -q \
- && apt-get install -y -q --no-install-recommends swi-prolog-nox python3 python3-venv python3-dev build-essential \
- && rm -rf /var/lib/apt/lists/* \
+    python3 python3-venv python3-dev build-essential \
+ && bash /tmp/install-swipl.sh \
+ && rm -rf /var/lib/apt/lists/* /tmp/install-swipl.sh \
  && python3 -m venv /opt/venv
 
 WORKDIR /app
