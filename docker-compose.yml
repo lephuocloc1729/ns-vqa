@@ -76,9 +76,9 @@ services:
 
   prometheus:                           # metrics: the API's /metrics and the server's CPU/RAM
     image: prom/prometheus:v2.55.1
-    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=30d"]
+    command: ["--config.file=/etc/signcite-prometheus/prometheus.yml", "--storage.tsdb.retention.time=30d"]
     volumes:
-      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/prometheus:/etc/signcite-prometheus:ro   # the folder: see the Caddyfile note in docker-compose.https.yml
       - promdata:/prometheus
     ports: ["127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"]
     extra_hosts: ["host.docker.internal:host-gateway"]
