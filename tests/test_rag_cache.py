@@ -172,3 +172,59 @@ def test_the_setting_reads_on_by_default_and_off_when_asked(monkeypatch):
     for off in ("off", "0", "false", "OFF"):
         monkeypatch.setenv("VQA_RAG_CACHE", off)
         assert Settings.from_env().rag_cache is False
+
+
+def test_the_stored_turn_and_the_metrics_show_a_cache_hit(tmp_path, monkeypatch):
+    """Through the API and the real pipeline: the repeat is answered from the cache, and the stored
+    turn (raw replies are not stored) and /metrics say so."""
+    import io
+    from types import SimpleNamespace
+
+    from fastapi.testclient import TestClient
+    from PIL import Image
+
+    import vqa.pipeline as pl
+    from app.api.main import create_app
+    from app.api.settings import Settings
+    from test_api import sse_events
+    from test_pipeline import warm
+
+    monkeypatch.setenv("VQA_LOG_DIR", str(tmp_path / "logs"))
+    buf = io.BytesIO()
+    Image.new("RGB", (640, 480), (90, 120, 200)).save(buf, format="JPEG")
+    photo = tmp_path / "p.jpg"
+    photo.write_bytes(buf.getvalue())
+    scenes = warm(tmp_path, photo)
+
+    class SDK:                                    # the parser sends every question to the fallback
+        messages = property(lambda self: self)
+
+        def count_tokens(self, **kw):
+            return SimpleNamespace(input_tokens=100)
+
+        def create(self, **kw):
+            r = {"program": None, "out_of_scope": True, "out_of_scope_reason": "law text"}
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text=json.dumps(r))], stop_reason="end_turn",
+                                   stop_details=None, _request_id="r",
+                                   usage=SimpleNamespace(input_tokens=10, output_tokens=5, cache_read_input_tokens=0,
+                                                         cache_creation_input_tokens=0))
+
+    fb, inner, _ = cached(tmp_path)
+
+    def make():
+        pipe = pl.Pipeline(pl.PipelineConfig(cache_dir=scenes, cache_only=True, max_spend=1.0), sdk=SDK())
+        pipe.fallback = fb
+        return pipe
+
+    s = Settings(database_url=f"sqlite:///{tmp_path / 'a.db'}", upload_dir=tmp_path / "up", answer_fallback="rag")
+    c = TestClient(create_app(s, pipeline_factory=make))
+    hits = []
+    for _ in range(2):
+        ev = dict(sse_events(c.post("/v1/ask/stream", data={"question": "Biển này nghĩa là gì?"},
+                                    files={"image": ("p.jpg", photo.read_bytes(), "image/jpeg")}).text))
+        assert ev["answer"]["answered_by"] == "fallback" and "rag" in ev["answer"]["basis"]
+        turn = c.get(f"/v1/turns/{ev['turn']['turn_id']}").json()
+        hits.append(turn["stages"]["fallback"]["cache_hit"])
+    assert hits == [False, True] and inner.calls == 1
+    body = c.get("/metrics").text
+    assert 'vqa_rag_cache_total{result="miss"} 1.0' in body and 'vqa_rag_cache_total{result="hit"} 1.0' in body

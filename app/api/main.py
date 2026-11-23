@@ -103,8 +103,24 @@ def stage_summary(trace: dict[str, Any]) -> dict[str, Any]:
         "fallback": ("trigger", "status", "attempts", "cost_usd", "prompt_id"),
         "writer": ("status", "attempts", "cost_usd", "prompt_id", "cited_signs", "cited_rules"),
     }
-    return {stage: {k: trace[stage][k] for k in fields if k in trace[stage]}
-            for stage, fields in keep.items() if isinstance(trace.get(stage), dict)}
+    out = {stage: {k: trace[stage][k] for k in fields if k in trace[stage]}
+           for stage, fields in keep.items() if isinstance(trace.get(stage), dict)}
+    hit = rag_cache_hit(trace)
+    if hit is not None:
+        out["fallback"]["cache_hit"] = hit                     # a RAG answer: cached or fresh
+    return out
+
+
+def rag_cache_hit(trace: dict[str, Any]) -> bool | None:
+    """For a RAG fallback answer, whether it came from the RAG answer cache; else None."""
+    fb = trace.get("fallback") if isinstance(trace, dict) else None
+    if not isinstance(fb, dict) or fb.get("status") != "ok" or not str(fb.get("prompt_id", "")).startswith("rag"):
+        return None
+    try:
+        record = json.loads((fb.get("raw") or ["{}"])[-1])
+    except (TypeError, ValueError):
+        return False
+    return bool(isinstance(record, dict) and record.get("cache_hit"))
 
 
 class Metrics:
@@ -116,6 +132,8 @@ class Metrics:
         self.seconds = Histogram("vqa_answer_seconds", "Seconds per answer", registry=self.registry,
                                  buckets=(1, 2, 5, 10, 15, 20, 30, 45, 60, 90, 120))
         self.feedback = Counter("vqa_feedback", "Feedback received, by kind", ["kind"], registry=self.registry)
+        self.rag_cache = Counter("vqa_rag_cache", "RAG fallback answers, from the answer cache or fresh",
+                                 ["result"], registry=self.registry)
         self.stage = Histogram("vqa_stage_seconds", "Seconds from start to each stage event", ["stage"],
                                registry=self.registry, buckets=(0.5, 1, 2, 5, 10, 15, 20, 30, 60))
 
@@ -205,6 +223,9 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
         metrics.answers.labels(result.answered_by).inc()
         metrics.cost.labels(result.answered_by).inc(result.cost_usd or 0.0)
         metrics.seconds.observe(result.seconds or 0.0)
+        hit = rag_cache_hit(result.trace or {})
+        if hit is not None:
+            metrics.rag_cache.labels("hit" if hit else "miss").inc()
         return store.finish_turn(turn_id, status="done", answer_text=result.text, verdict=result.verdict,
                                  answered_by=result.answered_by, basis=basis, retrieved=retrieved,
                                  citations=list(result.citations), proof=result.proof, signs=signs,
