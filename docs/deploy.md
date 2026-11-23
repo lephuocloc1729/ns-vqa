@@ -102,6 +102,7 @@ With `VQA_ANSWER_FALLBACK=rag`, and `VQA_RAG_CACHE` on (the default; `off` disab
 - **Why the answers are the same:** the RAG at one slot answers identically every time (`docs/results/rag-concurrency-2026-11-23.md`). The answer is still marked as a RAG answer, and its trace records `cache_hit`.
 - **What is kept:** only successful answers given while the RAG runs one question at a time. Answers cached under one RAG version are never used for another.
 - **When the GPU is off:** cached answers still serve, and new questions get the rules' answer.
+- **Connecting the server to a rented GPU:** `docker/rag-session.sh on|off` with the `rag-tunnel` service (`docs/runbooks/gpu-session.md`).
 - **Storage:** `var/rag_cache` in the `uploads` volume (a few KB per answer, at most 20,000; `VQA_RAG_CACHE_MAX_DAYS` can add an age limit).
 - **Inspect or clear it** (for example before the UAT):
 

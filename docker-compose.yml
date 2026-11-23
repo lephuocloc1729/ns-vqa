@@ -105,6 +105,35 @@ services:
           devices: [{ driver: nvidia, count: 1, capabilities: [gpu] }]
     restart: unless-stopped
 
+  rag-tunnel:                           # the RAG on a rented GPU, reached over SSH (docker/rag-session.sh)
+    profiles: ["rag-tunnel"]            # on only during a GPU session; the API then uses http://rag-tunnel:8100
+    image: alpine:3.20
+    # one SSH connection to the GPU machine, forwarding its RAG port to this stack's internal network
+    # only (nothing is published on the server). The key is the server's own, mounted read-only.
+    # vast.ai gives each machine new host keys, so the first connection's key is accepted and kept
+    # for the life of the container.
+    command:
+      - sh
+      - -c
+      - >-
+        apk add --no-cache openssh-client > /dev/null &&
+        exec ssh -N -i /run/rag-key -p "$$RAG_SSH_PORT"
+        -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/tmp/known_hosts
+        -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes
+        -o GatewayPorts=yes -L 0.0.0.0:8100:localhost:8100 "root@$$RAG_SSH_HOST"
+    environment:
+      RAG_SSH_HOST: ${RAG_SSH_HOST:-}
+      RAG_SSH_PORT: ${RAG_SSH_PORT:-22}
+    volumes:
+      - ${RAG_SSH_KEY:-./secrets/rag_tunnel_ed25519}:/run/rag-key:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8100/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
 volumes:
   uploads:
   scenes:

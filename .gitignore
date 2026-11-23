@@ -55,3 +55,6 @@ var/
 
 # Docker Compose secrets (API key, passwords): never committed
 .env
+
+# the demo server's own keys (docker/rag-session.sh)
+secrets/

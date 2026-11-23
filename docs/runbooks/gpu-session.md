@@ -53,6 +53,37 @@ uvicorn --factory text_based_rag.service_api:create_app --host 0.0.0.0 --port 81
 
 **Without the image:** use a CUDA PyTorch template, `git clone` the repo, `cd services/rag`, and run the same two commands. Packages then install with `uv` (a few minutes).
 
+## Connect the demo server (signcite.xyz) to the GPU
+
+The server reaches the RAG through the `rag-tunnel` service: one SSH connection from the server to the GPU, forwarding the RAG's port to the stack's internal network only. Nothing is published on the server, and the vast.ai key never leaves the Mac.
+
+**Once:**
+- On the server: `cd /opt/signcite && bash docker/rag-session.sh key`. This makes the server's own key (`secrets/rag_tunnel_ed25519`, root only) and prints its public half.
+- Add that public key in vast.ai under **Account › SSH keys**, so every rented machine accepts it.
+
+**Each session:**
+1. Rent the GPU as above, and wait until its `curl localhost:8100/health` says ok.
+2. On the server:
+
+   ```bash
+   cd /opt/signcite && bash docker/rag-session.sh on <host> <port>
+   ```
+
+   Use the GPU's SSH host and port, as vast.ai shows them. The script:
+   - starts the tunnel and waits for the RAG to answer through it;
+   - sets `VQA_ANSWER_FALLBACK=rag` and `VQA_RAG_URL=http://rag-tunnel:8100`;
+   - restarts the API and prints both `/version`s.
+
+   The RAG answer cache is on by itself.
+3. Check on signcite.xyz:
+   - an undecided question gets a RAG answer (the "Trả lời bằng RAG" badge, with laws);
+   - the same question again is instant, and its turn has `stages.fallback.cache_hit: true`.
+
+   `bash docker/rag-session.sh status` shows the state.
+4. **Before destroying the GPU:** `bash docker/rag-session.sh off`. The fallback goes back to off and the tunnel stops.
+   - CD never waits for the tunnel, so a forgotten `off` cannot block a deploy.
+   - But undecided questions would try a RAG that is gone, until `off` is run.
+
 ## What a session downloads (2026-11-23)
 
 - **`rag_bundle`, every session:** what the RAG service needs, and **no test-split file**.

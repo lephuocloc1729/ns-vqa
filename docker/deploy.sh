@@ -28,7 +28,11 @@ echo "deploy: api $API_OLD -> $API_NEW"
 echo "deploy: web $WEB_OLD -> $WEB_NEW"
 
 check() {   # the stack is healthy: containers, the API's own health, and the public HTTPS entry
-  docker compose up -d --no-build --wait --wait-timeout 180 || return 1
+  # every service except the GPU tunnel, whose health depends on a rented machine being up
+  local core
+  core=$(docker compose config --services | grep -vx rag-tunnel | tr '\n' ' ')
+  # shellcheck disable=SC2086
+  docker compose up -d --no-build --wait --wait-timeout 180 $core || return 1
   docker compose exec -T api python -c "
 import json, urllib.request
 h = json.load(urllib.request.urlopen('http://127.0.0.1:8000/health'))
