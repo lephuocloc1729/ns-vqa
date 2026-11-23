@@ -372,6 +372,12 @@ class Progress:
             self.report()
 
 
+def _parallel():
+    """RAG_LLAMA_PARALLEL (default 1, the benchmarked setting): requests the server runs at once,
+    each slot keeping the full context."""
+    return max(1, int(os.environ.get('RAG_LLAMA_PARALLEL', '1')))
+
+
 class Server:
     def __init__(self, model_path=None, projector_path=None):
         self.process = None
@@ -396,7 +402,8 @@ class Server:
         self.url = f'http://127.0.0.1:{port}'
         cmd = [str(qa.SERVER), '-m', str(self.model_path or qa.CORPUS_MODEL),
                '--host', '127.0.0.1', '--port', str(port),
-               '-c', str(context), '-ngl', 'all', '--parallel', '1', '--jinja', '--reasoning', 'off']
+               '-c', str(int(os.environ.get('RAG_LLAMA_SLOT_CONTEXT', str(context))) * _parallel()), '-ngl', 'all', '--parallel', str(_parallel()),
+               '--jinja', '--reasoning', 'off']
         if vision:
             projector = self.projector_path or cap.PROJECTOR
             if not projector.is_file():
