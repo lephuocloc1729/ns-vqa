@@ -14,7 +14,9 @@ services:
     environment:
       DOMAIN: ${DOMAIN:?set DOMAIN in .env, e.g. DOMAIN=signcite.xyz}
     volumes:
-      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # the folder, not the file: a deploy unpacks a new Caddyfile (a new file on disk), and a mounted
+      # single file keeps showing the old one until the container is recreated (seen 2026-11-23)
+      - ./docker/caddy:/etc/caddy:ro
       - caddy_data:/data                # the certificates and the ACME account: keep this volume
       - caddy_config:/config
     depends_on: [web]
