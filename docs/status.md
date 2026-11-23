@@ -100,7 +100,7 @@ Plan: `docs/plans/task-3-review-3.md` (proposed; 9-day schedule). All work goes 
 - **Spend** this session (owner's go-ahead): about $0.10 on 2026-11-22 and $0.15 on 2026-11-23, plus two short GPU rentals.
 
 **Next, before Review 3 (2026-11-30):**
-1. **UAT**: the pack (task sheet, SUS/CSAT form, `eval/uat/score_sus.py`, moderator notes, report template).
+1. **UAT**: the pack is ready in `eval/uat/` (`README.md`: task sheet, form questions with SUS in Vietnamese, moderator notes, observation log, `score_sus.py`, `turn_stats.py` for the server's aggregates, report template).
    - Owner: recruit 15–20 testers, take ~5 street photos for the fixed tasks, decide the spend cap (about $15–20 suggested) and the format.
    - Sessions around 26–28/11, with a GPU rented for their hours (`rag-session.sh on`/`off`); the RAG cache was cleared on 2026-11-23.
 2. **A 3–5 minute backup demo video.**
