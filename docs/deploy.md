@@ -40,6 +40,13 @@ The UI shows a red banner, so the fake is never mistaken for the real system. CI
 
 Nothing depends on absolute paths or a personal environment. Every setting has a default in `docker-compose.yml`, and `.env.example` lists them all.
 
+**The API image starts FROM the SignCite base image** (`ghcr.io/lephuocloc1729/signcite-base`, pinned by tag in `docker/api.Dockerfile`).
+- It holds Ubuntu 24.04, Python 3.12 and SWI-Prolog 11.0.0, built by `.github/workflows/base-image.yml`, so building the API image never needs Launchpad.
+- The package is private, like the repo. On a new machine, do one of:
+  - `docker login ghcr.io` first, with a token that can read packages;
+  - build the base locally under the same tag: `docker build -f docker/base.Dockerfile -t <the tag in api.Dockerfile> .` (this one step needs Launchpad);
+  - have the owner make the `signcite-base` package public; it holds no project code.
+
 ## The real system (phase52 pipeline)
 
 1. **`.env`** (gitignored; copy `.env.example`):
