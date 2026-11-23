@@ -55,7 +55,9 @@ ROOT = qa.ROOT
 DATASET = ROOT / "data/raw/VLSP2025-MLQA-Natural/dataset"
 CORPUS_CHUNKS = ROOT / "artifacts/experiments/text_based_rag/natural_qa/t768_o64/f2llm-v2-0.6b/train"
 TRAIN_EMBEDDINGS = ROOT / "artifacts/experiments/text_based_rag/natural_qa/query_embeddings/f2llm-v2-0.6b"
-CAPTION_REFERENCE = ROOT / "artifacts/public-test/text_based_rag/natural_qa/image_captioning/manifest.json"
+# the caption settings the RAG was evaluated with, kept beside the code so the service reads no
+# test-split file (copied from the public-test caption manifest; tests/test_service.py checks it)
+CAPTION_SETTINGS = Path(__file__).with_name("caption_settings.json")
 
 # Configuration C: the README run command, the saved runs and the live private run.
 CONFIG_C = {
@@ -331,7 +333,7 @@ class RagEngine:
         if len(kept) < TOP_K:
             raise ValueError("Not enough natural train examples with valid citations.")
         train = bank_rows = kept
-        args = SimpleNamespace(split="public_test", caption_dir=None, train_caption_dir=None,
+        args = SimpleNamespace(split="train", caption_dir=None, train_caption_dir=None,
                                allow_incomplete_captions=True)
         train_captions, _ = runner.load_fresh_caption_artifacts(train, self.root, "train", args, qa)
         bank_encoder = runner.CachedNaturalEncoder(CONFIG_C["embedding_model"], train_manifest["encoder"])
@@ -364,8 +366,7 @@ class RagEngine:
     def start(self) -> None:
         """Load the bank, the encoder and both warm llama-servers (GPU machine)."""
         self.load_bank()
-        ref = json.loads(CAPTION_REFERENCE.read_text(encoding="utf-8-sig"))
-        settings = dict(ref["settings"])
+        settings = dict(json.loads(CAPTION_SETTINGS.read_text(encoding="utf-8"))["settings"])
         if settings.get("prompt") != cap.QUERY_PROMPT or settings.get("max_new_tokens") != cap.MAX_NEW_TOKENS:
             raise RuntimeError("the caption prompt or token limit differs from the reference artifacts")
         settings.update(model=str(cap.CORPUS_MODEL), projector=str(cap.PROJECTOR))

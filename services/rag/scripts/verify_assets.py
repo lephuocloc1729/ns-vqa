@@ -31,12 +31,16 @@ def main() -> int:
     ap.add_argument("--cuda", action="store_true", help="also check the weights and llama.cpp downloads")
     ap.add_argument("--quick", action="store_true", help="check sizes only")
     ap.add_argument("--no-private", action="store_true",
-                    help="skip the private-test caches and dataset folder (the GPU bundle leaves them out)")
+                    help="skip the private-test caches and dataset folder (the GPU bundles leave them out)")
+    ap.add_argument("--with-public", action="store_true",
+                    help="with --no-private: also check the public-test caches and data (rag_eval_bundle); "
+                         "without it a GPU machine has the service bundle only")
     args = ap.parse_args()
     m = json.loads((ROOT / "assets_manifest.json").read_text(encoding="utf-8"))
     problems: list[str] = []
 
-    files = [e for e in m["files"] if not (args.no_private and e["kind"] == "cache-private")]
+    skip = ({"cache-private"} | (set() if args.with_public else {"cache-public"})) if args.no_private else set()
+    files = [e for e in m["files"] if e["kind"] not in skip]
     for e in files:
         p = ROOT / e["path"]
         if not p.is_file():
@@ -47,7 +51,7 @@ def main() -> int:
             problems.append(f"sha256 differs: {e['path']}")
 
     for link, target in m["dataset_links"].items():
-        if args.no_private and "private_test" in link:
+        if args.no_private and ("private_test" in link or ("public_test" in link and not args.with_public)):
             continue
         p = ROOT / link
         if not p.is_symlink():

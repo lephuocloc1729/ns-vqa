@@ -283,3 +283,69 @@ def test_llama_servers_get_slots_with_the_full_context_each(monkeypatch, tmp_pat
     svc.CaptionServer(65536).launch(tmp_path)
     runner.Server().launch(type("Run", (), {"folder": tmp_path})(), False, 65536)
     assert [flag(c, "-c") for c in seen] == ["131072", "131072"]
+
+
+# ---------------------------------------------------------------------------- no test-split files
+TEST_SPLIT = ("public-test", "public_test", "private_test", "private-test")
+REFERENCE = svc.ROOT / "artifacts/public-test/text_based_rag/natural_qa/image_captioning/manifest.json"
+
+
+def test_the_service_code_names_no_test_split_path():
+    """The service needs no test-split file (owner, 2026-11-23): its code names none."""
+    for name in ("service.py", "service_api.py"):
+        code = [ln for ln in (Path(svc.__file__).with_name(name)).read_text(encoding="utf-8").splitlines()
+                if not ln.lstrip().startswith("#")]
+        assert not [ln for ln in code if any(w in ln for w in TEST_SPLIT)], name
+
+
+@pytest.mark.skipif(not REFERENCE.is_file(), reason="the public-test caption manifest is not present")
+def test_the_caption_settings_are_the_evaluated_ones():
+    """caption_settings.json is the public-test manifest's settings block, unchanged."""
+    ref = json.loads(REFERENCE.read_text(encoding="utf-8-sig"))["settings"]
+    assert json.loads(svc.CAPTION_SETTINGS.read_text(encoding="utf-8"))["settings"] == ref
+
+
+def test_the_caption_settings_match_the_code():
+    s = json.loads(svc.CAPTION_SETTINGS.read_text(encoding="utf-8"))["settings"]
+    assert s["prompt"] == svc.cap.QUERY_PROMPT and s["max_new_tokens"] == svc.cap.MAX_NEW_TOKENS
+    assert s["context_size"] == 16384 and s["temperature"] == 0 and s["seed"] == 2025
+
+
+@needs_assets
+def test_starting_the_engine_opens_no_test_split_file(monkeypatch):
+    """With every runtime file present (test-split ones too), loading the bank and the caption
+    settings never opens a test-split path."""
+    import builtins
+    opened = []
+    real_open, real_read = builtins.open, Path.read_text
+
+    def spy_open(file, *a, **k):
+        opened.append(str(file))
+        return real_open(file, *a, **k)
+
+    def spy_read(self, *a, **k):
+        opened.append(str(self))
+        return real_read(self, *a, **k)
+
+    monkeypatch.setattr(builtins, "open", spy_open)
+    monkeypatch.setattr(Path, "read_text", spy_read)
+    eng = svc.RagEngine()
+    eng.load_bank()
+    settings = json.loads(svc.CAPTION_SETTINGS.read_text(encoding="utf-8"))["settings"]
+    assert settings["context_size"] == 16384
+    assert opened and not [p for p in opened if any(w in p for w in TEST_SPLIT)]
+
+
+def test_the_service_bundle_holds_no_test_split_file():
+    """make_bundle's service bundle: no path with private, public or test in it; the eval bundle
+    holds the public-test files and nothing private."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("make_bundle", svc.ROOT / "scripts/make_bundle.py")
+    mb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mb)
+    links = json.loads((svc.ROOT / "assets_manifest.json").read_text(encoding="utf-8"))["dataset_links"]
+    if not all((svc.ROOT / d).exists() for d in links if "private" not in d):
+        pytest.skip("the dataset links are not present")
+    service, evaluation = mb.members("service"), mb.members("eval")
+    assert service and not [p for p in service if any(w in p.lower() for w in ("private", "public", "test"))]
+    assert evaluation and all("public" in p for p in evaluation) and not [p for p in evaluation if "private" in p]

@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Set up the RAG service on a fresh GPU machine, in one command.
 #
-#   bash scripts/gpu_setup.sh [--bf16]
+#   bash scripts/gpu_setup.sh [--bf16] [--eval]
+#
+# --eval also fetches rag_eval_bundle: the public-test caches and data, for evaluation runs of the
+# batch runner (--split public_test) and the runbook's comparison checks. The RAG service needs
+# neither; without --eval no test-split file reaches the machine.
 #
 # Hugging Face access, with no interactive login: set HF_TOKEN (a read-only token) when the
 # container starts, e.g. in the vast.ai template's environment variables. The script also
@@ -32,8 +36,14 @@ load_container_env() {
 }
 load_container_env
 export RAG_ASSETS_REPO=${RAG_ASSETS_REPO:-lephuocloc/ns-vqa-rag-assets}
-BF16=""
-[ "${1:-}" = "--bf16" ] && BF16="--bf16"
+BF16="" EVAL=""
+for arg in "$@"; do
+  case "$arg" in
+    --bf16) BF16="--bf16" ;;
+    --eval) EVAL=1 ;;
+    *) echo "unknown option: $arg (expected --bf16, --eval)"; exit 2 ;;
+  esac
+done
 PY=${PY:-python3}
 # CUDA images often mark their Python as externally managed (PEP 668); torch lives there, so install into it.
 export PIP_BREAK_SYSTEM_PACKAGES=1 UV_BREAK_SYSTEM_PACKAGES=1
@@ -63,28 +73,32 @@ if ! "$PY" -c "import sys; from huggingface_hub import get_token; sys.exit(0 if 
 fi
 echo "   token found ($( [ -n "${HF_TOKEN:-}" ] && echo HF_TOKEN || echo saved login ))"
 
-echo "== asset bundle from $RAG_ASSETS_REPO"
-"$PY" - "$RAG_ASSETS_REPO" <<'EOF'
+fetch_bundle() {   # fetch_bundle <name>: download, check its sha256, unpack in place
+  echo "== $1 from $RAG_ASSETS_REPO"
+  "$PY" - "$RAG_ASSETS_REPO" "$1" <<'EOF'
 import hashlib, json, sys
 from huggingface_hub import hf_hub_download
-repo = sys.argv[1]
-paths = {n: hf_hub_download(repo, n, repo_type="dataset", local_dir="dist") for n in ("rag_bundle.json", "rag_bundle.tar.gz")}
-record = json.load(open(paths["rag_bundle.json"]))
+repo, name = sys.argv[1], sys.argv[2]
+paths = {n: hf_hub_download(repo, n, repo_type="dataset", local_dir="dist") for n in (f"{name}.json", f"{name}.tar.gz")}
+record = json.load(open(paths[f"{name}.json"]))
 h = hashlib.sha256()
-with open(paths["rag_bundle.tar.gz"], "rb") as f:
+with open(paths[f"{name}.tar.gz"], "rb") as f:
     for chunk in iter(lambda: f.read(1 << 20), b""):
         h.update(chunk)
 if h.hexdigest() != record["sha256"]:
     sys.exit(f"refusing the bundle: sha256 {h.hexdigest()} != {record['sha256']}")
 print(f"   ok: {record['members']} files, sha256 {record['sha256'][:16]}")
 EOF
-tar -xzf dist/rag_bundle.tar.gz -C .
+  tar -xzf "dist/$1.tar.gz" -C .
+}
+fetch_bundle rag_bundle
+if [ -n "$EVAL" ]; then fetch_bundle rag_eval_bundle; fi
 
 echo "== waiting for the background downloads"
 wait $MODELS || { echo "weights failed; see logs/fetch_models.log"; exit 1; }
 wait $LLAMA || { echo "llama.cpp failed; see logs/fetch_llama.log"; exit 1; }
 
 echo "== checking every file"
-"$PY" scripts/verify_assets.py --cuda --no-private
+"$PY" scripts/verify_assets.py --cuda --no-private ${EVAL:+--with-public}
 echo "== ready in $((SECONDS - t0)) s. Start the service with:"
 echo "   uvicorn --factory text_based_rag.service_api:create_app --host 0.0.0.0 --port 8100"
