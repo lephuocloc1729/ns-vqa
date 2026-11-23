@@ -4,7 +4,9 @@ Tables:
 - chat_session: one conversation;
 - turn: one question about one image, with the answer, proof, citations, sign boxes,
   stage summary, cost and time;
-- feedback: thumbs up/down and an optional corrected answer for a turn.
+- feedback: thumbs up/down and an optional corrected answer for a turn;
+- app_setting: live overrides of .env settings, changed on the admin site (app/api/live.py);
+- site_account: one login per tester for the site's password prompt (app/api/accounts.py).
 
 Feedback is stored for the dashboard and the thesis only. The pipeline never reads it.
 """
@@ -15,7 +17,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, Float, ForeignKey, String, Text, create_engine, inspect, select, text
+from sqlalchemy import JSON, Boolean, Float, ForeignKey, String, Text, create_engine, func, inspect, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 
@@ -58,6 +60,7 @@ class Turn(Base):
     cost_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
     seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    account: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)  # the site login that asked
     session: Mapped[ChatSession] = relationship(back_populates="turns")
     feedback: Mapped[list["Feedback"]] = relationship(back_populates="turn", order_by="Feedback.created_at")
 
@@ -71,6 +74,23 @@ class Feedback(Base):
     corrected_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     turn: Mapped[Turn] = relationship(back_populates="feedback")
+
+
+class AppSetting(Base):
+    __tablename__ = "app_setting"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(default=_now, onupdate=_now)
+
+
+class SiteAccount(Base):
+    __tablename__ = "site_account"
+    name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    password_hash: Mapped[str] = mapped_column(String(128))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+    password_set_at: Mapped[datetime] = mapped_column(default=_now)
 
 
 class Store:
@@ -129,9 +149,9 @@ class Store:
         with self.db() as s:
             return s.get(ChatSession, session_id)
 
-    def start_turn(self, session_id: str, question: str, image_sha256: str) -> Turn:
+    def start_turn(self, session_id: str, question: str, image_sha256: str, account: str | None = None) -> Turn:
         with self.db() as s:
-            t = Turn(session_id=session_id, question=question, image_sha256=image_sha256)
+            t = Turn(session_id=session_id, question=question, image_sha256=image_sha256, account=account)
             s.add(t)
             s.commit()
             return t
@@ -166,3 +186,68 @@ class Store:
             s.add(f)
             s.commit()
             return f
+
+    # ------------------------------------------------------------------ live settings
+    def settings_overrides(self) -> dict[str, str]:
+        with self.db() as s:
+            return {r.key: r.value for r in s.scalars(select(AppSetting)).all()}
+
+    def set_overrides(self, values: dict[str, str | None]) -> None:
+        """Set each key; None removes the override (back to the .env value)."""
+        with self.db() as s:
+            for k, v in values.items():
+                row = s.get(AppSetting, k)
+                if v is None:
+                    if row is not None:
+                        s.delete(row)
+                elif row is None:
+                    s.add(AppSetting(key=k, value=v))
+                else:
+                    row.value = v
+            s.commit()
+
+    # ------------------------------------------------------------------ site accounts
+    def accounts(self) -> list[SiteAccount]:
+        with self.db() as s:
+            return list(s.scalars(select(SiteAccount).order_by(SiteAccount.created_at)).all())
+
+    def get_account(self, name: str) -> SiteAccount | None:
+        with self.db() as s:
+            return s.get(SiteAccount, name)
+
+    def add_account(self, name: str, password_hash: str, note: str | None) -> SiteAccount:
+        with self.db() as s:
+            a = SiteAccount(name=name, password_hash=password_hash, note=note)
+            s.add(a)
+            s.commit()
+            return a
+
+    def update_account(self, name: str, **fields: Any) -> SiteAccount | None:
+        with self.db() as s:
+            a = s.get(SiteAccount, name)
+            if a is None:
+                return None
+            for k, v in fields.items():
+                setattr(a, k, v)
+            s.commit()
+            return a
+
+    def account_usage(self) -> dict[str, tuple[int, datetime | None]]:
+        """Per account: questions asked and the time of the last one."""
+        with self.db() as s:
+            rows = s.execute(select(Turn.account, func.count(), func.max(Turn.created_at))
+                             .where(Turn.account.is_not(None)).group_by(Turn.account)).all()
+            return {r[0]: (int(r[1]), r[2]) for r in rows}
+
+    # ------------------------------------------------------------------ admin reads
+    def turns_between(self, since: datetime | None, until: datetime | None) -> list[Turn]:
+        with self.db() as s:
+            q = select(Turn).order_by(Turn.created_at)
+            if since is not None:
+                q = q.where(Turn.created_at >= since)
+            if until is not None:
+                q = q.where(Turn.created_at < until)
+            rows = s.scalars(q).all()
+            for t in rows:
+                _ = list(t.feedback)
+            return list(rows)

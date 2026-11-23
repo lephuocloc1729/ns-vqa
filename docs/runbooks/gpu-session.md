@@ -71,8 +71,10 @@ The server reaches the RAG through the `rag-tunnel` service: one SSH connection 
 
    Use the GPU's SSH host and port, as vast.ai shows them. The script:
    - starts the tunnel and waits for the RAG to answer through it;
-   - sets `VQA_ANSWER_FALLBACK=rag` and `VQA_RAG_URL=http://rag-tunnel:8100`;
-   - restarts the API and prints both `/version`s.
+   - sets the live settings `answer_fallback=rag` and `rag_url=http://rag-tunnel:8100` (app/api/live.py), which apply from the next question with no API restart;
+   - prints both `/version`s.
+
+   The admin site (admin.signcite.xyz → Cài đặt) shows the same settings and can switch the fallback on and off.
 
    The RAG answer cache is on by itself.
 3. Check on signcite.xyz:

@@ -14,10 +14,16 @@ services:
   web:                                  # the UI (nginx), and the one public entry point
     build: { context: ., dockerfile: docker/web.Dockerfile }
     image: ${WEB_IMAGE:-signcite-web:local}
-    ports: ["${WEB_PORT:-8080}:80"]
+    ports:
+      - "${WEB_PORT:-8080}:80"
+      - "${ADMIN_PORT:-127.0.0.1:8081}:81"   # the admin site (also admin.<domain> through Caddy)
     environment:
       BASIC_AUTH_USER: ${BASIC_AUTH_USER:-}
       BASIC_AUTH_PASSWORD: ${BASIC_AUTH_PASSWORD:-}
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    volumes:
+      - siteauth:/run/signcite-auth:ro      # the site logins, written by the API
     depends_on:
       api: { condition: service_healthy }
     restart: unless-stopped
@@ -39,7 +45,14 @@ services:
       VQA_RAG_CACHE_DIR: /app/var/rag_cache
       VQA_CORS_ORIGINS: ${VQA_CORS_ORIGINS:-*}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # the admin site and the site logins (docs/plans/admin-page.md)
+      VQA_ADMIN_USER: ${ADMIN_USER:-admin}
+      VQA_ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      VQA_SITE_USERS_FILE: /run/signcite-auth/users.htpasswd
+      VQA_SITE_SHARED_USER: ${BASIC_AUTH_USER:-}
+      VQA_SITE_SHARED_PASSWORD: ${BASIC_AUTH_PASSWORD:-}
     volumes:
+      - siteauth:/run/signcite-auth       # the web server's password file (tester accounts)
       - uploads:/app/var                # uploads, and the RAG answer cache (var/rag_cache)
       - scenes:/app/cache/scenes        # the scene cache (model outputs only)
       - apilogs:/app/logs               # the Claude usage log (tokens, cost)
@@ -141,3 +154,4 @@ volumes:
   pgdata:
   promdata:
   grafdata:
+  siteauth:                             # users.htpasswd: the site logins the API writes and nginx reads

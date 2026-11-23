@@ -6,11 +6,12 @@
 #   bash docker/rag-session.sh status
 #   bash docker/rag-session.sh off               # after the session, before destroying the GPU
 #
-# `on` writes to .env (VQA_ANSWER_FALLBACK=rag, VQA_RAG_URL=http://rag-tunnel:8100, the GPU's address,
-# COMPOSE_PROFILES=rag-tunnel), starts the rag-tunnel service (one SSH connection, nothing published
-# on the server), waits for the RAG to answer /health through it, and restarts the API. `off` puts
-# the fallback back to off and stops the tunnel. The RAG answer cache needs nothing: it is on by
-# default whenever the fallback is the RAG.
+# `on` writes the GPU's address and COMPOSE_PROFILES=rag-tunnel to .env, starts the rag-tunnel service
+# (one SSH connection, nothing published on the server) and waits for the RAG to answer /health
+# through it. Only then it sets the live settings answer_fallback=rag and rag_url=http://rag-tunnel:8100
+# (app/api/live.py; the admin site shows and changes the same ones). They apply from the next
+# question, without restarting the API, so answers in progress are never cut off. `off` sets the
+# fallback back to off and stops the tunnel. The RAG answer cache follows its own live setting.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 KEY=secrets/rag_tunnel_ed25519
@@ -18,6 +19,10 @@ KEY=secrets/rag_tunnel_ed25519
 envget() { grep -E "^$1=" .env | tail -1 | cut -d= -f2- || true; }
 envset() { sed -i "/^$1=/d" .env; echo "$1=$2" >> .env; }
 envdel() { sed -i "/^$1=/d" .env; }
+
+live() {      # live settings in the API's database: applied from the next question, no restart
+  docker compose exec -T api python -m app.api.live "$@"
+}
 
 api_get() {   # api_get <url>: GET from inside the API container (the stack's internal network)
   docker compose exec -T api python -c "import sys, urllib.request; print(urllib.request.urlopen(sys.argv[1], timeout=10).read().decode())" "$1"
@@ -54,26 +59,24 @@ case "${1:-}" in
       docker compose logs --no-color --tail=20 rag-tunnel
       exit 1
     fi
-    envset VQA_ANSWER_FALLBACK rag
-    envset VQA_RAG_URL http://rag-tunnel:8100
-    docker compose up -d --no-build --wait --wait-timeout 120 api
+    live set answer_fallback=rag rag_url=http://rag-tunnel:8100
     api_get http://rag-tunnel:8100/version | head -c 160; echo
     api_get http://127.0.0.1:8000/version
     echo "on: undecided questions go to the RAG on $host:$port"
     ;;
   off)
-    envset VQA_ANSWER_FALLBACK off
-    envdel VQA_RAG_URL
+    live set answer_fallback=off
+    live reset rag_url > /dev/null
     envdel COMPOSE_PROFILES
     envdel RAG_SSH_HOST
     envdel RAG_SSH_PORT
-    docker compose up -d --no-build --wait --wait-timeout 120 api
     docker compose --profile rag-tunnel rm -sf rag-tunnel > /dev/null 2>&1 || true
     api_get http://127.0.0.1:8000/version
     echo "off: the RAG fallback is off and the tunnel is stopped"
     ;;
   status)
-    echo "fallback: $(envget VQA_ANSWER_FALLBACK)  rag url: $(envget VQA_RAG_URL)  gpu: $(envget RAG_SSH_HOST):$(envget RAG_SSH_PORT)"
+    echo "gpu: $(envget RAG_SSH_HOST):$(envget RAG_SSH_PORT)"
+    live show
     docker compose --profile rag-tunnel ps rag-tunnel 2>/dev/null || true
     api_get http://127.0.0.1:8000/version
     ;;

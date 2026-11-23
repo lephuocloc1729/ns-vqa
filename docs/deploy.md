@@ -128,6 +128,38 @@ With `VQA_ANSWER_FALLBACK=rag`, and `VQA_RAG_CACHE` on (the default; `off` disab
 - The firewall (ufw) allows 22, 80 and 443.
 - Grafana is reached through an SSH tunnel (above).
 
+## The admin site (admin.signcite.xyz)
+
+The plan is `docs/plans/admin-page.md`.
+
+**What it has:**
+- an overview with charts;
+- the feedback inbox;
+- every question, with its account;
+- tester accounts;
+- live settings.
+
+**Setting it up:**
+- **DNS:** an A record, `admin` → the server's IP. Caddy gets the certificate by itself.
+- **`.env`:**
+  - `ADMIN_PASSWORD` (and optionally `ADMIN_USER`, default `admin`);
+  - `ADMIN_PORT` (default `127.0.0.1:8081`) also serves it on the server itself, e.g. through an SSH tunnel.
+  - Without `ADMIN_PASSWORD` the admin site answers 404.
+- **Two locks:**
+  - nginx asks for the admin login on the admin site;
+  - the API checks it again on every `/v1/admin` request.
+  - On the public site, `/v1/admin` is 404.
+
+**Tester accounts:**
+- With `BASIC_AUTH_USER` and `BASIC_AUTH_PASSWORD` set, the public site's login accepts that shared account plus every enabled tester account made on the admin site.
+- The API writes nginx's password file (apr1 hashes only) into the `siteauth` volume. nginx reads it on each request, so new, reset or locked accounts apply at once.
+- Each question is stored with the account that asked. nginx sends it as `X-Remote-User`, overwriting anything a browser sends.
+
+**Live settings:**
+- The RAG fallback, the RAG URL, the RAG cache switch and the spend limit can change while the API runs: on the admin site, or with `docker compose exec -T api python -m app.api.live show|set KEY=VALUE|reset`.
+- They apply from the next question. The `.env` values are the defaults.
+- Switching to the RAG is refused unless it answers `/health`.
+
 ## CD: every merge to `main` deploys itself
 
 `.github/workflows/cd.yml` runs after CI passes on a push to `main` (or by hand: Actions › CD › Run workflow).

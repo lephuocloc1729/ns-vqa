@@ -14,6 +14,9 @@ of the process; docs/plans/concurrent-answers.md has the review behind this:
   Its own thread finds it in a thread-local. Perception runs in a thread the pipeline starts
   itself, so it finds its answer by the image path: each answer gets its own path, a link to
   the upload in a folder of its own (same file name, same bytes, so caches are unaffected).
+
+Live settings (app/api/live.py): `prepare(pipe)` runs at the start of each answer, in its worker
+thread, and may swap the pipeline's fallback (`instrument_fallback` wraps a new one first).
 """
 
 from __future__ import annotations
@@ -75,8 +78,10 @@ class _Turn:
 
 
 class PipelineRunner:
-    def __init__(self, factory: Callable[[], Any], slots: int = 1) -> None:
+    def __init__(self, factory: Callable[[], Any], slots: int = 1,
+                 prepare: Callable[[Any], None] | None = None) -> None:
         self._factory = factory
+        self._prepare = prepare
         self._pipe: Any = None
         self._lock = threading.Lock()            # building the pipeline
         self._prolog = threading.Lock()          # every engine.answer: one Prolog per process
@@ -118,6 +123,8 @@ class PipelineRunner:
 
     def _run(self, image_path: Path, question: str, emit: Emit | None) -> Any:
         pipe = self.pipeline
+        if self._prepare is not None:
+            self._prepare(pipe)                 # live settings, before this answer starts
         turn = _Turn(emit=emit, t0=time.monotonic())
         try:
             turn.scale, size = image_scale(image_path)
@@ -201,17 +208,8 @@ class PipelineRunner:
             engine.answer = _engine_answer
 
         fallback = getattr(pipe, "fallback", None)
-        if fallback is not None and hasattr(fallback, "answer"):
-            fb_answer = fallback.answer
-
-            def _fallback(*a, **kw):
-                runner._send("route", {"to": "fallback"})
-                return fb_answer(*a, **kw)
-            fallback.answer = _fallback
-
-            if hasattr(fallback, "on_event"):          # the RAG fallback streams its answer text
-                fallback.on_event = lambda kind, payload: runner._send(
-                    "token" if kind == "delta" else "token_reset", payload)
+        if fallback is not None:
+            self.instrument_fallback(fallback)
 
         writer = getattr(pipe, "writer", None)
         if writer is not None and hasattr(writer, "write"):
@@ -227,3 +225,24 @@ class PipelineRunner:
             def _writer_event(kind: str, payload: dict[str, Any]) -> None:
                 runner._send("token" if kind == "delta" else "token_reset", payload)
             writer.on_event = _writer_event
+
+    def instrument_fallback(self, fallback: Any) -> Any:
+        """Report a fallback's route and streamed text. Wraps each object once."""
+        if not hasattr(fallback, "answer") or getattr(fallback, "_runner_wrapped", False):
+            return fallback
+        runner = self
+        fb_answer = fallback.answer
+
+        def _fallback(*a, **kw):
+            runner._send("route", {"to": "fallback"})
+            return fb_answer(*a, **kw)
+        fallback.answer = _fallback
+
+        if hasattr(fallback, "on_event"):          # the RAG fallback streams its answer text
+            fallback.on_event = lambda kind, payload: runner._send(
+                "token" if kind == "delta" else "token_reset", payload)
+        try:
+            fallback._runner_wrapped = True
+        except AttributeError:
+            pass
+        return fallback

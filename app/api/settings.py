@@ -17,6 +17,13 @@
 | VQA_RAG_CACHE_DIR | var/rag_cache | where those answers are kept |
 | VQA_RAG_CACHE_MAX_DAYS | 0 | ignore cached answers older than this (0: no limit) |
 | VQA_ANSWER_SLOTS | 1 | questions answered at the same time (threads sharing the pipeline; docs/plans/concurrent-answers.md) |
+| VQA_ADMIN_USER | admin | the admin site's login name (docs/plans/admin-page.md) |
+| VQA_ADMIN_PASSWORD | (none) | the admin site's password; without it the /v1/admin endpoints answer 404 |
+| VQA_SITE_USERS_FILE | (none) | the web server's password file, written by the API from the site accounts |
+| VQA_SITE_SHARED_USER, VQA_SITE_SHARED_PASSWORD | (none) | the shared site login from .env (BASIC_AUTH_USER/PASSWORD), kept in that file |
+
+The answer fallback, the RAG URL, the RAG cache switch and the spend limit are only the defaults:
+the admin site and `python -m app.api.live` can override them while the API runs (app/api/live.py).
 """
 
 from __future__ import annotations
@@ -47,6 +54,11 @@ class Settings:
     rag_cache: bool = True
     rag_cache_dir: Path = ROOT / "var" / "rag_cache"
     rag_cache_max_days: float = 0.0
+    admin_user: str = "admin"
+    admin_password: str = field(default="", repr=False)
+    site_users_file: Path | None = None
+    site_shared_user: str = ""
+    site_shared_password: str = field(default="", repr=False)
     extra: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -76,4 +88,9 @@ class Settings:
             rag_cache=env.get("VQA_RAG_CACHE", "on").strip().lower() not in ("off", "0", "false", "no"),
             rag_cache_dir=Path(env.get("VQA_RAG_CACHE_DIR", str(cls.rag_cache_dir))),
             rag_cache_max_days=float(env.get("VQA_RAG_CACHE_MAX_DAYS", "0")),
+            admin_user=env.get("VQA_ADMIN_USER", "admin").strip() or "admin",
+            admin_password=env.get("VQA_ADMIN_PASSWORD", ""),
+            site_users_file=Path(env["VQA_SITE_USERS_FILE"]) if env.get("VQA_SITE_USERS_FILE") else None,
+            site_shared_user=env.get("VQA_SITE_SHARED_USER", "").strip(),
+            site_shared_password=env.get("VQA_SITE_SHARED_PASSWORD", ""),
         )

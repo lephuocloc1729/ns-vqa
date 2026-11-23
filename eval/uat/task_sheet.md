@@ -12,7 +12,7 @@ Cảm ơn bạn đã tham gia thử nghiệm **SignCite**, hệ thống trả l�
 
 **Trước khi bắt đầu**
 - Mở trang **https://signcite.xyz** trên trình duyệt **Chrome hoặc Edge** (máy tính hay điện thoại đều được).
-  - Khi trình duyệt hỏi tên đăng nhập và mật khẩu, nhập thông tin người điều phối gửi cho bạn.
+  - Khi trình duyệt hỏi tên đăng nhập và mật khẩu, nhập **tài khoản riêng của bạn** mà người điều phối gửi (ví dụ `p07` và mật khẩu đi kèm).
 - Người điều phối sẽ gửi cho bạn **Ảnh 1, Ảnh 2 và Ảnh 3**. Hãy lưu sẵn vào máy.
 - Mỗi câu trả lời mất khoảng **15–30 giây**. Trong lúc chờ, màn hình hiện các bước hệ thống đang làm.
 - **Chúng tôi đánh giá hệ thống, không đánh giá bạn.** Nếu thấy khó, đó là lỗi của hệ thống, và chính điều đó giúp chúng tôi sửa.

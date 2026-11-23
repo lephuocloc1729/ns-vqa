@@ -79,7 +79,10 @@ You need about **20**, all taken by you on the street. **Never use dataset photo
 
 ### Other preparation
 
-- **Participant IDs:** `P01`, `P02`, … in the order people come. Write each ID on that person's task sheet; the form asks for it.
+- **Participant IDs and accounts:** `P01`, `P02`, … in the order people book.
+  - On admin.signcite.xyz → Tài khoản, create the account `p01`, `p02`, … for each one. The password shows once; send it privately.
+  - Every question that tester asks is then stored with their account, so the admin site's Câu hỏi tab (filter by account) and the report can link the form, your log and what they actually asked.
+  - After the UAT, press **Khoá tất cả** to lock every tester account.
 - **The form:**
   1. Submit one dummy response.
   2. Download the CSV and run `score_sus.py` on it.
@@ -93,7 +96,7 @@ You need about **20**, all taken by you on the street. **Never use dataset photo
 
 **Before the first tester:**
 1. Rent the GPU, then run `bash docker/rag-session.sh on <host> <port>` on the server (`docs/runbooks/gpu-session.md`).
-2. Check `/version`: the fallback is `rag`, there are 10 answer slots, and the RAG cache is on.
+2. Check on admin.signcite.xyz → Cài đặt (or `/version`): the fallback is RAG and reachable, there are 10 answer slots, and the RAG cache is on.
 3. Write down the start time in UTC, for `turn_stats.py`.
 4. Ask one question on a **fixed** photo to warm everything up. Never use a spare photo for this.
 
@@ -115,7 +118,7 @@ You need about **20**, all taken by you on the street. **Never use dataset photo
 1. *"Cảm ơn bạn. Hôm nay mình thử phần mềm, không thử bạn. Không có câu trả lời sai."*
 2. *"Bạn vừa làm vừa nói to suy nghĩ nhé: đang tìm gì, mong đợi gì, thấy lạ chỗ nào."*
 3. *"Mình sẽ không giúp trong lúc làm, vì mình muốn biết phần mềm tự nó có rõ không. Bí quá 3 phút thì mình chuyển nhiệm vụ."*
-4. Give the site's password privately, never in a group chat. Then give them Ảnh 1–3.
+4. Check they can log in with their own account (sent privately, never in a group chat). Then give them Ảnh 1–3.
 
 **Handing out tasks:**
 - **One task at a time,** on a card, a slide, or pasted into the call's chat.
