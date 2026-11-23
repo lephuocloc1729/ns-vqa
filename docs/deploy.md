@@ -95,6 +95,24 @@ The `caddy_data` volume holds the certificates; keep it. CI runs the same overla
 - The ceiling is Anthropic's rate limits and the spend cap. The cap is safe: each call reserves its worst case first, so answers at once can't overspend.
 - Why and how: `docs/plans/concurrent-answers.md`.
 
+## Repeated RAG questions (`VQA_RAG_CACHE`)
+
+With `VQA_ANSWER_FALLBACK=rag` and `VQA_RAG_CACHE=on`, a question the RAG has already answered (the same photo, the same words, the same RAG version) gets the RAG's earlier answer at once, without the GPU.
+
+- **Why the answers are the same:** the RAG at one slot answers identically every time (`docs/results/rag-concurrency-2026-11-23.md`). The answer is still marked as a RAG answer, and its trace records `cache_hit`.
+- **What is kept:** only successful answers given while the RAG runs one question at a time. Answers cached under one RAG version are never used for another.
+- **When the GPU is off:** cached answers still serve, and new questions get the rules' answer.
+- **Storage:** `var/rag_cache` in the `uploads` volume (a few KB per answer, at most 20,000; `VQA_RAG_CACHE_MAX_DAYS` can add an age limit).
+- **Inspect or clear it** (for example before the UAT):
+
+  ```bash
+  docker compose exec api python -m app.api.rag_cache stats
+  docker compose exec api python -m app.api.rag_cache clear
+  ```
+
+- **For the defense demo:** ask the demo questions once the day before, about your own photos.
+- **Delete it after the defense.**
+
 ## The demo server
 
 - A CloudNest VPS (Ubuntu 24.04, 2 vCPU, 4 GB RAM), domain `signcite.xyz`.

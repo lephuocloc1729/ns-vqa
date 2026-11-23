@@ -59,6 +59,12 @@ swipl -q -g "consult('kb/load.pl'), halt"           # check the Prolog files on 
   - It never looks up train (or any split's) data by image hash or image similarity.
   - The only cache is the scene cache (`vqa/perception/cache.py`, `cache/scenes/`, gitignored). It holds model outputs only, keyed by image hash plus model id plus effort plus prompt version.
   - The fallback's tile and crop records (plan item 7) live in the same cache. Their key adds the region's pixel box on the original image (`region_key`).
+  - **One exception (owner, 2026-11-23): the RAG answer cache** (`app/api/rag_cache.py`, `VQA_RAG_CACHE`, default off).
+    - It holds the live RAG fallback's own answers to questions asked through the API: model outputs only, never gold, dataset files or evaluation outputs.
+    - The key is the image hash, the exact question and the RAG's version.
+    - It is used only when the RAG runs one question at a time, because only then do its answers repeat exactly.
+    - Evaluation scripts call the pipeline directly and never use it.
+    - It is deleted after the defense.
 - **Inference code means `vqa/` and `app/`.** It must not import from `tests`, `conftest` or `eval`. It must not mention fixture, annotation, audit, split or duplicate files, or the dataset's QA files.
   - `tests/test_leakage_guard.py` enforces this.
   - Few-shot examples built from train go into versioned prompt files under `prompts/`. They are never selected per image.
