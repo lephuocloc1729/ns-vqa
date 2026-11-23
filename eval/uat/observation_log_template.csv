@@ -1,0 +1,6 @@
+participant,task,outcome,time_s,issues,notes
+P01,T1,success,45,,
+P01,T2,partial,120,evidence_hard_to_find,found the verdict but not the article
+P01,T3,success,60,,
+P01,T4,fail,,waiting_too_long;answer_unclear,
+P01,T5,success,50,,
