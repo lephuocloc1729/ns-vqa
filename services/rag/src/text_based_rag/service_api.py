@@ -8,7 +8,8 @@
                         final_answer text as it is generated), then `answer` and `done` (or `error`)
 - GET  /health, GET /version
 
-One question at a time (one GPU): requests queue on a single worker thread.
+Requests run on RAG_WORKERS threads (default 1: one question at a time). With more, give the
+llama-servers as many slots (RAG_LLAMA_PARALLEL, service.py) so the GPU batches them.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ import asyncio
 import hashlib
 import io
 import json
+import os
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
@@ -32,7 +34,8 @@ MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
 
 def create_app(engine_factory: Callable[[], RagEngine] | None = None, start: bool = True) -> FastAPI:
-    executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="rag")
+    executor = ThreadPoolExecutor(max_workers=max(1, int(os.environ.get("RAG_WORKERS", "1"))),
+                                  thread_name_prefix="rag")
     state: dict[str, Any] = {"engine": None, "error": None}
     uploads = Path(tempfile.mkdtemp(prefix="rag_uploads_"))
 

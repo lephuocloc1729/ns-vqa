@@ -220,3 +220,65 @@ def test_health_reports_a_failed_start():
         assert h["status"] == "error" and "llama-server" in h["error"]
         r = c.post("/answer", files={"image": ("a.png", png(), "image/png")}, data={"question": "q"})
         assert r.status_code == 503
+
+
+# ---------------------------------------------------------------------------- several at once
+def test_workers_answer_requests_at_the_same_time(monkeypatch):
+    """RAG_WORKERS=3: three slow requests take about the time of one (default 1: one at a time)."""
+    import threading
+    import time
+
+    from fastapi.testclient import TestClient
+    from text_based_rag.service_api import create_app
+
+    class Slow(FakeEngine):
+        def ask(self, image, question, emit=None, stream=False):
+            time.sleep(0.4)
+            return super().ask(image, question, emit, stream)
+
+    def timed(workers):
+        monkeypatch.setenv("RAG_WORKERS", str(workers))
+        with TestClient(create_app(lambda: Slow(), start=False)) as c:
+            t0 = time.monotonic()
+            ts = [threading.Thread(target=lambda: c.post("/answer", data={"question": "Biển gì?"},
+                                                           files={"image": ("a.png", png(), "image/png")}))
+                  for _ in range(3)]
+            [t.start() for t in ts]
+            [t.join() for t in ts]
+            return time.monotonic() - t0
+
+    one, three = timed(1), timed(3)
+    assert one > 1.1 and three < 0.9, (one, three)
+
+
+def test_llama_servers_get_slots_with_the_full_context_each(monkeypatch, tmp_path):
+    """RAG_LLAMA_PARALLEL=N: --parallel N and N times the context, so each slot keeps it all."""
+    import subprocess
+
+    from text_based_rag import natural_qa_runner as runner
+    seen = []
+
+    class P:
+        returncode = None
+
+        def __init__(self, cmd, **kw):
+            seen.append(cmd)
+
+        def poll(self):
+            return None
+
+    monkeypatch.setattr(subprocess, "Popen", P)
+    monkeypatch.setattr(svc.requests, "get", lambda *a, **k: type("R", (), {"status_code": 200, "ok": True})())
+    monkeypatch.setattr(runner.requests, "get", lambda *a, **k: type("R", (), {"status_code": 200, "ok": True})())
+    for n in ("1", "4"):
+        monkeypatch.setenv("RAG_LLAMA_PARALLEL", n)
+        svc.CaptionServer(65536).launch(tmp_path)
+        runner.Server().launch(type("Run", (), {"folder": tmp_path})(), False, 65536)
+    flag = lambda cmd, f: cmd[cmd.index(f) + 1]  # noqa: E731
+    assert [(flag(c, "--parallel"), flag(c, "-c")) for c in seen] == \
+        [("1", "65536"), ("1", "65536"), ("4", "262144"), ("4", "262144")]
+    monkeypatch.setenv("RAG_LLAMA_SLOT_CONTEXT", "32768")          # smaller slots save KV memory
+    seen.clear()
+    svc.CaptionServer(65536).launch(tmp_path)
+    runner.Server().launch(type("Run", (), {"folder": tmp_path})(), False, 65536)
+    assert [flag(c, "-c") for c in seen] == ["131072", "131072"]

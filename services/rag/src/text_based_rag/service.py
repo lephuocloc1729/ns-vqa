@@ -26,7 +26,9 @@ import hashlib
 import json
 import socket
 import subprocess
+import os
 import tempfile
+import threading
 import time
 from dataclasses import dataclass, field
 from hashlib import sha256
@@ -119,6 +121,22 @@ def png_data_url(path: Path) -> str:
         return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
 
 
+def llama_parallel() -> int:
+    """RAG_LLAMA_PARALLEL (default 1): requests each llama-server runs at once. Each slot keeps
+    the full context (the server gets context x slots), so no answer is shortened by it; the
+    cost is KV-cache memory. With more than 1, also set RAG_WORKERS (service_api)."""
+    return max(1, int(os.environ.get("RAG_LLAMA_PARALLEL", "1")))
+
+
+def slot_context(context: int) -> int:
+    """RAG_LLAMA_SLOT_CONTEXT (default: the configured context): tokens per slot. Smaller saves
+    KV-cache memory for more slots; a prompt longer than it fails instead of being shortened."""
+    return int(os.environ.get("RAG_LLAMA_SLOT_CONTEXT", str(context)))
+
+
+_ENCODE_LOCK = threading.Lock()   # the query encoder (PyTorch, GPU) runs one call at a time
+
+
 class CaptionServer:
     """A warm llama-server with caption_live's exact command line."""
 
@@ -133,7 +151,8 @@ class CaptionServer:
         log = (log_dir / "caption_server.log").open("a", encoding="utf-8")
         self.process = subprocess.Popen(
             [str(cap.SERVER), "-m", str(cap.CORPUS_MODEL), "--mmproj", str(cap.PROJECTOR), "--host", "127.0.0.1",
-             "--port", str(port), "-c", str(self.context_size), "-ngl", "all", "--parallel", "1", "--jinja",
+             "--port", str(port), "-c", str(slot_context(self.context_size) * llama_parallel()), "-ngl", "all",
+             "--parallel", str(llama_parallel()), "--jinja",
              "--reasoning", "off"], stdout=log, stderr=subprocess.STDOUT)
         deadline = time.monotonic() + 180
         while time.monotonic() < deadline:
@@ -388,7 +407,8 @@ class RagEngine:
         return qa.query_representation(question.strip(), caption, query_id, allow_incomplete=True)
 
     def embed(self, text: str) -> np.ndarray:
-        v = np.asarray(self.encoder.encode([text], role="query")[0], dtype=np.float32)
+        with _ENCODE_LOCK:
+            v = np.asarray(self.encoder.encode([text], role="query")[0], dtype=np.float32)
         if v.shape != (self.corpus_index["vectors"].shape[1],) or not np.isfinite(v).all():
             raise ValueError("query embedding has the wrong shape")
         return v
