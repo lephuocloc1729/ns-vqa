@@ -156,7 +156,10 @@ You need about **20**, all taken by you on the street. **Never use dataset photo
 
 ## 4. The observation log
 
-- **Where:** copy `observation_log_template.csv` to `eval/runs/uat/observations.csv`. That folder is gitignored, so the log never gets committed.
+- **Where:** upload `observation_log_template.xlsx` to Google Drive and open it with Google Sheets.
+  - It has rows ready for P01–P20 × T1–T5, an outcome dropdown and a `photos_used` tab. Untouched rows are skipped when scoring.
+  - Afterwards, use File › Download › CSV for the `observations` tab and the `photos_used` tab, and save them as `eval/runs/uat/observations.csv` and `photos_used.csv`. That folder is gitignored, so the log never gets committed.
+  - `observation_log_template.csv` is the same format as plain text.
 - **Rows:** one per participant and task.
   - `participant`: P01…
   - `task`: T1–T5

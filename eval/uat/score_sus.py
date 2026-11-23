@@ -152,6 +152,13 @@ def read_observations(path: Path) -> list[dict]:
     out = []
     for r in rows:
         outcome = (r.get("outcome") or "").strip().lower()
+        if not outcome:
+            # the shared log has a row ready for every participant and task: an untouched row is
+            # skipped, but a row with a time, tags or notes and no outcome is a mistake to fix
+            if any((r.get(k) or "").strip() for k in ("time_s", "issues", "notes")):
+                raise SystemExit(f"{path}: {r.get('participant')} {r.get('task')} has notes or a time "
+                                 "but no outcome")
+            continue
         if outcome not in OUTCOMES:
             raise SystemExit(f"{path}: outcome must be one of {OUTCOMES}, got {outcome!r} "
                              f"({r.get('participant')}, {r.get('task')})")

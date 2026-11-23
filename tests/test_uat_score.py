@@ -191,3 +191,18 @@ def test_targets_without_data():
     s = summarize([_resp("P01", None, None, {})])
     assert all(t["value"] is None and t["pass"] is None for t in s["targets"])
     assert "no data" in format_report(s)
+
+
+def test_untouched_log_rows_are_skipped(tmp_path):
+    obs = tmp_path / "obs.csv"
+    obs.write_text("participant,task,outcome,time_s,issues,notes\n"
+                   "P01,T1,success,70,,\nP01,T2,,,,\nP02,T1,,,,\n", encoding="utf-8")
+    os_ = read_observations(obs)
+    assert [(o["participant"], o["task"]) for o in os_] == [("P01", "T1")]
+
+
+def test_log_row_with_notes_but_no_outcome_is_an_error(tmp_path):
+    obs = tmp_path / "obs.csv"
+    obs.write_text("participant,task,outcome,time_s,issues,notes\nP01,T2,,90,slow,\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="no outcome"):
+        read_observations(obs)
