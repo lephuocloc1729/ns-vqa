@@ -1,21 +1,31 @@
-"""Runs the pipeline for the API, one question at a time per process, and reports each stage.
+"""Runs the pipeline for the API, several questions at a time, and reports each stage.
 
 The pipeline's `answer(image_path, question)` takes nothing else (a fixed rule of the
 design), so stage events come from wrapping the stage methods of this process's
 Pipeline instance: perception, the parser, the engine, the answer fallback and the
 writer. The answers are exactly the pipeline's; the wrappers only observe.
 
-All calls run on one worker thread: janus keeps one Prolog engine per process, and the
-pipeline already overlaps perception with the parser internally. More throughput comes
-from more API worker processes, not threads.
+Several answers at once (`slots` worker threads, VQA_ANSWER_SLOTS) share the one Pipeline
+of the process; docs/plans/concurrent-answers.md has the review behind this:
+- janus keeps one Prolog per process, and a scene's facts are global in it, so every
+  `engine.answer` (the pipeline's and the parser's dry run) runs under one lock. It takes
+  milliseconds; the Claude calls, almost all of an answer's time, run in parallel.
+- each answer has its own context (where its events go, its start time, its photo's scale).
+  Its own thread finds it in a thread-local. Perception runs in a thread the pipeline starts
+  itself, so it finds its answer by the image path: each answer gets its own path, a link to
+  the upload in a folder of its own (same file name, same bytes, so caches are unaffected).
 """
 
 from __future__ import annotations
 
+import os
+import shutil
 import threading
 import time
+import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
+from dataclasses import dataclass
 from typing import Any, Callable
 
 from PIL import Image, ImageOps
@@ -56,16 +66,25 @@ def sign_payload(scene: Any, catalog: Any, scale: float) -> list[dict[str, Any]]
     return out
 
 
+@dataclass
+class _Turn:
+    """One answer's context: where its events go, when it started, its photo's scale."""
+    emit: Emit | None
+    t0: float
+    scale: float = 1.0
+
+
 class PipelineRunner:
-    def __init__(self, factory: Callable[[], Any]) -> None:
+    def __init__(self, factory: Callable[[], Any], slots: int = 1) -> None:
         self._factory = factory
         self._pipe: Any = None
-        self._lock = threading.Lock()
-        self._exec = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pipeline")
-        self._emit: Emit | None = None
-        self._t0 = 0.0
-        self._scale = 1.0
-        self._local = threading.local()
+        self._lock = threading.Lock()            # building the pipeline
+        self._prolog = threading.Lock()          # every engine.answer: one Prolog per process
+        self.slots = max(1, int(slots))
+        self._exec = ThreadPoolExecutor(max_workers=self.slots, thread_name_prefix="pipeline")
+        self._local = threading.local()          # .turn, .in_parse: the answer of this thread
+        self._by_path: dict[str, _Turn] = {}     # an answer's own image path -> its context
+        self._paths_lock = threading.Lock()
 
     @property
     def loaded(self) -> bool:
@@ -86,24 +105,50 @@ class PipelineRunner:
         self._exec.shutdown(wait=False, cancel_futures=True)
 
     # ------------------------------------------------------------------ internals
+    def _own_path(self, image_path: Path) -> Path:
+        """A path for this answer alone: the upload, linked into a folder of its own."""
+        folder = image_path.parent / ".turns" / uuid.uuid4().hex
+        folder.mkdir(parents=True)
+        own = folder / image_path.name
+        try:
+            os.link(image_path, own)
+        except OSError:
+            shutil.copyfile(image_path, own)
+        return own
+
     def _run(self, image_path: Path, question: str, emit: Emit | None) -> Any:
         pipe = self.pipeline
-        self._emit, self._t0 = emit, time.monotonic()
+        turn = _Turn(emit=emit, t0=time.monotonic())
         try:
-            self._scale, size = image_scale(image_path)
+            turn.scale, size = image_scale(image_path)
         except Exception:
-            self._scale, size = 1.0, None
+            size = None
+        own = self._own_path(Path(image_path))
+        key = str(own)
+        with self._paths_lock:
+            self._by_path[key] = turn
+        self._local.turn = turn
         self._send("started", {"image_size": size})
         try:
-            return pipe.answer(image_path, question)
+            return pipe.answer(own, question)
         finally:
-            self._emit = None
+            self._local.turn = None
+            with self._paths_lock:
+                self._by_path.pop(key, None)
+            shutil.rmtree(own.parent, ignore_errors=True)
 
-    def _send(self, name: str, payload: dict[str, Any]) -> None:
-        emit = self._emit
-        if emit is not None:
+    def _turn_for(self, image_path: Any = None) -> _Turn | None:
+        turn = getattr(self._local, "turn", None)
+        if turn is None and image_path is not None:
+            with self._paths_lock:
+                turn = self._by_path.get(str(image_path))
+        return turn
+
+    def _send(self, name: str, payload: dict[str, Any], turn: _Turn | None = None) -> None:
+        turn = turn or self._turn_for()
+        if turn is not None and turn.emit is not None:
             try:
-                emit(name, {**payload, "t": round(time.monotonic() - self._t0, 3)})
+                turn.emit(name, {**payload, "t": round(time.monotonic() - turn.t0, 3)})
             except Exception:
                 pass                           # a broken listener never breaks an answer
 
@@ -115,13 +160,15 @@ class PipelineRunner:
             perceive = pipe._perceive
 
             def _perceive(image_path, *a, **kw):
+                turn = runner._turn_for(image_path)   # perception may run in the pipeline's own thread
                 res, info = perceive(image_path, *a, **kw)
                 scene = res.scene if getattr(res, "ok", False) else None
                 runner._send("perception", {
                     "ok": bool(getattr(res, "ok", False)), "cache_hit": info.get("cache_hit"),
                     "error": info.get("error"),
-                    "signs": sign_payload(scene, catalog, runner._scale) if scene is not None else [],
-                    "guide_boards": len(getattr(scene, "guide_boards", []) or []) if scene is not None else 0})
+                    "signs": sign_payload(scene, catalog, turn.scale if turn else 1.0) if scene is not None else [],
+                    "guide_boards": len(getattr(scene, "guide_boards", []) or []) if scene is not None else 0},
+                    turn)
                 return res, info
             pipe._perceive = _perceive
 
@@ -146,7 +193,8 @@ class PipelineRunner:
             eng_answer = engine.answer
 
             def _engine_answer(scene, program, *a, **kw):
-                ans = eng_answer(scene, program, *a, **kw)
+                with runner._prolog:                   # a scene's facts are global in Prolog
+                    ans = eng_answer(scene, program, *a, **kw)
                 if not getattr(runner._local, "in_parse", False):     # not the parser's dry run
                     runner._send("engine", {"verdict": getattr(getattr(ans, "verdict", None), "value", None)})
                 return ans
