@@ -26,12 +26,14 @@ jobs:
           # The freeze tests hash vqa/ and kb/ at older commits (git archive).
           fetch-depth: 0
 
-      - name: Install SWI-Prolog (>= 9.1)
-        run: |
-          sudo apt-add-repository -y ppa:swi-prolog/stable
-          sudo apt-get update -q
-          sudo apt-get install -y -q swi-prolog-nox
-          swipl --version
+      - name: SWI-Prolog packages from the last good install (used only if the PPA is down)
+        uses: actions/cache@v4
+        with:
+          path: ~/swipl-debs
+          key: swipl-debs-noble-${{ github.run_id }}-${{ github.job }}
+          restore-keys: swipl-debs-noble-
+      - name: Install SWI-Prolog (>= 9.1, from its PPA; retries, then the saved packages, else fails clearly)
+        run: sudo SWIPL_DEB_DIR="$HOME/swipl-debs" bash docker/install-swipl.sh
 
       - uses: actions/setup-python@v5
         with:
@@ -41,6 +43,9 @@ jobs:
       - name: Install the package
         run: |
           python -m pip install -U pip
+          # janus_swi built here against the SWI-Prolog just installed, never a cached wheel built
+          # against another version (a cached one broke CI when the PPA was down, 2026-11-23)
+          pip install --no-cache-dir --force-reinstall --no-deps 'janus-swi>=1.5'
           pip install -e '.[dev,api]' ruff
 
       - name: Lint (ruff)
@@ -117,11 +122,14 @@ jobs:
       VQA_DATASET_DIR: /nonexistent
     steps:
       - uses: actions/checkout@v4
+      - name: SWI-Prolog packages from the last good install (used only if the PPA is down)
+        uses: actions/cache@v4
+        with:
+          path: ~/swipl-debs
+          key: swipl-debs-noble-${{ github.run_id }}-${{ github.job }}
+          restore-keys: swipl-debs-noble-
       - name: Install SWI-Prolog (the API imports the pipeline)
-        run: |
-          sudo apt-add-repository -y ppa:swi-prolog/stable
-          sudo apt-get update -q
-          sudo apt-get install -y -q swi-prolog-nox
+        run: sudo SWIPL_DEB_DIR="$HOME/swipl-debs" bash docker/install-swipl.sh
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -129,6 +137,7 @@ jobs:
       - name: Install the API
         run: |
           python -m pip install -U pip
+          pip install --no-cache-dir --force-reinstall --no-deps 'janus-swi>=1.5'   # against this SWI-Prolog
           pip install -e '.[api]'
       - uses: actions/setup-node@v4
         with:

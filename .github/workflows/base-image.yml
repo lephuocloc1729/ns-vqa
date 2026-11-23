@@ -1,0 +1,58 @@
+name: API base image
+
+# Builds docker/base.Dockerfile (Ubuntu 24.04, Python 3, SWI-Prolog from its PPA) and pushes it to
+# ghcr.io/<owner>/signcite-base, tagged with the commit and with the SWI-Prolog version inside it.
+# The API image starts FROM a pinned tag of it, so its builds never need Launchpad.
+# On a pull request it builds without pushing; on main (or by hand) it pushes.
+on:
+  pull_request:
+    paths: ["docker/base.Dockerfile", "docker/install-swipl.sh", ".github/workflows/base-image.yml"]
+  push:
+    branches: [main]
+    paths: ["docker/base.Dockerfile", "docker/install-swipl.sh", ".github/workflows/base-image.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: base-image
+  cancel-in-progress: false
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build (loaded locally first, to read the SWI-Prolog version)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/base.Dockerfile
+          load: true
+          tags: signcite-base:candidate
+      - name: SWI-Prolog and Python inside
+        id: ver
+        run: |
+          v=$(docker run --rm signcite-base:candidate swipl -g "current_prolog_flag(version,V),write(V),nl" -t halt)
+          docker run --rm signcite-base:candidate sh -c 'swipl --version && python3 --version'
+          echo "swipl=$v" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/signcite-base" >> "$GITHUB_OUTPUT"
+          echo "### SignCite base image: SWI-Prolog $v ($(docker run --rm signcite-base:candidate swipl --version))" >> "$GITHUB_STEP_SUMMARY"
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push, tagged with the commit and the SWI-Prolog version
+        if: github.event_name != 'pull_request'
+        run: |
+          for tag in "${{ github.sha }}" "swipl-${{ steps.ver.outputs.swipl }}"; do
+            docker tag signcite-base:candidate "${{ steps.ver.outputs.image }}:$tag"
+            docker push -q "${{ steps.ver.outputs.image }}:$tag"
+            echo "pushed ${{ steps.ver.outputs.image }}:$tag" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
