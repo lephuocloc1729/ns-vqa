@@ -43,7 +43,7 @@ The Prolog step takes milliseconds, so the lock costs almost nothing. The Claude
    - perception runs in a thread the pipeline starts itself, so its events are routed by the image path. Each turn gets its own path, a hard link to the upload, so two questions about the same photo never mix. The scene cache is keyed by the image's content, so caching is unaffected.
 4. **Settings and docs:**
    - `VQA_ANSWER_SLOTS` goes in `docker-compose.yml`, `.env.example` and `docs/deploy.md`.
-   - Suggested value on the server: **6**. RAM is not a limit, since threads share one pipeline. The limits are Anthropic's rate limits and spend.
+   - Suggested value on the server: **6**; the owner chose **10** after the measurements (2026-11-23). RAM is not a limit, since threads share one pipeline. The limits are Anthropic's rate limits and spend.
 
 ## Tests
 
