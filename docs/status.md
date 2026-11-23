@@ -1,6 +1,6 @@
 # Project status
 
-## Where things stand (2026-11-21)
+## Where things stand (2026-11-23)
 
 **The evaluation is complete** (branch `phase-5`). On the private test, three runs on the frozen phase52 system, hand-graded by the owner:
 
@@ -16,7 +16,11 @@
 - The lane-sign payload fix (QCVN 41 D.14, `05e4b3b`) is post-benchmark and never scored on private.
 - Details are in the entries below.
 
-### Task 3 (Review 3 checklist, defense 2026-11-30), day 1: done on 2026-11-21
+### Task 3 (Review 3 checklist): Review 3 on 2026-11-30, the thesis defense on 2026-12-19
+
+The dates were corrected by the owner on 2026-11-22; an earlier note had the defense on 11-30.
+
+#### Day 1: done on 2026-11-21
 
 Plan: `docs/plans/task-3-review-3.md` (proposed; 9-day schedule). All work goes through PRs to `main`, with CI on every push.
 
@@ -51,16 +55,63 @@ Plan: `docs/plans/task-3-review-3.md` (proposed; 9-day schedule). All work goes 
   - Q4_K_M vs BF16: 9.3 vs 19.6 GB, 203 vs 91 tokens/s, 4.8 vs 6.5 s per answer (accuracy not measured);
   - end to end through the API with the RAG fallback: 3/3 correct, $0.0855.
 
-**Next:**
-1. **The web UI** (`web/`, React + Vite + TypeScript): ask screen with live stages and the streamed answer, sign boxes, citations, proof, RAG badge and sources, feedback, history; then microphone, video frame, dashboard.
-2. Docker Compose (web, api, rag, postgres, prometheus, grafana) + Grafana dashboards; CD for the API image.
-3. Load test (Locust), red-team/guardrail test, user test (SUS/CSAT, 10–12 people on 26–27/11).
-4. The RAG's Q4 vs BF16 accuracy (grade the saved private runs); thesis chapters; slides; demo video.
+#### Days 3–4 (2026-11-22 and 2026-11-23): PRs #8–#27
+
+| PR | What | Merge |
+|---|---|---|
+| #8 | This file: Task 3 day 1 | `f96a11c` |
+| #9, #10 | The web UI (`web/`): ask screen, streamed stages and answer, sign boxes, proof, citations, RAG badge, feedback, history; chat-style layout; voice questions (browser speech-to-text, vi-VN) | `f49a031`, `e3b6672` |
+| #11 | Docker Compose stack: web (nginx), api, postgres, prometheus, node-exporter, grafana (dashboard "SignCite – hệ thống"), rag (GPU profile); fake pipeline by default | `5f248fb` |
+| #12 | Product name **SignCite** | `f2914bd` |
+| #13 | HTTPS with Caddy for **signcite.xyz** (`docker-compose.https.yml`) | `f85cfab` |
+| #14 | Web UI: the phone layout of the mockup, the desktop at 80%, no example questions; greeting "Hỏi biển báo trong ảnh của bạn" in the brand's serif | `6ba7058` |
+| #15, #16, #17 | **CD** (`.github/workflows/cd.yml`, `docker/deploy.sh`): after CI on `main`, build and push to GHCR, deploy over SSH, check, automatic rollback of images and files; tests recorded in `docs/deploy.md` | `221028f`, `5673682`, `cb80846` |
+| #18, #20, #21 | **Load test** (Locust, `eval/load/`, workflow `load-test.yml`); results in `docs/results/load-test-2026-11-22.md` and `load-test-slots-2026-11-23.md` | `ef5ec1c`, `7535be1`, `c8cea1e` |
+| #19 | **Several questions at once:** `VQA_ANSWER_SLOTS` (threads sharing the pipeline, one Prolog lock); plan `docs/plans/concurrent-answers.md` (approved) | `fbf1f8d` |
+| #22 | RAG settings for several questions at once (defaults unchanged) and `eval/rag_bench.py`; GPU results `docs/results/rag-concurrency-2026-11-23.md` | `ef8e6d6` |
+| #23, #27 | **RAG answer cache** (`app/api/rag_cache.py`, on by default for the RAG fallback; owner exception in CLAUDE.md); cache hits recorded in stored turns and `/metrics` (#27 carries a fix that missed #23) | `62c1cd2`, `54c90dd` |
+| #24 | `httpx` in the API image (the RAG client needed it); CI imports every real-mode module inside the image; CI runs on `main` no longer cancelled | `00dd01c` |
+| #25 | No test-split file in what a GPU session downloads: `rag_bundle` (1,647 files) and `rag_eval_bundle` (195 public-test files, only with `--eval`); the service's caption settings beside its code; answers unchanged | `8f6e41f` |
+| #26 | The demo server reaches a rented GPU's RAG: the `rag-tunnel` service and `docker/rag-session.sh key/on/off/status` | `964ac17` |
+
+**The demo server** (`docs/deploy.md`):
+- A CloudNest VPS (2 vCPU, 4 GB) at **https://signcite.xyz**, with a testers' password.
+- The real phase52 pipeline, 10 answer slots, a spend cap of $5 per API restart.
+- The RAG fallback is off unless a GPU session is on.
+- Every merge to `main` deploys itself.
+- **Tested:** CD rollback, an unreachable registry and a server reboot (back in 25 s, data and certificates kept).
+
+**Measured:**
+- **Load** (fake pipeline, 4-vCPU runners): 0 failures up to 1000 users.
+  - 1 API slot: 1.05 answers/s; p95 passes 10 s at ~25 users.
+  - **10 slots: 10.33 answers/s; p95 at most 2 s up to 200 users, 4.6 s at 300;** API memory 163 MB.
+  - 4 processes × 1 slot: 3.58 answers/s.
+  - On the real system (~20 s per answer, mostly Claude), 10 slots give about 30 answers a minute.
+  - The account's rate limits (evaluation tier) cover 10 slots at full load: about 54% of Haiku's input-token limit.
+- **The RAG on one RTX 5090:**
+  - 1 slot: 6.8 answers/min, 8.6 s mean (12.1 s on another machine), 18.7 GB;
+  - 2 slots: 11.6/min; 4 slots: 13.0/min at 26.8 GB; 8 slots: out of memory.
+  - **Batching changes the answers** (5–6/24 identical), so the evaluated setup keeps 1 slot.
+  - 1 slot repeats exactly: 24/24, on two days and two machines.
+- **Live on signcite.xyz with the RAG** (2026-11-23):
+  - an undecided question (a fine) was answered by the RAG;
+  - the repeat came from the cache in 1.6–4.3 s, identical, recorded as `cache_hit: true`.
+  - Fines are not in the RAG's law corpus, so it says it cannot determine them.
+- **Spend** this session (owner's go-ahead): about $0.10 on 2026-11-22 and $0.15 on 2026-11-23, plus two short GPU rentals.
+
+**Next, before Review 3 (2026-11-30):**
+1. **UAT**: the pack (task sheet, SUS/CSAT form, `eval/uat/score_sus.py`, moderator notes, report template).
+   - Owner: recruit 15–20 testers, take ~5 street photos for the fixed tasks, decide the spend cap (about $15–20 suggested) and the format.
+   - Sessions around 26–28/11, with a GPU rented for their hours (`rag-session.sh on`/`off`); the RAG cache was cleared on 2026-11-23.
+2. **A 3–5 minute backup demo video.**
+3. **Thesis Chapter 5 material** (UI, deployment, tests) from the results docs above.
+
+**After Review 3, for the defense (2026-12-19):** the dashboard page with charts (1.3), the red-team guardrail set (W4), the RAG's Q4 vs BF16 accuracy, and the slides.
 
 **Open:**
-- The thesis's location, format and status are unknown (owner).
-- The default branch is still `phase-5` (owner to switch to `main`; ruleset `protect-main` suggested).
+- The thesis's location, format and status (D1, owner).
 - The repo's `.venv` pip script points at `NewNeuroSymbolic/.venv`: use `.venv/bin/python -m pip`.
+- After the defense, delete the RAG answer cache and the demo server's data.
 
 ---
 

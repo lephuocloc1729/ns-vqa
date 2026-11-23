@@ -235,9 +235,9 @@ Each package ends with its done check.
 | 17 | Artifacts | not started | done | release, HF links |
 | 18 | Video | not started | done | video file |
 
-## Schedule: 9 days (defense 2026-11-30)
+## Schedule: 9 days (Review 3 on 2026-11-30)
 
-The defense is on **2026-11-30** (owner, 2026-11-21). The plan above is the full version; this is what fits. The first cuts are the items the committee sees least.
+Review 3 is on **2026-11-30**; the thesis defense is on **2026-12-19** (owner, corrected 2026-11-22; this schedule was first written for a defense on 11-30). The schedule targets Review 3; the defense adds about three weeks. The plan above is the full version; this is what fits. The first cuts are the items the committee sees least.
 
 **Cut or reduced:**
 - PDF/DOCX input and video input: dropped. The thesis says why in one line (the input is a road photo).
@@ -257,7 +257,7 @@ The defense is on **2026-11-30** (owner, 2026-11-21). The plan above is the full
 | 6 | Fri 27 | UAT closes, SUS/CSAT; Ch. 5 numbers; slides draft |
 | 7 | Sat 28 | Thesis finished, references, plagiarism check; demo video recorded |
 | 8 | Sun 29 | Two timed rehearsals, Q&A sheet, buffer for anything that slipped |
-| 9 | Mon 30 | Defense |
+| 9 | Mon 30 | Review 3 |
 
 The thesis is the biggest risk. It runs alongside every day, and depends on D1 (where the draft is, and whether it must be submitted before the 30th).
 
@@ -271,7 +271,7 @@ The thesis is the biggest risk. It runs alongside every day, and depends on D1 (
 | D4 | App-level memory (buffer + summary, pipeline unchanged)? | Yes |
 | D5 | Demo server: the GPU machine for `rag` and `stt`, plus which host for the rest? | A small VPS for web, api, db and monitoring; the GPU box for rag and stt |
 | D6 | Publish: GitHub release with the weights' sha256s; gold annotations on HF if the course allows? | Yes to both, private if unsure |
-| D7 | Defense date; team members and who presents which part | — |
+| D7 | Defense date; team members and who presents which part | Answered for the dates (owner, 2026-11-22): Review 3 on 11-30, defense on 12-19; who presents what is still open |
 | D8 | Move `vqa/` → `src/vqa/` to match 6.1? | Yes, after the benchmark tag (imports unchanged) |
 | D9 | Make `trafficvqa-rag` private or remove its private-test files from history? | Make it private |
 
