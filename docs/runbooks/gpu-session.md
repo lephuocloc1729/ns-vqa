@@ -53,7 +53,22 @@ uvicorn --factory text_based_rag.service_api:create_app --host 0.0.0.0 --port 81
 
 **Without the image:** use a CUDA PyTorch template, `git clone` the repo, `cd services/rag`, and run the same two commands. Packages then install with `uv` (a few minutes).
 
-## Checks a session can run (plan S6-D; done 2026-11-21)
+## What a session downloads (2026-11-23)
+
+- **`rag_bundle`, every session:** what the RAG service needs, and **no test-split file**.
+  - The law corpus and its index; the train captions, embeddings and images; the law files.
+  - The service's caption settings now sit beside its code (`services/rag/src/text_based_rag/caption_settings.json`), so it reads no test file.
+- **`rag_eval_bundle`, only on request** (`RAG_SETUP_ARGS=--eval`, or `bash scripts/gpu_setup.sh --eval`): the public-test caches and data. Evaluation runs of the batch runner (`--split public_test`) and the checks below need it.
+- **No private-test file** is in either bundle.
+- **Rebuild and upload both** after changing the assets:
+
+  ```bash
+  python scripts/make_bundle.py && bash scripts/upload_bundle.sh
+  ```
+
+  Do it only once the GPU image with the matching scripts is on GHCR (it builds when `services/rag/` changes on `main`).
+
+## Checks a session can run (plan S6-D; done 2026-11-21; these need `--eval`)
 
 - **The service against the batch runner's live pipeline,** on the same public questions. Stage by stage it matches; the only difference is the query-embedding batch size.
 - **Streaming against non-streaming:** the same answers.

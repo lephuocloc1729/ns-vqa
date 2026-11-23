@@ -3,7 +3,8 @@
 #
 #   template On-start script:  bash /app/scripts/onstart.sh
 #   template environment:      HF_TOKEN=<read-only token>  (RAG_ASSETS_REPO optional)
-#   add --bf16 through RAG_SETUP_ARGS=--bf16 for the Q4 vs BF16 measurement
+#   add --bf16 through RAG_SETUP_ARGS=--bf16 for the Q4 vs BF16 measurement, and --eval for the
+#   public-test files of evaluation runs (the service itself needs no test-split file)
 #
 # Progress: /app/logs/onstart.log; the service: /app/logs/service.log; ready when
 #   curl localhost:8100/health   says {"status":"ok"}.
