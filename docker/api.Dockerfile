@@ -1,18 +1,14 @@
 # The backend API: FastAPI + the rules pipeline (Python) + SWI-Prolog (janus).
-# Ubuntu 24.04 with the SWI-Prolog PPA, as in CI (SWI-Prolog >= 9.1 is required).
-FROM ubuntu:24.04
+#
+# FROM the SignCite base (docker/base.Dockerfile, built by .github/workflows/base-image.yml):
+# Ubuntu 24.04, Python 3.12, SWI-Prolog 11.0.0 from its PPA, and the venv /opt/venv. It is pinned by
+# its commit tag, so building this image never needs Launchpad, and Prolog or Python change only
+# when this line does. To update them: rebuild the base (run the workflow), then change the tag.
+ARG BASE=ghcr.io/lephuocloc1729/signcite-base:9d66ff8468c03d44b1d3afd95bb8c4141500c0a5
+FROM ${BASE}
 
 ENV DEBIAN_FRONTEND=noninteractive PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     PATH=/opt/venv/bin:$PATH
-# SWI-Prolog from its PPA with a retry and a version check (docker/install-swipl.sh): an unreachable
-# PPA must fail the build, not silently install Ubuntu's older swi-prolog
-COPY docker/install-swipl.sh /tmp/install-swipl.sh
-RUN apt-get update -q \
- && apt-get install -y -q --no-install-recommends software-properties-common gpg-agent ca-certificates curl \
-    python3 python3-venv python3-dev build-essential \
- && bash /tmp/install-swipl.sh \
- && rm -rf /var/lib/apt/lists/* /tmp/install-swipl.sh \
- && python3 -m venv /opt/venv
 
 WORKDIR /app
 # dependencies first (a cached layer that changes only with pyproject.toml)

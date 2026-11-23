@@ -20,6 +20,7 @@ on:
 
 permissions:
   contents: read
+  packages: read                  # the API image starts FROM the SignCite base in GHCR
 
 jobs:
   load:
@@ -44,6 +45,11 @@ jobs:
         run: |
           echo "CPU: $(nproc) x $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)" | tee machine.txt
           echo "RAM: $(free -g | awk '/Mem:/{print $2}') GB" | tee -a machine.txt
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and start the stack (fake pipeline, API_WORKERS=${{ matrix.cfg.workers }}, VQA_ANSWER_SLOTS=${{ matrix.cfg.slots }})
         run: docker compose up -d --build --wait --wait-timeout 300 web api postgres
       - name: Container CPU and memory, every 5 s
