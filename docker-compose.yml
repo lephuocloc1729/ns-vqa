@@ -27,7 +27,7 @@ services:
     image: ${API_IMAGE:-signcite-api:local}
     environment:
       VQA_PIPELINE: ${VQA_PIPELINE:-fake}
-      API_WORKERS: ${API_WORKERS:-1}            # server processes; each answers one question at a time
+      API_WORKERS: ${API_WORKERS:-1}            # server processes (each answers VQA_ANSWER_SLOTS questions at once)
       VQA_DATABASE_URL: postgresql+psycopg://vqa:${POSTGRES_PASSWORD:-vqa-local}@postgres:5432/vqa
       VQA_UPLOAD_DIR: /app/var/uploads
       VQA_PROFILE: phase52

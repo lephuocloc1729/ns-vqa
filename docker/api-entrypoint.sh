@@ -3,7 +3,7 @@
 #   law_db figure copies, no Claude spend: what a clean machine runs.
 # VQA_PIPELINE=real: the frozen phase52 pipeline. Needs ANTHROPIC_API_KEY and the scene prompt's
 #   pictogram copies mounted at prompts/scene/v5/pictograms (see docs/deploy.md).
-# API_WORKERS (default 1): server processes. Each process answers one question at a time.
+# API_WORKERS (default 1): server processes. Each answers VQA_ANSWER_SLOTS questions at once.
 set -e
 case "${VQA_PIPELINE:-fake}" in
   fake) exec python web/e2e/fake_api.py --host 0.0.0.0 --port 8000 --workers "${API_WORKERS:-1}" ;;

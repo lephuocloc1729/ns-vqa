@@ -159,7 +159,7 @@ def main() -> None:
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--workers", type=int, default=int(os.environ.get("API_WORKERS", "1")),
-                    help="server processes; each answers one question at a time (the load test compares 1, 2, 4)")
+                    help="server processes; each answers VQA_ANSWER_SLOTS questions at once (the load test compares setups)")
     args = ap.parse_args()
     tmp = Path(tempfile.mkdtemp(prefix="vqa-e2e-"))
     # set here so every worker process uses the same database and upload folder
