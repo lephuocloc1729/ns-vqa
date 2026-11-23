@@ -87,6 +87,14 @@ Browsers allow the microphone and camera only over HTTPS.
 
 The `caddy_data` volume holds the certificates; keep it. CI runs the same overlay with `DOMAIN=localhost` (Caddy's own local CA) and streams one answer through it.
 
+## Several questions at once
+
+`VQA_ANSWER_SLOTS` (default 1) sets how many questions the API answers at the same time.
+- The answers share one pipeline. Only its Prolog step (milliseconds) runs one at a time, and the Claude calls (about 20 s of each answer) overlap.
+- More slots cost almost no memory.
+- The ceiling is Anthropic's rate limits and the spend cap. The cap is safe: each call reserves its worst case first, so answers at once can't overspend.
+- Why and how: `docs/plans/concurrent-answers.md`.
+
 ## The demo server
 
 - A CloudNest VPS (Ubuntu 24.04, 2 vCPU, 4 GB RAM), domain `signcite.xyz`.

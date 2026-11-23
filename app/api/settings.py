@@ -13,6 +13,7 @@
 | VQA_MAX_IMAGE_MB | 10 | largest accepted upload |
 | VQA_CORS_ORIGINS | * | comma-separated origins allowed to call the API |
 | VQA_HEARTBEAT_S | 15 | seconds between keep-alive comments on a quiet stream |
+| VQA_ANSWER_SLOTS | 1 | questions answered at the same time (threads sharing the pipeline; docs/plans/concurrent-answers.md) |
 """
 
 from __future__ import annotations
@@ -39,11 +40,14 @@ class Settings:
     cors_origins: tuple[str, ...] = ("*",)
     heartbeat_s: float = 15.0
     max_question_chars: int = 500
+    answer_slots: int = 1
     extra: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.answer_fallback not in FALLBACK_MODES:
             raise ValueError(f"VQA_ANSWER_FALLBACK must be one of {FALLBACK_MODES}, not {self.answer_fallback!r}")
+        if not 1 <= self.answer_slots <= 64:
+            raise ValueError(f"VQA_ANSWER_SLOTS must be between 1 and 64, not {self.answer_slots}")
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -62,4 +66,5 @@ class Settings:
             max_image_bytes=int(float(env.get("VQA_MAX_IMAGE_MB", "10")) * 1024 * 1024),
             cors_origins=tuple(o.strip() for o in env.get("VQA_CORS_ORIGINS", "*").split(",") if o.strip()),
             heartbeat_s=float(env.get("VQA_HEARTBEAT_S", "15")),
+            answer_slots=int(env.get("VQA_ANSWER_SLOTS", "1")),
         )

@@ -33,6 +33,7 @@ services:
       VQA_ANSWER_FALLBACK: ${VQA_ANSWER_FALLBACK:-off}
       VQA_RAG_URL: ${VQA_RAG_URL:-http://rag:8100}
       VQA_SPEND_LIMIT: ${VQA_SPEND_LIMIT:-2}
+      VQA_ANSWER_SLOTS: ${VQA_ANSWER_SLOTS:-1}   # questions answered at once (docs/plans/concurrent-answers.md)
       VQA_CORS_ORIGINS: ${VQA_CORS_ORIGINS:-*}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     volumes:

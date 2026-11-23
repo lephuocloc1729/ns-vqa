@@ -135,7 +135,7 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
             pipe.fallback = RagFallback(settings.rag_url, timeout=settings.rag_timeout_s)
         return pipe
 
-    runner = PipelineRunner(pipeline_factory or default_factory)
+    runner = PipelineRunner(pipeline_factory or default_factory, slots=settings.answer_slots)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -220,7 +220,7 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
     @app.get("/version")
     def version() -> dict[str, Any]:
         return {"profile": settings.profile, "pipeline": PROFILES.get(settings.profile),
-                "answer_fallback": settings.answer_fallback}
+                "answer_fallback": settings.answer_fallback, "answer_slots": runner.slots}
 
     @app.get("/metrics")
     def prom() -> Response:

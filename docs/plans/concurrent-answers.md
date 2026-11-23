@@ -1,4 +1,4 @@
-# Plan: several answers at once in one API process (proposal, 2026-11-23)
+# Plan: several answers at once in one API process (approved by the owner and built, 2026-11-23)
 
 **Goal:** the API answers several questions at the same time, instead of one at a time per process. Nothing changes in `vqa/`, in the frozen phase52 behaviour, or in what any answer says.
 
@@ -51,6 +51,17 @@ The Prolog step takes milliseconds, so the lock costs almost nothing. The Claude
 - **Pipeline through the runner** (fake SDK, warmed scene caches, no spend): N concurrent answers on two photos and several questions give the same answers as sequential runs. Each turn's stream holds only its own events: perception signs, parsed program, tokens.
 - **API:** two concurrent `/v1/ask/stream` calls each get only their own tokens and answer; the existing tests still pass.
 - **Load test** rerun: slots 1 vs 6 (fake pipeline). Expect answers/s to rise about 6×, and p95 to stay low far longer.
+
+## Built (2026-11-23)
+
+- **`app/api/runner.py`:** slots, the Prolog lock and per-answer context.
+- **`app/api/settings.py`:** `VQA_ANSWER_SLOTS`, from 1 to 64. `/version` reports it.
+- **`tests/test_concurrent_answers.py`:**
+  - the engine across 8 threads through the runner's lock;
+  - 24 concurrent pipeline answers on two photos × two questions, each equal to its sequential answer, with streams that never mix;
+  - six slow answers in 6 slots take about the time of one;
+  - two API streams at once.
+- **Removing the lock makes the first two tests fail.** That was checked once by hand.
 
 ## Risks and limits
 
