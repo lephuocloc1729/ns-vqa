@@ -198,7 +198,8 @@ def test_the_api_answers_and_streams():
     from text_based_rag.service_api import create_app
     with TestClient(create_app(lambda: FakeEngine(), start=False)) as c:
         assert c.get("/health").json()["status"] == "ok"
-        assert c.get("/version").json()["config_version"] == svc.CONFIG_VERSION
+        v = c.get("/version").json()
+        assert v["config_version"] == svc.CONFIG_VERSION and v["llama_parallel"] == 1 and v["workers"] == 1
         r = c.post("/answer", files={"image": ("a.png", png(), "image/png")}, data={"question": "Biển gì?"})
         assert r.status_code == 200 and r.json()["answer"] == "Đây là biển cấm đỗ."
         s = c.post("/answer/stream", files={"image": ("a.png", png(), "image/png")}, data={"question": "Biển gì?"})

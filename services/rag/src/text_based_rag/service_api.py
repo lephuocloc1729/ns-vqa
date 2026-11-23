@@ -92,7 +92,11 @@ def create_app(engine_factory: Callable[[], RagEngine] | None = None, start: boo
 
     @app.get("/version")
     def version() -> dict[str, Any]:
-        return {"config_version": CONFIG_VERSION, "config": CONFIG_C}
+        # answers repeat exactly only with one slot (llama.cpp batching changes them; see
+        # docs/results/rag-concurrency-2026-11-23.md), so clients that cache answers check this
+        from text_based_rag.service import llama_parallel
+        return {"config_version": CONFIG_VERSION, "config": CONFIG_C, "llama_parallel": llama_parallel(),
+                "workers": max(1, int(os.environ.get("RAG_WORKERS", "1")))}
 
     @app.post("/answer")
     async def answer(image: UploadFile = File(...), question: str = Form(...)) -> dict[str, Any]:
