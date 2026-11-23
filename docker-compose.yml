@@ -35,7 +35,7 @@ services:
       VQA_RAG_URL: ${VQA_RAG_URL:-http://rag:8100}
       VQA_SPEND_LIMIT: ${VQA_SPEND_LIMIT:-2}
       VQA_ANSWER_SLOTS: ${VQA_ANSWER_SLOTS:-1}   # questions answered at once (docs/plans/concurrent-answers.md)
-      VQA_RAG_CACHE: ${VQA_RAG_CACHE:-off}         # on: repeated RAG questions answered from the RAG's own earlier answer
+      VQA_RAG_CACHE: ${VQA_RAG_CACHE:-on}          # repeated RAG questions answered from the RAG's own earlier answer (off disables)
       VQA_RAG_CACHE_DIR: /app/var/rag_cache
       VQA_CORS_ORIGINS: ${VQA_CORS_ORIGINS:-*}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}

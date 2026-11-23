@@ -13,7 +13,7 @@
 | VQA_MAX_IMAGE_MB | 10 | largest accepted upload |
 | VQA_CORS_ORIGINS | * | comma-separated origins allowed to call the API |
 | VQA_HEARTBEAT_S | 15 | seconds between keep-alive comments on a quiet stream |
-| VQA_RAG_CACHE | off | on: repeated RAG questions (same photo, same question, same RAG version) are answered from the RAG's own earlier answer (app/api/rag_cache.py) |
+| VQA_RAG_CACHE | on | off disables it. on: repeated RAG questions (same photo, same question, same RAG version) are answered from the RAG's own earlier answer (app/api/rag_cache.py) |
 | VQA_RAG_CACHE_DIR | var/rag_cache | where those answers are kept |
 | VQA_RAG_CACHE_MAX_DAYS | 0 | ignore cached answers older than this (0: no limit) |
 | VQA_ANSWER_SLOTS | 1 | questions answered at the same time (threads sharing the pipeline; docs/plans/concurrent-answers.md) |
@@ -44,7 +44,7 @@ class Settings:
     heartbeat_s: float = 15.0
     max_question_chars: int = 500
     answer_slots: int = 1
-    rag_cache: bool = False
+    rag_cache: bool = True
     rag_cache_dir: Path = ROOT / "var" / "rag_cache"
     rag_cache_max_days: float = 0.0
     extra: dict[str, str] = field(default_factory=dict)
@@ -73,7 +73,7 @@ class Settings:
             cors_origins=tuple(o.strip() for o in env.get("VQA_CORS_ORIGINS", "*").split(",") if o.strip()),
             heartbeat_s=float(env.get("VQA_HEARTBEAT_S", "15")),
             answer_slots=int(env.get("VQA_ANSWER_SLOTS", "1")),
-            rag_cache=env.get("VQA_RAG_CACHE", "off").strip().lower() in ("on", "1", "true", "yes"),
+            rag_cache=env.get("VQA_RAG_CACHE", "on").strip().lower() not in ("off", "0", "false", "no"),
             rag_cache_dir=Path(env.get("VQA_RAG_CACHE_DIR", str(cls.rag_cache_dir))),
             rag_cache_max_days=float(env.get("VQA_RAG_CACHE_MAX_DAYS", "0")),
         )

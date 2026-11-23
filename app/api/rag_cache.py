@@ -13,7 +13,7 @@ instantly, without the GPU, and with exactly the words the RAG would write again
   version (`config_version` and its slot count). A changed RAG never matches old entries.
 - **Storage:** one small JSON file per answer, at most `max_entries` (the oldest go first),
   optionally ignored after `max_days`.
-- **Switch:** VQA_RAG_CACHE=on (default off). Clear it with
+- **Switch:** VQA_RAG_CACHE (default on; off disables it). It applies only to the RAG fallback. Clear it with
   `python -m app.api.rag_cache clear [DIR]`; `stats` counts it.
 
 `CachedRagFallback` has the RagFallback interface (`answer`, `on_event`, `prompt_id`, `url`), so the

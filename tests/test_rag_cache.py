@@ -125,7 +125,7 @@ def test_clear_and_stats(tmp_path, capsys):
     assert "1 cached RAG answers" in out and "removed 1" in out and c.entries() == []
 
 
-def test_the_api_turns_it_on_only_when_asked_and_only_for_the_rag(tmp_path):
+def test_the_api_caches_the_rag_by_default_and_can_turn_it_off(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
 
     from app.api.main import create_app
@@ -134,10 +134,10 @@ def test_the_api_turns_it_on_only_when_asked_and_only_for_the_rag(tmp_path):
     def version(**kw):
         s = Settings(database_url=f"sqlite:///{tmp_path / 'a.db'}", upload_dir=tmp_path / "up", **kw)
         return TestClient(create_app(s)).get("/version").json()["rag_cache"]
-    assert version() is False                                                # off by default
-    assert version(answer_fallback="rag") is False
-    assert version(answer_fallback="claude", rag_cache=True) is False        # the Sonnet fallback: never
-    assert version(answer_fallback="rag", rag_cache=True) is True
+    assert version() is False                                                # no RAG fallback, no cache
+    assert version(answer_fallback="rag") is True                            # on by default for the RAG
+    assert version(answer_fallback="rag", rag_cache=False) is False          # VQA_RAG_CACHE=off
+    assert version(answer_fallback="claude") is False                        # the Sonnet fallback: never
 
 
 def test_the_runner_streams_a_hit_and_the_pipeline_sees_a_rag_answer(tmp_path, photo):
@@ -163,3 +163,12 @@ def test_the_runner_streams_a_hit_and_the_pipeline_sees_a_rag_answer(tmp_path, p
     assert inner.calls == 1 and a1.text == a2.text
     assert [n for n, _ in ev2 if n != "started"] == ["route", "token"]
     assert "".join(p["text"] for n, p in ev2 if n == "token") == a2.text
+
+
+def test_the_setting_reads_on_by_default_and_off_when_asked(monkeypatch):
+    from app.api.settings import Settings
+    monkeypatch.delenv("VQA_RAG_CACHE", raising=False)
+    assert Settings.from_env().rag_cache is True
+    for off in ("off", "0", "false", "OFF"):
+        monkeypatch.setenv("VQA_RAG_CACHE", off)
+        assert Settings.from_env().rag_cache is False
