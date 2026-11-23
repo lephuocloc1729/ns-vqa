@@ -2,13 +2,15 @@ name: Load test
 
 # Plan item 3.2: the capacity ramp (10 to 500 users) and the stress test (1000 users, then recovery)
 # against the whole Docker Compose stack (nginx, API, Postgres) with the fake pipeline: no Claude
-# calls, so the numbers measure our own system. One job per API_WORKERS value, each on its own
-# runner; VQA_ANSWER_SLOTS sets the answers at once per process. Results: the job summary, and the
-# artifact "load-w<workers>-s<slots>" (per-step tables,
-# Locust's CSV and HTML, container CPU and memory).
+# calls, so the numbers measure our own system.
+#
+# Run by hand only (Actions > Load test > Run workflow), about 15 min per setup. By default it runs
+# the setup the demo server uses: 1 API process with 10 answer slots. To compare setups, give
+# `configs`, e.g. [{"workers":1,"slots":1},{"workers":1,"slots":10}]: one job each, on its own runner.
+# The comparison of 2026-11-23 is in docs/results/load-test-slots-2026-11-23.md.
+# Results: the job summary, and the artifact "load-w<workers>-s<slots>" (per-step tables, Locust's
+# CSV and HTML, container CPU and memory).
 on:
-  pull_request:                 # a change to the load test runs it (about 25 min)
-    paths: ["eval/load/**", ".github/workflows/load-test.yml"]
   workflow_dispatch:
     inputs:
       step_seconds:
@@ -16,7 +18,7 @@ on:
         default: "60"
       configs:
         description: 'Setups to compare, as JSON: [{"workers": API processes, "slots": answers at once per process}]'
-        default: '[{"workers":1,"slots":1},{"workers":1,"slots":6},{"workers":2,"slots":1},{"workers":4,"slots":1}]'
+        default: '[{"workers":1,"slots":10}]'
 
 permissions:
   contents: read
@@ -29,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cfg: ${{ fromJSON(inputs.configs || '[{"workers":1,"slots":1},{"workers":1,"slots":6},{"workers":2,"slots":1},{"workers":4,"slots":1}]') }}
+        cfg: ${{ fromJSON(inputs.configs || '[{"workers":1,"slots":10}]') }}
     name: load (${{ matrix.cfg.workers }} process(es), ${{ matrix.cfg.slots }} slot(s))
     env:
       API_WORKERS: ${{ matrix.cfg.workers }}
