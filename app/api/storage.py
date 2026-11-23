@@ -81,9 +81,23 @@ class Store:
             self.engine = create_engine(url, connect_args={"check_same_thread": False})
         else:
             self.engine = create_engine(url, pool_pre_ping=True)
-        Base.metadata.create_all(self.engine)
+        self._create_tables()
         self._add_missing_columns()
         self._sessions = sessionmaker(self.engine, expire_on_commit=False)
+
+    def _create_tables(self) -> None:
+        """Create missing tables. Several server processes may start at once and race to create
+        the same table; the loser sees "already exists" and simply checks again."""
+        import time
+        from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
+        for attempt in range(5):
+            try:
+                Base.metadata.create_all(self.engine)
+                return
+            except (OperationalError, ProgrammingError, IntegrityError) as e:
+                if "already exists" not in str(e) and "duplicate" not in str(e).lower() or attempt == 4:
+                    raise
+                time.sleep(0.2 * (attempt + 1))
 
     def _add_missing_columns(self) -> None:
         """Additive migration: a database made by an older version gets the newer nullable columns."""
