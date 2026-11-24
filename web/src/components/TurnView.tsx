@@ -54,6 +54,11 @@ export default function TurnView({ t, showImage, selected, onSelect, onFeedback 
           </button>
         )}
         <div className="bubble" onClick={onSelect}>{t.question}</div>
+        {t.understoodAs && (
+          <div className="understood" data-testid="understood-as">
+            Hiểu câu hỏi là: <q>{t.understoodAs}</q>
+          </div>
+        )}
       </div>
 
       <div className="msg-bot">

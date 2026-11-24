@@ -90,3 +90,15 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if item.nodeid in listed:
             item.add_marker(skip)
+
+
+
+@pytest.fixture(autouse=True)
+def _no_real_followup_client(monkeypatch):
+    """The API builds its follow-up rewriter's Claude client itself when a test gives none; in tests it
+    must never be real (it would spend money if a key is set). It fails instead, as without a key."""
+    from app.api import followup
+
+    def refuse(guard):
+        raise RuntimeError("tests never build a real follow-up client")
+    monkeypatch.setattr(followup, "make_client", refuse)

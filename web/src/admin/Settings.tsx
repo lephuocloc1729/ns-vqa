@@ -82,6 +82,18 @@ export default function Settings({ onError }: { onError: (e: unknown) => void })
       </fieldset>
 
       <fieldset>
+        <legend>Câu hỏi tiếp {tag("followup")}</legend>
+        <label className="adm-radio">
+          <input type="checkbox" checked={form.followup} onChange={(e) => setForm({ ...form, followup: e.target.checked })} />
+          Hiểu câu hỏi tiếp như “Còn xe khách thì sao?” dựa vào câu hỏi trước về cùng ảnh
+        </label>
+        <p className="adm-muted">
+          Một lần gọi Claude Haiku (khoảng $0,0005) viết lại câu hỏi tiếp thành câu hỏi đầy đủ; người dùng thấy
+          “Hiểu câu hỏi là: …”. Hệ luật và RAG vẫn chỉ nhận một câu hỏi đầy đủ. Tắt: câu hỏi được trả lời đúng như người dùng gõ.
+        </p>
+      </fieldset>
+
+      <fieldset>
         <legend>Bộ nhớ đệm câu trả lời RAG {tag("rag_cache")}</legend>
         <label className="adm-radio">
           <input type="checkbox" checked={form.rag_cache} onChange={(e) => setForm({ ...form, rag_cache: e.target.checked })} />

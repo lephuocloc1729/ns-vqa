@@ -89,6 +89,7 @@ export interface TurnSummary {
   created_at: string;
   account: string | null;
   question: string;
+  understood_as: string | null;
   image_sha256: string;
   status: string;
   verdict: string | null;
@@ -112,6 +113,7 @@ export interface Live {
   rag_url: string;
   rag_cache: boolean;
   spend_limit: number | null;
+  followup: boolean;
 }
 
 export interface SettingsView {

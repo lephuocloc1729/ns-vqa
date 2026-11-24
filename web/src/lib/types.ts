@@ -62,6 +62,7 @@ export interface TurnOut {
   session_id: string;
   status: "running" | "done" | "error" | string;
   question: string;
+  understood_as?: string | null; // a follow-up, rewritten into the question that was answered
   image_sha256: string;
   answer: string | null;
   verdict: string | null;

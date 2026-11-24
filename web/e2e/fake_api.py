@@ -6,6 +6,8 @@ The fake has the stage methods the API's runner wraps (perception, parser, engin
 fallback), so every stream event comes from the real runner and endpoint code:
 - a question containing "RAG" goes to the fallback, which answers as the RAG service would
   (streamed text, `basis` gains "rag", the laws it used in `retrieved`);
+- a follow-up "Còn X thì sao?" in the same chat is rewritten by a fake follow-up model
+  ("Xe ô tô có được đi vào …" becomes "X có được đi vào …"), as app/api/followup.py would;
 - a question containing "bài thơ" is out of scope (fallback off): the API shows its scope message;
 - any other question is answered by the "rules": the writer streams a first draft, withdraws
   it (`token_reset`) and streams the final text, as on a retry.
@@ -158,7 +160,19 @@ def make_app():
         database_url=os.environ["VQA_DATABASE_URL"], upload_dir=Path(os.environ["VQA_UPLOAD_DIR"]),
         heartbeat_s=1.0)
     pipe = FakePipeline()
-    return create_app(settings, pipeline_factory=lambda: pipe)
+    return create_app(settings, pipeline_factory=lambda: pipe, followup_llm=lambda: FakeFollowup())
+
+
+class FakeFollowup:
+    """The follow-up rewriter's model, faked: "Còn X thì sao?" takes X in place of the vehicle."""
+
+    def json_reply(self, *, system, user, **kw):
+        prev, new = (line.split(": ", 1)[1] for line in user.split("\n")[:2])
+        if new.startswith("Còn ") and new.endswith(" thì sao?"):
+            who = new[4:-9]
+            text = prev.replace("Xe ô tô", who[:1].upper() + who[1:], 1)
+            return SimpleNamespace(data={"question": text, "changed": True}, cost_usd=0.0004)
+        return SimpleNamespace(data={"question": new, "changed": False}, cost_usd=0.0004)
 
 
 def main() -> None:

@@ -96,7 +96,7 @@ You need about **20**, all taken by you on the street. **Never use dataset photo
 
 **Before the first tester:**
 1. Rent the GPU. On admin.signcite.xyz → Cài đặt → Máy GPU cho RAG, paste its SSH command, press **Nối**, then **Dùng RAG trên GPU này**. Or run `bash docker/rag-session.sh on <host> <port>` on the server (`docs/runbooks/gpu-session.md`).
-2. Check on admin.signcite.xyz → Cài đặt (or `/version`): the fallback is RAG and reachable, there are 10 answer slots, and the RAG cache is on.
+2. Check on admin.signcite.xyz → Cài đặt (or `/version`): the fallback is RAG and reachable, there are 10 answer slots, the RAG cache is on, and **Câu hỏi tiếp** (follow-up questions) is on.
 3. Write down the start time in UTC, for `turn_stats.py`.
 4. Ask one question on a **fixed** photo to warm everything up. Never use a spare photo for this.
 
@@ -143,7 +143,7 @@ You need about **20**, all taken by you on the street. **Never use dataset photo
 |---|---|---|
 | T1 | the sign's meaning, said aloud | finding attach; reaction to the wait |
 | T2 | the verdict **and** the law and article (they are folded under the answer) | do they find and open the folded part? |
-| T3 | the motorbike answer **and** pointing to the right sign on the photo | do they re-attach the photo? do they find the photo with the boxes? |
+| T3 | the motorbike answer **and** pointing to the right sign on the photo | do they re-attach the photo? a short follow-up ("Còn xe máy thì sao?") is fine: check the "Hiểu câu hỏi là: …" line under it says what they meant; do they find the photo with the boxes? |
 | T4 | the question recognised from speech, and the answer said | the microphone permission, recognition errors; note the browser and device |
 | T5 | the T1 chat reopened **and** a rating sent (the thanks message appears) | on a phone, finding the history; understanding the icon buttons |
 
@@ -183,6 +183,7 @@ You need about **20**, all taken by you on the street. **Never use dataset photo
 | `proof_confusing` | opened the proof or steps and was confused |
 | `boxes_hard_to_find` | couldn't find the photo with the sign boxes |
 | `followup_unclear` | re-attached the photo or opened a new chat for a follow-up |
+| `followup_misread` | a follow-up was rewritten into the wrong question ("Hiểu câu hỏi là: …" doesn't match what they meant; write both in `notes`) |
 | `history_hard_to_find` | couldn't find the history or the old chat |
 | `feedback_hard_to_find` | couldn't find the right/wrong or correction buttons |
 | `fallback_confusing` | confused by the RAG badge ("chưa được hệ luật kiểm chứng") |
