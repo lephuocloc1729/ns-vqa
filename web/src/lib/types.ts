@@ -72,6 +72,7 @@ export interface TurnOut {
   signs: SignBox[];
   retrieved: RetrievedLaw[];
   proof: EngineAnswer | null;
+  explanation?: ReasonView[] | null; // the proof as readable steps and rules (app/api/proof_view.py)
   stages: Record<string, Record<string, unknown>>;
   cost_usd: number | null;
   seconds: number | null;
@@ -83,4 +84,30 @@ export interface SseEvent {
   event: string;
   data: string;
   id?: string;
+}
+
+/** One row of the readable proof: the Prolog fact or rule, what it means, and its result. */
+export interface ProofStep {
+  rule: string;
+  text: string;
+  result: string;
+  cite?: string[];
+  decisive?: boolean;
+  sign_id?: string;
+  detail?: ProofStep[];
+}
+
+/** A rule of the knowledge base that concluded, as written in kb/, with a reading. */
+export interface RuleCard {
+  name: string;
+  clause: string | null;
+  reading: string;
+}
+
+export interface ReasonView {
+  sign_id: string | null;
+  title: string | null;
+  truth: string;
+  steps: ProofStep[];
+  rules: RuleCard[];
 }

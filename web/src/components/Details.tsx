@@ -135,7 +135,7 @@ export function Evidence({ t, signs, stages }: { t: TurnOut; signs: SignBox[]; s
           </div>
         </div>
       )}
-      {t.proof && (t.proof.reasons ?? []).length > 0 && <ProofTree proof={t.proof} signs={signs} />}
+      {t.proof && (t.proof.reasons ?? []).length > 0 && <ProofTree proof={t.proof} signs={signs} explanation={t.explanation} />}
       {stages.length > 1 && (
         <div>
           <div className="section-title">Các bước xử lý</div>

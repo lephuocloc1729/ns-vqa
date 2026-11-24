@@ -43,6 +43,7 @@ from pydantic import BaseModel, Field
 from vqa.llm.spend import SpendLimitExceeded
 
 from app.api import followup as followup_mod
+from app.api import proof_view
 from app.api import live as live_mod
 from app.api.admin import admin_router, sync_users
 from app.api.profiles import PROFILES, pipeline_config
@@ -87,6 +88,7 @@ class TurnOut(BaseModel):
     signs: list[dict[str, Any]] = []
     retrieved: list[dict[str, Any]] = []      # laws the RAG fallback used (never rule citations)
     proof: dict[str, Any] | None = None
+    explanation: list[dict[str, Any]] | None = None   # the proof as readable steps and rules (app/api/proof_view.py)
     stages: dict[str, Any] = {}
     cost_usd: float | None = None
     seconds: float | None = None
@@ -99,7 +101,9 @@ def turn_out(t: Turn) -> TurnOut:
                    understood_as=getattr(t, "understood_as", None),
                    image_sha256=t.image_sha256, answer=t.answer_text, verdict=t.verdict,
                    answered_by=t.answered_by, basis=t.basis or [], citations=t.citations or [],
-                   signs=t.signs or [], retrieved=t.retrieved or [], proof=t.proof, stages=t.stages or {}, cost_usd=t.cost_usd,
+                   signs=t.signs or [], retrieved=t.retrieved or [], proof=t.proof,
+                   explanation=proof_view.explain(t.proof, t.signs) if t.status == "done" else None,
+                   stages=t.stages or {}, cost_usd=t.cost_usd,
                    seconds=t.seconds, error=t.error,
                    feedback=[FeedbackOut(id=f.id, thumb=f.thumb, corrected_answer=f.corrected_answer, note=f.note)
                              for f in getattr(t, "feedback", []) or []])

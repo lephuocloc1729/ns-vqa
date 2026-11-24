@@ -1,0 +1,268 @@
+{
+ "verdict": "no",
+ "value": null,
+ "reasons": [
+  {
+   "sign_id": "s1",
+   "truth": "true",
+   "detail": null,
+   "proof": {
+    "type": "rule",
+    "goal": "forbids(enter,veh(car,[]),ctx(unknown,unknown,unknown),s1,true)",
+    "rule": null,
+    "source": null,
+    "children": [
+     {
+      "type": "rule",
+      "goal": "scene_sign(s1,p103a)",
+      "rule": null,
+      "source": null,
+      "children": [
+       {
+        "type": "fact",
+        "goal": "sign(s1,p103a,high)",
+        "rule": null,
+        "source": null,
+        "children": []
+       }
+      ]
+     },
+     {
+      "type": "rule",
+      "goal": "effective_prohibits(s1,p103a,enter,[spec(motor_vehicle,[])])",
+      "rule": null,
+      "source": null,
+      "children": [
+       {
+        "type": "naf",
+        "goal": "local_plate(s1,A)",
+        "rule": null,
+        "source": null,
+        "children": []
+       },
+       {
+        "type": "fact",
+        "goal": "prohibits(p103a,enter,[spec(motor_vehicle,[])])",
+        "rule": null,
+        "source": {
+         "law_id": "QCVN 41:2024/BGTVT",
+         "article_id": "B.3"
+        },
+        "children": []
+       }
+      ]
+     },
+     {
+      "type": "cite",
+      "goal": null,
+      "rule": "r_prohibition",
+      "source": {
+       "law_id": "QCVN 41:2024/BGTVT",
+       "article_id": "22"
+      },
+      "children": []
+     },
+     {
+      "type": "rule",
+      "goal": "applies(s1,p103a,[spec(motor_vehicle,[])],veh(car,[]),ctx(unknown,unknown,unknown),true)",
+      "rule": null,
+      "source": null,
+      "children": [
+       {
+        "type": "rule",
+        "goal": "assess(s1,p103a,[spec(motor_vehicle,[])],veh(car,[]),ctx(unknown,unknown,unknown),[vehicle-true,exception-true,plate-true,time-true,day-true,scope-true,lane-true])",
+        "rule": null,
+        "source": null,
+        "children": [
+         {
+          "type": "leaf",
+          "goal": "sign_specs(s1,p103a,[spec(motor_vehicle,[])],[spec(motor_vehicle,[])])",
+          "rule": null,
+          "source": null,
+          "children": []
+         },
+         {
+          "type": "rule",
+          "goal": "vehicle_basis(veh(car,[]))",
+          "rule": null,
+          "source": null,
+          "children": []
+         },
+         {
+          "type": "leaf",
+          "goal": "any_spec_match([spec(motor_vehicle,[])],veh(car,[]),true)",
+          "rule": null,
+          "source": null,
+          "children": []
+         },
+         {
+          "type": "rule",
+          "goal": "exception_check(s1,p103a,veh(car,[]),true)",
+          "rule": null,
+          "source": null,
+          "children": [
+           {
+            "type": "leaf",
+            "goal": "exception_truth(s1,p103a,veh(car,[]),false)",
+            "rule": null,
+            "source": null,
+            "children": []
+           },
+           {
+            "type": "leaf",
+            "goal": "not3(false,true)",
+            "rule": null,
+            "source": null,
+            "children": []
+           }
+          ]
+         },
+         {
+          "type": "rule",
+          "goal": "conditions_check(s1,p103a,veh(car,[]),ctx(unknown,unknown,unknown),true,true,true)",
+          "rule": null,
+          "source": null,
+          "children": [
+           {
+            "type": "naf",
+            "goal": "group(s1,A)",
+            "rule": null,
+            "source": null,
+            "children": []
+           },
+           {
+            "type": "rule",
+            "goal": "plate_check(s1,veh(car,[]),true)",
+            "rule": null,
+            "source": null,
+            "children": [
+             {
+              "type": "naf",
+              "goal": "plate_vehicle(s1,A)",
+              "rule": null,
+              "source": null,
+              "children": []
+             }
+            ]
+           },
+           {
+            "type": "rule",
+            "goal": "time_check(s1,ctx(unknown,unknown,unknown),true)",
+            "rule": null,
+            "source": null,
+            "children": [
+             {
+              "type": "naf",
+              "goal": "plate_time(s1,A,B)",
+              "rule": null,
+              "source": null,
+              "children": []
+             }
+            ]
+           },
+           {
+            "type": "rule",
+            "goal": "day_check(s1,p103a,ctx(unknown,unknown,unknown),true)",
+            "rule": null,
+            "source": null,
+            "children": [
+             {
+              "type": "rule",
+              "goal": "parity_check(s1,p103a,ctx(unknown,unknown,unknown),true)",
+              "rule": null,
+              "source": null,
+              "children": [
+               {
+                "type": "naf",
+                "goal": "sign_days(s1,p103a,A)",
+                "rule": null,
+                "source": null,
+                "children": []
+               }
+              ]
+             },
+             {
+              "type": "rule",
+              "goal": "except_day_check(s1,true)",
+              "rule": null,
+              "source": null,
+              "children": [
+               {
+                "type": "naf",
+                "goal": "plate_except_day(s1,A)",
+                "rule": null,
+                "source": null,
+                "children": []
+               }
+              ]
+             },
+             {
+              "type": "leaf",
+              "goal": "and3([true,true],true)",
+              "rule": null,
+              "source": null,
+              "children": []
+             }
+            ]
+           }
+          ]
+         },
+         {
+          "type": "rule",
+          "goal": "scope_check(p103a,true)",
+          "rule": null,
+          "source": null,
+          "children": [
+           {
+            "type": "naf",
+            "goal": "ended_in_scene(p103a,A)",
+            "rule": null,
+            "source": null,
+            "children": []
+           }
+          ]
+         },
+         {
+          "type": "rule",
+          "goal": "lane_check(s1,unknown,true)",
+          "rule": null,
+          "source": null,
+          "children": [
+           {
+            "type": "naf",
+            "goal": "sign_lane(s1,A,B)",
+            "rule": null,
+            "source": null,
+            "children": []
+           }
+          ]
+         }
+        ]
+       },
+       {
+        "type": "leaf",
+        "goal": "checks_truth([vehicle-true,exception-true,plate-true,time-true,day-true,scope-true,lane-true],true)",
+        "rule": null,
+        "source": null,
+        "children": []
+       }
+      ]
+     }
+    ]
+   }
+  }
+ ],
+ "citations": [
+  {
+   "law_id": "QCVN 41:2024/BGTVT",
+   "article_id": "B.3"
+  },
+  {
+   "law_id": "QCVN 41:2024/BGTVT",
+   "article_id": "22"
+  }
+ ],
+ "uncertain_signs": [],
+ "note": null,
+ "basis": []
+}

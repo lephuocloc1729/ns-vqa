@@ -25,6 +25,7 @@ COPY app ./app
 COPY kb ./kb
 COPY prompts ./prompts
 COPY web/e2e/fake_api.py ./web/e2e/fake_api.py
+COPY web/e2e/fixtures/proof_no.json ./web/e2e/fixtures/proof_no.json
 COPY docker/api-entrypoint.sh /usr/local/bin/api-entrypoint
 RUN pip install --no-cache-dir --no-deps -e . \
  && swipl -q -g "consult('kb/load.pl'), halt" -t "halt(1)" \
