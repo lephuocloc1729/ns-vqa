@@ -1,5 +1,5 @@
 import { CONFIDENCE, fmtSeconds, stageLabel } from "../lib/labels";
-import { localPlates, lowConfidenceRelied } from "../lib/notes";
+import { localPlates, lowConfidenceRelied, outOfScope } from "../lib/notes";
 import type { Stage } from "../lib/turn";
 import type { SignBox, TurnOut } from "../lib/types";
 import { Warning } from "./Icons";
@@ -15,7 +15,7 @@ function Notes({ t, signs }: { t: TurnOut; signs: SignBox[] }) {
     const i = signs.findIndex((s) => s.id === id);
     return i >= 0 ? `biển ${i + 1} (${signs[i].code ?? "?"})` : id;
   };
-  if (t.verdict === "unknown" || t.answered_by === "not_decided") {
+  if ((t.verdict === "unknown" || t.answered_by === "not_decided") && !outOfScope(t)) {
     const why = (proof?.reasons ?? []).filter((r) => r.truth === "unknown" && r.detail).map((r) => r.detail as string);
     notes.push({
       id: "unknown", kind: "warn",

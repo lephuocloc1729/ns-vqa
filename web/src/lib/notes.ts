@@ -1,6 +1,6 @@
 // Which notes an answer needs, from the engine's answer (the API's `proof`) and the signs read.
 
-import type { EngineAnswer, ProofNode, SignBox } from "./types";
+import type { EngineAnswer, ProofNode, SignBox, TurnOut } from "./types";
 
 /** The signs the answer rests on: those with a reason, plus those the engine flagged as uncertain. */
 export function reliedSignIds(proof: EngineAnswer | null | undefined): Set<string> {
@@ -42,4 +42,10 @@ export function localPlates(proof: EngineAnswer | null | undefined): { signId: s
     }
   }
   return out;
+}
+
+/** A question the parser found no road-sign question in, and nothing else answered (no GPU connected).
+ *  The answer text already says so (app/api/main.py, SCOPE_TEXT), so no "not enough data" note. */
+export function outOfScope(t: Pick<TurnOut, "answered_by" | "stages">): boolean {
+  return t.answered_by === "not_decided" && t.stages?.parser?.status === "out_of_scope";
 }

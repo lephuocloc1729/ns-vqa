@@ -6,6 +6,7 @@ The fake has the stage methods the API's runner wraps (perception, parser, engin
 fallback), so every stream event comes from the real runner and endpoint code:
 - a question containing "RAG" goes to the fallback, which answers as the RAG service would
   (streamed text, `basis` gains "rag", the laws it used in `retrieved`);
+- a question containing "bài thơ" is out of scope (fallback off): the API shows its scope message;
 - any other question is answered by the "rules": the writer streams a first draft, withdraws
   it (`token_reset`) and streams the final text, as on a retry.
 By default each start uses a fresh temporary database and upload folder; VQA_DATABASE_URL and
@@ -99,7 +100,7 @@ class FakePipeline:
 
     def _parse(self, question):
         time.sleep(DELAY)
-        return SimpleNamespace(status="ok", query=None)
+        return SimpleNamespace(status="out_of_scope" if "bài thơ" in question else "ok", query=None)
 
     def _engine_answer(self, scene, program):
         return SimpleNamespace(verdict=SimpleNamespace(value=program))
@@ -123,6 +124,12 @@ class FakePipeline:
         t0 = time.monotonic()
         res, _ = self._perceive(image_path)
         self.parser.parse(question)
+        if "bài thơ" in question:      # not a road-sign question, and the fallback is off
+            return SimpleNamespace(
+                text="Chưa xác định được: câu trả lời còn tùy điều kiện không thấy trong ảnh.",
+                verdict="unknown", answered_by="not_decided", basis=["not_decided"], citations=[], proof=None,
+                trace={"parser": {"status": "out_of_scope"}, "fallback": {"trigger": "out_of_scope", "status": "off"}},
+                cost_usd=0.002, seconds=round(time.monotonic() - t0, 2))
         if "RAG" in question:
             self.engine.answer(res.scene, "unknown")
             fa = self.fallback.answer(question)

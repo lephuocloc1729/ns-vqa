@@ -117,6 +117,24 @@ def stage_summary(trace: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+# The answer shown when the parser finds no road-sign question it can express and no fallback answers
+# (no GPU connected). The pipeline's own not-decided template ("còn tùy điều kiện không thấy trong
+# ảnh") reads as if the photo were the problem, which misleads for "write me a poem"
+# (docs/results/redteam-2026-11-24.md). Only the text shown changes: the verdict, the route and the
+# benchmark (vqa/) stay as they are.
+SCOPE_TEXT = ("Hệ thống chỉ trả lời câu hỏi về biển báo giao thông trong ảnh, và câu hỏi này nằm ngoài "
+              "những gì hệ luật trả lời được. Bạn có thể hỏi biển có ý nghĩa gì, hoặc một loại xe có được "
+              "đi, đỗ, rẽ hay chạy bao nhiêu km/h ở đây.")
+
+
+def shown_text(result: Any) -> str:
+    """The answer text to store and show: SCOPE_TEXT for an out-of-scope question nobody answered."""
+    parser = (result.trace or {}).get("parser") or {}
+    if result.answered_by == "not_decided" and parser.get("status") == "out_of_scope":
+        return SCOPE_TEXT
+    return result.text
+
+
 def rag_cache_hit(trace: dict[str, Any]) -> bool | None:
     """For a RAG fallback answer, whether it came from the RAG answer cache; else None."""
     fb = trace.get("fallback") if isinstance(trace, dict) else None
@@ -279,7 +297,7 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
         hit = rag_cache_hit(result.trace or {})
         if hit is not None:
             metrics.rag_cache.labels("hit" if hit else "miss").inc()
-        return store.finish_turn(turn_id, status="done", answer_text=result.text, verdict=result.verdict,
+        return store.finish_turn(turn_id, status="done", answer_text=shown_text(result), verdict=result.verdict,
                                  answered_by=result.answered_by, basis=basis, retrieved=retrieved,
                                  citations=list(result.citations), proof=result.proof, signs=signs,
                                  stages=stage_summary(result.trace or {}), cost_usd=result.cost_usd,
