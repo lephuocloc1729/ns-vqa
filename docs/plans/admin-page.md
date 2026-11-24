@@ -47,9 +47,16 @@ The admin site is the Review 3 checklist item 1.3 "dashboard page with charts". 
 - **Who asked:** nginx passes the logged-in name to the API as `X-Remote-User`, overwriting anything the browser sent. Each question is stored with its account.
 - **Leakage guard:** the admin site only reads stored answers and feedback. The pipeline never reads them.
 
-## Not in PR 1
+## PR 2 (2026-11-24, owner: "complete the admin console")
 
-- GPU connect/disconnect (PR 2: a standby tunnel container that follows the setting; no Docker access for the API).
+- **GPU connect/disconnect on Cài đặt.**
+  - `rag-tunnel` runs all the time and follows a target file in a shared volume (`docker/rag-tunnel/tunnel.sh`).
+  - The API writes the target and reads the state (`app/api/gpu.py`, `/v1/admin/gpu`). It never touches Docker or the key.
+  - "Ngắt GPU" switches the fallback off before disconnecting. `rag-session.sh` uses the same target.
+- **CSV export** of Câu hỏi and Phản hồi (`/v1/admin/turns.csv`, `/v1/admin/feedback.csv`).
+- **The forward now goes to `127.0.0.1:8100` on the GPU,** not `localhost`, which can resolve to IPv6 first while the RAG listens on IPv4.
+
+## Not in PR 1 or 2
 - CSV export.
 - Deleting data from the page.
 - A full in-app login system.

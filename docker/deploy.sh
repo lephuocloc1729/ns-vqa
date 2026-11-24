@@ -28,9 +28,9 @@ echo "deploy: api $API_OLD -> $API_NEW"
 echo "deploy: web $WEB_OLD -> $WEB_NEW"
 
 check() {   # the stack is healthy: containers, the API's own health, and the public HTTPS entry
-  # every service except the GPU tunnel, whose health depends on a rented machine being up
+  # every service; the GPU tunnel's health means only that it runs (in standby or connected)
   local core
-  core=$(docker compose config --services | grep -vx rag-tunnel | tr '\n' ' ')
+  core=$(docker compose config --services | tr '\n' ' ')
   # shellcheck disable=SC2086
   docker compose up -d --no-build --wait --wait-timeout 180 $core || return 1
   # Caddy and Prometheus read their config (a mounted folder) only at start or on reload

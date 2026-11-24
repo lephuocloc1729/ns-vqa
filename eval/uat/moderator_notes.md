@@ -95,13 +95,13 @@ You need about **20**, all taken by you on the street. **Never use dataset photo
 ## 2. Each session day (the server)
 
 **Before the first tester:**
-1. Rent the GPU, then run `bash docker/rag-session.sh on <host> <port>` on the server (`docs/runbooks/gpu-session.md`).
+1. Rent the GPU. On admin.signcite.xyz → Cài đặt → Máy GPU cho RAG, paste its SSH command, press **Nối**, then **Dùng RAG trên GPU này**. Or run `bash docker/rag-session.sh on <host> <port>` on the server (`docs/runbooks/gpu-session.md`).
 2. Check on admin.signcite.xyz → Cài đặt (or `/version`): the fallback is RAG and reachable, there are 10 answer slots, and the RAG cache is on.
 3. Write down the start time in UTC, for `turn_stats.py`.
 4. Ask one question on a **fixed** photo to warm everything up. Never use a spare photo for this.
 
 **After the last tester:**
-1. Run `bash docker/rag-session.sh off`, then destroy the GPU.
+1. Press **Ngắt GPU** on the admin site (or run `bash docker/rag-session.sh off`), then destroy the GPU.
 2. Write down the end time.
 
 **If the RAG or GPU goes down mid-session:**

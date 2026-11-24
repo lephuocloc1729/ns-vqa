@@ -55,13 +55,23 @@ uvicorn --factory text_based_rag.service_api:create_app --host 0.0.0.0 --port 81
 
 ## Connect the demo server (signcite.xyz) to the GPU
 
-The server reaches the RAG through the `rag-tunnel` service: one SSH connection from the server to the GPU, forwarding the RAG's port to the stack's internal network only. Nothing is published on the server, and the vast.ai key never leaves the Mac.
+The server reaches the RAG through the `rag-tunnel` service: one SSH connection from the server to the GPU, forwarding the RAG's port (to `127.0.0.1:8100` on the GPU) to the stack's internal network only. Nothing is published on the server, and the vast.ai key never leaves the Mac.
+
+Since 2026-11-24 the service runs all the time, in standby (`docker/rag-tunnel/tunnel.sh`). It follows a target the API writes into a shared volume (`app/api/gpu.py`), so the API never controls Docker. The admin site and `rag-session.sh` both use that target, so they always agree.
 
 **Once:**
 - On the server: `cd /opt/signcite && bash docker/rag-session.sh key`. This makes the server's own key (`secrets/rag_tunnel_ed25519`, root only) and prints its public half.
 - Add that public key in vast.ai under **Account › SSH keys**, so every rented machine accepts it.
 
-**Each session:**
+**Each session, from the admin site:**
+1. Rent the GPU as above, and wait until its `curl localhost:8100/health` says ok.
+2. On admin.signcite.xyz → **Cài đặt → Máy GPU cho RAG**, paste vast.ai's SSH command (e.g. `ssh -p 41413 root@122.117.118.68 -L 8080:localhost:8080`) and press **Nối**.
+3. When it shows **Đã nối · RAG trả lời**, press **Dùng RAG trên GPU này**. This sets the live settings `answer_fallback=rag` and `rag_url=http://rag-tunnel:8100`, which apply from the next question.
+4. **Before destroying the GPU:** press **Ngắt GPU**. It switches the fallback off first, then closes the connection.
+
+The same card shows the server's public key, to add to vast.ai once.
+
+**Each session, from the server's shell (the same thing):**
 1. Rent the GPU as above, and wait until its `curl localhost:8100/health` says ok.
 2. On the server:
 
@@ -70,7 +80,7 @@ The server reaches the RAG through the `rag-tunnel` service: one SSH connection 
    ```
 
    Use the GPU's SSH host and port, as vast.ai shows them. The script:
-   - starts the tunnel and waits for the RAG to answer through it;
+   - gives the tunnel the GPU's address and waits for the RAG to answer through it (if it never does, it disconnects and leaves the fallback as it was);
    - sets the live settings `answer_fallback=rag` and `rag_url=http://rag-tunnel:8100` (app/api/live.py), which apply from the next question with no API restart;
    - prints both `/version`s.
 
@@ -82,9 +92,9 @@ The server reaches the RAG through the `rag-tunnel` service: one SSH connection 
    - the same question again is instant, and its turn has `stages.fallback.cache_hit: true`.
 
    `bash docker/rag-session.sh status` shows the state.
-4. **Before destroying the GPU:** `bash docker/rag-session.sh off`. The fallback goes back to off and the tunnel stops.
-   - CD never waits for the tunnel, so a forgotten `off` cannot block a deploy.
-   - But undecided questions would try a RAG that is gone, until `off` is run.
+4. **Before destroying the GPU:** `bash docker/rag-session.sh off`. The fallback goes back to off and the tunnel returns to standby.
+   - CD's health check for the tunnel only asks whether it runs, so a forgotten `off` cannot block a deploy.
+   - But undecided questions would try a RAG that is gone, until `off` is run (each such question waits for the RAG's timeout, then ships the rules' own answer).
 
 ## What a session downloads (2026-11-23)
 

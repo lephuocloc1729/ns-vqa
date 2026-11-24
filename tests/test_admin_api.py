@@ -273,3 +273,93 @@ def test_users_file_is_replaced_atomically(tmp_path):
     acc.write_htpasswd(p, [])
     assert p.read_text() == "" and not [f for f in p.parent.iterdir() if f.name.startswith(".users-")]
     assert oct(p.stat().st_mode & 0o777) == "0o644"
+
+
+# ---------------------------------------------------------------------- the GPU connection (PR 2)
+from app.api import gpu as gpu_mod  # noqa: E402
+
+
+@pytest.mark.parametrize("host,port", [("122.117.118.68", 41413), ("ssh4.vast.ai", 22), ("gpu-1.example.org", "2222")])
+def test_gpu_targets_accepted(host, port):
+    assert gpu_mod.check_target(host, port) == (host, int(port))
+
+
+@pytest.mark.parametrize("host,port", [("127.0.0.1", 22), ("localhost", 22), ("a b", 22), ("x;rm -rf /", 22),
+                                       ("host", 0), ("host", 70000), ("host", "x"), ("", 22), ("-oProxyCommand=x", 22)])
+def test_gpu_targets_refused(host, port):
+    with pytest.raises(ValueError):
+        gpu_mod.check_target(host, port)
+
+
+def test_gpu_status_follows_the_target_and_the_tunnels_state(tmp_path):
+    d = tmp_path / "gpu"
+    assert gpu_mod.status(d)["state"] == "not_running"
+    (d).mkdir()
+    (d / "state").write_text("standby||\n")
+    assert gpu_mod.status(d) == {"target": None, "state": "standby", "detail": "", "public_key": None}
+    gpu_mod.set_target(d, "122.117.118.68", 41413)
+    s = gpu_mod.status(d)
+    assert s["target"] == {"host": "122.117.118.68", "port": 41413}
+    assert s["state"] == "connecting"                    # the tunnel has not picked it up yet
+    (d / "state").write_text("error|122.117.118.68 41413|Permission denied (publickey).\n")
+    (d / "server_key.pub").write_text("ssh-ed25519 AAAA signcite-server\n")
+    s = gpu_mod.status(d)
+    assert (s["state"], s["detail"], s["public_key"]) == ("error", "Permission denied (publickey).", "ssh-ed25519 AAAA signcite-server")
+    gpu_mod.clear_target(d)
+    assert gpu_mod.status(d)["target"] is None and gpu_mod.status(d)["state"] == "standby"
+
+
+def test_gpu_admin_endpoints(make, tmp_path, monkeypatch):
+    import app.api.admin as admin_mod
+    monkeypatch.setattr(admin_mod.httpx, "get", lambda url, timeout: SimpleNamespace(status_code=200, text='{"status":"ok"}'))
+    gdir = tmp_path / "gpu"
+    c, _, _ = make(gpu_dir=gdir)
+    r = c.post("/v1/admin/gpu/connect", json={"host": "122.117.118.68", "port": 41413}, headers=ADMIN)
+    assert r.status_code == 200 and r.json()["target"] == {"host": "122.117.118.68", "port": 41413}
+    assert (gdir / "target").read_text() == "122.117.118.68 41413\n"
+    assert c.post("/v1/admin/gpu/connect", json={"host": "localhost", "port": 22}, headers=ADMIN).status_code == 400
+
+    (gdir / "state").write_text("connected|122.117.118.68 41413|\n")
+    v = c.get("/v1/admin/gpu", headers=ADMIN).json()
+    assert v["state"] == "connected" and v["rag"]["reachable"] is True and v["rag_in_use"] is False
+
+    c.put("/v1/admin/settings", json={"answer_fallback": "rag", "rag_url": "http://rag-tunnel:8100"}, headers=ADMIN)
+    assert c.get("/v1/admin/gpu", headers=ADMIN).json()["rag_in_use"] is True
+    v = c.post("/v1/admin/gpu/disconnect", headers=ADMIN).json()
+    assert v["target"] is None and v["rag_in_use"] is False
+    assert c.get("/v1/admin/settings", headers=ADMIN).json()["live"]["answer_fallback"] == "off"   # turned off first
+    assert (gdir / "target").read_text() == ""
+
+
+def test_gpu_control_is_off_without_a_folder(make):
+    c, _, _ = make()
+    assert c.get("/v1/admin/gpu", headers=ADMIN).json() == {"enabled": False}
+    assert c.post("/v1/admin/gpu/connect", json={"host": "1.2.3.4", "port": 22}, headers=ADMIN).status_code == 409
+
+
+def test_gpu_cli(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("VQA_GPU_DIR", str(tmp_path / "g"))
+    gpu_mod.main(["connect", "ssh4.vast.ai", "2222"])
+    assert "not_running  ssh4.vast.ai:2222" in capsys.readouterr().out     # no tunnel in a test
+    gpu_mod.main(["disconnect"])
+    assert capsys.readouterr().out.startswith("not_running  -")
+
+
+# ---------------------------------------------------------------------- CSV export
+def test_csv_export_has_every_row_and_utf8(make):
+    c, _, _ = make()
+    for _ in range(3):
+        ask(c, question="Ô tô có được đi vào không?")
+    t = ask(c).json()["turn_id"]
+    c.post(f"/v1/turns/{t}/feedback", json={"thumb": "down", "note": "sai biển"})
+    r = c.get("/v1/admin/turns.csv", headers=ADMIN)
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
+    assert "attachment" in r.headers["content-disposition"]
+    text = r.content.decode("utf-8")
+    assert text.startswith("﻿created_at,account,question")
+    rows = list(__import__("csv").DictReader(__import__("io").StringIO(text.lstrip("﻿"))))
+    assert len(rows) == 4 and rows[-1]["question"] == "Ô tô có được đi vào không?"
+    fb = list(__import__("csv").DictReader(__import__("io").StringIO(
+        c.get("/v1/admin/feedback.csv", headers=ADMIN).content.decode("utf-8").lstrip("﻿"))))
+    assert len(fb) == 1 and fb[0]["note"] == "sai biển" and fb[0]["thumb"] == "down"
+    assert c.get("/v1/admin/turns.csv").status_code == 401

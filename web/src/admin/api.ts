@@ -124,6 +124,17 @@ export interface SettingsView {
   spend: Spend;
 }
 
+export interface Gpu {
+  enabled: boolean;
+  target?: { host: string; port: number } | null;
+  state?: "not_running" | "standby" | "no_key" | "connecting" | "connected" | "error" | "unknown";
+  detail?: string;
+  public_key?: string | null;
+  rag_url?: string;
+  rag?: { reachable: boolean; detail: string };
+  rag_in_use?: boolean;
+}
+
 export interface Account {
   name: string;
   enabled: boolean;
@@ -149,6 +160,12 @@ export const admin = {
   saveSettings: (s: Partial<Live>) => call<SettingsView>("/v1/admin/settings", json("PUT", s)),
   resetSettings: () => call<SettingsView>("/v1/admin/settings/reset", json("POST")),
   clearRagCache: () => call<{ removed: number }>("/v1/admin/rag-cache/clear", json("POST")),
+  gpu: () => call<Gpu>("/v1/admin/gpu"),
+  gpuConnect: (host: string, port: number) => call<Gpu>("/v1/admin/gpu/connect", json("POST", { host, port })),
+  gpuDisconnect: () => call<Gpu>("/v1/admin/gpu/disconnect", json("POST")),
+  /** CSV download addresses (the browser sends the admin login it already has). */
+  turnsCsv: (r: Range, f: Record<string, string | number | null>) => `/v1/admin/turns.csv${rangeQuery(r, f)}`,
+  feedbackCsv: (r: Range) => `/v1/admin/feedback.csv${rangeQuery(r)}`,
   accounts: () => call<Accounts>("/v1/admin/accounts"),
   createAccount: (name: string, note: string | null) =>
     call<{ name: string; password: string }>("/v1/admin/accounts", json("POST", { name, note })),

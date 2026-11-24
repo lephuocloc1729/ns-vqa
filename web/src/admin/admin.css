@@ -200,3 +200,22 @@ button.adm-share-row:hover { background: var(--hover); }
   .adm-share-row { grid-template-columns: 90px 1fr auto; }
 }
 @media (prefers-reduced-motion: reduce) { .adm-side, .adm-card-link { transition: none; } }
+
+/* the GPU card */
+.adm-gpu-state { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 10px; font-size: 14.5px; }
+.adm-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.adm-tone-ok .adm-dot { background: var(--high); }
+.adm-tone-wait .adm-dot { background: var(--medium); animation: adm-pulse 1.2s ease-in-out infinite; }
+.adm-tone-bad .adm-dot { background: var(--bad); }
+@keyframes adm-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .adm-tone-wait .adm-dot { animation: none; } }
+.adm-key { margin-top: 10px; font-size: 13px; }
+.adm-key summary { cursor: pointer; color: var(--muted); }
+.adm-key code { display: inline-block; max-width: 100%; overflow-wrap: anywhere; margin: 6px 6px 0 0; font-size: 12px; }
+
+/* a link that looks like a button (downloads) */
+.adm-link-btn {
+  border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 6px 14px; min-height: 36px;
+  display: inline-flex; align-items: center; color: var(--text); text-decoration: none; white-space: nowrap; font-size: 14px;
+}
+.adm-link-btn:hover { background: var(--hover); }

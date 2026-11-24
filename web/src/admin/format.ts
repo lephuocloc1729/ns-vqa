@@ -86,6 +86,26 @@ export function fmtAxis(v: number): string {
   return String(Number(v.toPrecision(3)));
 }
 
+/**
+ * A GPU's SSH address from what a provider shows: "ssh -p 41413 root@1.2.3.4 -L 8080:localhost:8080",
+ * "root@1.2.3.4:41413", "1.2.3.4 41413" or just "1.2.3.4". null when no host can be found.
+ */
+export function parseSsh(text: string): { host: string; port: number | null } | null {
+  const t = text.trim();
+  if (!t) return null;
+  const portFlag = /(?:^|\s)-p\s*(\d{1,5})(?:\s|$)/.exec(t);
+  const words = t.replace(/(?:^|\s)-[LRDJiop]\s*\S+/g, " ").split(/\s+/).filter((w) => w && w !== "ssh" && !w.startsWith("-"));
+  for (const w of words) {
+    const m = /^(?:[^@\s]+@)?([A-Za-z0-9.-]+)(?::(\d{1,5}))?$/.exec(w);
+    if (m && /[A-Za-z0-9]/.test(m[1])) {
+      const port = portFlag ? Number(portFlag[1]) : m[2] ? Number(m[2]) : null;
+      const next = words[words.indexOf(w) + 1];
+      return { host: m[1], port: port ?? (next && /^\d{1,5}$/.test(next) ? Number(next) : null) };
+    }
+  }
+  return null;
+}
+
 export function shorten(s: string | null | undefined, n: number): string {
   if (!s) return "";
   return s.length <= n ? s : `${s.slice(0, n - 1)}…`;

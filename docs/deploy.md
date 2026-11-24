@@ -155,6 +155,13 @@ The plan is `docs/plans/admin-page.md`.
 - The API writes nginx's password file (apr1 hashes only) into the `siteauth` volume. nginx reads it on each request, so new, reset or locked accounts apply at once.
 - Each question is stored with the account that asked. nginx sends it as `X-Remote-User`, overwriting anything a browser sends.
 
+**GPU connection (Cài đặt → Máy GPU cho RAG):**
+- Paste the GPU's SSH command, press **Nối**, then **Dùng RAG trên GPU này** once the RAG answers. **Ngắt GPU** switches the fallback off and disconnects.
+- The `rag-tunnel` service runs all the time in standby and follows the target the API writes into the `gpu` volume (`docker/rag-tunnel/tunnel.sh`, `app/api/gpu.py`). The API never touches Docker or the SSH key.
+- `docker/rag-session.sh on|off|status` does the same from the shell (`docs/runbooks/gpu-session.md`).
+
+**CSV export:** Câu hỏi and Phản hồi each have **Tải CSV**, with the current filters (UTF-8 with a BOM, so spreadsheet apps read the Vietnamese text).
+
 **Live settings:**
 - The RAG fallback, the RAG URL, the RAG cache switch and the spend limit can change while the API runs: on the admin site, or with `docker compose exec -T api python -m app.api.live show|set KEY=VALUE|reset`.
 - They apply from the next question. The `.env` values are the defaults.
