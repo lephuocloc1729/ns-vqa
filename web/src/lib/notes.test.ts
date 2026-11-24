@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { localPlates, lowConfidenceRelied, reliedSignIds } from "./notes";
+import { localPlates, lowConfidenceRelied, outOfScope, reliedSignIds } from "./notes";
 import type { EngineAnswer, SignBox } from "./types";
 
 const sign = (id: string, confidence: string): SignBox => ({
@@ -41,5 +41,13 @@ describe("notes", () => {
       { signId: "s2", text: "XE 'A' 6H-9H" },
     ]);
     expect(localPlates(null)).toEqual([]);
+  });
+
+  it("knows an out-of-scope question nobody answered", () => {
+    const parser = (status: string) => ({ parser: { status } });
+    expect(outOfScope({ answered_by: "not_decided", stages: parser("out_of_scope") })).toBe(true);
+    expect(outOfScope({ answered_by: "not_decided", stages: parser("ok") })).toBe(false);       // undecided road-sign question
+    expect(outOfScope({ answered_by: "fallback", stages: parser("out_of_scope") })).toBe(false); // the RAG answered it
+    expect(outOfScope({ answered_by: "not_decided", stages: {} })).toBe(false);
   });
 });

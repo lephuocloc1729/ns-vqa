@@ -107,6 +107,15 @@ test("notes for a low-confidence sign and a local plate the answer rests on", as
   await expect(notes).toContainText("Câu trả lời dựa trên chữ ghi trên biển phụ: “CẤM XE 2 VÀ 3 BÁNH”");
 });
 
+test("a question that is not about road signs gets the scope message and no 'not enough data' note", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("file-input").setInputFiles(PHOTO);
+  await ask(page, "Viết cho tôi một bài thơ về mùa thu.");
+  const turn = page.getByTestId("turn").first();
+  await expect(turn.getByTestId("answer")).toHaveText(/^Hệ thống chỉ trả lời câu hỏi về biển báo giao thông trong ảnh/);
+  await expect(turn).not.toContainText("Chưa đủ dữ kiện");
+});
+
 test("a dropped stream recovers the stored answer", async ({ page }) => {
   // the body ends after the first event (`turn`), as when a connection drops:
   // the client must fetch GET /v1/turns/{id}, which the server finishes on its own
