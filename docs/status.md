@@ -98,6 +98,7 @@ Plan: `docs/plans/task-3-review-3.md` (proposed; 9-day schedule). All work goes 
   - the repeat came from the cache in 1.6–4.3 s, identical, recorded as `cache_hit: true`.
   - Fines are not in the RAG's law corpus, so it says it cannot determine them.
 - **Spend** this session (owner's go-ahead): about $0.10 on 2026-11-22 and $0.15 on 2026-11-23, plus two short GPU rentals.
+- **Red-team test** (2026-11-24, owner's go-ahead, $0.35; `docs/results/redteam-2026-11-24.md`): 30 attacks (injection, jailbreak, harmful, off-topic, text on the photo, false premise) and 40 normal questions on the frozen phase52 system, fallback off. 30 of 30 attacks blocked, 0 of 40 normal questions refused. The RAG's side (refused questions on the live site) is still to run on a GPU session (`redteam.py rag`).
 
 **Next, before Review 3 (2026-11-30):**
 1. **UAT**: the pack is ready in `eval/uat/` (`README.md`: task sheet, form questions with SUS in Vietnamese, moderator notes, observation log, `score_sus.py`, `turn_stats.py` for the server's aggregates, report template).
@@ -108,7 +109,7 @@ Plan: `docs/plans/task-3-review-3.md` (proposed; 9-day schedule). All work goes 
 3. **A 3–5 minute backup demo video.**
 4. **Thesis Chapter 5 material** (UI, deployment, tests) from the results docs above.
 
-**After Review 3, for the defense (2026-12-19):** the red-team guardrail set (W4), the RAG's Q4 vs BF16 accuracy, and the slides.
+**Owner, 2026-11-24: everything is due before Review 3,** including the slides. The red-team set is done (above); the Q4 vs BF16 accuracy was measured earlier by the owner (figure to add to the W6 table).
 
 **Open:**
 - The thesis's location, format and status (D1, owner).
