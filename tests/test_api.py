@@ -249,3 +249,35 @@ def test_the_api_answer_is_the_pipelines_answer(make, tmp_path, monkeypatch):
         (direct.text, direct.verdict, direct.answered_by, direct.citations)
     assert d["parsed"]["status"] == "ok" and d["parsed"]["program"] == direct.trace["parser"]["program"]
     assert d["perception"]["signs"][0]["code"] == "P.103a" and d["perception"]["signs"][0]["known"]
+
+
+# ---------------------------------------------------------------------- out-of-scope questions
+class NotDecidedPipeline(FakePipeline):
+    """A question the rules did not decide, with the fallback off."""
+
+    def __init__(self, parse_status):
+        super().__init__()
+        self.parse_status = parse_status
+
+    def answer(self, image_path, question):
+        return pl.PipelineAnswer(text="Chưa xác định được: câu trả lời còn tùy điều kiện không thấy trong ảnh.",
+                                 verdict="unknown", answered_by="not_decided", basis=["not_decided"],
+                                 trace={"parser": {"status": self.parse_status},
+                                        "fallback": {"trigger": "out_of_scope", "status": "off"}},
+                                 cost_usd=0.003, seconds=1.0)
+
+
+def test_an_out_of_scope_question_gets_the_scope_message(make):
+    from app.api.main import SCOPE_TEXT
+    c, _ = make(pipe=NotDecidedPipeline("out_of_scope"))
+    t = ask(c, question="Viết cho tôi một bài thơ về mùa thu.").json()
+    assert t["answer"] == SCOPE_TEXT and "biển báo giao thông" in t["answer"]
+    assert (t["verdict"], t["answered_by"]) == ("unknown", "not_decided")      # only the text changes
+    ev = dict(sse_events(ask(c, path="/v1/ask/stream", question="Công thức nấu phở?").text))
+    assert ev["answer"]["answer"] == SCOPE_TEXT
+
+
+def test_an_undecided_road_sign_question_keeps_the_pipelines_text(make):
+    c, _ = make(pipe=NotDecidedPipeline("ok"))
+    t = ask(c).json()
+    assert t["answer"].startswith("Chưa xác định được")
