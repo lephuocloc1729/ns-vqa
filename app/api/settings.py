@@ -21,6 +21,8 @@
 | VQA_ADMIN_PASSWORD | (none) | the admin site's password; without it the /v1/admin endpoints answer 404 |
 | VQA_SITE_USERS_FILE | (none) | the web server's password file, written by the API from the site accounts |
 | VQA_SITE_SHARED_USER, VQA_SITE_SHARED_PASSWORD | (none) | the shared site login from .env (BASIC_AUTH_USER/PASSWORD), kept in that file |
+| VQA_GPU_DIR | (none) | the GPU tunnel's folder (target from the API, state from rag-tunnel; app/api/gpu.py); none: no GPU control |
+| VQA_GPU_RAG_URL | http://rag-tunnel:8100 | where the RAG answers once the tunnel is up |
 
 The answer fallback, the RAG URL, the RAG cache switch and the spend limit are only the defaults:
 the admin site and `python -m app.api.live` can override them while the API runs (app/api/live.py).
@@ -59,6 +61,8 @@ class Settings:
     site_users_file: Path | None = None
     site_shared_user: str = ""
     site_shared_password: str = field(default="", repr=False)
+    gpu_dir: Path | None = None
+    gpu_rag_url: str = "http://rag-tunnel:8100"
     extra: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -93,4 +97,6 @@ class Settings:
             site_users_file=Path(env["VQA_SITE_USERS_FILE"]) if env.get("VQA_SITE_USERS_FILE") else None,
             site_shared_user=env.get("VQA_SITE_SHARED_USER", "").strip(),
             site_shared_password=env.get("VQA_SITE_SHARED_PASSWORD", ""),
+            gpu_dir=Path(env["VQA_GPU_DIR"]) if env.get("VQA_GPU_DIR") else None,
+            gpu_rag_url=env.get("VQA_GPU_RAG_URL", "http://rag-tunnel:8100"),
         )

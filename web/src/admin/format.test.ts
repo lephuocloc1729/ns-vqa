@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { rangeQuery } from "./api";
-import { addDays, daysBetween, fmtAxis, fmtPct, fmtTime, niceMax, presetRange, shorten, vnDay } from "./format";
+import { addDays, daysBetween, fmtAxis, fmtPct, parseSsh, fmtTime, niceMax, presetRange, shorten, vnDay } from "./format";
 
 describe("admin format helpers", () => {
   it("uses Vietnam days whatever the browser's zone", () => {
@@ -22,6 +22,15 @@ describe("admin format helpers", () => {
     expect(rangeQuery({ since: "2026-11-26", until: null }, { route: "rag", rating: "", limit: 50 }))
       .toBe("?since=2026-11-26&route=rag&limit=50");
     expect(rangeQuery({ since: null, until: null })).toBe("");
+  });
+
+  it("reads a GPU's SSH address from what the provider shows", () => {
+    expect(parseSsh("ssh -p 41413 root@122.117.118.68 -L 8080:localhost:8080")).toEqual({ host: "122.117.118.68", port: 41413 });
+    expect(parseSsh("ssh -i ~/.ssh/k -p 35411 root@ssh4.vast.ai")).toEqual({ host: "ssh4.vast.ai", port: 35411 });
+    expect(parseSsh("root@1.2.3.4:2222")).toEqual({ host: "1.2.3.4", port: 2222 });
+    expect(parseSsh("1.2.3.4 2222")).toEqual({ host: "1.2.3.4", port: 2222 });
+    expect(parseSsh("1.2.3.4")).toEqual({ host: "1.2.3.4", port: null });
+    expect(parseSsh("   ")).toBeNull();
   });
 
   it("formats numbers for cards and axes", () => {

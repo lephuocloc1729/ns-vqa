@@ -51,8 +51,10 @@ services:
       VQA_SITE_USERS_FILE: /run/signcite-auth/users.htpasswd
       VQA_SITE_SHARED_USER: ${BASIC_AUTH_USER:-}
       VQA_SITE_SHARED_PASSWORD: ${BASIC_AUTH_PASSWORD:-}
+      VQA_GPU_DIR: /run/signcite-gpu      # the GPU tunnel's target and state (docker/rag-tunnel/tunnel.sh)
     volumes:
       - siteauth:/run/signcite-auth       # the web server's password file (tester accounts)
+      - gpu:/run/signcite-gpu             # the GPU tunnel: the API writes its target and reads its state
       - uploads:/app/var                # uploads, and the RAG answer cache (var/rag_cache)
       - scenes:/app/cache/scenes        # the scene cache (model outputs only)
       - apilogs:/app/logs               # the Claude usage log (tokens, cost)
@@ -118,33 +120,22 @@ services:
           devices: [{ driver: nvidia, count: 1, capabilities: [gpu] }]
     restart: unless-stopped
 
-  rag-tunnel:                           # the RAG on a rented GPU, reached over SSH (docker/rag-session.sh)
-    profiles: ["rag-tunnel"]            # on only during a GPU session; the API then uses http://rag-tunnel:8100
+  rag-tunnel:                           # the RAG on a rented GPU, reached over SSH (docker/rag-tunnel/tunnel.sh)
+    # Always running, in standby until the API asks for a GPU (admin site → Cài đặt → GPU, or
+    # docker/rag-session.sh on). It follows the target the API writes into the shared `gpu` volume,
+    # so the API never controls Docker. One SSH connection, forwarding the RAG's port to this stack's
+    # internal network only (http://rag-tunnel:8100); nothing is published on the server.
     image: alpine:3.20
-    # one SSH connection to the GPU machine, forwarding its RAG port to this stack's internal network
-    # only (nothing is published on the server). The key is the server's own, mounted read-only.
-    # vast.ai gives each machine new host keys, so the first connection's key is accepted and kept
-    # for the life of the container.
-    command:
-      - sh
-      - -c
-      - >-
-        apk add --no-cache openssh-client > /dev/null &&
-        exec ssh -N -i /run/rag-key -p "$$RAG_SSH_PORT"
-        -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/tmp/known_hosts
-        -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes
-        -o GatewayPorts=yes -L 0.0.0.0:8100:localhost:8100 "root@$$RAG_SSH_HOST"
-    environment:
-      RAG_SSH_HOST: ${RAG_SSH_HOST:-}
-      RAG_SSH_PORT: ${RAG_SSH_PORT:-22}
+    command: ["sh", "/opt/rag-tunnel/tunnel.sh"]
     volumes:
-      - ${RAG_SSH_KEY:-./secrets/rag_tunnel_ed25519}:/run/rag-key:ro
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8100/health"]
+      - ./docker/rag-tunnel:/opt/rag-tunnel:ro      # the folder (a deploy replaces files; see docker-compose.https.yml)
+      - ./secrets:/run/rag-secrets:ro                # the server's own key, rag_tunnel_ed25519 (rag-session.sh key)
+      - gpu:/run/signcite-gpu                        # target (from the API), state and the public key (to the API)
+    healthcheck:                                     # alive; whether the GPU answers is the state file's job
+      test: ["CMD", "test", "-f", "/tmp/alive"]
       interval: 15s
       timeout: 5s
       retries: 3
-      start_period: 20s
     restart: unless-stopped
 
 volumes:
@@ -155,3 +146,4 @@ volumes:
   promdata:
   grafdata:
   siteauth:                             # users.htpasswd: the site logins the API writes and nginx reads
+  gpu:                                  # the GPU tunnel's target (API → rag-tunnel) and state (rag-tunnel → API)

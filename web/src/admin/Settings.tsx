@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { admin, type Live, type SettingsView } from "./api";
 import { fmtInt, fmtUsd } from "./format";
+import GpuCard from "./GpuCard";
 
 const MODES: Record<Live["answer_fallback"], string> = {
   off: "Tắt: câu hệ luật chưa quyết định được trả lời là chưa xác định",
@@ -58,6 +59,8 @@ export default function Settings({ onError }: { onError: (e: unknown) => void })
       <p className="adm-muted">
         Áp dụng từ câu hỏi tiếp theo, không khởi động lại máy chủ. Câu đang trả lời dở vẫn dùng cài đặt cũ.
       </p>
+
+      <GpuCard onChange={load} onError={onError} />
 
       <fieldset>
         <legend>Trả lời dự phòng {tag("answer_fallback")}</legend>

@@ -159,6 +159,8 @@ export default function Turns({ range, onError, initial = {} }: {
         </select>
         <input value={account} onChange={(e) => setAccount(e.target.value)} placeholder="Tài khoản" aria-label="Tài khoản" />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm trong câu hỏi, câu trả lời" aria-label="Tìm" />
+        <a className="adm-link-btn" download
+          href={admin.turnsCsv(range, { route, verdict, rating, account: account.trim().toLowerCase(), q: q.trim() })}>Tải CSV</a>
       </div>
       {page && <p className="adm-muted">{page.total} câu hỏi</p>}
       {page && <TurnTable items={page.items} onOpen={setOpen} />}
@@ -182,7 +184,10 @@ export function FeedbackInbox({ range, onError }: { range: Range; onError: (e: u
   }, [range, onError]);
   return (
     <div className="adm-stack">
-      <p className="adm-muted">Các câu trả lời bị đánh giá 👎, có đáp án sửa hoặc có ghi chú của người dùng.</p>
+      <div className="adm-filters">
+        <p className="adm-muted" style={{ flex: 1 }}>Các câu trả lời bị đánh giá 👎, có đáp án sửa hoặc có ghi chú của người dùng.</p>
+        <a className="adm-link-btn" download href={admin.feedbackCsv(range)}>Tải CSV</a>
+      </div>
       {page && <TurnTable items={page.items} onOpen={setOpen} showFeedback />}
       {open && <TurnDetail id={open} onClose={() => setOpen(null)} />}
     </div>

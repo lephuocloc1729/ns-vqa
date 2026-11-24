@@ -11,17 +11,22 @@ never reads anything written here except the live settings (app/api/live.py).
 from __future__ import annotations
 
 import base64
+import csv
 import hmac
+import io
 import math
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Callable
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app.api import accounts as acc
+from app.api import gpu as gpu_mod
 from app.api import live as live_mod
 from app.api.settings import Settings
 from app.api.storage import Store, Turn
@@ -112,6 +117,11 @@ class SettingsIn(BaseModel):
 class AccountIn(BaseModel):
     name: str = Field(min_length=2, max_length=32)
     note: str | None = Field(default=None, max_length=200)
+
+
+class GpuIn(BaseModel):
+    host: str = Field(min_length=1, max_length=253)
+    port: int
 
 
 class AccountPatch(BaseModel):
@@ -233,6 +243,32 @@ def admin_router(settings: Settings, store: Store, live_now: Callable[[], live_m
             rows = [x for x in rows if ql in (x["question"] or "").lower() or ql in (x["answer"] or "").lower()]
         return {"total": len(rows), "items": rows[offset:offset + limit]}
 
+    CSV_COLUMNS = ["created_at", "account", "question", "answer", "route", "verdict", "seconds", "cost_usd",
+                   "thumb", "corrected_answer", "note", "status", "error", "turn_id", "session_id", "image_sha256"]
+
+    def csv_response(rows: list[dict[str, Any]], name: str) -> Response:
+        buf = io.StringIO()
+        w = csv.DictWriter(buf, fieldnames=CSV_COLUMNS, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(rows)
+        # a BOM so spreadsheet apps read the Vietnamese text as UTF-8
+        return Response("\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+    @r.get("/turns.csv", dependencies=deps)
+    def turns_csv(since: date | None = None, until: date | None = None, route: str | None = None,
+                  verdict: str | None = None, rating: str | None = None, account: str | None = None,
+                  q: str | None = Query(default=None, max_length=100)) -> Response:
+        page = turns(since, until, route, verdict, rating, account, q, limit=500, offset=0)
+        rows = page["items"]
+        if page["total"] > len(rows):        # the CSV has every row, not just the first page
+            rows = turns(since, until, route, verdict, rating, account, q, limit=page["total"], offset=0)["items"]
+        return csv_response(rows, f"signcite-cau-hoi-{since or 'all'}-{until or 'all'}.csv")
+
+    @r.get("/feedback.csv", dependencies=deps)
+    def feedback_csv(since: date | None = None, until: date | None = None) -> Response:
+        return csv_response(feedback_inbox(since, until)["items"], f"signcite-phan-hoi-{since or 'all'}-{until or 'all'}.csv")
+
     @r.get("/feedback", dependencies=deps)
     def feedback_inbox(since: date | None = None, until: date | None = None) -> dict[str, Any]:
         a, b = day_range(since, until)
@@ -285,6 +321,44 @@ def admin_router(settings: Settings, store: Store, live_now: Callable[[], live_m
     def reset_settings() -> dict[str, Any]:
         store.set_overrides({k: None for k in live_mod.KEYS})
         return settings_view()
+
+    # ------------------------------------------------------------------ the GPU connection
+    def gpu_view() -> dict[str, Any]:
+        if settings.gpu_dir is None:
+            return {"enabled": False}
+        s = gpu_mod.status(settings.gpu_dir)
+        reachable, detail = check_rag(settings.gpu_rag_url) if s["state"] == "connected" else (False, s["state"])
+        now = live_now()
+        return {"enabled": True, **s, "rag_url": settings.gpu_rag_url,
+                "rag": {"reachable": reachable, "detail": detail},
+                "rag_in_use": now.answer_fallback == "rag" and now.rag_url == settings.gpu_rag_url}
+
+    def need_gpu() -> Path:
+        if settings.gpu_dir is None:
+            raise HTTPException(409, "máy chủ này chưa bật điều khiển GPU (VQA_GPU_DIR)")
+        return settings.gpu_dir
+
+    @r.get("/gpu", dependencies=deps)
+    def gpu_status() -> dict[str, Any]:
+        return gpu_view()
+
+    @r.post("/gpu/connect", dependencies=deps)
+    def gpu_connect(body: GpuIn) -> dict[str, Any]:
+        folder = need_gpu()
+        try:
+            gpu_mod.set_target(folder, body.host, body.port)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return gpu_view()
+
+    @r.post("/gpu/disconnect", dependencies=deps)
+    def gpu_disconnect() -> dict[str, Any]:
+        folder = need_gpu()
+        now = live_now()
+        if now.answer_fallback == "rag" and now.rag_url == settings.gpu_rag_url:
+            store.set_overrides({"answer_fallback": "off"})     # first stop sending questions to it
+        gpu_mod.clear_target(folder)
+        return gpu_view()
 
     @r.post("/rag-cache/clear", dependencies=deps)
     def clear_rag_cache() -> dict[str, Any]:
