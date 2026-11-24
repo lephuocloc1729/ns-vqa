@@ -8,6 +8,16 @@
 #
 # Progress: /app/logs/onstart.log; the service: /app/logs/service.log; ready when
 #   curl localhost:8100/health   says {"status":"ok"}.
+# sshd ignores authorized_keys when it or a folder above it is writable by others or not root's
+# ("bad ownership or modes", seen on a vast.ai machine on 2026-11-24): then neither the owner's key
+# nor the demo server's tunnel key can log in. Make them strict before anything else.
+if [ "$(id -u)" = 0 ] && [ -d /root/.ssh ]; then
+  chown root:root /root /root/.ssh 2> /dev/null || true
+  chmod go-w /root 2> /dev/null || true
+  chmod 700 /root/.ssh 2> /dev/null || true
+  [ -f /root/.ssh/authorized_keys ] && chown root:root /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys
+fi
+
 cd /app || exit 1
 mkdir -p logs
 {
