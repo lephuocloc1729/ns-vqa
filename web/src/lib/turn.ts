@@ -15,6 +15,7 @@ export interface TurnState {
   key: string; // local id, stable before the server's turn id arrives
   phase: Phase;
   question: string;
+  understoodAs: string | null; // a follow-up, rewritten by the API ("Hiểu câu hỏi là: …")
   imageUrl: string | null;
   turnId: string | null;
   sessionId: string | null;
@@ -37,7 +38,7 @@ export type TurnAction =
 
 export function newTurn(key: string, question: string, imageUrl: string | null): TurnState {
   return {
-    key, phase: "streaming", question, imageUrl, turnId: null, sessionId: null, imageSha: null,
+    key, phase: "streaming", question, understoodAs: null, imageUrl, turnId: null, sessionId: null, imageSha: null,
     imageSize: null, stages: [], signs: [], streamText: "", result: null, error: null, feedback: [],
   };
 }
@@ -75,6 +76,7 @@ function onEvent(s: TurnState, event: string, d: Record<string, unknown>): TurnS
       turnId: (d.turn_id as string) ?? s.turnId,
       sessionId: (d.session_id as string) ?? s.sessionId,
       imageSha: (d.image_sha256 as string) ?? s.imageSha,
+      understoodAs: (d.understood_as as string | null | undefined) ?? s.understoodAs,
     };
   }
   if (STAGE_EVENTS.has(event)) {
@@ -102,6 +104,7 @@ function fromStored(s: TurnState, t: TurnOut): TurnState {
     sessionId: t.session_id,
     imageSha: t.image_sha256,
     question: t.question || s.question,
+    understoodAs: t.understood_as ?? s.understoodAs,
     signs: t.signs && t.signs.length ? t.signs : s.signs,
     feedback: t.feedback ?? s.feedback,
   };

@@ -116,6 +116,18 @@ test("a question that is not about road signs gets the scope message and no 'not
   await expect(turn).not.toContainText("Chưa đủ dữ kiện");
 });
 
+test("a follow-up in the same chat shows how it was understood", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("file-input").setInputFiles(PHOTO);
+  await ask(page, "Xe ô tô có được đi vào đường này không?");
+  await expect(page.getByTestId("turn").first().getByTestId("answer")).toBeVisible();
+  await expect(page.getByTestId("understood-as")).toHaveCount(0); // a first question is never rewritten
+  await ask(page, "Còn xe máy thì sao?");
+  const second = page.getByTestId("turn").nth(1);
+  await expect(second.getByTestId("understood-as")).toHaveText("Hiểu câu hỏi là: Xe máy có được đi vào đường này không?");
+  await expect(second.getByTestId("answer")).toBeVisible();
+});
+
 test("a dropped stream recovers the stored answer", async ({ page }) => {
   // the body ends after the first event (`turn`), as when a connection drops:
   // the client must fetch GET /v1/turns/{id}, which the server finishes on its own

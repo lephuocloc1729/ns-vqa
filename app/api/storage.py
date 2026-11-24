@@ -61,6 +61,7 @@ class Turn(Base):
     seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     account: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)  # the site login that asked
+    understood_as: Mapped[str | None] = mapped_column(Text, nullable=True)   # a follow-up, rewritten (app/api/followup.py)
     session: Mapped[ChatSession] = relationship(back_populates="turns")
     feedback: Mapped[list["Feedback"]] = relationship(back_populates="turn", order_by="Feedback.created_at")
 
@@ -149,9 +150,11 @@ class Store:
         with self.db() as s:
             return s.get(ChatSession, session_id)
 
-    def start_turn(self, session_id: str, question: str, image_sha256: str, account: str | None = None) -> Turn:
+    def start_turn(self, session_id: str, question: str, image_sha256: str, account: str | None = None,
+                   understood_as: str | None = None) -> Turn:
         with self.db() as s:
-            t = Turn(session_id=session_id, question=question, image_sha256=image_sha256, account=account)
+            t = Turn(session_id=session_id, question=question, image_sha256=image_sha256, account=account,
+                     understood_as=understood_as)
             s.add(t)
             s.commit()
             return t
@@ -171,6 +174,13 @@ class Store:
             if t is not None:
                 _ = list(t.feedback)
             return t
+
+    def previous_question(self, session_id: str, image_sha256: str) -> str | None:
+        """The last question asked about this photo in this session, as it was answered."""
+        with self.db() as s:
+            t = s.scalars(select(Turn).where(Turn.session_id == session_id, Turn.image_sha256 == image_sha256)
+                          .order_by(Turn.created_at.desc()).limit(1)).first()
+            return (t.understood_as or t.question) if t is not None else None
 
     def turns(self, session_id: str) -> list[Turn]:
         with self.db() as s:

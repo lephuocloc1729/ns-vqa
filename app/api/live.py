@@ -21,7 +21,7 @@ from typing import Any
 
 from app.api.settings import FALLBACK_MODES, Settings
 
-KEYS = ("answer_fallback", "rag_url", "rag_cache", "spend_limit")
+KEYS = ("answer_fallback", "rag_url", "rag_cache", "spend_limit", "followup")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -30,6 +30,7 @@ class Live:
     rag_url: str
     rag_cache: bool
     spend_limit: float | None       # None: the spend guard's own default
+    followup: bool = True           # rewrite follow-up questions (app/api/followup.py)
 
     def as_dict(self) -> dict[str, Any]:
         return dataclasses.asdict(self)
@@ -37,7 +38,7 @@ class Live:
 
 def defaults(settings: Settings) -> Live:
     return Live(answer_fallback=settings.answer_fallback, rag_url=settings.rag_url,
-                rag_cache=settings.rag_cache, spend_limit=settings.max_spend)
+                rag_cache=settings.rag_cache, spend_limit=settings.max_spend, followup=settings.followup)
 
 
 def _bool(v: str) -> bool:
@@ -61,7 +62,7 @@ def parse(key: str, value: str) -> Any:
         if not v.startswith(("http://", "https://")) or len(v) > 200 or any(c.isspace() for c in v):
             raise ValueError("rag_url must be an http(s) URL")
         return v
-    if key == "rag_cache":
+    if key in ("rag_cache", "followup"):
         return _bool(value)
     if key == "spend_limit":
         f = float(value)
@@ -72,7 +73,7 @@ def parse(key: str, value: str) -> Any:
 
 
 def to_text(key: str, value: Any) -> str:
-    if key == "rag_cache":
+    if key in ("rag_cache", "followup"):
         return "on" if value else "off"
     return str(value)
 

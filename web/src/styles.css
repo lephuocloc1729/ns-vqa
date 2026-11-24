@@ -189,6 +189,8 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .user-photo img { width: 168px; height: 126px; object-fit: cover; display: block; }
 .user-photo.selected { outline: 2px solid var(--accent); outline-offset: 1px; }
 .bubble { max-width: 82%; background: var(--user-bubble); padding: 10px 14px; border-radius: 18px 18px 4px 18px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.understood { max-width: 82%; margin-top: 4px; font-size: 13px; color: var(--muted); text-align: right; overflow-wrap: anywhere; }
+.understood q { color: var(--text); }
 .msg-bot { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .answer { font-size: 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .caret { display: inline-block; width: 7px; height: 1.05em; background: var(--text); vertical-align: -2px; margin-left: 2px; animation: blink 1s step-end infinite; }

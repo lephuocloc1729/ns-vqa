@@ -163,9 +163,20 @@ The plan is `docs/plans/admin-page.md`.
 **CSV export:** Câu hỏi and Phản hồi each have **Tải CSV**, with the current filters (UTF-8 with a BOM, so spreadsheet apps read the Vietnamese text).
 
 **Live settings:**
-- The RAG fallback, the RAG URL, the RAG cache switch and the spend limit can change while the API runs: on the admin site, or with `docker compose exec -T api python -m app.api.live show|set KEY=VALUE|reset`.
+- The RAG fallback, the RAG URL, the RAG cache switch, the spend limit and the follow-up switch can change while the API runs: on the admin site, or with `docker compose exec -T api python -m app.api.live show|set KEY=VALUE|reset`.
 - They apply from the next question. The `.env` values are the defaults.
 - Switching to the RAG is refused unless it answers `/health`.
+
+## Follow-up questions (`VQA_FOLLOWUP`)
+
+Neither the rules pipeline nor the RAG keeps a conversation: each answers one complete question about one photo. So the API rewrites a follow-up such as "Còn xe khách thì sao?" into a complete question before it is queued (`app/api/followup.py`, prompt `prompts/followup/v1/spec.md`):
+
+- only with a `session_id`, and only when the session already has a question about the same photo; the first question about a photo makes no call;
+- one Claude Haiku call (about $0.0005), counted by the same spend guard, made before the answer slots, so it never holds one;
+- the asker's words are stored as `question`, the rewritten one as `understood_as`, and the page shows "Hiểu câu hỏi là: …";
+- a question that is already complete passes unchanged; any failure answers the question as typed;
+- on by default; `VQA_FOLLOWUP=off` in `.env`, or the live switch (Cài đặt → Câu hỏi tiếp), turns it off;
+- the metric `vqa_followup_total{result}` counts rewritten, unchanged, failed and rejected rewrites.
 
 ## CD: every merge to `main` deploys itself
 

@@ -5,6 +5,8 @@
 Endpoints:
 - POST /v1/sessions                      start a conversation
 - POST /v1/ask                           image + question -> answer (JSON)
+  (with a session_id, a follow-up such as "Còn xe khách thì sao?" is first rewritten into a complete
+   question from the previous one about the same photo, app/api/followup.py; `understood_as` has it)
 - POST /v1/ask/stream                    the same, as server-sent events: one event per pipeline stage,
                                          the writer's text as it is written (`token`; `token_reset`
                                          withdraws it before a retry or the template answer), then
@@ -40,6 +42,7 @@ from pydantic import BaseModel, Field
 
 from vqa.llm.spend import SpendLimitExceeded
 
+from app.api import followup as followup_mod
 from app.api import live as live_mod
 from app.api.admin import admin_router, sync_users
 from app.api.profiles import PROFILES, pipeline_config
@@ -74,6 +77,7 @@ class TurnOut(BaseModel):
     session_id: str
     status: str
     question: str
+    understood_as: str | None = None          # a follow-up, rewritten into the question that was answered
     image_sha256: str
     answer: str | None = None
     verdict: str | None = None
@@ -92,6 +96,7 @@ class TurnOut(BaseModel):
 
 def turn_out(t: Turn) -> TurnOut:
     return TurnOut(turn_id=t.id, session_id=t.session_id, status=t.status, question=t.question,
+                   understood_as=getattr(t, "understood_as", None),
                    image_sha256=t.image_sha256, answer=t.answer_text, verdict=t.verdict,
                    answered_by=t.answered_by, basis=t.basis or [], citations=t.citations or [],
                    signs=t.signs or [], retrieved=t.retrieved or [], proof=t.proof, stages=t.stages or {}, cost_usd=t.cost_usd,
@@ -158,12 +163,15 @@ class Metrics:
         self.feedback = Counter("vqa_feedback", "Feedback received, by kind", ["kind"], registry=self.registry)
         self.rag_cache = Counter("vqa_rag_cache", "RAG fallback answers, from the answer cache or fresh",
                                  ["result"], registry=self.registry)
+        self.followup = Counter("vqa_followup", "Follow-up rewrites, by result", ["result"],
+                                registry=self.registry)
         self.stage = Histogram("vqa_stage_seconds", "Seconds from start to each stage event", ["stage"],
                                registry=self.registry, buckets=(0.5, 1, 2, 5, 10, 15, 20, 30, 60))
 
 
 # ---------------------------------------------------------------------- the app
-def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], Any] | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], Any] | None = None,
+               followup_llm: Callable[[], Any] | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
     store = Store(settings.database_url)
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
@@ -222,6 +230,18 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
 
     applier = LiveApplier()
     runner = PipelineRunner(pipeline_factory or default_factory, slots=settings.answer_slots, prepare=applier)
+
+    llm_box: dict[str, Any] = {}
+
+    def default_followup_llm() -> Any:
+        """One Haiku client, counted by the pipeline's own spend guard (one limit for everything)."""
+        if "llm" not in llm_box:
+            from vqa.llm.spend import SpendGuard
+            guard = getattr(runner.pipeline, "guard", None) or SpendGuard(live_now().spend_limit)
+            llm_box["llm"] = followup_mod.make_client(guard)
+        return llm_box["llm"]
+
+    followup = followup_mod.Followup(followup_llm or default_followup_llm, max_chars=settings.max_question_chars)
     sync_users(settings, store)                     # the web server's password file, from the database
 
     @asynccontextmanager
@@ -289,7 +309,25 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
             record = {}
         return [*result.basis, "rag"], list(record.get("retrieved") or [])
 
-    def finish(turn_id: str, result: Any, signs: list[dict[str, Any]]) -> Turn:
+    async def understand(given_session: str | None, sid: str, sha: str, q: str) -> tuple[str, followup_mod.Rewrite | None]:
+        """The question to answer: a follow-up rewritten from the previous question on this photo."""
+        if not given_session or not live_now().followup:
+            return q, None
+        previous = store.previous_question(sid, sha)
+        if previous is None:
+            return q, None
+        rw = await asyncio.to_thread(followup.rewrite, q, previous)
+        metrics.followup.labels(rw.status).inc()
+        return rw.question, rw
+
+    def followup_stage(rw: followup_mod.Rewrite | None) -> dict[str, Any] | None:
+        if rw is None:
+            return None
+        return {"status": rw.status, "cost_usd": rw.cost_usd, "prompt_id": f"followup/{followup.version}",
+                **({"error": rw.error} if rw.error else {})}
+
+    def finish(turn_id: str, result: Any, signs: list[dict[str, Any]],
+               rw: followup_mod.Rewrite | None = None) -> Turn:
         basis, retrieved = rag_part(result)
         metrics.answers.labels(result.answered_by).inc()
         metrics.cost.labels(result.answered_by).inc(result.cost_usd or 0.0)
@@ -300,7 +338,9 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
         return store.finish_turn(turn_id, status="done", answer_text=shown_text(result), verdict=result.verdict,
                                  answered_by=result.answered_by, basis=basis, retrieved=retrieved,
                                  citations=list(result.citations), proof=result.proof, signs=signs,
-                                 stages=stage_summary(result.trace or {}), cost_usd=result.cost_usd,
+                                 stages={**stage_summary(result.trace or {}),
+                                         **({"followup": followup_stage(rw)} if rw else {})},
+                                 cost_usd=(result.cost_usd or 0.0) + (rw.cost_usd if rw else 0.0),
                                  seconds=result.seconds)
 
     def fail(turn_id: str, exc: BaseException) -> Turn:
@@ -371,7 +411,8 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
         q = check_question(question)
         sid = session_for(session_id)
         sha, path = await save_upload(image)
-        turn = store.start_turn(sid, q, sha, account_of(request))
+        asked, rw = await understand(session_id, sid, sha, q)
+        turn = store.start_turn(sid, q, sha, account_of(request), understood_as=asked if asked != q else None)
         signs: list[dict[str, Any]] = []
 
         def emit(name: str, payload: dict[str, Any]) -> None:
@@ -379,13 +420,13 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
                 signs[:] = payload.get("signs", [])
 
         try:
-            result = await asyncio.wrap_future(runner.submit(path, q, emit))
+            result = await asyncio.wrap_future(runner.submit(path, asked, emit))
         except Exception as e:
             t = fail(turn.id, e)
             metrics.requests.labels("ask", "error").inc()
             raise HTTPException(503 if isinstance(e, SpendLimitExceeded) else 500, t.error)
         metrics.requests.labels("ask", "ok").inc()
-        return turn_out(finish(turn.id, result, signs))
+        return turn_out(finish(turn.id, result, signs, rw))
 
     @app.post("/v1/ask/stream")
     async def ask_stream(request: Request, image: UploadFile = File(...), question: str = Form(...),
@@ -393,7 +434,9 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
         q = check_question(question)
         sid = session_for(session_id)
         sha, path = await save_upload(image)
-        turn = store.start_turn(sid, q, sha, account_of(request))
+        asked, rw = await understand(session_id, sid, sha, q)
+        understood = asked if asked != q else None
+        turn = store.start_turn(sid, q, sha, account_of(request), understood_as=understood)
         loop = asyncio.get_running_loop()
         queue: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue(maxsize=8192)
         signs: list[dict[str, Any]] = []
@@ -410,11 +453,11 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
             metrics.stage.labels(name).observe(payload.get("t", 0.0))
             loop.call_soon_threadsafe(put, name, payload)
 
-        future = runner.submit(path, q, emit)
+        future = runner.submit(path, asked, emit)
 
         def store_result(f: Any) -> None:       # runs even if the client has gone away
             try:
-                finish(turn.id, f.result(), signs)
+                finish(turn.id, f.result(), signs, rw)
                 metrics.requests.labels("ask_stream", "ok").inc()
             except Exception as e:
                 fail(turn.id, e)
@@ -427,7 +470,8 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
             return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
         async def events() -> AsyncIterator[str]:
-            yield sse("turn", {"turn_id": turn.id, "session_id": sid, "image_sha256": sha})
+            yield sse("turn", {"turn_id": turn.id, "session_id": sid, "image_sha256": sha,
+                               "understood_as": understood})
             while True:
                 if await request.is_disconnected():
                     return                      # the answer is still stored; GET /v1/turns/{id} has it

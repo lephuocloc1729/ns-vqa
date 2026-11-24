@@ -48,6 +48,7 @@ export function TurnDetail({ id, onClose }: { id: string; onClose: () => void })
             <img src={`/v1/images/${t.image_sha256}`} alt="Ảnh của câu hỏi" />
             <div>
               <p className="adm-q">{t.question}</p>
+              {t.understood_as && <p className="adm-muted">Hiểu câu hỏi là: “{t.understood_as}”</p>}
               <p className="adm-a">{t.answer ?? t.error ?? "—"}</p>
               <p className="adm-muted">
                 {VERDICT[t.verdict ?? ""] ?? t.verdict ?? "–"} · {t.basis.includes("rag") ? "RAG" : ANSWERED_BY[t.answered_by ?? ""] ?? t.answered_by ?? t.status} · {fmtSec(t.seconds)} · {fmtUsd(t.cost_usd, 4)}
@@ -96,7 +97,9 @@ export function TurnTable({ items, onOpen, showFeedback = false }: {
               onKeyDown={(e) => e.key === "Enter" && onOpen(t.turn_id)}>
               <td className="nowrap">{fmtTime(t.created_at)}</td>
               <td>{t.account ?? "–"}</td>
-              <td>{shorten(t.question, 90)}</td>
+              <td title={t.understood_as ? `Hiểu là: ${t.understood_as}` : undefined}>
+                {shorten(t.question, 90)}{t.understood_as && <span className="adm-tag">hỏi tiếp</span>}
+              </td>
               <td className="adm-muted">{showFeedback
                 ? shorten([t.corrected_answer, t.note].filter(Boolean).join(" · ") || t.answer, 120)
                 : shorten(t.answer ?? t.error, 120)}</td>

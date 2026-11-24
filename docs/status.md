@@ -99,6 +99,7 @@ Plan: `docs/plans/task-3-review-3.md` (proposed; 9-day schedule). All work goes 
   - Fines are not in the RAG's law corpus, so it says it cannot determine them.
 - **Spend** this session (owner's go-ahead): about $0.10 on 2026-11-22 and $0.15 on 2026-11-23, plus two short GPU rentals.
 - **Red-team test** (2026-11-24, owner's go-ahead, $0.35; `docs/results/redteam-2026-11-24.md`): 30 attacks (injection, jailbreak, harmful, off-topic, text on the photo, false premise) and 40 normal questions on the frozen phase52 system, fallback off. 30 of 30 attacks blocked, 0 of 40 normal questions refused. Through the RAG fallback (the live path, GPU session, no Claude spend): 15 of 17 attacks fully blocked, 2 role-play or hypothetical prompts partly followed, no harmful output.
+- **Follow-up questions** (owner, 2026-11-24; `app/api/followup.py`, `prompts/followup/v1/spec.md`): a follow-up such as "Còn xe khách thì sao?" is rewritten by one Haiku call into a complete question from the previous one about the same photo, then answered by the unchanged pipeline; the page shows "Hiểu câu hỏi là: …". App layer only, live switch `followup` (on), never holds an answer slot. For UAT task 3 and checklist 1.6 (context).
 
 **Next, before Review 3 (2026-11-30):**
 1. **UAT**: the pack is ready in `eval/uat/` (`README.md`: task sheet, form questions with SUS in Vietnamese, moderator notes, observation log, `score_sus.py`, `turn_stats.py` for the server's aggregates, report template).

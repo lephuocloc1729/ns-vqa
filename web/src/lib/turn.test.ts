@@ -109,4 +109,14 @@ describe("turnReducer", () => {
     s = turnReducer(s, { type: "feedback", feedback: { ...fb, id: "f2", thumb: "down" } });
     expect(s.feedback.map((f) => f.id)).toEqual(["f1", "f2"]);
   });
+
+  it("keeps the question as the API understood a follow-up", () => {
+    const s = run([ev("turn", { turn_id: "t2", session_id: "s1", understood_as: "Xe khách có được rẽ trái không?" })],
+      newTurn("k", "Còn xe khách thì sao?", "blob:x"));
+    expect(s.understoodAs).toBe("Xe khách có được rẽ trái không?");
+    expect(s.question).toBe("Còn xe khách thì sao?");
+    expect(turnFromStored("k", stored({ understood_as: "Xe khách có được rẽ trái không?" }), "u").understoodAs)
+      .toBe("Xe khách có được rẽ trái không?");
+    expect(turnFromStored("k", stored(), "u").understoodAs).toBeNull();
+  });
 });

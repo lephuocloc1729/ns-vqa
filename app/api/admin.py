@@ -89,7 +89,8 @@ def route_of(t: Turn) -> str:
 def summary(t: Turn) -> dict[str, Any]:
     fb = latest_feedback(t)
     return {"turn_id": t.id, "session_id": t.session_id, "created_at": _aware(t.created_at).isoformat(),
-            "account": t.account, "question": t.question, "image_sha256": t.image_sha256,
+            "account": t.account, "question": t.question, "understood_as": t.understood_as,
+            "image_sha256": t.image_sha256,
             "status": t.status, "verdict": t.verdict, "route": route_of(t),
             "answer": t.answer_text, "seconds": t.seconds, "cost_usd": t.cost_usd, "error": t.error,
             **fb}
@@ -112,6 +113,7 @@ class SettingsIn(BaseModel):
     rag_url: str | None = None
     rag_cache: bool | None = None
     spend_limit: float | None = None
+    followup: bool | None = None
 
 
 class AccountIn(BaseModel):
