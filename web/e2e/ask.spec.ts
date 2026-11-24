@@ -34,7 +34,14 @@ test("ask, stream, boxes, citations, proof, feedback, RAG and history", async ({
   await expect(turn.getByTestId("evidence")).toHaveCount(0);
   await turn.getByRole("button", { name: "Căn cứ và chứng minh" }).click();
   await expect(turn.getByTestId("citations")).toContainText("QCVN 41:2024/BGTVT B.3");
-  await expect(turn.getByTestId("proof")).toContainText("forbids(s1, car, enter)");
+  // the proof at three levels, all folded: steps, rules as written in kb/, the raw tree
+  const steps = turn.getByTestId("proof-steps");
+  await expect(steps).not.toHaveAttribute("open", "");
+  await steps.locator("summary").first().click();
+  await expect(steps).toContainText("P.103a cấm");
+  await expect(steps).toContainText("Cấm");
+  await expect(turn.getByTestId("proof-rules")).toContainText("forbids(Action, Veh, Ctx, S, T) :-");
+  await expect(turn.getByTestId("proof")).toContainText("forbids(enter,veh(car,[])");
   await expect(turn.locator('[data-stage="perception"]')).toContainText("2 biển báo");
   // streaming: the first draft grew token by token, token_reset cleared it, the final text streamed
   const seen = await page.evaluate(() => (window as unknown as { streamSeen: string[] }).streamSeen);

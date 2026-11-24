@@ -42,20 +42,9 @@ DELAY = 0.12   # seconds between streamed pieces, so the UI's streaming is visib
 
 NAMES = {"P.103a": "Cấm xe ô tô", "W.207a": "Giao nhau với đường không ưu tiên"}
 
-PROOF_NO = {
-    "verdict": "no", "value": None, "uncertain_signs": [], "note": None, "basis": [],
-    "citations": [{"law_id": "QCVN 41:2024/BGTVT", "article_id": "B.3"}],
-    "reasons": [{
-        "sign_id": "s1", "truth": "true", "detail": "biển cấm áp dụng cho ô tô",
-        "proof": {"type": "rule", "rule": "forbids", "goal": "forbids(s1, car, enter)", "children": [
-            {"type": "fact", "goal": "sign(s1, p103a)", "children": []},
-            {"type": "rule", "rule": "covers", "goal": "covers(p103a, car)", "children": [
-                {"type": "fact", "goal": "is_a(car, motor_vehicle)", "children": []}]},
-            {"type": "cite", "goal": "cite(p103a)",
-             "source": {"law_id": "QCVN 41:2024/BGTVT", "article_id": "B.3"}, "children": []},
-        ]},
-    }],
-}
+# a real engine answer for this photo's signs (P.103a, W.207a) and "may a car enter?", saved from the
+# rule engine (vqa/reasoning/engine.py), so the readable proof view shows real steps and rules
+PROOF_NO = json.loads((Path(__file__).with_name("fixtures") / "proof_no.json").read_text(encoding="utf-8"))
 
 PROOF_PLATE = {
     **PROOF_NO, "basis": ["non_standard_plate"],
