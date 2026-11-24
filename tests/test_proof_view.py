@@ -89,6 +89,7 @@ def test_an_open_time_window_says_what_is_missing(engine):
     decisive = [s for s in views[0]["steps"] if s.get("decisive")]
     assert decisive[0]["rule"] == "time-unknown" and decisive[0]["result"] == "?"
     assert "«6h-9h»" in decisive[0]["text"] and "không nói giờ" in decisive[0]["text"]
+    assert views[0]["steps"][-1]["text"].startswith("Chưa đủ dữ kiện") and views[0]["steps"][-1]["result"] == "Chưa xác định"
 
 
 def test_a_speed_limit(engine):
@@ -138,3 +139,23 @@ def test_every_reason_code_and_check_of_the_rules_has_words():
 def test_rule_cards_find_their_clause():
     for name in ("forbids", "applies", "assess", "speed_violation", "lane_block", "unrelated_sign"):
         assert pv._kb_clauses().get(name), name
+
+
+@pytest.mark.parametrize("hour, verdict, want, never", [
+    ("07:00:00", "no", "nằm trong khung giờ", "không có biển phụ"),
+    ("10:00:00", "yes", "nằm ngoài khung giờ", "không có biển phụ"),
+])
+def test_a_time_plate_is_never_called_absent(engine, hour, verdict, want, never):
+    sc = scene(sign("s1", "P.103a", plates=[times(("06:00", "09:00"))]))
+    when = {"start": hour, "end": hour, "quantifier": "all"}
+    a, views = view(engine, sc, {"intent": "permitted", "action": "enter", "vehicle": {"class": "car"}, "when": when})
+    assert a.verdict.value == verdict
+    rows = [x for st in views[0]["steps"] for x in [st, *st.get("detail", [])] if x["rule"].startswith("time")]
+    assert want in rows[0]["text"] and never not in rows[0]["text"].lower()
+
+
+def test_no_time_plate_is_said_only_when_the_proof_shows_it(engine):
+    sc = scene(sign("s1", "P.103a"))
+    _, views = view(engine, sc, {"intent": "permitted", "action": "enter", "vehicle": {"class": "car"}})
+    rows = [x for st in views[0]["steps"] for x in [st, *st.get("detail", [])] if x["rule"].startswith("time")]
+    assert rows[0]["text"] == "Không có biển phụ giới hạn giờ ⇒ biển áp dụng cả ngày"

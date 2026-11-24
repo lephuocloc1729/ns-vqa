@@ -388,6 +388,9 @@ def _check_step(name: str, truth: str, assess: dict[str, Any], vehicle: Any, spe
     rule = f"{name}-{truth}"
     node = _check_node(assess, name)
     facts = _facts_under(node) if node else []
+    # what the proof says about the plate: absent (a negation-as-failure node) or present (a fact/leaf)
+    under = [(x.get("type"), functor(parse(x.get("goal")))) for x in _walk(node)] if node else []
+    no_plate = lambda f: ("naf", f) in under and not any(t != "naf" and g == f for t, g in under)  # noqa: E731
     asked = ctx_text(ctx)
     if name == "vehicle":
         v = veh_text(vehicle)
@@ -401,8 +404,15 @@ def _check_step(name: str, truth: str, assess: dict[str, Any], vehicle: Any, spe
         windows = [f"{_hm(f.args[1])}–{_hm(f.args[2])}" for f in facts
                    if isinstance(f, T) and f.f == "plate_time" and len(f.args) >= 3]
         w = ", ".join(windows) or ", ".join(f"«{p}»" for p in plates or [])
-        text = {"true": f"Biển áp dụng vào thời điểm được hỏi" + (f" (khung giờ {w})" if w else
-                                                                   " (không có biển phụ giới hạn giờ ⇒ cả ngày)"),
+        has_plate = any(g in ("has_time_plate", "plate_time") and t != "naf" for t, g in under)
+        if has_plate:
+            yes = f"Thời điểm được hỏi{(' (' + asked + ')') if asked else ''} nằm trong khung giờ " \
+                  f"{w or 'ghi trên biển phụ'} ⇒ biển áp dụng"
+        elif no_plate("plate_time"):
+            yes = "Không có biển phụ giới hạn giờ ⇒ biển áp dụng cả ngày"
+        else:
+            yes = "Biển áp dụng vào thời điểm được hỏi"
+        text = {"true": yes,
                 "false": f"Thời điểm được hỏi{(' (' + asked + ')') if asked else ''} nằm ngoài khung giờ {w or 'của biển'}",
                 "unknown": f"Biển chỉ áp dụng trong khung giờ {w or 'ghi trên biển phụ'}, "
                            "nhưng câu hỏi không nói giờ"}[truth]
@@ -410,7 +420,9 @@ def _check_step(name: str, truth: str, assess: dict[str, Any], vehicle: Any, spe
     simple = {
         "exception": ("Xe được hỏi không thuộc ngoại lệ của biển", "Xe được hỏi thuộc ngoại lệ của biển",
                       "Chưa rõ xe có thuộc ngoại lệ của biển không"),
-        "plate": ("Không có biển phụ loại trừ xe này", "Biển phụ giới hạn loại xe, và xe được hỏi không thuộc loại đó",
+        "plate": ("Không có biển phụ về loại xe" if no_plate("plate_vehicle") else
+                  "Biển phụ về loại xe áp dụng cho xe này",
+                  "Biển phụ giới hạn loại xe, và xe được hỏi không thuộc loại đó",
                   "Chưa rõ biển phụ về loại xe có áp dụng cho xe này không"),
         "day": ("Biển áp dụng vào ngày được hỏi (hoặc không giới hạn ngày)",
                 "Ngày được hỏi không phải ngày biển có hiệu lực",
@@ -609,7 +621,9 @@ def reason_view(reason: dict[str, Any], signs: list[dict[str, Any]]) -> dict[str
     a, v = _action_vehicle(top)
     yes, no = CONCLUSION.get(top_f, (None, None))
     detail = reason.get("detail")
-    if yes:
+    if truth == "unknown":
+        text = "Chưa đủ dữ kiện để kết luận: xem điều kiện «?» ở trên"
+    elif yes:
         text = (yes if truth == "true" else no).format(a=a, v=v)
     else:
         text = f"Kết luận của luật {top_f}"
