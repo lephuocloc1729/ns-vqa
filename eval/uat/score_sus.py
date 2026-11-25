@@ -30,6 +30,7 @@ import math
 import re
 import statistics
 import sys
+import unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -40,6 +41,16 @@ OUTCOMES = ("success", "partial", "fail")
 _SELF = [("mot phan", "partial"), ("một phần", "partial"), ("partial", "partial"),
          ("co", "success"), ("có", "success"), ("yes", "success"),
          ("khong", "fail"), ("không", "fail"), ("no", "fail")]
+
+# the form's [GROUP] options, matched on their first words; anything else (the "Khác" option's
+# free text) is reported as "Khác", so no tester's own words reach the report
+GROUPS = ("Người lái xe", "Sinh viên", "Người am hiểu luật giao thông", "Khác")
+# the observation tags (eval/uat/moderator_notes.md, section 4); a tag outside this list is printed
+# as a warning, since it is usually a typo (a new tag is allowed when none fits)
+KNOWN_TAGS = {"waiting_too_long", "upload_hard", "voice_failed", "answer_wrong", "answer_unclear",
+              "evidence_hard_to_find", "proof_confusing", "boxes_hard_to_find", "followup_unclear",
+              "followup_misread", "history_hard_to_find", "feedback_hard_to_find", "fallback_confusing",
+              "fallback_off", "mobile_layout", "error_message"}
 
 # Acceptance targets (owner, 2026-11-23; eval/uat/moderator_notes.md): (key, label, threshold)
 TARGETS = [
@@ -107,8 +118,40 @@ def _int(v: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
+def _nfc(v: str) -> str:
+    return unicodedata.normalize("NFC", v or "")
+
+
+def _pid(v: str) -> str | None:
+    """A participant ID as typed on the form or in the log ("p7", "P 07", " P07 ") -> "P07"."""
+    v = re.sub(r"\s+", "", _nfc(v)).upper()
+    m = re.fullmatch(r"P0*(\d+)", v)
+    return f"P{int(m.group(1)):02d}" if m else (v or None)
+
+
+def _group(v: str) -> str | None:
+    v = _nfc(v).strip()
+    if not v:
+        return None
+    return next((g for g in GROUPS if v.lower().startswith(g.lower())), "Khác")
+
+
+def _seconds(v: str | None, where: str) -> float | None:
+    """time_s as seconds, or m:ss if the cell was typed as a time."""
+    v = (v or "").strip()
+    if not v:
+        return None
+    m = re.fullmatch(r"(\d+):(\d{1,2})", v)
+    if m:
+        return int(m.group(1)) * 60 + int(m.group(2))
+    try:
+        return float(v.replace(",", "."))
+    except ValueError:
+        raise SystemExit(f"{where}: time_s must be seconds (e.g. 95) or m:ss, got {v!r}") from None
+
+
 def _self_outcome(v: str) -> str | None:
-    v = (v or "").strip().lower()
+    v = _nfc(v).strip().lower()
     return next((o for prefix, o in _SELF if v == prefix or v.startswith(prefix + " ")), None)
 
 
@@ -134,16 +177,35 @@ def read_responses(path: Path) -> list[dict]:
         get = lambda c: r[cols[c]] if c in cols and cols[c] < len(r) else ""  # noqa: E731
         sus = [_int(get(f"SUS{i}")) for i in range(1, N_SUS + 1)]
         out.append({
-            "id": get("ID").strip().upper() or None,
-            "group": get("GROUP").strip() or None,
-            "device": get("DEVICE").strip() or None,
-            "photo": get("PHOTO").strip() or None,
+            "id": _pid(get("ID")),
+            "group": _group(get("GROUP")),
+            "device": _nfc(get("DEVICE")).strip() or None,
+            "photo": _nfc(get("PHOTO")).strip() or None,
             "sus": sus if all(a is not None for a in sus) else None,
             "csat": _int(get("CSAT")),
             "ease": {t: _int(get(t)) for t in TASKS if t in cols},
             "done": {t: o for t in TASKS if (o := _self_outcome(get(f"OK{t[1:]}")))},
         })
-    return out
+    return dedupe(out)
+
+
+def dedupe(responses: list[dict]) -> list[dict]:
+    """The form allows more than one response (testers may lack a Google account), so a tester who
+    submits twice would count twice. Keep each ID's last response (the export is in submission
+    order); responses without an ID are all kept. The kept list's first item carries the number
+    dropped, for the report."""
+    last = {r["id"]: i for i, r in enumerate(responses) if r["id"]}
+    kept = [r for i, r in enumerate(responses) if not r["id"] or last[r["id"]] == i]
+    dropped = len(responses) - len(kept)
+    if dropped:
+        ids = sorted(i for i, n in Counter(r["id"] for r in responses if r["id"]).items() if n > 1)
+        print(f"warning: {dropped} earlier duplicate response(s) dropped, keeping the last for "
+              f"{', '.join(ids)}", file=sys.stderr)
+    for r in kept:
+        r["duplicates_dropped"] = 0
+    if kept:
+        kept[0]["duplicates_dropped"] = dropped
+    return kept
 
 
 def read_observations(path: Path) -> list[dict]:
@@ -162,20 +224,32 @@ def read_observations(path: Path) -> list[dict]:
         if outcome not in OUTCOMES:
             raise SystemExit(f"{path}: outcome must be one of {OUTCOMES}, got {outcome!r} "
                              f"({r.get('participant')}, {r.get('task')})")
-        t = (r.get("time_s") or "").strip()
+        where = f"{path}: {r.get('participant')} {r.get('task')}"
+        task = (r.get("task") or "").strip().upper()
+        if task not in TASKS:
+            raise SystemExit(f"{where}: task must be one of {TASKS}")
         out.append({
-            "participant": r["participant"].strip().upper(),
-            "task": (r.get("task") or "").strip().upper(),
+            "participant": _pid(r["participant"]),
+            "task": task,
             "outcome": outcome,
-            "time_s": float(t) if t else None,
-            "issues": [x.strip().lower() for x in (r.get("issues") or "").split(";") if x.strip()],
+            "time_s": _seconds(r.get("time_s"), where),
+            # tags are separated by ";", but a "," typed by mistake is accepted too
+            "issues": [x.strip().lower() for x in re.split(r"[;,]", r.get("issues") or "") if x.strip()],
         })
+    seen = Counter((o["participant"], o["task"]) for o in out)
+    twice = sorted(f"{p} {t}" for (p, t), n in seen.items() if n > 1)
+    if twice:
+        raise SystemExit(f"{path}: more than one row for {', '.join(twice)}")
+    unknown = sorted({tag for o in out for tag in o["issues"]} - KNOWN_TAGS)
+    if unknown:
+        print(f"warning: tags not in the list (typo?): {', '.join(unknown)}", file=sys.stderr)
     return out
 
 
 def summarize(responses: list[dict], observations: list[dict] | None = None) -> dict:
     scored = [(r["id"], sus_score(r["sus"])) for r in responses if r["sus"]]
-    s: dict = {"responses": len(responses), "sus_n": len(scored)}
+    s: dict = {"responses": len(responses), "sus_n": len(scored),
+               "duplicates_dropped": sum(r.get("duplicates_dropped", 0) for r in responses)}
     if scored:
         xs = [x for _, x in scored]
         m, lo, hi = mean_ci(xs)
@@ -210,6 +284,13 @@ def summarize(responses: list[dict], observations: list[dict] | None = None) -> 
             s["task_source"] = "self-reported"
     else:
         s["task_source"] = "observed"
+        logged = {o["participant"] for o in observations}
+        formed = {r["id"] for r in responses if r["id"]}
+        s["unmatched"] = {"log_only": sorted(logged - formed), "form_only": sorted(formed - logged)}
+        if logged ^ formed:
+            print(f"warning: in the log but not on the form: {', '.join(s['unmatched']['log_only']) or '-'}; "
+                  f"on the form but not in the log: {', '.join(s['unmatched']['form_only']) or '-'}",
+                  file=sys.stderr)
     if observations:
         by_task: dict[str, list[dict]] = defaultdict(list)
         for o in observations:
@@ -271,7 +352,13 @@ def _pct(x: float) -> str:
 
 
 def format_report(s: dict) -> str:
-    out = ["# UAT results", "", f"Form responses: {s['responses']} (SUS complete: {s['sus_n']})", ""]
+    dup = f"; {s['duplicates_dropped']} earlier duplicate(s) dropped" if s.get("duplicates_dropped") else ""
+    out = ["# UAT results", "", f"Form responses: {s['responses']} (SUS complete: {s['sus_n']}{dup})", ""]
+    um = s.get("unmatched") or {}
+    if um.get("log_only") or um.get("form_only"):
+        out += [f"Not matched between the log and the form: {len(um['log_only'])} only in the log, "
+                f"{len(um['form_only'])} only on the form (their tasks still count; the device split misses them).",
+                ""]
     if s.get("targets"):
         out += ["## Acceptance targets", "", "| Target | Result | Pass |", "|---|---:|---|"]
         for t in s["targets"]:
