@@ -208,18 +208,95 @@ folders keeps `main` and the tag directly comparable, file by file.
 
 ## Reproducing the numbers
 
-Check out the benchmarked code and confirm it matches its freeze record:
+There are three levels. The first needs nothing; the second needs the dataset and a paid API key; the third can't be
+re-run by design.
+
+### 1. What anyone can check (no dataset, no key, no cost)
 
 ```bash
-git checkout v1.0-benchmark
-.venv/bin/python eval/freeze.py check --profile phase52     # "matches the freeze record"
+git clone https://github.com/lephuocloc1729/ns-vqa.git && cd ns-vqa
+python3.11 -m venv .venv && .venv/bin/python -m pip install -e '.[dev,api,eval]'
+
+.venv/bin/python -m pytest -q                               # on main; tests that need the dataset are skipped
+docker compose up -d --build                                # the whole stack, fake pipeline (see Quick start)
+
+git checkout v1.0-benchmark                                 # the code of the 3 private runs
+.venv/bin/python eval/freeze.py check --profile phase52     # prints "matches the freeze record"
 ```
 
-The dataset (`VLSP2025-MLQA-Natural/`) is not in this repository. Get it from the VLSP 2025 organisers and put it
-at the repository root, or set `VQA_DATASET_DIR`. Runs that call Claude need `ANTHROPIC_API_KEY`, and every paid
-script has a spend cap (`--max-spend`).
+- The freeze check proves that the tagged code, prompts and settings are the ones in the freeze record
+  (`eval/frozen_phase52.json`): it hashes every file under `vqa/` and `kb/` and every prompt version it names.
+- Each private run left a committed record: `eval/private_ran.json`, `_2.json`, `_3.json` (rules only) and
+  `eval/private_rag_ran*.json` (with the RAG). Each gives the git commit it ran from, the sha256 of the freeze
+  record it ran under, its start and finish times and what it spent. The scores themselves are in
+  [`docs/status.md`](docs/status.md).
 
-**Settings, seeds and versions** are all committed:
+### 2. Re-running the public test (the dataset and an Anthropic key, about $0.65)
+
+1. Get the dataset (`VLSP2025-MLQA-Natural/`) from the VLSP 2025 organisers and put it at the repository root, or
+   set `VQA_DATASET_DIR`. It is not in this repository.
+2. Build the scene prompt's reference pictograms from the dataset's `law_db` (the copies are gitignored; the
+   committed `pictograms.yaml` manifests check them by sha256, and perception refuses copies that don't match):
+
+   ```bash
+   for v in v5 v5-crop v5-tile; do .venv/bin/python tools/build_scene_pictograms.py --version $v; done
+   ```
+
+3. Check out the commit the public_dev run used, confirm it is the frozen system, and run it. Every paid script
+   stops at its `--max-spend`:
+
+   ```bash
+   git checkout 59425af
+   .venv/bin/python eval/freeze.py check --profile phase52
+   export ANTHROPIC_API_KEY=...
+   .venv/bin/python eval/e2e_public_dev52.py run --confirm-frozen --max-spend 1.2
+   ```
+
+   This answers the 51 public_dev questions with the rules only (V1), with fresh perception, and grades them with
+   the judge (`eval/prompts/judge/v1`). The reported run cost $0.50.
+4. For V2 and RAG alone, merge with the RAG's saved public-test answers (about $0.14 for the judge):
+
+   ```bash
+   .venv/bin/python eval/e2e_public_dev52.py merge --run-id <the run's id> --max-spend 0.6 \
+       --rag-predictions <RAG>/answer_comparison/public_configs_C/public_test/predictions.jsonl
+   ```
+
+   The RAG's saved public-test answers are not in this repository; ask the authors for them. To produce them again,
+   run the RAG's batch runner on a GPU with `--split public_test` and the evaluation bundle (`gpu_setup.sh --eval`;
+   see [`docs/runbooks/gpu-session.md`](docs/runbooks/gpu-session.md)). The bundle is private because it holds
+   public-test files.
+
+The public_holdout half (the other 49 questions) ran the same way from a local branch with the same frozen system.
+
+### 3. What can't be re-run, and why
+
+- **The private test runs once per run number, by design.** `eval/e2e_private.py run` and
+  `eval/e2e_private_rag.py run` refuse to start when their run's record already exists, so the benchmark could not
+  be re-tried and the best run reported. All 3 runs are recorded, so the commands now refuse. Their full form is:
+
+  ```bash
+  .venv/bin/python eval/e2e_private.py run [--run 2|3] --confirm-frozen --max-spend 3
+  .venv/bin/python eval/e2e_private_rag.py run --run N --confirm --max-spend 1 \
+      --rag-predictions <RAG>/private_test/predictions.jsonl \
+      --rag-live <RAG>/outputs/private_live/rag_live.jsonl
+  ```
+
+- **The private test's answers are never released.** Only the scoring code reads them, in memory, and it writes
+  aggregates only (dataset rules in [`CLAUDE.md`](CLAUDE.md)).
+- **The reported private scores are graded by hand** by the author. A re-run gives the judge's grade, which is
+  close but not the same (for V2 the two agree within 0.1 point; for RAG alone, 79.2% by the judge against 81.5% by
+  hand).
+
+### What a re-run should match
+
+Perception, parsing and the writer are model calls whose output varies between runs. That is why the private test
+was run 3 times and is reported as a mean and spread (V2 82.2%, sd 1.8). A re-run should land within that spread,
+not on the exact number. The RAG with one answer slot repeats exactly (24 of 24 answers, on two days and two
+machines).
+
+### Settings, seeds and versions
+
+All of them are committed:
 - the frozen system's settings in `eval/frozen_phase52.json`: perception `claude-haiku-5-5` with scene prompt v5,
   tiles, crops and guide-board reading, no re-run; parser `claude-sonnet-5-5` (effort medium) with prompt v18;
   writer v3; reading policy `higher_confidence`; context year 2025;
@@ -229,20 +306,14 @@ script has a spend cap (`--max-spend`).
   (seed 20261116);
 - the RAG's model files and runtime with their sha256 in [`docs/release/v1.0-benchmark.md`](docs/release/v1.0-benchmark.md).
 
-| Number | Command | Record |
+| Number | How it was produced | Record |
 |---|---|---|
-| The frozen system | `eval/freeze.py check --profile phase52` | `eval/frozen_phase52.json` |
-| Private test, V1 (3 runs) | `eval/e2e_private.py run [--run 2\|3]`; each run is allowed once | `eval/private_ran*.json`, aggregates in `eval/runs/e2e/` |
-| Private test, V2 and RAG alone | `eval/e2e_private_rag.py run --run N --rag-predictions … --rag-live …` | `eval/private_rag_ran*.json` |
-| Public test, V2 | `eval/e2e_public_dev52.py run`, then `merge` | `docs/status.md`, "phase52" |
+| Private test, V1 (3 runs) | `eval/e2e_private.py run [--run 2\|3]` at `v1.0-benchmark` | `eval/private_ran*.json`; scores in `docs/status.md` |
+| Private test, V2 and RAG alone | `eval/e2e_private_rag.py run --run N …` (above) | `eval/private_rag_ran*.json`; scores in `docs/status.md` |
+| Public test, V2 | `eval/e2e_public_dev52.py run`, then `merge` (level 2) | `docs/status.md`, "phase52 on the whole public test" |
 | Load tests | GitHub Actions › Load test (Locust, fake pipeline) | `docs/results/load-test-*.md` |
 | RAG speed, memory, Q4 vs BF16 | `eval/rag_bench.py` on a GPU session | `docs/results/gpu-session-2026-11-21.md`, `rag-concurrency-2026-11-23.md` |
 | Red team | `eval/redteam/redteam.py run --max-spend 0.65`, then `rag` and `report` | `docs/results/redteam-2026-11-24.md` |
-
-Perception, parsing and the writer are model calls whose output varies between runs, which is why the private test
-was run 3 times and is reported as a mean and spread. The RAG with one answer slot repeats exactly (24 of 24, on two
-days and two machines). The private test's answers are read only by the scoring code, which writes aggregates only;
-see the dataset rules in [`CLAUDE.md`](CLAUDE.md).
 
 ## Models and artifacts
 
