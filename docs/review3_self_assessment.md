@@ -12,7 +12,7 @@ below gives its state, the evidence a reviewer can open, and what is still missi
 |---|---|---|---|---|
 | 1 | UI/UX | ✅ | https://signcite.xyz; `web/`; Playwright on desktop and phone | screenshots for the thesis; the video |
 | 2 | Streaming | ✅ | SSE stage events and writer tokens; `tests/test_answer_stream.py`, `web/src/lib/sse.ts` | — |
-| 3 | Optimisation | ✅ | Q4_K_M vs BF16 (`docs/results/gpu-session-2026-11-21.md`); rules-side runtime optimisations | the BF16 accuracy figure in the table (owner) |
+| 3 | Optimisation | ✅ | Q4_K_M vs BF16: speed, memory and private accuracy (`docs/results/gpu-session-2026-11-21.md`); rules-side runtime optimisations | — |
 | 4 | Latency and memory table | ✅ | GPU table; load tests; private-run seconds and cost per question | — |
 | 5 | Citations and guardrails | ✅ | citations on every rules answer; faithfulness guard; red team (`docs/results/redteam-2026-11-24.md`); readable proof | — |
 | 6 | CI/CD | ✅ | GitHub Actions: 191 CI runs since 21/11, 31 CD deployments with automatic rollback | — |
@@ -79,14 +79,20 @@ instead of guessing.
   Playwright test "a dropped stream recovers the stored answer".
 
 ### 3. Optimisation ✅
-- **RAG answer model: Qwen3.5-9B BF16 → Q4_K_M (llama.cpp GGUF).** Measured on an RTX 5090, 20 questions:
+- **RAG answer model: Qwen3.5-9B BF16 → Q4_K_M (llama.cpp GGUF).** Speed and memory measured on an RTX 5090
+  (20 questions); accuracy on the private test (146 questions, RAG alone, the saved runs):
 
   | | Q4_K_M | BF16 |
   |---|---|---|
   | Peak GPU memory | **9.29 GB** | 19.61 GB |
   | Generation | **4.9 ms/token** (203 tokens/s) | 11.0 ms/token (91 tokens/s) |
   | Time per answer | **4.82 s** | 6.48 s |
-  | Accuracy | private, judge: 79.2% (RAG alone) | [owner's figure] |
+  | Private accuracy, judge (score) | 79.2% | **84.6%** |
+  | Private accuracy, by hand | — | 81.5% (119 of 146) |
+
+  **The trade:** Q4_K_M halves the GPU memory and generates 2.2× faster, at a cost of about 5 points of judge-graded
+  accuracy. Q4 was chosen before the private test, for speed and memory, and the benchmarked system keeps it.
+  BF16's accuracy is from one run (the owner's grading sheet; judge 121 correct, 5 partial, 20 wrong).
 
 - **Rules side, runtime optimisations** (no model weights of its own to prune or distil):
   - perception and parsing run in parallel;
