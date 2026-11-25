@@ -57,15 +57,26 @@ jobs:
       - name: Leakage guard
         run: python -m pytest -q tests/test_leakage_guard.py
 
-      - name: Test suite
-        run: python -m pytest -q -rs --junitxml=reports/junit.xml
+      - name: Test suite, with coverage of vqa/ and app/ (the Prolog rules in kb/ are tested, not measured)
+        run: |
+          set -o pipefail                     # a failing test still fails the step through tee
+          mkdir -p reports
+          python -m pytest -q -rs --junitxml=reports/junit.xml \
+            --cov=vqa --cov=app --cov-report=xml:reports/coverage.xml --cov-report=term | tee reports/pytest.txt
+          {
+            echo "### Tests and coverage"
+            grep -E "passed|failed" reports/pytest.txt | tail -1
+            grep -E "^TOTAL" reports/pytest.txt | awk '{print "Line coverage of vqa/ and app/: **" $NF "** (" $2 " statements)"}'
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload the test report
+      - name: Upload the test and coverage reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: junit-report
-          path: reports/junit.xml
+          path: |
+            reports/junit.xml
+            reports/coverage.xml
 
   rag-service:
     name: RAG service tests (no GPU, no index)

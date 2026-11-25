@@ -12,20 +12,20 @@ below gives its state, the evidence a reviewer can open, and what is still missi
 |---|---|---|---|---|
 | 1 | UI/UX | ✅ | https://signcite.xyz; `web/`; Playwright on desktop and phone | screenshots for the thesis; the video |
 | 2 | Streaming | ✅ | SSE stage events and writer tokens; `tests/test_answer_stream.py`, `web/src/lib/sse.ts` | — |
-| 3 | Optimisation | ✅ | Q4_K_M vs BF16 (`docs/results/gpu-session-2026-11-21.md`); rules-side runtime optimisations | the BF16 accuracy figure in the table (owner) |
+| 3 | Optimisation | ✅ | Q4_K_M vs BF16: speed, memory and private accuracy (`docs/results/gpu-session-2026-11-21.md`); rules-side runtime optimisations | — |
 | 4 | Latency and memory table | ✅ | GPU table; load tests; private-run seconds and cost per question | — |
 | 5 | Citations and guardrails | ✅ | citations on every rules answer; faithfulness guard; red team (`docs/results/redteam-2026-11-24.md`); readable proof | — |
 | 6 | CI/CD | ✅ | GitHub Actions: 191 CI runs since 21/11, 31 CD deployments with automatic rollback | — |
 | 7 | Docker Compose | ✅ | `docker-compose.yml` (8 services); CI job `compose` starts it on a clean machine | a clean-VM screen recording (optional) |
 | 8 | Monitoring | ✅ | Grafana dashboard "SignCite – hệ thống" (14 panels), Prometheus, node-exporter; admin overview | Phoenix (dropped, see row) |
-| 9 | Unit and integration tests | ✅ | 2,612 pytest cases, 36 Vitest, 17 Playwright; JUnit report on every CI run | a coverage % |
-| 10 | Load and stress | 🟡 | Locust capacity and stress runs, 0 failures up to 1,000 users | the small real end-to-end run |
+| 9 | Unit and integration tests | ✅ | 2,612 pytest cases (94–95% line coverage of `vqa/` and `app/`), 36 Vitest, 17 Playwright; JUnit and coverage reports on every CI run | — |
+| 10 | Load and stress | ✅ | Locust capacity and stress runs, 0 failures up to 1,000 users; a real end-to-end run, 10 users at once, 0 errors | the RAG under load (needs a GPU session) |
 | 11 | UAT | 🟡 | `eval/uat/` pack, scorer and tests; admin accounts | the sessions (26–28/11) and the report |
 | 12 | Thesis | 🟡 | structure fixed (6 chapters, FPT template format) | the text (due 30/11) |
 | 13 | References and plagiarism | ⬜ | — | IEEE reference list; plagiarism check |
 | 14 | Slides | ⬜ | — | 22 slides + 4 backup |
 | 15 | Slide review | ⬜ | — | the review pass for the five faults |
-| 16 | Repository | 🟡 | `docs/`, `DESIGN.md`, Swagger at `/docs`, tag `v1.0-benchmark` | a root `README.md` with the results and how to run |
+| 16 | Repository | ✅ | `README.md` (results, how to run, how to reproduce each number), `docs/`, `DESIGN.md`, Swagger at `/docs`, tag `v1.0-benchmark` | — |
 | 17 | Artifacts | ⬜ | tag `v1.0-benchmark`, freeze records | a GitHub release with the model files' sha256 |
 | 18 | Video | 🟡 | script: `docs/defense/demo_video_script.md` | the recording |
 
@@ -79,14 +79,22 @@ instead of guessing.
   Playwright test "a dropped stream recovers the stored answer".
 
 ### 3. Optimisation ✅
-- **RAG answer model: Qwen3.5-9B BF16 → Q4_K_M (llama.cpp GGUF).** Measured on an RTX 5090, 20 questions:
+- **RAG answer model: Qwen3.5-9B BF16 → Q4_K_M (llama.cpp GGUF).** Speed and memory measured on an RTX 5090
+  (20 questions); accuracy on the private test (146 questions, RAG alone, the saved runs):
 
   | | Q4_K_M | BF16 |
   |---|---|---|
   | Peak GPU memory | **9.29 GB** | 19.61 GB |
   | Generation | **4.9 ms/token** (203 tokens/s) | 11.0 ms/token (91 tokens/s) |
   | Time per answer | **4.82 s** | 6.48 s |
-  | Accuracy | private, judge: 79.2% (RAG alone) | [owner's figure] |
+  | Private accuracy, judge (score) | 79.2% | **84.6%** |
+  | Private accuracy, by hand | **81.5%** (119 of 146) | **81.5%** (119 of 146) |
+
+  **The trade:** Q4_K_M halves the GPU memory and generates 2.2× faster **with the same hand-graded accuracy**
+  (81.5% for both). The judge scores BF16 about 5 points higher, so the judge and the human grader disagree on how
+  the two models' wordings compare; the hand grades are the reference. Q4 was chosen before the private test, for
+  speed and memory, and the benchmarked system keeps it. BF16 is one run (the owner's grading sheet; judge 121
+  correct, 5 partial, 20 wrong).
 
 - **Rules side, runtime optimisations** (no model weights of its own to prune or distil):
   - perception and parsing run in parallel;
@@ -169,16 +177,23 @@ instead of guessing.
 - **Vitest: 36** (SSE parser, turn reducer, admin formatting).
 - **Playwright: 17** on desktop and phone, against the real API with a fake pipeline.
 - A JUnit report is uploaded on every CI run.
-- **Missing:** a coverage percentage (`pytest-cov` is not set up).
+- **Coverage (2026-11-25): 94% of the lines in `vqa/` and `app/` in CI** (8,094 statements, 475 missed; 2,471
+  tests, 126 skipped there because they need the local dataset), **95% locally** with all 2,612. Measured by
+  `pytest-cov` on every CI run, shown on the run's summary page, and uploaded as `coverage.xml`. The Prolog rules
+  in `kb/` are tested by the rule-family tests but not measured by Python coverage.
 
-### 10. Load and stress 🟡
+### 10. Load and stress ✅
 - **Locust, Docker Compose stack, fake pipeline** (`docs/results/load-test-*.md`):
   - capacity 10 → 500 users;
   - stress up to 1,000 users and back.
 - **1 process × 10 slots: 10.33 answers/s**; p95 ≤ 2 s up to 200 users.
 - **0 failures at every step, including 1,000 users.** Overload shows as waiting, never as errors.
-- **Missing:** the small real end-to-end run (5–10 users, about 50 questions, about $0.70), which needs the
-  owner's go-ahead.
+- **Real end-to-end run** (2026-11-25, `docs/results/load-test-real-2026-11-25.md`, $0.37): the real pipeline on
+  the demo server, 5 then 10 users at once, each with a fresh photo, a first question and two follow-ups:
+  - **45 questions, 0 errors**;
+  - a first question (photo read) about 20 s (p95 31.6 s at 10 users), a later question about 4.5 s (p95 5.4 s);
+  - the 10 answer slots add no queueing at 10 users.
+- **Not covered:** the RAG fallback under load (it needs a GPU session).
 
 ### 11. UAT 🟡
 - **Ready:**
@@ -204,14 +219,14 @@ instead of guessing.
 
 ## Stage 6: hand-over
 
-### 16. Repository 🟡
+### 16. Repository ✅
 - **Has:**
   - `DESIGN.md`, `docs/` (status, plans, results, deploy, runbooks);
   - Swagger at `/docs`;
   - the frozen benchmark tag `v1.0-benchmark` and its freeze records.
-- **Missing:**
-  - a root `README.md` (results table, `docker compose up`, how to reproduce each number);
-  - the `vqa/` → `src/vqa/` move (D8) is not done and is not needed for the review.
+  - a root `README.md` (2026-11-25): the results table, `docker compose up` on any machine, the development
+    setup, the folders, and the command and record behind each reported number.
+- **Not done, not needed for the review:** the `vqa/` → `src/vqa/` move (D8).
 
 ### 17. Artifacts ⬜
 - A GitHub release on `v1.0-benchmark`, with the model files' sha256: not started.

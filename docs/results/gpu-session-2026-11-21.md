@@ -72,6 +72,7 @@ The batch pipeline is the one the live private run used (`run_private_live.sh`):
 
 - Q4 uses 53% less GPU memory and generates 2.2× faster; each answer takes about 26% less time.
 - **Accuracy is not measured here.** The two models phrase answers differently. Accuracy comes from grading the saved private Q4 and BF16 runs, separately.
+- **Private accuracy (added 2026-11-25, the owner's grading):** RAG alone, by hand Q4_K_M 81.5% and BF16 81.5% (119 of 146 each); judge score 79.2% vs 84.6% (one BF16 run). By hand, quantisation costs no accuracy.
 
 ## 5. End to end: ns-vqa API (phase52, `VQA_ANSWER_FALLBACK=rag`) → SSH tunnel → RAG service
 
