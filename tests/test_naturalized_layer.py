@@ -12,7 +12,8 @@ import tools.naturalized_layer as nl
 
 SECRET = "secret-gold-answer"
 QS = {"train": [{"id": "fake_tr_q1", "image_id": "fake_tr_img1", "question": "Biển gì?", "answer": f"Cấm {SECRET}"}],
-      "public_test": [{"id": "fake_pu_q1", "image_id": "fake_pu_img1", "question": "Đúng không?", "answer": "Đúng"}]}
+      "public_test": [{"id": "fake_pu_q1", "image_id": "fake_pu_img1", "question": "Đúng không?", "answer": "Đúng"}],
+      "private_test": [{"id": "fake_pr_q1", "image_id": "fake_pr_img1", "question": "Sai không?", "answer": "Sai"}]}
 
 
 def _write(p: Path, data: bytes | str) -> Path:
@@ -28,7 +29,7 @@ def world(tmp_path):
     for name in ("README.md", "manifest.json", "review.json", "provenance.json"):
         _write(nat / name, f'{{"file": "{name}"}}')
     _write(nat / ".DS_Store", b"junk")
-    for split, (folder, js, images) in nl.SPLITS.items():
+    for split, (folder, js, images) in {**nl.SPLITS, **nl.PRIVATE}.items():
         _write(nat / "dataset" / folder / js, json.dumps(QS[split], ensure_ascii=False))
         img = f"image bytes of {split}".encode()
         _write(nat / "dataset" / folder / images / f"{QS[split][0]['image_id']}.jpg", img)
@@ -45,11 +46,16 @@ def _tree(root: Path) -> dict[str, str]:
     return {p.relative_to(root).as_posix(): nl.sha256(p) for p in nl._files(root)}
 
 
+def _public(tree: dict[str, str]) -> dict[str, str]:
+    """The files a default layer covers: everything but the private test."""
+    return {k: v for k, v in tree.items() if nl.PRIVATE["private_test"][0] not in k}
+
+
 def test_a_round_trip_rebuilds_the_dataset_exactly(world, capsys):
     tmp, nat, vlsp = world
     nl.export(nat, tmp / "layer", repo=tmp / "repo")
     nl.build(tmp / "layer", vlsp, tmp / "rebuilt")
-    want = {k: v for k, v in _tree(nat).items() if k != nl.PROVENANCE}
+    want = {k: v for k, v in _public(_tree(nat)).items() if k != nl.PROVENANCE}
     assert _tree(tmp / "rebuilt") == want
     printed = capsys.readouterr().out
     assert SECRET not in printed and "fake_tr_img1" not in printed and "Biển" not in printed
@@ -69,7 +75,7 @@ def test_provenance_only_on_request(world):
     tmp, nat, vlsp = world
     nl.export(nat, tmp / "layer", repo=tmp / "repo", with_provenance=True)
     nl.build(tmp / "layer", vlsp, tmp / "rebuilt")
-    assert _tree(tmp / "rebuilt") == _tree(nat)
+    assert _tree(tmp / "rebuilt") == _public(_tree(nat))
 
 
 def test_a_layer_of_the_train_split_only(world):
@@ -81,11 +87,25 @@ def test_a_layer_of_the_train_split_only(world):
     assert not (tmp / "rebuilt" / "dataset" / nl.SPLITS["public_test"][0]).exists()
 
 
-def test_the_private_test_is_never_part_of_the_layer(world):
+def test_the_private_test_is_left_out_by_default(world):
     tmp, nat, _ = world
-    assert set(nl.SPLITS) == {"train", "public_test"}
-    with pytest.raises(SystemExit, match="unknown split"):
-        nl.export(nat, tmp / "layer", repo=tmp / "repo", splits=("private_test",))
+    nl.export(nat, tmp / "layer", repo=tmp / "repo")
+    rec = json.loads((tmp / "layer" / nl.LAYER_FILE).read_text())
+    assert rec["splits"] == ["train", "public_test"]
+    assert not any("private_test" in f for f in [*_tree(tmp / "layer"), *rec["vlsp_files"]])
+    with pytest.raises(SystemExit, match="--include-private only"):
+        nl.export(nat, tmp / "layer2", repo=tmp / "repo", splits=("private_test",))
+
+
+def test_the_private_test_with_include_private(world, capsys):
+    tmp, nat, vlsp = world
+    nl.export(nat, tmp / "layer", repo=tmp / "repo", include_private=True)
+    rec = json.loads((tmp / "layer" / nl.LAYER_FILE).read_text())
+    assert rec["splits"] == ["train", "public_test", "private_test"]
+    nl.build(tmp / "layer", vlsp, tmp / "rebuilt")
+    assert _tree(tmp / "rebuilt") == {k: v for k, v in _tree(nat).items() if k != nl.PROVENANCE}
+    printed = capsys.readouterr().out
+    assert "fake_pr_q1" not in printed and "Sai không" not in printed
 
 
 def test_a_missing_or_changed_vlsp_file_is_refused_with_counts_only(world):

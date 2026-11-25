@@ -3,7 +3,7 @@
 `VLSP2025-MLQA-Natural/` is built from VLSP's data: its images and `law_db` are VLSP's, unchanged, and its
 questions come from VLSP with the author's edits. Only the natural answers, the edits and the review are
 the author's own. So the dataset itself is not redistributed. Instead, for the train and public test splits
-(the private test is never part of the layer):
+(and the private test only with `--include-private`, for a request by email: owner, 2026-11-25):
 
 - `export` (the author) writes the **layer**: the author's text files only (the split JSONs with the
   natural answers, `README.md`, `manifest.json`, `review.json`; `provenance.json` only with
@@ -18,7 +18,7 @@ the author's own. So the dataset itself is not redistributed. Instead, for the t
 Neither command prints a question, an answer or an image name: counts only. The layer is written outside
 the repository only (it holds dataset text, which is never committed).
 
-    .venv/bin/python tools/naturalized_layer.py export --out ~/naturalized_layer [--splits train] [--with-provenance]
+    .venv/bin/python tools/naturalized_layer.py export --out ~/naturalized_layer [--splits train] [--include-private] [--with-provenance]
     .venv/bin/python tools/naturalized_layer.py build --layer ~/naturalized_layer --vlsp <VLSP release folder> --out VLSP2025-MLQA-Natural
 
 Offline authoring tool, not inference code.
@@ -39,12 +39,16 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATASET = Path(os.environ.get("VQA_DATASET_DIR", ROOT / "VLSP2025-MLQA-Natural"))
 SCHEMA = 1
 LAYER_FILE = "layer.json"
-# The private test is not part of the layer: only the scoring code may name or read its answer file
-# (CLAUDE.md, "Dataset rules"; tests/test_leakage_guard.py). It is shared on request only, if at all.
 SPLITS = {   # split -> (its folder under dataset/, its JSON file, its image folder)
     "train": ("train data", "vlsp_2025_train.json", "train_images"),
     "public_test": ("public_test data", "vlsp_2025_public_test.json", "public_test_images"),
 }
+# The private test (owner, 2026-11-25): shared only by the owner, by email on request, with holders of the
+# VLSP 2025 data agreement. Exported only with --include-private. Besides the scoring code
+# (eval/e2e_private.py), this is the only code that names its answer file (tests/test_leakage_guard.py); it
+# copies the file and never reads, prints or grades its content.
+PRIVATE = {"private_test": ("private_test data (post submission)", "vlsp_2025_private_test.json",
+                            "private_test_images")}
 ROOT_TEXT = ("README.md", "manifest.json", "review.json")       # the author's own files at the root
 PROVENANCE = "provenance.json"                                   # quotes VLSP's original samples
 LAW_DB = "dataset/law_db"
@@ -81,11 +85,16 @@ def _inside(path: Path, root: Path) -> bool:
 # ---------------------------------------------------------------- export (the author)
 
 def export(dataset: Path, out: Path, *, splits: tuple[str, ...] = tuple(SPLITS), with_provenance: bool = False,
-           repo: Path = ROOT) -> dict:
-    """Write the layer for `splits` into `out` (a new folder outside the repository)."""
+           include_private: bool = False, repo: Path = ROOT) -> dict:
+    """Write the layer for `splits` (plus the private test with `include_private`) into `out`, a new folder
+    outside the repository."""
     dataset, out = Path(dataset), Path(out)
+    if "private_test" in splits:
+        raise SystemExit("the private test is added with --include-private only")
     if bad := sorted(set(splits) - set(SPLITS)):
         raise SystemExit(f"unknown split(s): {', '.join(bad)}; the splits are {', '.join(SPLITS)}")
+    table = {**SPLITS, **PRIVATE} if include_private else SPLITS
+    splits = tuple(splits) + (tuple(PRIVATE) if include_private else ())
     if _inside(out, repo):
         raise SystemExit("the layer holds dataset text: write it outside the repository")
     if out.exists() and any(out.iterdir()):
@@ -95,7 +104,7 @@ def export(dataset: Path, out: Path, *, splits: tuple[str, ...] = tuple(SPLITS),
         if (dataset / name).exists():
             text[name] = dataset / name
     for split in splits:
-        folder, js, images = SPLITS[split]
+        folder, js, images = table[split]
         text[f"dataset/{folder}/{js}"] = dataset / "dataset" / folder / js
         for p in _files(dataset / "dataset" / folder / images):
             vlsp[p.relative_to(dataset).as_posix()] = p
@@ -187,6 +196,8 @@ def main(argv: list[str] | None = None) -> None:
     e.add_argument("--out", type=Path, required=True)
     e.add_argument("--splits", default=",".join(SPLITS), help="comma-separated: train,public_test")
     e.add_argument("--with-provenance", action="store_true", help="also include provenance.json (quotes VLSP's samples)")
+    e.add_argument("--include-private", action="store_true",
+                   help="also include the private test (owner only, for a request by email)")
     b = sub.add_parser("build", help="rebuild the dataset from the layer and the VLSP release")
     b.add_argument("--layer", type=Path, required=True)
     b.add_argument("--vlsp", type=Path, required=True, help="the original VLSP 2025 MLQA-TSR release (any layout)")
@@ -194,7 +205,7 @@ def main(argv: list[str] | None = None) -> None:
     a = ap.parse_args(argv)
     if a.cmd == "export":
         export(a.dataset, a.out, splits=tuple(s.strip() for s in a.splits.split(",") if s.strip()),
-               with_provenance=a.with_provenance)
+               with_provenance=a.with_provenance, include_private=a.include_private)
     else:
         build(a.layer, a.vlsp, a.out)
 
