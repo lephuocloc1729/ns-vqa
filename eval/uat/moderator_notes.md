@@ -204,6 +204,8 @@ It prints:
 - where the free-question photos came from;
 - the issue tags.
 
+It also checks the inputs. IDs typed as `p7` or `P 07` are read as `P07`. A tester who submitted the form twice keeps only their last response. "Khác" free text is reported as "Khác". A tag outside the list above, or a log ID with no form response (or the reverse), prints a warning. Two rows for the same participant and task, a task other than T1–T5, or a time that isn't seconds or m:ss stops it with an error.
+
 **Server-side numbers, aggregates only.** Run this on the server for each session day's window, then add the days together:
 
 ```bash

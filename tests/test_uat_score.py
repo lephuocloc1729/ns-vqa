@@ -206,3 +206,83 @@ def test_log_row_with_notes_but_no_outcome_is_an_error(tmp_path):
     obs.write_text("participant,task,outcome,time_s,issues,notes\nP01,T2,,90,slow,\n", encoding="utf-8")
     with pytest.raises(SystemExit, match="no outcome"):
         read_observations(obs)
+
+
+# Found with a dummy Google Forms export and a dummy Sheets log (2026-11-25), before real responses.
+
+def _form_rows(path: Path, rows: list[list]) -> None:
+    header = ["Dấu thời gian", "[ID] Mã", "[GROUP] Nhóm", "[DEVICE] Thiết bị",
+              *[f"[SUS{i}] câu" for i in range(1, 11)], "[CSAT] x"]
+    with path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(header)
+        w.writerows(rows)
+
+
+def test_typed_ids_are_normalised_and_join_the_log(tmp_path):
+    form = tmp_path / "responses.csv"
+    _form_rows(form, [["t", "p7", "Sinh viên", "Điện thoại", *BEST, "5"],
+                      ["t", "P 08", "Sinh viên", "Máy tính", *BEST, "5"],
+                      ["t", " P09 ", "Sinh viên", "Máy tính", *BEST, "5"]])
+    assert [r["id"] for r in read_responses(form)] == ["P07", "P08", "P09"]
+    obs = tmp_path / "obs.csv"
+    obs.write_text("participant,task,outcome,time_s,issues,notes\r\n"
+                   "P07,T1,success,40,,\r\nP08,T1,fail,,,\r\nP09,T1,success,1:30,,\r\n", encoding="utf-8")
+    os_ = read_observations(obs)
+    assert os_[2]["time_s"] == 90
+    s = summarize(read_responses(form), os_)
+    assert s["task_success_by_device"] == {"Máy tính": {"attempts": 2, "rate": 0.5},
+                                           "Điện thoại": {"attempts": 1, "rate": 1.0}}
+    assert s["unmatched"] == {"log_only": [], "form_only": []}
+
+
+def test_duplicate_submission_keeps_the_last(tmp_path, capsys):
+    form = tmp_path / "responses.csv"
+    _form_rows(form, [["t1", "P05", "Sinh viên", "", *WORST, "1"],
+                      ["t2", "P06", "Sinh viên", "", *BEST, "5"],
+                      ["t3", "p05", "Sinh viên", "", *BEST, "4"]])
+    rs = read_responses(form)
+    assert [r["id"] for r in rs] == ["P06", "P05"] and rs[1]["csat"] == 4
+    s = summarize(rs)
+    assert s["responses"] == 2 and s["duplicates_dropped"] == 1 and s["sus"]["mean"] == 100.0
+    assert "1 earlier duplicate(s) dropped" in format_report(s)
+    assert "P05" in capsys.readouterr().err
+
+
+def test_other_group_text_is_folded_into_khac(tmp_path):
+    form = tmp_path / "responses.csv"
+    _form_rows(form, [["t", "P01", "shipper", "", *BEST, "5"],
+                      ["t", "P02", "Người am hiểu luật giao thông (giảng viên, cán bộ…)", "", *BEST, "5"]])
+    s = summarize(read_responses(form))
+    assert set(s["sus_by_group"]) == {"Khác", "Người am hiểu luật giao thông"}
+    assert "shipper" not in format_report(s)
+
+
+def test_comma_tags_split_and_unknown_tags_warn(tmp_path, capsys):
+    obs = tmp_path / "obs.csv"
+    obs.write_text("participant,task,outcome,time_s,issues,notes\n"
+                   "P01,T1,success,40,\"evidence_hard_to_find, waiting_too_long\",\n"
+                   "P01,T2,success,40,boxes_hard_to_fnd,\n", encoding="utf-8")
+    os_ = read_observations(obs)
+    assert os_[0]["issues"] == ["evidence_hard_to_find", "waiting_too_long"]
+    assert "boxes_hard_to_fnd" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("body, match", [
+    ("P01,T1,success,40,,\nP01,T1,fail,,,\n", "more than one row"),
+    ("P01,T6,success,40,,\n", "task must be"),
+    ("P01,T1,success,45s,,\n", "time_s"),
+])
+def test_log_mistakes_are_errors(tmp_path, body, match):
+    obs = tmp_path / "obs.csv"
+    obs.write_text("participant,task,outcome,time_s,issues,notes\n" + body, encoding="utf-8")
+    with pytest.raises(SystemExit, match=match):
+        read_observations(obs)
+
+
+def test_log_and_form_mismatch_is_reported(tmp_path):
+    obs = tmp_path / "obs.csv"
+    obs.write_text("participant,task,outcome,time_s,issues,notes\nP01,T1,success,40,,\n", encoding="utf-8")
+    s = summarize([_resp("P02", BEST, 5, {})], read_observations(obs))
+    assert s["unmatched"] == {"log_only": ["P01"], "form_only": ["P02"]}
+    assert "Not matched between the log and the form: 1 only in the log, 1 only on the form" in format_report(s)
