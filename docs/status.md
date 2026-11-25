@@ -1,6 +1,6 @@
 # Project status
 
-## Where things stand (2026-11-23)
+## Where things stand (2026-11-25)
 
 **The evaluation is complete** (branch `phase-5`). On the private test, three runs on the frozen phase52 system, hand-graded by the owner:
 
@@ -102,16 +102,16 @@ Plan: `docs/plans/task-3-review-3.md` (proposed; 9-day schedule). All work goes 
 - **Follow-up questions** (owner, 2026-11-24; `app/api/followup.py`, `prompts/followup/v1/spec.md`): a follow-up such as "Còn xe khách thì sao?" is rewritten by one Haiku call into a complete question from the previous one about the same photo, then answered by the unchanged pipeline; the page shows "Hiểu câu hỏi là: …". App layer only, live switch `followup` (on), never holds an answer slot. For UAT task 3 and checklist 1.6 (context).
 - **Readable proof** (owner, 2026-11-24; `app/api/proof_view.py`): under "Căn cứ và chứng minh", three folded levels built from the engine's own proof, no model involved: *Các bước suy luận* (each step's Prolog fact or rule beside a fixed Vietnamese sentence, the routine conditions folded, the decisive ✗ or ? marked), *Luật trong cơ sở tri thức* (the concluding clauses as written in kb/ with a reading), *Cây chứng minh đầy đủ* (the raw tree). Checked on all 2,855 proofs the test suite produces: no failures, 99.5% with a specific conclusion. Verdicts and vqa/ unchanged.
 
-**Next, before Review 3 (2026-11-30):**
-1. **UAT**: the pack is ready in `eval/uat/` (`README.md`: task sheet, form questions with SUS in Vietnamese, moderator notes, observation log, `score_sus.py`, `turn_stats.py` for the server's aggregates, report template).
-   - Owner (2026-11-23): at least 15 testers by video call, 5 fixed tasks + 2 free questions, 20 street photos (3 fixed + 2 backups, 15 spare); targets SUS ≥ 68, task success ≥ 80%, CSAT 4–5 ≥ 70%, every task ≥ 60%.
-   - Each tester gets an account on the admin site, so their questions are stored with it.
-   - Sessions around 26–28/11, with a GPU rented for their hours (`rag-session.sh on`/`off`); the RAG cache was cleared on 2026-11-23.
-2. **The admin site** (`docs/plans/admin-page.md`, PR 1): admin.signcite.xyz with its own login; overview charts (the 1.3 dashboard page), feedback inbox, questions, tester accounts, live settings. Owner: the DNS record and `ADMIN_PASSWORD`. PR 2 after the UAT: GPU connect/disconnect from the page.
-3. **A 3–5 minute backup demo video.**
-4. **Thesis Chapter 5 material** (UI, deployment, tests) from the results docs above.
+**Next, before Review 3 (2026-11-30)** (owner, 2026-11-24: everything is due before Review 3, the slides included; the self-assessment with each row's evidence is `docs/review3_self_assessment.md`):
+1. **UAT** (`eval/uat/`): at least 15 testers by video call, 26–28/11, 5 fixed tasks + 2 free questions; targets SUS ≥ 68, task success ≥ 80%, CSAT 4–5 ≥ 70%, every task ≥ 60%. Each tester gets an account on the admin site; a GPU is connected from the admin site for the sessions' hours. Task 3 now accepts a short follow-up (tag `followup_misread` for a wrong rewrite). Owner first: testers, the 20 photos, a dummy form CSV (to check the scorer), the observation log in Google Sheets.
+2. **Thesis** (owner, 2026-11-24): the guidelines' 6 chapters in the FPT template's format, English, written alone, due 30/11; the assistant drafts and the owner rewrites and checks. Template and guidelines in the owner's local folder (outside the repo).
+   - **To report honestly:** Claude Sonnet alone (B1, one run, judge) scores 85.3% on private, above V2's 82.2%. The case for the system is the proof and citations on every rules answer, the honest "undecided", and the margin over both published baselines (about 78%).
+3. **Demo video:** script `docs/defense/demo_video_script.md`; recording by the owner with a GPU session.
+4. **Slides** (22 + 4 backup) and their review pass; references and the plagiarism check; a root `README.md`; the GitHub release (owner's call: the repo is public).
+5. **Optional:** the small real end-to-end load run (about $0.70, owner's go-ahead); a coverage percentage.
+6. **The Q4 vs BF16 accuracy:** measured earlier by the owner; the figure is still to add to the W6 table.
 
-**Owner, 2026-11-24: everything is due before Review 3,** including the slides. The red-team set is done (above); the Q4 vs BF16 accuracy was measured earlier by the owner (figure to add to the W6 table).
+**Done since 2026-11-23:** the UAT pack (PRs #32–#34), the admin console (#35–#38: charts, questions, feedback, CSV, accounts, live settings, GPU connect), the GPU on-start fix (#39), the red team and the out-of-scope message (#40), follow-up questions (#41), the readable proof (#42).
 
 **Open:**
 - The thesis's location, format and status (D1, owner).
