@@ -23,7 +23,12 @@ is_a(truck,           car).
 
 is_a(motorcycle,      motorbike).       % xe mô tô hai bánh
 is_a(moped,           motorbike).       % xe gắn máy
-is_a(sidecar,         motorbike).       % xe máy 3 bánh có thùng
+% xe máy 3 bánh có thùng. Not under motorbike (owner, 2026-11-25): a plain "xe máy" means a two-wheeler
+% in everyday use, and sidecars are rare, so "xe máy" alone is decided (e.g. P.103a: yes) instead of
+% "depends on the vehicle". Like motor_tricycle, a sidecar is then outside rows about "xe máy" (P.104,
+% P.105); rows that single it out (B.3 "kể cả xe máy 3 bánh có thùng", P.124b) still apply to it.
+% Listed under vehicle_interpretations in the catalog.
+is_a(sidecar,         motor_vehicle).
 
 is_a(tractor,         special_machine). % Law 36 art. 34(3)(c)
 

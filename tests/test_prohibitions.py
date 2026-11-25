@@ -36,8 +36,8 @@ def test_no_cars_excepts_two_wheelers(engine):
     assert permitted(engine, sc, "enter", V("moped")).verdict == Verdict.yes
     # "kể cả xe máy 3 bánh có thùng"
     assert permitted(engine, sc, "enter", V("sidecar")).verdict == Verdict.no
-    # "xe máy" in general: two-wheelers pass, sidecars do not -> depends on the vehicle
-    assert permitted(engine, sc, "enter", V("motorbike")).verdict == Verdict.unknown
+    # a plain "xe máy" means a two-wheeler (owner, 2026-11-25: sidecar is no longer a motorbike)
+    assert permitted(engine, sc, "enter", V("motorbike")).verdict == Verdict.yes
 
 
 def test_broader_class_than_the_ban_is_unknown(engine):

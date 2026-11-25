@@ -32,14 +32,15 @@ def test_pedestrian_ban(engine):
 
 def test_reported_at_the_broadest_level(engine):
     a = which(engine, scene(sign("s1", "P.104")))
-    assert a.value["banned"] == ["motorbike"]          # not motorcycle, moped, sidecar
+    assert a.value["banned"] == ["motorbike"]          # not motorcycle or moped
 
 
 def test_exceptions_split_the_class(engine):
     a = which(engine, scene(sign("s1", "P.103a")))
     assert set(a.value["banned"]) == {"car", "sidecar", "motor_tricycle"}
     allowed = which(engine, scene(sign("s1", "P.103a")), status="allowed").value["allowed"]
-    assert {"motorcycle", "moped", "rudimentary", "pedestrian"} <= set(allowed)
+    # reported at the broadest level: "xe máy" (two-wheelers) is allowed as a whole
+    assert {"motorbike", "rudimentary", "pedestrian"} <= set(allowed)
 
 
 def test_conditional_classes(engine):

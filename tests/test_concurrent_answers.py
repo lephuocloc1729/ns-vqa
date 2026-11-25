@@ -131,7 +131,8 @@ def test_the_runner_locks_prolog_so_threads_get_the_sequential_answers():
 # ---------------------------------------------------------------------------- the whole pipeline
 def test_concurrent_answers_equal_sequential_ones_and_streams_never_mix(photos):
     paths, cache = photos
-    expected_verdict = {("P.103a", Q_CAR): "no", ("P.103a", Q_MOTO): "unknown",
+    # "xe máy" means a two-wheeler since 2026-11-25 (owner), so P.103a allows it
+    expected_verdict = {("P.103a", Q_CAR): "no", ("P.103a", Q_MOTO): "yes",
                         ("P.104", Q_CAR): "yes", ("P.104", Q_MOTO): "no"}
     combos = list(expected_verdict)
     jobs_named = [combos[i % 4] for i in range(24)]
