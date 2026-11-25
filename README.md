@@ -164,17 +164,39 @@ docker compose up -d --build
 Stop it with `docker compose down` (add `-v` to delete the stored data). CI starts this same stack on a clean
 runner on every push.
 
-**The real system** needs an Anthropic API key, the scene prompt's pictograms (made from the dataset, not in git),
-and optionally a GPU for the RAG fallback. Copy `.env.example` to `.env`, set `ANTHROPIC_API_KEY`, and start with
-the overlay that switches the API to the real pipeline:
+**The real system, as on https://signcite.xyz,** needs an Anthropic API key, the dataset (for the scene prompt's
+pictograms) and, only for the RAG fallback, a GPU (see [What you need](#what-you-need)).
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.real.yml up -d --build
-```
+1. Build the pictograms from the dataset's `law_db` (Python set-up as in [Development and tests](#development-and-tests);
+   the copies are gitignored and never built into an image, and the API refuses to start in real mode without them):
 
-Every paid call goes through a spend guard (`VQA_SPEND_LIMIT`). The
-server, HTTPS and GPU set-up are in [`docs/deploy.md`](docs/deploy.md) and
-[`docs/runbooks/gpu-session.md`](docs/runbooks/gpu-session.md).
+   ```bash
+   for v in v5 v5-crop v5-tile; do .venv/bin/python tools/build_scene_pictograms.py --version $v; done
+   ```
+
+2. Copy `.env.example` to `.env` (gitignored) and set, as the demo server does:
+
+   ```bash
+   ANTHROPIC_API_KEY=sk-ant-...
+   VQA_SPEND_LIMIT=5              # USD per API process; answers stop above it
+   VQA_ANSWER_SLOTS=10            # questions answered at once
+   VQA_ANSWER_FALLBACK=off        # rag when a GPU runs the RAG, with VQA_RAG_URL pointing at it
+   POSTGRES_PASSWORD=<a new one>
+   GRAFANA_ADMIN_PASSWORD=<a new one>
+   ```
+
+3. Start the stack with the overlay that switches the API to the real pipeline and mounts the pictograms:
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.real.yml up -d --build
+   ```
+
+The UI is at http://localhost:8080, Swagger at `/docs`, Grafana at http://localhost:3000. Follow-up questions are on
+by default. For the rest of what the public site has, see [`docs/deploy.md`](docs/deploy.md): HTTPS on a domain
+(`DOMAIN` and `docker-compose.https.yml`), a shared tester password (`BASIC_AUTH_USER`, `BASIC_AUTH_PASSWORD`), the
+admin site (`ADMIN_PASSWORD`), and connecting a rented GPU for the RAG fallback
+([`docs/runbooks/gpu-session.md`](docs/runbooks/gpu-session.md)). The demo server is a 2-vCPU, 4 GB machine; the
+model calls run at Anthropic and on the GPU.
 
 ## API and Swagger
 

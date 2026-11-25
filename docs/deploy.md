@@ -42,10 +42,8 @@ Nothing depends on absolute paths or a personal environment. Every setting has a
 
 **The API image starts FROM the SignCite base image** (`ghcr.io/lephuocloc1729/signcite-base`, pinned by tag in `docker/api.Dockerfile`).
 - It holds Ubuntu 24.04, Python 3.12 and SWI-Prolog 11.0.0, built by `.github/workflows/base-image.yml`, so building the API image never needs Launchpad.
-- The package is private, like the repo. On a new machine, do one of:
-  - `docker login ghcr.io` first, with a token that can read packages;
-  - build the base locally under the same tag: `docker build -f docker/base.Dockerfile -t <the tag in api.Dockerfile> .` (this one step needs Launchpad);
-  - have the owner make the `signcite-base` package public; it holds no project code.
+- The package is public (it holds no project code), so a new machine pulls it without `docker login` (checked 2026-11-25: an anonymous pull of the pinned tag works).
+- To build it yourself instead, use the same tag: `docker build -f docker/base.Dockerfile -t <the tag in api.Dockerfile> .` (this one step needs Launchpad).
 
 ## The real system (phase52 pipeline)
 
