@@ -51,6 +51,18 @@ vehicle_interpretations:
       It names no four-wheeled class, so "xe 4 bánh thô sơ" is read as 34(2)(e).
     source: {law_id: "36/2024/QH15", article_id: "34"}
 
+  - class: motorbike
+    label_vi: "xe máy (xe hai bánh: xe mô tô hai bánh, xe gắn máy)"
+    note: >-
+      Interpretation (owner, 2026-11-25): a plain "xe máy" is read as a two-wheeler. QCVN 41 B.3
+      separates "xe máy 2 bánh, xe gắn máy" (excepted from P.103a) from "xe máy 3 bánh có thùng"
+      (banned), and Law 36/2024/QH15 art. 34(1)(e) lets "xe mô tô" have three wheels. Three-wheelers
+      with a cargo box are rare and are their own class (sidecar), like motor_tricycle: rows about
+      "xe máy" (P.104, P.105) no longer cover them, while B.3's "kể cả xe máy 3 bánh có thùng" still
+      bans them under P.103a/b/c. Before this, "xe máy" alone was unknown under P.103a ("depends on
+      the vehicle"). Shown in proofs as an interpretation, never counted as a law citation.
+    source: {law_id: interpretation, article_id: xe_may_two_wheeler}
+
   - attribute_rule: load_implies_gross
     label_vi: "khối lượng chuyên chở trên x tấn thì trọng tải toàn bộ trên x tấn"
     note: >-
@@ -96,7 +108,7 @@ signs:
     effect:
       # "các loại xe cơ giới kể cả xe máy 3 bánh có thùng ... trừ xe máy 2 bánh, xe gắn máy"
       prohibits: [{actions: [enter], vehicles: [{class: motor_vehicle}]}]
-      except: [motorcycle, moped]
+      except: [motorcycle, moped, motorbike]   # motorbike = two-wheelers only (ontology.pl)
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.3"}
     visual_reviewed_by: human
 
@@ -109,7 +121,7 @@ signs:
     visual: {shape: circle, border: red, background: white}
     effect:
       prohibits: [{actions: [turn_right], vehicles: [{class: motor_vehicle}]}]
-      except: [motorcycle, moped]
+      except: [motorcycle, moped, motorbike]   # motorbike = two-wheelers only (ontology.pl)
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.3"}
 
   - code: P.103c
@@ -121,7 +133,7 @@ signs:
     visual: {shape: circle, border: red, background: white}
     effect:
       prohibits: [{actions: [turn_left], vehicles: [{class: motor_vehicle}]}]
-      except: [motorcycle, moped]
+      except: [motorcycle, moped, motorbike]   # motorbike = two-wheelers only (ontology.pl)
     source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.3"}
     visual_reviewed_by: human
 
