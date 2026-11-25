@@ -88,11 +88,13 @@ instead of guessing.
   | Generation | **4.9 ms/token** (203 tokens/s) | 11.0 ms/token (91 tokens/s) |
   | Time per answer | **4.82 s** | 6.48 s |
   | Private accuracy, judge (score) | 79.2% | **84.6%** |
-  | Private accuracy, by hand | — | 81.5% (119 of 146) |
+  | Private accuracy, by hand | **81.5%** (119 of 146) | **81.5%** (119 of 146) |
 
-  **The trade:** Q4_K_M halves the GPU memory and generates 2.2× faster, at a cost of about 5 points of judge-graded
-  accuracy. Q4 was chosen before the private test, for speed and memory, and the benchmarked system keeps it.
-  BF16's accuracy is from one run (the owner's grading sheet; judge 121 correct, 5 partial, 20 wrong).
+  **The trade:** Q4_K_M halves the GPU memory and generates 2.2× faster **with the same hand-graded accuracy**
+  (81.5% for both). The judge scores BF16 about 5 points higher, so the judge and the human grader disagree on how
+  the two models' wordings compare; the hand grades are the reference. Q4 was chosen before the private test, for
+  speed and memory, and the benchmarked system keeps it. BF16 is one run (the owner's grading sheet; judge 121
+  correct, 5 partial, 20 wrong).
 
 - **Rules side, runtime optimisations** (no model weights of its own to prune or distil):
   - perception and parsing run in parallel;
