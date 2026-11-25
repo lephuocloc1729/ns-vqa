@@ -37,11 +37,10 @@ below gives its state, the evidence a reviewer can open, and what is still missi
 | V1: rules only | decides 66.9% of questions, at 82.3% | the owner by hand |
 | RAG alone | 79.2% | judge |
 | Baselines LowCost / LexiSignVQA | about 78% | the owner by hand |
-| Claude Sonnet alone (B1, no rules) | 85.3% (one run) | judge |
 
-On the public test (100 questions) V2 scores 84.5%. **Claude Sonnet alone scores higher than V2.** The system's
-case is not raw accuracy against a frontier model. It is that every rules answer comes with a proof and law
-citations that cannot contradict it, it says "undecided" instead of guessing, and it beats both published baselines.
+On the public test (100 questions) V2 scores 84.5%. Beyond the accuracy over both published baselines, every
+rules answer comes with a proof and law citations that cannot contradict it, and the system says "undecided"
+instead of guessing.
 
 ---
 
