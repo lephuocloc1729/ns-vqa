@@ -8,7 +8,7 @@
 |---|---|
 | **V2, rules + live RAG fallback** | **82.2% (1.8)** |
 | V1, rules only | decides 66.9% of questions at 82.3% |
-| RAG alone | 79.2% (judge-graded) |
+| RAG alone | 81.5% (119 of 146, hand-graded; judge 79.2%) |
 | Baselines LowCost / LexiSignVQA | ~78% (owner's hand grades) |
 
 - On the public test (public_dev + public_holdout, 100 questions), V2 scores 84.5%.
@@ -105,6 +105,7 @@ Plan: `docs/plans/task-3-review-3.md` (proposed; 9-day schedule). All work goes 
 **Next, before Review 3 (2026-11-30)** (owner, 2026-11-24: everything is due before Review 3, the slides included; the self-assessment with each row's evidence is `docs/review3_self_assessment.md`):
 1. **UAT** (`eval/uat/`): at least 15 testers by video call, 26–28/11, 5 fixed tasks + 2 free questions; targets SUS ≥ 68, task success ≥ 80%, CSAT 4–5 ≥ 70%, every task ≥ 60%. Each tester gets an account on the admin site; a GPU is connected from the admin site for the sessions' hours. Task 3 now accepts a short follow-up (tag `followup_misread` for a wrong rewrite). Owner first: testers, the 20 photos, a dummy form CSV (to check the scorer), the observation log in Google Sheets.
 2. **Thesis** (owner, 2026-11-24): the guidelines' 6 chapters in the FPT template's format, English, written alone, due 30/11; the assistant drafts and the owner rewrites and checks. Template and guidelines in the owner's local folder (outside the repo).
+   - **Draft done (2026-11-25):** chapters 1–6, front matter, references (51, IEEE) and appendices, built by pandoc into the FPT format in the owner's thesis folder; the owner rewrites. Owner items are marked [TODO] (personal details, baseline papers and scores, UAT results, screenshots, Chapter 3 diagrams).
    - **To report honestly:** Claude Sonnet alone (B1, one run, judge) scores 85.3% on private, above V2's 82.2%. The case for the system is the proof and citations on every rules answer, the honest "undecided", and the margin over both published baselines (about 78%).
 3. **Demo video:** script `docs/defense/demo_video_script.md`; recording by the owner with a GPU session.
 4. **Slides** (22 + 4 backup) and their review pass; references and the plagiarism check; a root `README.md`; the GitHub release (owner's call: the repo is public).
@@ -1825,7 +1826,7 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 | V2's RAG part (triggered questions) | 82.0% (50) | 78.7% (47) | 85.4% (48) | 82.0% | |
 
 - **The judge agrees with the owner on 140–142 of 146 answers per run** (4–6 changed, almost all "Một phần" resolved to Đúng or Sai; one Đúng → Sai in V2 run 1). The hand grades leave every mean within 0.1 point of the judge's, so the judge-graded figures above stand and the main table can be reported as human-graded.
-- **Like-for-like with the baselines** (owner's hand grades): V2 82.2% vs LowCost and LexiSignVQA ~78%. RAG alone (79.2%) is judge-graded only.
+- **Like-for-like with the baselines** (owner's hand grades): V2 82.2% vs LowCost and LexiSignVQA ~78%. RAG alone (79.2%) is judge-graded only. **Update (owner, 2026-11-25):** RAG alone is now hand-graded too, 81.5% (119 of 146; the saved Q4_K_M predictions, graded for the Q4 vs BF16 row), and is reported that way; by hand V2 is 0.7 points above it.
 
 ### Error analysis on the public test, phase52 (2026-11-21; no API calls)
 
