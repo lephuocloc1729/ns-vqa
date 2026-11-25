@@ -35,10 +35,11 @@ below gives its state, the evidence a reviewer can open, and what is still missi
 |---|---|---|
 | **V2: rules + live RAG fallback** | **82.2% (sd 1.8)** | the owner by hand (the judge agrees within 0.1 point) |
 | V1: rules only | decides 66.9% of questions, at 82.3% | the owner by hand |
-| RAG alone | 79.2% | judge |
+| RAG alone | 81.5% (119 of 146) | the owner by hand (the saved Q4_K_M predictions; judge 79.2%) |
 | Baselines LowCost / LexiSignVQA | about 78% | the owner by hand |
 
-On the public test (100 questions) V2 scores 84.5%. Beyond the accuracy over both published baselines, every
+On the public test (100 questions) V2 scores 84.5%. By hand, V2 is 0.7 points above RAG alone, within its own
+run-to-run spread, so the accuracy gain is over the two published baselines only. Beyond that, every
 rules answer comes with a proof and law citations that cannot contradict it, and the system says "undecided"
 instead of guessing.
 
