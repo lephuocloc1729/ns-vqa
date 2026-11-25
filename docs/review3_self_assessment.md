@@ -26,7 +26,7 @@ below gives its state, the evidence a reviewer can open, and what is still missi
 | 14 | Slides | ⬜ | — | 22 slides + 4 backup |
 | 15 | Slide review | ⬜ | — | the review pass for the five faults |
 | 16 | Repository | ✅ | `README.md` (results, how to run, how to reproduce each number), `docs/`, `DESIGN.md`, Swagger at `/docs`, tag `v1.0-benchmark` | — |
-| 17 | Artifacts | ⬜ | tag `v1.0-benchmark`, freeze records | a GitHub release with the model files' sha256 |
+| 17 | Artifacts | ✅ | GitHub release [`v1.0-benchmark`](https://github.com/lephuocloc1729/ns-vqa/releases/tag/v1.0-benchmark) (notes: `docs/release/v1.0-benchmark.md`): the model files' sha256, prompt versions, image digest; tag and freeze records | — |
 | 18 | Video | 🟡 | script: `docs/defense/demo_video_script.md` | the recording |
 
 ## Headline results (for every row that cites them)
@@ -232,9 +232,15 @@ instead of guessing.
     setup, the folders, and the command and record behind each reported number.
 - **Not done, not needed for the review:** the `vqa/` → `src/vqa/` move (D8).
 
-### 17. Artifacts ⬜
-- A GitHub release on `v1.0-benchmark`, with the model files' sha256: not started.
-- The repository is public, so publishing a release is the owner's call.
+### 17. Artifacts ✅
+- **The GitHub release** [`v1.0-benchmark`](https://github.com/lephuocloc1729/ns-vqa/releases/tag/v1.0-benchmark), published by the owner's decision on 2026-11-25, on the tag
+  `v1.0-benchmark` (`4e71a18`, the code of the 3 private runs). Notes: `docs/release/v1.0-benchmark.md`.
+- **What it lists:** the rules system's own artifacts (`kb/`, `prompts/`, the freeze record, the gold annotations);
+  the Claude model ids and prompt versions with their sha256; the RAG's model files (Qwen3.5-9B Q4_K_M and its
+  projector, F2LLM-v2 0.6B, llama.cpp b11624) with source, revision and sha256, checked against upstream; the GPU
+  image digest.
+- **Not attached:** the weights are public upstream and linked with their hashes; the dataset, private-test files,
+  grading sheets, caches and the private RAG bundle are left out (the notes say why).
 
 ### 18. Video 🟡
 - Script: `docs/defense/demo_video_script.md`. Recording: the owner, with a GPU session for the RAG part.
