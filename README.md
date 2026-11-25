@@ -52,7 +52,7 @@ git), and optionally a GPU for the RAG fallback. See [`docs/deploy.md`](docs/dep
 ```bash
 python3.11 -m venv .venv
 .venv/bin/python -m pip install -e '.[dev,api,eval]'
-.venv/bin/python -m pytest -q                     # 2,612 tests, no API calls; coverage of vqa/ and app/: 95%
+.venv/bin/python -m pytest -q                     # 2,612 tests, no API calls; line coverage of vqa/ and app/: 95% here, 94% in CI
 cd web && npm install && npx vitest run && npx playwright test
 ```
 

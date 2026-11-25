@@ -18,7 +18,7 @@ below gives its state, the evidence a reviewer can open, and what is still missi
 | 6 | CI/CD | ✅ | GitHub Actions: 191 CI runs since 21/11, 31 CD deployments with automatic rollback | — |
 | 7 | Docker Compose | ✅ | `docker-compose.yml` (8 services); CI job `compose` starts it on a clean machine | a clean-VM screen recording (optional) |
 | 8 | Monitoring | ✅ | Grafana dashboard "SignCite – hệ thống" (14 panels), Prometheus, node-exporter; admin overview | Phoenix (dropped, see row) |
-| 9 | Unit and integration tests | ✅ | 2,612 pytest cases (95% line coverage of `vqa/` and `app/`), 36 Vitest, 17 Playwright; JUnit and coverage reports on every CI run | — |
+| 9 | Unit and integration tests | ✅ | 2,612 pytest cases (94–95% line coverage of `vqa/` and `app/`), 36 Vitest, 17 Playwright; JUnit and coverage reports on every CI run | — |
 | 10 | Load and stress | ✅ | Locust capacity and stress runs, 0 failures up to 1,000 users; a real end-to-end run, 10 users at once, 0 errors | the RAG under load (needs a GPU session) |
 | 11 | UAT | 🟡 | `eval/uat/` pack, scorer and tests; admin accounts | the sessions (26–28/11) and the report |
 | 12 | Thesis | 🟡 | structure fixed (6 chapters, FPT template format) | the text (due 30/11) |
@@ -169,7 +169,8 @@ instead of guessing.
 - **Vitest: 36** (SSE parser, turn reducer, admin formatting).
 - **Playwright: 17** on desktop and phone, against the real API with a fake pipeline.
 - A JUnit report is uploaded on every CI run.
-- **Coverage (2026-11-25): 95% of the lines in `vqa/` and `app/`** (8,094 statements, 399 missed), measured by
+- **Coverage (2026-11-25): 94% of the lines in `vqa/` and `app/` in CI** (8,094 statements, 475 missed; 2,471
+  tests, 126 skipped there because they need the local dataset), **95% locally** with all 2,612. Measured by
   `pytest-cov` on every CI run, shown on the run's summary page, and uploaded as `coverage.xml`. The Prolog rules
   in `kb/` are tested by the rule-family tests but not measured by Python coverage.
 
