@@ -21,6 +21,7 @@ step and number:** [`docs/status.md`](docs/status.md) · **Benchmark release not
 
 - [Architecture](#architecture)
 - [Results](#results)
+- [What you need](#what-you-need)
 - [Quick start with Docker](#quick-start-with-docker)
 - [API and Swagger](#api-and-swagger)
 - [Development and tests](#development-and-tests)
@@ -103,6 +104,45 @@ speed and memory; the private test for accuracy; `docs/results/gpu-session-2026-
 
 `main` has a few post-benchmark fixes (listed in `docs/status.md`) that were never scored on the private test. The
 numbers above are those of the tag.
+
+## What you need
+
+What each way of running SignCite needs, and what it costs. Every paid command takes a `--max-spend` cap and stops
+there; each Claude call is logged with its cost in `logs/api_calls.jsonl`.
+
+| To do this | Anthropic API key | Claude cost | GPU | Data |
+|---|---|---|---|---|
+| Run the stack with the fake pipeline ([Quick start](#quick-start-with-docker)) | no | none | no | none |
+| Run the tests, check the frozen system ([level 1](#1-what-anyone-can-check-no-dataset-no-key-no-cost)) | no | none | no | none |
+| Use the real system (the demo, your own photos) | yes | about $0.01 per question; the first question on an idle server about $0.07 (the prompt cache is written) | only for the RAG fallback | the scene pictograms, built from the dataset |
+| Re-run the public test, rules only ([level 2](#2-re-running-the-public-test-the-dataset-and-an-anthropic-key-about-065)) | yes | about $0.50 | no | the dataset (public test and `law_db`) |
+| Add V2 and RAG alone on the public test | yes | about $0.14 more | only to regenerate the RAG's answers | the RAG's saved answers or its files (below) |
+| Re-run the private test, rules only ([level 3](#3-re-running-the-private-test-the-private-test-files-a-key-and-for-v2-a-gpu)) | yes | about $1.35 | no | the private test files |
+| Add V2 and RAG alone on the private test | yes | about $0.75 more | yes | the RAG's files (below) |
+
+**An Anthropic API key.** The system calls Claude for perception (`claude-haiku-5-5`), question parsing
+(`claude-sonnet-5-5`), the answer writer (`claude-haiku-5-5`) and, in evaluations, the judge (`claude-opus-5-5`).
+1. Create an account at https://console.anthropic.com and add credits under Billing (the API is pay as you go; a
+   few dollars covers every run above).
+2. Create a key under API keys.
+3. Give it to the process that runs SignCite, never to git:
+   `export ANTHROPIC_API_KEY=sk-ant-...` for the scripts, or `ANTHROPIC_API_KEY=` in `.env` for Docker
+   (`.env` is gitignored).
+
+**A GPU, for the RAG only.** The RAG answer model (Qwen3.5-9B, Q4_K_M) needs an NVIDIA GPU with at least 24 GB of
+memory; the service peaked at 18.7 GB in our runs. We rented an RTX 5090 on vast.ai by the hour, but any provider
+with a 24 GB card and fast internet (the service downloads about 8 GB of model files and runtime at start) works. The GPU image
+is public (`ghcr.io/lephuocloc1729/ns-vqa-rag`); how we set it up is in
+[`docs/runbooks/gpu-session.md`](docs/runbooks/gpu-session.md), written for our vast.ai template.
+
+**The data.**
+- **The dataset** (VLSP 2025 MLQA-TSR, Natural QA version, with `law_db`) comes from the VLSP 2025 organisers under
+  their data agreement. The private test files are part of it once the organisers release them to you.
+- **The RAG's files** are not public. Its model weights are (Hugging Face; sources and sha256 in
+  [`docs/release/v1.0-benchmark.md`](docs/release/v1.0-benchmark.md)), but its law corpus, few-shot bank and their
+  embeddings are built from the dataset, so they fall under the same agreement. Our GPU set-up downloads them from
+  a private Hugging Face dataset with a token. If you have the VLSP data, ask the authors for them; their files and
+  sha256 are listed in `services/rag/assets_manifest.json`.
 
 ## Quick start with Docker
 
