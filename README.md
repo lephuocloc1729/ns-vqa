@@ -75,7 +75,19 @@ The benchmark is the private test of VLSP 2025 MLQA-TSR (Natural QA version): 14
 | **V2: rules + RAG fallback** | **82.2%** (sd 1.8 over 3 runs) |
 | V1: rules only | decides 66.9% of the questions, at 82.3% |
 | RAG alone | 81.5% (119 of 146, hand-graded; judge 79.2%) |
-| Baselines LowCost and LexiSignVQA | about 78% |
+| Baseline LowCost [1] | 77.4% (113 of 146, hand-graded) |
+| Baseline LexiSignVQA [2] | 78.1% (114 of 146, hand-graded) |
+
+**The baselines** are the two VLSP 2025 systems, adapted to free-text Natural QA answers and re-run for this
+project with Qwen3.5-9B (BF16, greedy), the same answer model as the RAG. Each figure is the **best of 4 settings, picked on
+the private test itself** (LowCost: 0, 1, 3 or 5 few-shot examples, best 5; LexiSignVQA: top-k 1, 2, 3 or 5, best
+1), so it favours the baselines; V2 had no such choice. LowCost with Gemma 3 12B scored at most 73.3% (5-shot).
+
+1. V. D. Anh, K. V. Tran, T. T. Ha, "A low-cost low-energy approach to VQA on traffic signs problems," in *Proc.
+   VLSP 2025*, ACL, 2025, pp. 451–458. https://aclanthology.org/2025.vlsp-1.53/
+2. P. X. Pham, D. Q. Le, T. H. Tran, T. N.-T. Huynh, "LexiSignVQA: A unified training-free multi-stage approach to
+   multimodal legal question answering on traffic sign rules," in *Proc. VLSP 2025*, ACL, 2025, pp. 440–450.
+   https://aclanthology.org/2025.vlsp-1.52/
 
 - On the public test (100 questions) V2 scores 84.5%.
 - **Every rules answer comes with a proof and law citations that cannot contradict it**, and the system answers
