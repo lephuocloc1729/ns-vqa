@@ -72,10 +72,16 @@ You need about **20**, all taken by you on the street. **Never use dataset photo
 
 | Task | Question | Expected answer | Sign | Article |
 |---|---|---|---|---|
-| T1 | Biển báo này có nghĩa là gì? | | | |
-| T2 | Xe ô tô con có được đi vào đường này không? | | | |
-| T3 | Xe máy có được đi vào không? | | | |
-| T4 | Tốc độ tối đa cho phép ở đây là bao nhiêu? | | | |
+| T1 | Biển báo này có nghĩa là gì? | "Cấm đỗ xe. Đây là biển P.131a (Cấm đỗ xe)." (rules) | P.131a | QCVN 41:2024/BGTVT B.31 |
+| T2 | Xe ô tô con có được đi vào đường này không? | "Không. Biển P.103a (Cấm xe ô tô) cấm xe ô tô con đi vào đường này." (rules) | P.103a | QCVN 41:2024/BGTVT B.3 and 22 |
+| T3 | Xe máy có được đi vào không? | "Xe máy được phép đi vào đường này vì biển báo chỉ cấm xe ô tô, không cấm xe máy." (**RAG**, see below) | P.103a (boxed on the photo) | RAG's retrieved articles, not a rules citation |
+| T4 | Tốc độ tối đa cho phép ở đây là bao nhiêu? | "50 km/h. Biển P.127 (Tốc độ tối đa cho phép) ghi giới hạn này." (rules) | P.127 | QCVN 41:2024/BGTVT B.27 and 22 |
+
+**Dry run, 2026-11-25** (Claude in Chrome, GPU connected, fallback RAG; about $0.08 in all, $0.072 of it the first question on an idle server). Photos: Ảnh 1 no parking, Ảnh 2 P.103a, Ảnh 3 P.127 "50"; Ảnh 4 (P.103a + P.127 60) and Ảnh 5 (speed board by vehicle) are the backups.
+- **T3 was asked as the follow-up "Còn xe máy thì sao?"** It was rewritten as "Xe máy có được đi vào đường này không?", which is right. The rules left it undecided, so the RAG answered (20 s, purple "Trả lời bằng RAG" badge). An orange "Chưa đủ dữ kiện để kết luận" note shows under the answer. The answer is right, so keep Ảnh 2. Expect the T3 wait to be about 20 s, and watch for `fallback_confusing`. The backup Ảnh 4 shows the same sign, so switching to it would not change this.
+- **T1 omits the 6:00–22:00 window.** The meaning is right, so a tester saying "cấm đỗ xe" counts as success.
+- **T5:** the T1 chat reopens from the history; 👍 shows "Cảm ơn bạn đã đánh giá."
+- **Voice (T4) was not tested** in the dry run; try the microphone once on each session day.
 
 ### Other preparation
 
