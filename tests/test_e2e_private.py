@@ -534,3 +534,79 @@ def test_the_cli_passes_the_run_number(monkeypatch):
     monkeypatch.setattr("sys.argv", ["e2e_private.py", "run", "--run", "2", "--confirm-frozen", "--max-spend", "2"])
     ep.main()
     assert seen == {"run": 2, "confirm_frozen": True, "max_spend": 2.0}
+
+
+# ---------------------------------------------------------------- reproduction runs (owner, 2026-11-25)
+
+def _benchmark_done(fake_set):
+    """All three benchmark runs recorded, as on the published repository."""
+    for k, rid in ((1, "r1"), (2, "r2"), (3, "r3")):
+        _finished(fake_set, k, rid)
+    return {p.name: p.read_text() for p in fake_set.glob("private_ran*.json")}
+
+
+def test_a_reproduction_run_runs_after_the_benchmark_and_leaves_its_records_alone(fake_set):
+    before = _benchmark_done(fake_set)
+    agg_before = sorted(p.name for p in (fake_set / "agg").iterdir())
+    out, sdk = _run(fake_set, reproduce=True, out_dir=fake_set / "repro")
+    assert {p.name: p.read_text() for p in fake_set.glob("private_ran*.json")} == before   # untouched, none added
+    assert sorted(p.name for p in (fake_set / "agg").iterdir()) == agg_before
+    rep = json.loads(out.read_text())
+    assert rep["run"] == "reproduce" and rep["run_id"].startswith(ep.REPRO_PREFIX)
+    assert out.parent == fake_set / "repro" and out.name == f"private_reproduce_{rep['run_id']}.json"
+    folder = fake_set / "private_run" / rep["run_id"]
+    mark = json.loads((folder / ep.REPRO_MARK).read_text())
+    assert mark["status"] == "finished" and mark["run"] == "reproduce" and mark["report"] == out.name
+    assert mark["frozen_record_sha256"] and mark["git_commit"] == "c0ffee"
+    assert (folder / "records.jsonl").exists() and "perception" in sdk.created     # fresh perception
+    assert rep["questions"] == 2 and rep["answer_fallback"] is False
+
+
+def test_a_reproduction_run_can_run_again_with_a_new_id(fake_set):
+    _benchmark_done(fake_set)
+    a, _ = _run(fake_set, reproduce=True, out_dir=fake_set / "repro")
+    b, _ = _run(fake_set, reproduce=True, out_dir=fake_set / "repro")
+    assert a != b and sorted(p.name for p in (fake_set / "repro").iterdir()) == sorted([a.name, b.name])
+
+
+def test_a_reproduction_run_also_runs_on_a_clone_with_no_benchmark_records(fake_set):
+    out, _ = _run(fake_set, reproduce=True, out_dir=fake_set / "repro")
+    assert out.exists() and not list(fake_set.glob("private_ran*.json"))
+
+
+def test_a_reproduction_run_keeps_every_other_guard(fake_set):
+    with pytest.raises(SystemExit, match="--confirm-frozen"):
+        _run(fake_set, reproduce=True, confirm_frozen=False)
+    dirty = lambda: {"commit": "c0ffee", "clean": False, "dirty": [" M vqa/pipeline.py"]}  # noqa: E731
+    with pytest.raises(SystemExit, match="not clean"):
+        _run(fake_set, reproduce=True, git=dirty)
+    with pytest.raises(SystemExit, match="does not ignore"):
+        _run(fake_set, reproduce=True, ignored=lambda p: False)
+    with pytest.raises(SystemExit):
+        _run(fake_set, reproduce=True, expected={"questions": 3, "images": 2})
+    assert not (fake_set / "private_run").exists() or not any((fake_set / "private_run").iterdir())
+
+
+def test_a_reproduction_run_refuses_a_configuration_that_differs_from_the_record(fake_set, monkeypatch):
+    monkeypatch.setattr(ep.freeze, "check", lambda *a, **k: ["parser_version: record 'v18', live 'v19'"])
+    with pytest.raises(SystemExit, match="differs from the freeze record"):
+        _run(fake_set, reproduce=True)
+
+
+def test_a_reproduction_run_writes_to_its_own_folder_by_default(fake_set, monkeypatch):
+    monkeypatch.setattr(ep, "REPRO_OUT", fake_set / "default_repro")
+    out, _ = _run(fake_set, reproduce=True, out_dir=ep.OUT)
+    assert out.parent == fake_set / "default_repro"
+
+
+def test_a_reproduction_run_prints_no_question(fake_set, capsys):
+    out, _ = _run(fake_set, reproduce=True, out_dir=fake_set / "repro")
+    text, printed = out.read_text(), capsys.readouterr().out
+    for q in SECRET_QS:
+        for field in ("id", "question", "answer", "image_id"):
+            assert q[field] not in text and q[field] not in printed
+
+
+def test_git_ignores_the_reproduction_folders():
+    assert ep.git_ignores(ep.REPLAY / f"{ep.REPRO_PREFIX}probe" / ep.REPRO_MARK)
+    assert ep.git_ignores(ep.REPRO_OUT / "probe.json")
