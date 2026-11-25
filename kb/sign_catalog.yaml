@@ -60,8 +60,8 @@ vehicle_interpretations:
       with a cargo box are rare and are their own class (sidecar), like motor_tricycle: rows about
       "xe máy" (P.104, P.105) no longer cover them, while B.3's "kể cả xe máy 3 bánh có thùng" still
       bans them under P.103a/b/c. Before this, "xe máy" alone was unknown under P.103a ("depends on
-      the vehicle").
-    source: {law_id: "QCVN 41:2024/BGTVT", article_id: "B.3"}
+      the vehicle"). Shown in proofs as an interpretation, never counted as a law citation.
+    source: {law_id: interpretation, article_id: xe_may_two_wheeler}
 
   - attribute_rule: load_implies_gross
     label_vi: "khối lượng chuyên chở trên x tấn thì trọng tải toàn bộ trên x tấn"
