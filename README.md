@@ -208,8 +208,8 @@ folders keeps `main` and the tag directly comparable, file by file.
 
 ## Reproducing the numbers
 
-There are three levels. The first needs nothing; the second needs the dataset and a paid API key; the third can't be
-re-run by design.
+There are three levels. The first needs nothing; the second needs the dataset and a paid API key; the third also
+needs the private test files and, for V2, a GPU.
 
 ### 1. What anyone can check (no dataset, no key, no cost)
 
@@ -268,24 +268,45 @@ git checkout v1.0-benchmark                                 # the code of the 3 
 
 The public_holdout half (the other 49 questions) ran the same way from a local branch with the same frozen system.
 
-### 3. What can't be re-run, and why
+### 3. Re-running the private test (the private test files, a key and, for V2, a GPU)
 
-- **The private test runs once per run number, by design.** `eval/e2e_private.py run` and
-  `eval/e2e_private_rag.py run` refuse to start when their run's record already exists, so the benchmark could not
-  be re-tried and the best run reported. All 3 runs are recorded, so the commands now refuse. Their full form is:
+The private test files come from the VLSP 2025 organisers; they are not in this repository. The three benchmark
+runs are final: `eval/e2e_private.py run` and `eval/e2e_private_rag.py run` refuse once a run's record exists, so
+the benchmark could not be re-tried and the best run reported. To re-run it, use the **reproduction mode**. It keeps
+every other guard (the frozen system, a clean tree, the question and image counts, a gitignored replay folder),
+never reads or writes the benchmark's records, and can run any number of times. It runs from the tag
+`v1.0-benchmark-repro`: the benchmarked code with this mode added in `eval/` only, so the freeze check still passes.
 
-  ```bash
-  .venv/bin/python eval/e2e_private.py run [--run 2|3] --confirm-frozen --max-spend 3
-  .venv/bin/python eval/e2e_private_rag.py run --run N --confirm --max-spend 1 \
-      --rag-predictions <RAG>/private_test/predictions.jsonl \
-      --rag-live <RAG>/outputs/private_live/rag_live.jsonl
-  ```
+1. Set up as in level 2 (the dataset, including the private test files, the pictograms and `ANTHROPIC_API_KEY`), then:
 
-- **The private test's answers are never released.** Only the scoring code reads them, in memory, and it writes
-  aggregates only (dataset rules in [`CLAUDE.md`](CLAUDE.md)).
+   ```bash
+   git checkout v1.0-benchmark-repro
+   .venv/bin/python eval/freeze.py check --profile phase52        # "matches the freeze record"
+   .venv/bin/python eval/e2e_private.py reproduce --confirm-frozen --max-spend 3
+   ```
+
+   This is V1, rules only, on the 146 private questions (about $1.35 with the judge). It prints a counter only and
+   writes the aggregate `eval/runs/reproduce/private_reproduce_repro-<id>.json`; the replay records stay in the
+   gitignored `cache/private_run/repro-<id>/`.
+2. For V2 and RAG alone, write the triggered question ids, answer them live with the RAG on a GPU, and merge (about
+   $0.75 for the judge):
+
+   ```bash
+   .venv/bin/python eval/e2e_private_rag.py ids --reproduce repro-<id>
+   # on the GPU machine, with the RAG service from services/rag/ on main (docs/runbooks/gpu-session.md):
+   #   experiments/private_live/run_private_live.sh <triggered_ids.json>   ->  rag_live.jsonl
+   .venv/bin/python eval/e2e_private_rag.py run --reproduce repro-<id> --confirm --max-spend 1 \
+       --rag-predictions <RAG>/private_test/predictions.jsonl --rag-live <RAG>/outputs/private_live/rag_live.jsonl
+   ```
+
+   The aggregate goes to `eval/runs/reproduce/private_rag_reproduce_repro-<id>.json`.
+
+Two things a re-run can't give:
+- **The private answers stay unreleased.** Only the scoring code reads them, in memory, and it writes aggregates
+  only (dataset rules in [`CLAUDE.md`](CLAUDE.md)).
 - **The reported private scores are graded by hand** by the author. A re-run gives the judge's grade, which is
   close but not the same (for V2 the two agree within 0.1 point; for RAG alone, 79.2% by the judge against 81.5% by
-  hand).
+  hand). A grading sheet for your own hand grading is written in the run's replay folder.
 
 ### What a re-run should match
 
@@ -310,6 +331,7 @@ All of them are committed:
 |---|---|---|
 | Private test, V1 (3 runs) | `eval/e2e_private.py run [--run 2\|3]` at `v1.0-benchmark` | `eval/private_ran*.json`; scores in `docs/status.md` |
 | Private test, V2 and RAG alone | `eval/e2e_private_rag.py run --run N …` (above) | `eval/private_rag_ran*.json`; scores in `docs/status.md` |
+| Private test, a re-run | `eval/e2e_private.py reproduce`, then `eval/e2e_private_rag.py run --reproduce …` at `v1.0-benchmark-repro` (level 3) | `eval/runs/reproduce/` (your own) |
 | Public test, V2 | `eval/e2e_public_dev52.py run`, then `merge` (level 2) | `docs/status.md`, "phase52 on the whole public test" |
 | Load tests | GitHub Actions › Load test (Locust, fake pipeline) | `docs/results/load-test-*.md` |
 | RAG speed, memory, Q4 vs BF16 | `eval/rag_bench.py` on a GPU session | `docs/results/gpu-session-2026-11-21.md`, `rag-concurrency-2026-11-23.md` |
