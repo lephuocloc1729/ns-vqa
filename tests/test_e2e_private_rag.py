@@ -276,3 +276,59 @@ def test_the_exact_mcnemar_p_value():
     assert er._mcnemar_p(5, 5) == 1.0
     assert er._mcnemar_p(10, 0) == pytest.approx(2 / 2 ** 10)
     assert er._mcnemar_p(8, 2) == pytest.approx(2 * (1 + 10 + 45) / 1024)
+
+
+# ---------------------------------------------------------------- reproduction runs (owner, 2026-11-25)
+
+@pytest.fixture
+def repro(setup):
+    """A finished reproduction run's replay folder, beside the benchmark's records."""
+    tmp, preds, priv = setup
+    rid = "repro-abc123"
+    folder = tmp / "private_run" / rid
+    folder.mkdir(parents=True)
+    (folder / "records.jsonl").write_text((tmp / "private_run" / "run1" / "records.jsonl").read_text(encoding="utf-8"),
+                                          encoding="utf-8")
+    (folder / "reproduce.json").write_text(json.dumps({"run_id": rid, "status": "finished", "run": "reproduce",
+                                                       "git_commit": "c0ffee"}), encoding="utf-8")
+    return tmp, preds, priv, rid
+
+
+def test_a_reproduction_merge_uses_its_own_markers_and_folder(repro):
+    tmp, preds, priv, rid = repro
+    priv_before = priv.read_text()
+    out, _ = _run(repro[:3], reproduce=rid, out_dir=tmp / "repro_agg")
+    rep = json.loads(out.read_text())
+    assert out.name == f"private_rag_reproduce_{rid}.json" and rep["run"] == "reproduce"
+    assert rep["private_run_id"] == rid and rep["v2_rules_plus_rag_fallback"]["n"] == 3
+    me = json.loads((tmp / "private_run" / rid / er.REPRO_RAG_MARK).read_text())
+    assert me["status"] == "finished" and me["report"] == out.name
+    assert not (tmp / "private_rag_ran.json").exists() and priv.read_text() == priv_before
+    assert (tmp / "private_run" / rid / er.OWNER_SHEET).exists()
+
+
+def test_a_reproduction_merge_runs_once_per_reproduction_run(repro):
+    tmp, *_, rid = repro
+    _run(repro[:3], reproduce=rid, out_dir=tmp / "repro_agg")
+    with pytest.raises(SystemExit, match="already run"):
+        _run(repro[:3], reproduce=rid, out_dir=tmp / "repro_agg")
+
+
+def test_a_reproduction_merge_needs_a_finished_reproduction_run(repro):
+    tmp, *_, rid = repro
+    (tmp / "private_run" / rid / "reproduce.json").write_text(json.dumps({"run_id": rid, "status": "started"}))
+    with pytest.raises(SystemExit, match="not finished"):
+        _run(repro[:3], reproduce=rid)
+
+
+@pytest.mark.parametrize("bad", ["run1", "../run1", "repro-x/../../run1"])
+def test_a_reproduction_merge_takes_only_a_reproduction_id(repro, bad):
+    with pytest.raises(SystemExit, match="reproduction run id"):
+        _run(repro[:3], reproduce=bad)
+
+
+def test_the_ids_of_a_reproduction_run(repro):
+    tmp, *_, rid = repro
+    out = er.write_ids(reproduce=rid, replay_root=tmp / "private_run", ignored=lambda p: True)
+    assert out == tmp / "private_run" / rid / er.TRIGGERED_IDS
+    assert json.loads(out.read_text()) == ["p2", "p3"]

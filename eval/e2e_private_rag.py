@@ -40,6 +40,16 @@ It refuses to start unless:
     .venv/bin/python eval/e2e_private_rag.py run [--run N] --confirm --max-spend 1 \\
         --rag-predictions <RAG repo>/artifacts/.../private_test/predictions.jsonl \\
         --rag-live <RAG repo>/outputs/private_live/rag_live.jsonl
+
+**Reproduction runs (owner, 2026-11-25).** `--reproduce <run id>` merges a reproduction run of
+`eval/e2e_private.py reproduce` (its run id starts with `repro-`). It reads that run's marker
+`reproduce.json` in its replay folder instead of the benchmark records, writes its own marker
+`reproduce_rag.json` beside it (once per reproduction run), and its aggregate goes to
+`eval/runs/reproduce/`. It never reads, writes or counts the benchmark merges' records.
+
+    .venv/bin/python eval/e2e_private_rag.py ids --reproduce <run id>
+    .venv/bin/python eval/e2e_private_rag.py run --reproduce <run id> --confirm --max-spend 1 \\
+        --rag-predictions <RAG>/private_test/predictions.jsonl --rag-live <RAG>/rag_live.jsonl
 """
 
 from __future__ import annotations
@@ -67,6 +77,7 @@ TRIGGERED_IDS = "triggered_ids.json"
 OWNER_SHEET = "owner_grading_rag.csv"
 OUT = ep.OUT
 # The RAG run flags kept in the report, from the predictions' run_config.json (plan F1).
+REPRO_RAG_MARK = "reproduce_rag.json"
 RAG_CONFIG_KEYS = ("embedding_model", "answer_model", "fewshot_k", "answer_with_images", "retrieval")
 
 
@@ -157,12 +168,24 @@ def triggered(records: dict[str, dict]) -> list[str]:
     return sorted(i for i, r in records.items() if r["trigger"] is not None)
 
 
+def reproduction_marks(reproduce: str, replay_root: Path = ep.REPLAY) -> tuple[Path, Path]:
+    """A reproduction run's private marker and its merge marker, both in its own replay folder."""
+    if not str(reproduce).startswith(ep.REPRO_PREFIX) or "/" in str(reproduce) or ".." in str(reproduce):
+        raise SystemExit(f"--reproduce takes a reproduction run id (it starts with {ep.REPRO_PREFIX!r})")
+    folder = Path(replay_root) / str(reproduce)
+    return folder / ep.REPRO_MARK, folder / REPRO_RAG_MARK
+
+
 def write_ids(*, run: int = 1, private_sentinel: Path = ep.SENTINEL, replay_root: Path = ep.REPLAY,
-              ignored=ep.git_ignores) -> Path:
+              ignored=ep.git_ignores, reproduce: str | None = None) -> Path:
     """Write run N's triggered question ids (ids only, no question text or gold) for the live RAG run.
-    `private_sentinel` is run 1's; run N's is `ep.sentinel_for(N, private_sentinel)`."""
-    ep.check_run_number(run)
-    private_sentinel = ep.sentinel_for(run, private_sentinel)
+    `private_sentinel` is run 1's; run N's is `ep.sentinel_for(N, private_sentinel)`. With `reproduce`,
+    the reproduction run's marker is read instead."""
+    if reproduce:
+        private_sentinel, _ = reproduction_marks(reproduce, replay_root)
+    else:
+        ep.check_run_number(run)
+        private_sentinel = ep.sentinel_for(run, private_sentinel)
     if not Path(private_sentinel).exists():
         raise SystemExit("the private run has not run yet (no private sentinel)")
     mark = json.loads(Path(private_sentinel).read_text(encoding="utf-8"))
@@ -268,12 +291,18 @@ def aggregate(v2: list[dict], b2: list[dict]) -> dict[str, Any]:
 def run_merge(max_spend: float, *, run: int = 1, confirm: bool = False, records: Path | None = None,
               rag_predictions: Path, rag_live: Path, questions: list[dict] | None = None, sdk=None, out_dir: Path = OUT,
               sentinel: Path = SENTINEL, private_sentinel: Path = ep.SENTINEL, replay_root: Path = ep.REPLAY,
-              ignored=ep.git_ignores) -> Path:
-    """`sentinel` and `private_sentinel` are run 1's; run N uses merge_sentinel(N) and ep.sentinel_for(N)."""
+              ignored=ep.git_ignores, reproduce: str | None = None) -> Path:
+    """`sentinel` and `private_sentinel` are run 1's; run N uses merge_sentinel(N) and ep.sentinel_for(N).
+    With `reproduce` (a reproduction run id), both markers sit in that run's replay folder and the
+    aggregate goes to ep.REPRO_OUT (when `out_dir` is the default)."""
     if not confirm:
         raise SystemExit("the RAG merge runs once per private run: pass --confirm")
-    ep.check_run_number(run)
-    sentinel, private_sentinel = merge_sentinel(run, sentinel), ep.sentinel_for(run, private_sentinel)
+    if reproduce:
+        private_sentinel, sentinel = reproduction_marks(reproduce, replay_root)
+        out_dir = ep.REPRO_OUT if out_dir == OUT else Path(out_dir)
+    else:
+        ep.check_run_number(run)
+        sentinel, private_sentinel = merge_sentinel(run, sentinel), ep.sentinel_for(run, private_sentinel)
     if records is None:
         if not Path(private_sentinel).exists():
             raise SystemExit("the private run has not run yet (no private sentinel)")
@@ -295,8 +324,9 @@ def run_merge(max_spend: float, *, run: int = 1, confirm: bool = False, records:
     pred_sha = hashlib.sha256(Path(rag_predictions).read_bytes()).hexdigest()
     live_sha = {p.name if len(live_paths) == 1 else str(p.parent.name) + "/" + p.name:
                 hashlib.sha256(p.read_bytes()).hexdigest() for p in live_paths}
-    me = {"what": "the one RAG merge on the private test (docs/plans/rag-fallback.md F4.4); blocks a second run",
-          "run": run, "private_run_id": mark["run_id"], "started": started, "status": "started",
+    me = {"what": ("the RAG merge of a reproduction run (owner, 2026-11-25); not a benchmark merge" if reproduce
+                   else "the one RAG merge on the private test (docs/plans/rag-fallback.md F4.4); blocks a second run"),
+          "run": "reproduce" if reproduce else run, "private_run_id": mark["run_id"], "started": started, "status": "started",
           "rag_predictions_sha256": pred_sha, "rag_live_sha256": live_sha}
     Path(sentinel).write_text(json.dumps(me, indent=2) + "\n", encoding="utf-8")
 
@@ -338,8 +368,9 @@ def run_merge(max_spend: float, *, run: int = 1, confirm: bool = False, records:
         print(f"[{n}/{len(qs)}]  spent ${guard.spent:.4f}")                 # a counter only
     graded.clear()
     sheet_f.close()
-    report = {"what": "private test, RAG merge, aggregate only (docs/plans/rag-fallback.md F4.3)",
-              "run": run, "private_run_id": mark["run_id"], "private_run_commit": mark.get("git_commit"),
+    report = {"what": ("private test, RAG merge of a reproduction run, aggregate only" if reproduce
+                       else "private test, RAG merge, aggregate only (docs/plans/rag-fallback.md F4.3)"),
+              "run": "reproduce" if reproduce else run, "private_run_id": mark["run_id"], "private_run_commit": mark.get("git_commit"),
               "questions": len(qs), "started": started,
               "finished": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
               "rag_predictions": {"file": Path(rag_predictions).name, "sha256": pred_sha,
@@ -347,8 +378,9 @@ def run_merge(max_spend: float, *, run: int = 1, confirm: bool = False, records:
               "rag_live": {"files_sha256": live_sha, **live_figures(live, rag)},
               "spent_usd": round(guard.spent, 4), **aggregate(v2, b2)}
     v2.clear(), b2.clear()
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out = Path(out_dir) / f"private_rag_aggregate_{mark['run_id']}.json"
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+    out = Path(out_dir) / (f"private_rag_reproduce_{mark['run_id']}.json" if reproduce
+                           else f"private_rag_aggregate_{mark['run_id']}.json")
     out.write_text(json.dumps(report, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
     me.update(status="finished", finished=report["finished"], report=out.name, spent_usd=report["spent_usd"])
     Path(sentinel).write_text(json.dumps(me, indent=2) + "\n", encoding="utf-8")
@@ -361,6 +393,7 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     i = sub.add_parser("ids", help="write the triggered question ids for the live RAG run")
     i.add_argument("--run", type=int, default=1, help="the private run (1, 2 or 3)")
+    i.add_argument("--reproduce", default=None, help="a reproduction run id (repro-...) instead of --run")
     r = sub.add_parser("run")
     r.add_argument("--confirm", action="store_true")
     r.add_argument("--run", type=int, default=1, help="the private run (1, 2 or 3)")
@@ -369,12 +402,13 @@ def main() -> None:
     r.add_argument("--rag-live", type=Path, nargs="+", required=True,
                    help="the live RAG answer files (V2); together they must cover the triggered ids")
     r.add_argument("--records", type=Path, default=None, help="default: the finished private run's records")
+    r.add_argument("--reproduce", default=None, help="a reproduction run id (repro-...) instead of --run")
     a = ap.parse_args()
     if a.cmd == "ids":
-        write_ids(run=a.run)
+        write_ids(run=a.run, reproduce=a.reproduce)
         return
     run_merge(a.max_spend, run=a.run, confirm=a.confirm, records=a.records, rag_predictions=a.rag_predictions,
-              rag_live=a.rag_live)
+              rag_live=a.rag_live, reproduce=a.reproduce)
 
 
 if __name__ == "__main__":
