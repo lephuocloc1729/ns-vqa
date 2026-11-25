@@ -71,6 +71,22 @@ cd web && npm install && npx vitest run && npx playwright test
 | `tests/` | the test suite: one file per rule family, plus the API, UI back end and evaluation tools |
 | `docs/` | `status.md` (the record of every step and number), `plans/`, `results/`, `deploy.md`, `runbooks/` |
 
+### The standard layout, mapped
+
+| Standard folder | Here |
+|---|---|
+| `src/` | `vqa/` (the pipeline), `app/` (the API), `services/rag/` (the RAG service), `web/` (the UI) |
+| `tests/` | `tests/`; also `web/src/**/*.test.ts` and `web/e2e/` for the UI, and `services/rag/tests/` |
+| `configs/` | `kb/` (the catalog and the engine switches, e.g. `kb/switches_48.yaml`), `prompts/<stage>/<version>/config.yaml`, `eval/frozen_phase52.json` (the frozen system's settings), `.env.example`, and `docker/` (nginx, Prometheus, Grafana) |
+| `docker/` | `docker/` and `docker-compose*.yml` |
+| `docs/` | `docs/`, `DESIGN.md`, and the Swagger docs at `/docs` on a running API |
+
+The folders keep their names on purpose. The benchmark's freeze record (`eval/frozen_phase52.json`) fingerprints
+the engine by hashing every file under `vqa/` and `kb/` together with its path. At the tag `v1.0-benchmark`,
+`eval/freeze.py check --profile phase52` passes, which shows that the tagged code is the code that was benchmarked.
+`main` has post-benchmark fixes (listed in `docs/status.md`), so the check reports a different fingerprint there,
+as it should. Keeping the same folders keeps `main` and the tag directly comparable, file by file.
+
 ## Reproducing the numbers
 
 The dataset (`VLSP2025-MLQA-Natural/`) is not in this repository. Get it from the VLSP 2025 organisers and put it
