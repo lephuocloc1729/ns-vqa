@@ -21,7 +21,7 @@ The benchmark is the private test of VLSP 2025 MLQA-TSR (Natural QA version): 14
 |---|---|
 | **V2: rules + RAG fallback** | **82.2%** (sd 1.8 over 3 runs) |
 | V1: rules only | decides 66.9% of the questions, at 82.3% |
-| RAG alone | 79.2% (judge-graded) |
+| RAG alone | 81.5% (119 of 146, hand-graded; judge 79.2%) |
 | Baselines LowCost and LexiSignVQA | about 78% |
 
 - On the public test (100 questions) V2 scores 84.5%.

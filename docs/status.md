@@ -8,7 +8,7 @@
 |---|---|
 | **V2, rules + live RAG fallback** | **82.2% (1.8)** |
 | V1, rules only | decides 66.9% of questions at 82.3% |
-| RAG alone | 79.2% (judge-graded) |
+| RAG alone | 81.5% (119 of 146, hand-graded; judge 79.2%) |
 | Baselines LowCost / LexiSignVQA | ~78% (owner's hand grades) |
 
 - On the public test (public_dev + public_holdout, 100 questions), V2 scores 84.5%.
@@ -1826,7 +1826,7 @@ Commits `dee78d7` (B1 types), `3f0243a` (B6 guide content), `d295c32` (parser v7
 | V2's RAG part (triggered questions) | 82.0% (50) | 78.7% (47) | 85.4% (48) | 82.0% | |
 
 - **The judge agrees with the owner on 140–142 of 146 answers per run** (4–6 changed, almost all "Một phần" resolved to Đúng or Sai; one Đúng → Sai in V2 run 1). The hand grades leave every mean within 0.1 point of the judge's, so the judge-graded figures above stand and the main table can be reported as human-graded.
-- **Like-for-like with the baselines** (owner's hand grades): V2 82.2% vs LowCost and LexiSignVQA ~78%. RAG alone (79.2%) is judge-graded only.
+- **Like-for-like with the baselines** (owner's hand grades): V2 82.2% vs LowCost and LexiSignVQA ~78%. RAG alone (79.2%) is judge-graded only. **Update (owner, 2026-11-25):** RAG alone is now hand-graded too, 81.5% (119 of 146; the saved Q4_K_M predictions, graded for the Q4 vs BF16 row), and is reported that way; by hand V2 is 0.7 points above it.
 
 ### Error analysis on the public test, phase52 (2026-11-21; no API calls)
 
