@@ -108,8 +108,9 @@ Plan: `docs/plans/task-3-review-3.md` (proposed; 9-day schedule). All work goes 
    - **To report honestly:** Claude Sonnet alone (B1, one run, judge) scores 85.3% on private, above V2's 82.2%. The case for the system is the proof and citations on every rules answer, the honest "undecided", and the margin over both published baselines (about 78%).
 3. **Demo video:** script `docs/defense/demo_video_script.md`; recording by the owner with a GPU session.
 4. **Slides** (22 + 4 backup) and their review pass; references and the plagiarism check; a root `README.md`; the GitHub release (owner's call: the repo is public).
-5. **Optional:** the small real end-to-end load run (about $0.70, owner's go-ahead); a coverage percentage.
 6. **The Q4 vs BF16 accuracy:** measured earlier by the owner; the figure is still to add to the W6 table.
+
+**Closed on 2026-11-25:** a root `README.md`; test coverage in CI (`pytest-cov`: 95% of the lines in `vqa/` and `app/`, on each run's summary page); the real end-to-end load run (`docs/results/load-test-real-2026-11-25.md`, owner's go-ahead, $0.37: 5 then 10 users at once on the real pipeline, 45 questions, 0 errors, first question about 20 s, later questions about 4.5 s). Still open from the self-assessment: the BF16 accuracy figure (owner), UAT, thesis, references, slides, release, video.
 
 **Done since 2026-11-23:** the UAT pack (PRs #32–#34), the admin console (#35–#38: charts, questions, feedback, CSV, accounts, live settings, GPU connect), the GPU on-start fix (#39), the red team and the out-of-scope message (#40), follow-up questions (#41), the readable proof (#42).
 
