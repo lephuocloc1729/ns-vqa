@@ -17,7 +17,9 @@ training, 100 public test and 146 private test questions.
   finished dataset, they form an **annotation layer** (`tools/naturalized_layer.py`).
 - **Availability of the layer:** [option A: on request from the author, to researchers who hold the VLSP 2025
   data agreement.] [option B: on Hugging Face at <link>, with access granted to holders of the VLSP 2025 data
-  agreement.] [The private test split is available on request only.]
+  agreement.] The layer covers the training and public test splits. **The private test split is not part of it:**
+  only the project's scoring code reads its answers, so it is [available on request only, after the organisers
+  agree] [not shared].
 - **Rebuilding the dataset:** with the original VLSP release and the layer,
   `tools/naturalized_layer.py build --layer <layer> --vlsp <VLSP release> --out VLSP2025-MLQA-Natural` finds each
   VLSP file, checks it against the layer's hashes and rebuilds the dataset exactly as used here. Copies of the VLSP
@@ -33,21 +35,23 @@ training, 100 public test and 146 private test questions.
 > The evaluation data are a free-text version of the VLSP 2025 MLQA-TSR dataset, made for this work. The photos,
 > the legal corpus and the questions belong to the VLSP 2025 release and are not redistributed, under its data
 > agreement. The author's annotations (the free-text answers, the question edits and a hash list of every file)
-> are available [on request / at <link>] to holders of the VLSP 2025 data agreement, with a script that rebuilds
-> the dataset exactly from the original release (`tools/naturalized_layer.py`). The code, the frozen configuration
+> for the training and public test splits are available [on request / at <link>] to holders of the VLSP 2025 data
+> agreement, with a script that rebuilds those splits exactly from the original release (`tools/naturalized_layer.py`). The code, the frozen configuration
 > and the records of every benchmark run are public at https://github.com/lephuocloc1729/ns-vqa.
 
 ## For the owner: making and sharing the layer
 
 ```bash
-.venv/bin/python tools/naturalized_layer.py export --out ~/naturalized_layer                       # all splits
-.venv/bin/python tools/naturalized_layer.py export --out ~/naturalized_layer_tp --splits train,public_test
+.venv/bin/python tools/naturalized_layer.py export --out ~/naturalized_layer                 # train + public test
+.venv/bin/python tools/naturalized_layer.py export --out ~/naturalized_layer_train --splits train
 ```
 
 - The layer is written outside the repository only, and never committed: it holds the dataset's text.
 - `provenance.json` is left out unless `--with-provenance` is given, since it quotes VLSP's original samples
   (choices and answers); no code reads it.
-- Checked on 2026-11-25: the full layer (6 text files, 820 KB, plus the hashes of 2,075 VLSP files) rebuilds the
-  dataset byte for byte, apart from `provenance.json`; with another copy of the VLSP `law_db` JSON (same content,
-  different formatting) the rebuild is accepted and reported.
+- Checked on 2026-11-25: the layer (5 text files, 752 KB, plus the hashes of 1,971 VLSP files) rebuilds the train
+  and public test splits and `law_db` byte for byte, apart from `provenance.json`; with another copy of the VLSP
+  `law_db` JSON (same content, different formatting) the rebuild is accepted and reported.
+- The private test can't be exported: only `eval/e2e_private.py` may name its answer file
+  (`tests/test_leakage_guard.py`). Sharing it would need that rule changed first, which is the owner's decision.
 - Ask the VLSP 2025 organisers, and the supervisor, before sharing it with anyone.

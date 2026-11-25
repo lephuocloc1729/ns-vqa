@@ -11,9 +11,8 @@ import pytest
 import tools.naturalized_layer as nl
 
 SECRET = "secret-gold-answer"
-QS = {"train": [{"id": "train_1", "image_id": "train_1_1", "question": "Biển gì?", "answer": f"Cấm {SECRET}"}],
-      "public_test": [{"id": "public_test_1", "image_id": "public_test_1_1", "question": "Đúng không?", "answer": "Đúng"}],
-      "private_test": [{"id": "private_test_1", "image_id": "private_test_1_1", "question": "Sai không?", "answer": "Sai"}]}
+QS = {"train": [{"id": "fake_tr_q1", "image_id": "fake_tr_img1", "question": "Biển gì?", "answer": f"Cấm {SECRET}"}],
+      "public_test": [{"id": "fake_pu_q1", "image_id": "fake_pu_img1", "question": "Đúng không?", "answer": "Đúng"}]}
 
 
 def _write(p: Path, data: bytes | str) -> Path:
@@ -38,7 +37,7 @@ def world(tmp_path):
     _write(nat / "dataset/law_db/images.fld/image001.png", b"figure")
     _write(vlsp / "dataset/law_db/vlsp2025_law.json", '{"law": 1}')
     _write(vlsp / "dataset/law_db/images.fld/image001.png", b"figure")
-    _write(vlsp / "decoy/train_1_1.jpg", b"a different photo with the same name")              # never picked
+    _write(vlsp / "decoy/fake_tr_img1.jpg", b"a different photo with the same name")              # never picked
     return tmp_path, nat, vlsp
 
 
@@ -53,7 +52,7 @@ def test_a_round_trip_rebuilds_the_dataset_exactly(world, capsys):
     want = {k: v for k, v in _tree(nat).items() if k != nl.PROVENANCE}
     assert _tree(tmp / "rebuilt") == want
     printed = capsys.readouterr().out
-    assert SECRET not in printed and "train_1_1" not in printed and "Biển" not in printed
+    assert SECRET not in printed and "fake_tr_img1" not in printed and "Biển" not in printed
 
 
 def test_the_layer_holds_the_authors_text_only(world):
@@ -63,7 +62,7 @@ def test_the_layer_holds_the_authors_text_only(world):
     assert not any(f.endswith((".jpg", ".png")) or f.endswith("vlsp2025_law.json") for f in files)
     assert nl.PROVENANCE not in files and nl.LAYER_FILE in files
     rec = json.loads((tmp / "layer" / nl.LAYER_FILE).read_text())
-    assert len(rec["vlsp_files"]) == 5 and "dataset/law_db/vlsp2025_law.json" in rec["vlsp_files"]
+    assert len(rec["vlsp_files"]) == 4 and "dataset/law_db/vlsp2025_law.json" in rec["vlsp_files"]
 
 
 def test_provenance_only_on_request(world):
@@ -73,25 +72,30 @@ def test_provenance_only_on_request(world):
     assert _tree(tmp / "rebuilt") == _tree(nat)
 
 
-def test_a_layer_without_the_private_test(world):
+def test_a_layer_of_the_train_split_only(world):
     tmp, nat, vlsp = world
-    nl.export(nat, tmp / "layer", repo=tmp / "repo", splits=("train", "public_test"))
-    files = set(_tree(tmp / "layer"))
-    assert not any("private_test" in f for f in files)
+    nl.export(nat, tmp / "layer", repo=tmp / "repo", splits=("train",))
     rec = json.loads((tmp / "layer" / nl.LAYER_FILE).read_text())
-    assert not any("private_test" in f for f in rec["vlsp_files"]) and rec["splits"] == ["train", "public_test"]
+    assert rec["splits"] == ["train"] and not any("public_test" in f for f in [*rec["text_files"], *rec["vlsp_files"]])
     nl.build(tmp / "layer", vlsp, tmp / "rebuilt")
-    assert not (tmp / "rebuilt" / "dataset" / nl.SPLITS["private_test"][0]).exists()
+    assert not (tmp / "rebuilt" / "dataset" / nl.SPLITS["public_test"][0]).exists()
+
+
+def test_the_private_test_is_never_part_of_the_layer(world):
+    tmp, nat, _ = world
+    assert set(nl.SPLITS) == {"train", "public_test"}
+    with pytest.raises(SystemExit, match="unknown split"):
+        nl.export(nat, tmp / "layer", repo=tmp / "repo", splits=("private_test",))
 
 
 def test_a_missing_or_changed_vlsp_file_is_refused_with_counts_only(world):
     tmp, nat, vlsp = world
     nl.export(nat, tmp / "layer", repo=tmp / "repo")
-    (vlsp / "somewhere/public_test/public_test_1_1.jpg").unlink()
+    (vlsp / "somewhere/public_test/fake_pu_img1.jpg").unlink()
     (vlsp / "dataset/law_db/images.fld/image001.png").write_bytes(b"another figure")
     with pytest.raises(SystemExit, match="lacks 1 file.* 1 with different content") as e:
         nl.build(tmp / "layer", vlsp, tmp / "rebuilt")
-    assert "public_test_1_1" not in str(e.value) and not (tmp / "rebuilt").exists()
+    assert "fake_pu_img1" not in str(e.value) and not (tmp / "rebuilt").exists()
 
 
 def test_a_changed_layer_is_refused(world):

@@ -2,7 +2,8 @@
 
 `VLSP2025-MLQA-Natural/` is built from VLSP's data: its images and `law_db` are VLSP's, unchanged, and its
 questions come from VLSP with the author's edits. Only the natural answers, the edits and the review are
-the author's own. So the dataset itself is not redistributed. Instead:
+the author's own. So the dataset itself is not redistributed. Instead, for the train and public test splits
+(the private test is never part of the layer):
 
 - `export` (the author) writes the **layer**: the author's text files only (the split JSONs with the
   natural answers, `README.md`, `manifest.json`, `review.json`; `provenance.json` only with
@@ -17,7 +18,7 @@ the author's own. So the dataset itself is not redistributed. Instead:
 Neither command prints a question, an answer or an image name: counts only. The layer is written outside
 the repository only (it holds dataset text, which is never committed).
 
-    .venv/bin/python tools/naturalized_layer.py export --out ~/naturalized_layer [--splits train,public_test] [--with-provenance]
+    .venv/bin/python tools/naturalized_layer.py export --out ~/naturalized_layer [--splits train] [--with-provenance]
     .venv/bin/python tools/naturalized_layer.py build --layer ~/naturalized_layer --vlsp <VLSP release folder> --out VLSP2025-MLQA-Natural
 
 Offline authoring tool, not inference code.
@@ -38,10 +39,11 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATASET = Path(os.environ.get("VQA_DATASET_DIR", ROOT / "VLSP2025-MLQA-Natural"))
 SCHEMA = 1
 LAYER_FILE = "layer.json"
+# The private test is not part of the layer: only the scoring code may name or read its answer file
+# (CLAUDE.md, "Dataset rules"; tests/test_leakage_guard.py). It is shared on request only, if at all.
 SPLITS = {   # split -> (its folder under dataset/, its JSON file, its image folder)
     "train": ("train data", "vlsp_2025_train.json", "train_images"),
     "public_test": ("public_test data", "vlsp_2025_public_test.json", "public_test_images"),
-    "private_test": ("private_test data (post submission)", "vlsp_2025_private_test.json", "private_test_images"),
 }
 ROOT_TEXT = ("README.md", "manifest.json", "review.json")       # the author's own files at the root
 PROVENANCE = "provenance.json"                                   # quotes VLSP's original samples
@@ -157,7 +159,7 @@ def build(layer: Path, vlsp: Path, out: Path) -> dict:
     if missing or mismatched:
         raise SystemExit(f"the VLSP release lacks {missing} file(s) and has {mismatched} with different content, "
                          f"of {len(rec['vlsp_files'])} needed: use the original VLSP 2025 MLQA-TSR release, "
-                         "including the private test images if the layer has the private test")
+                         "with its train and public test images")
     out.mkdir(parents=True, exist_ok=True)
     for rel in rec["text_files"]:
         (out / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -183,7 +185,7 @@ def main(argv: list[str] | None = None) -> None:
     e = sub.add_parser("export", help="the author: write the layer")
     e.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     e.add_argument("--out", type=Path, required=True)
-    e.add_argument("--splits", default=",".join(SPLITS), help="comma-separated: train,public_test,private_test")
+    e.add_argument("--splits", default=",".join(SPLITS), help="comma-separated: train,public_test")
     e.add_argument("--with-provenance", action="store_true", help="also include provenance.json (quotes VLSP's samples)")
     b = sub.add_parser("build", help="rebuild the dataset from the layer and the VLSP release")
     b.add_argument("--layer", type=Path, required=True)
