@@ -449,6 +449,8 @@ repository. The dataset and any data derived from it are not published (see belo
 
 ## Data and licences
 
-The dataset, its images and the law corpus figures are not redistributed here; the VLSP data agreement applies. The
+The dataset, its images and the law corpus figures are not redistributed here; the VLSP data agreement applies. How
+the author's annotations can be obtained, and how `tools/naturalized_layer.py` rebuilds the exact dataset from them
+and the original VLSP release, is in [`docs/data_availability.md`](docs/data_availability.md). The
 RAG's model weights are public upstream (Qwen3.5-9B GGUF, F2LLM-v2 0.6B, BGE-M3); `services/rag/assets_manifest.json`
 lists the RAG's own files with their sha256.

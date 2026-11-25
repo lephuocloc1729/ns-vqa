@@ -279,16 +279,34 @@ def test_answer_and_fallback_prompts_hold_train_examples_only():
 PRIVATE_QA_NAMES = ("vlsp_2025_private_test",)
 
 
+# Owner, 2026-11-25: besides the scoring code, the annotation-layer export may name the private answer file,
+# to copy it (never read, print or grade it) for the owner to share by email on request. Nothing else may.
+PRIVATE_QA_NAMERS = ("eval/e2e_private.py:", "tools/naturalized_layer.py:")
+
+
 def test_only_the_private_run_names_the_private_question_file():
     """eval/e2e_private.py is the scoring code: the only code that may read the private
-    answers (CLAUDE.md, "Dataset rules"). Docstrings may explain the rule."""
+    answers (CLAUDE.md, "Dataset rules"). tools/naturalized_layer.py may name the file to copy it for
+    the owner (owner, 2026-11-25). Docstrings may explain the rule."""
     found = []
     for d in ("eval", "tools", "vqa", "app"):
         for p in sorted((ROOT / d).rglob("*.py")) if (ROOT / d).exists() else []:
             for line, s in _code_strings(p.read_text(encoding="utf-8")):
                 if any(n in s.lower() for n in PRIVATE_QA_NAMES):
                     found.append(f"{p.relative_to(ROOT)}:{line}")
-    assert found and all(f.startswith("eval/e2e_private.py:") for f in found), found
+    assert found and all(f.startswith(PRIVATE_QA_NAMERS) for f in found), found
+    assert any(f.startswith("eval/e2e_private.py:") for f in found), found
+
+
+def test_the_layer_export_never_reads_the_private_answers():
+    """The export copies the private file only: no json.load, no read_text of it, and nothing in vqa/ or app/
+    imports the tool."""
+    src = (ROOT / "tools" / "naturalized_layer.py").read_text(encoding="utf-8")
+    export_src = src[src.index("def export("):src.index("def _index(")]
+    assert "json.load" not in export_src and "read_text" not in export_src
+    for d in ("vqa", "app"):
+        for p in sorted((ROOT / d).rglob("*.py")):
+            assert "naturalized_layer" not in p.read_text(encoding="utf-8"), p
 
 
 def test_the_private_run_prints_only_counters():
