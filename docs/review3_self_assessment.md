@@ -1,4 +1,4 @@
-# Review 3 self-assessment (state on 2026-11-25)
+# Review 3 self-assessment (state on 2026-11-25, thesis draft added)
 
 The faculty's checklist "Kiểm tra khối lượng Task 3 trước Review lần 3" has 18 self-assessment rows. Each row
 below gives its state, the evidence a reviewer can open, and what is still missing. The plan behind each item is
@@ -21,8 +21,8 @@ below gives its state, the evidence a reviewer can open, and what is still missi
 | 9 | Unit and integration tests | ✅ | 2,612 pytest cases (94–95% line coverage of `vqa/` and `app/`), 36 Vitest, 17 Playwright; JUnit and coverage reports on every CI run | — |
 | 10 | Load and stress | ✅ | Locust capacity and stress runs, 0 failures up to 1,000 users; a real end-to-end run, 10 users at once, 0 errors | the RAG under load (needs a GPU session) |
 | 11 | UAT | 🟡 | `eval/uat/` pack, scorer and tests; admin accounts | the sessions (26–28/11) and the report |
-| 12 | Thesis | 🟡 | structure fixed (6 chapters, FPT template format) | the text (due 30/11) |
-| 13 | References and plagiarism | ⬜ | — | IEEE reference list; plagiarism check |
+| 12 | Thesis | 🟡 | full draft of all 6 chapters, front matter, appendices (about 24,000 words; owner's local folder, Markdown → pandoc → FPT-format .docx) | the owner's rewrite; owner items marked [TODO]: personal details, baseline papers and exact scores, UAT results, screenshots, Chapter 3 diagram rendering |
+| 13 | References and plagiarism | 🟡 | IEEE list, 51 entries, numbered by first citation, both baselines cited | the two baseline papers' details; entries marked [VERIFY]; the plagiarism check |
 | 14 | Slides | ⬜ | — | 22 slides + 4 backup |
 | 15 | Slide review | ⬜ | — | the review pass for the five faults |
 | 16 | Repository | ✅ | `README.md` (results, how to run, how to reproduce each number), `docs/`, `DESIGN.md`, Swagger at `/docs`, tag `v1.0-benchmark` | — |
@@ -207,10 +207,13 @@ instead of guessing.
 
 ### 12. Thesis 🟡
 - The guidelines' 6 chapters in the FPT template's format, in English, 60–100 pages.
-- Writing starts now, and it is due 30/11.
+- **Draft done (2026-11-25):** chapters 1–6, front matter (abstracts in English and Vietnamese, abbreviations, a suggested AI-assistance disclosure), appendices, five Chapter 4 charts. Every number names its source in a Word comment. Kept outside the repo (owner's thesis folder).
+- B1 (Claude alone) is not reported anywhere (owner, 2026-11-25).
+- **Still missing:** the owner's rewrite and the [TODO] items: name, student ID, supervisor, project code; the LowCost and LexiSignVQA papers, their exact scores and determinism; the UAT results (slot in Chapter 5); screenshots of the real site; the six Chapter 3 diagrams rendered from their Mermaid sources.
 
-### 13. References and plagiarism ⬜
-- The IEEE reference list, with both baselines cited, and the plagiarism check: not started.
+### 13. References and plagiarism 🟡
+- IEEE reference list drafted (51 entries, numbered by first citation); both baselines cited, their paper details to be filled in; entries that could not be checked are marked [VERIFY].
+- The plagiarism check: not started (owner).
 
 ## Stage 5: slides
 
