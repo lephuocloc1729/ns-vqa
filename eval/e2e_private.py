@@ -52,6 +52,18 @@ or written (CLAUDE.md, "Dataset rules").
     .venv/bin/python eval/e2e_private.py run --confirm-frozen --max-spend 3            # run 1 (done)
     .venv/bin/python eval/e2e_private.py run --run 2 --confirm-frozen --max-spend 2.25
     .venv/bin/python eval/e2e_private.py run --run 3 --confirm-frozen --max-spend 2.25
+
+- **Reproduction runs (owner, 2026-11-25), `reproduce`:** for anyone who clones the repository and has
+  the private test, to re-run the benchmark on the frozen system. The three benchmark runs above are
+  final, so their run-once records would refuse a re-run; a reproduction run never reads, writes or
+  counts them. Every other guard holds: `--confirm-frozen`, a clean tree, the phase52 freeze record,
+  the image and count checks, a gitignored replay folder. Its run id starts with `repro-`; its marker
+  `reproduce.json` sits in its own replay folder (`cache/private_run/repro-<id>/`), never beside the
+  benchmark records; its aggregate goes to `eval/runs/reproduce/`. It can run any number of times, and
+  it is never one of the three benchmark runs. The RAG merge has the same mode
+  (`eval/e2e_private_rag.py ids|run --reproduce <run id>`).
+
+    .venv/bin/python eval/e2e_private.py reproduce --confirm-frozen --max-spend 3
 """
 
 from __future__ import annotations
@@ -94,6 +106,10 @@ SENTINEL = ROOT / "eval" / "private_ran.json"
 # spread. Run 1 is SENTINEL; runs 2 and 3 are the only further runs allowed.
 EXTRA_RUNS = (2, 3)
 REPLAY = ROOT / "cache" / "private_run"
+# Reproduction runs (owner, 2026-11-25): their own aggregate folder and a marker in their replay folder.
+REPRO_OUT = ROOT / "eval" / "runs" / "reproduce"
+REPRO_MARK = "reproduce.json"
+REPRO_PREFIX = "repro-"
 CATALOGS = (ROOT / "kb" / "sign_catalog.yaml", ROOT / "kb" / "sign_catalog_meaning.yaml")
 
 # The owner's grading sheet (owner, 2026-11-20; phase-5 P6): one row per question, written during the
@@ -344,11 +360,13 @@ def _earlier_runs(run: int, base: Path, frozen: Path) -> set[str]:
 
 
 def guards(*, run: int = 1, out_dir: Path = OUT, sentinel: Path = SENTINEL, frozen: Path = freeze.FROZEN_PHASE52,
-           replay_root: Path = REPLAY, git=freeze.git_state, ignored=git_ignores) -> dict:
+           replay_root: Path = REPLAY, git=freeze.git_state, ignored=git_ignores, reproduce: bool = False) -> dict:
     """Refuses (SystemExit) unless the tree is clean, the configuration is the frozen
     one, this run has never run (and every earlier one has finished) and git ignores the
-    replay folder. `sentinel` is run 1's; run N's is `sentinel_for(N, sentinel)`."""
-    check_run_number(run)
+    replay folder. `sentinel` is run 1's; run N's is `sentinel_for(N, sentinel)`. A reproduction
+    run (`reproduce`) skips only the run-once checks: it never reads or writes the benchmark records."""
+    if not reproduce:
+        check_run_number(run)
     g = git()
     if not g["clean"]:
         raise SystemExit("the git working tree is not clean: commit or remove these first:\n  "
@@ -357,7 +375,9 @@ def guards(*, run: int = 1, out_dir: Path = OUT, sentinel: Path = SENTINEL, froz
         raise SystemExit(f"the private test runs with the phase-5.2 freeze only; {Path(frozen).name} is {prof}")
     if d := freeze.check(frozen, frozen_perception_model(frozen)):
         raise SystemExit("the live configuration differs from the freeze record:\n  " + "\n  ".join(d))
-    if run == 1:
+    if reproduce:
+        pass
+    elif run == 1:
         if Path(sentinel).exists():
             raise SystemExit(f"the private test has already run ({Path(sentinel).name}); "
                              f"the further runs are --run {' and --run '.join(map(str, EXTRA_RUNS))}")
@@ -382,27 +402,39 @@ def guards(*, run: int = 1, out_dir: Path = OUT, sentinel: Path = SENTINEL, froz
 def run_private(max_spend: float, *, run: int = 1, confirm_frozen: bool = False, sdk=None, questions: list[dict] | None = None,
                 out_dir: Path = OUT, image_path=None, sentinel: Path = SENTINEL, frozen: Path = freeze.FROZEN_PHASE52,
                 replay_root: Path = REPLAY, git=freeze.git_state, ignored=git_ignores,
-                expected: dict | None = EXPECTED) -> Path:
+                expected: dict | None = EXPECTED, reproduce: bool = False) -> Path:
+    """`reproduce`: a reproduction run (see the module notes). `out_dir` defaults to REPRO_OUT then."""
     if not confirm_frozen:
         raise SystemExit("the private test runs with the frozen system: pass --confirm-frozen")
-    check_run_number(run)
-    g = guards(run=run, out_dir=out_dir, sentinel=sentinel, frozen=frozen, replay_root=replay_root, git=git, ignored=ignored)
+    if reproduce:
+        run = 0
+        out_dir = REPRO_OUT if out_dir == OUT else Path(out_dir)
+    else:
+        check_run_number(run)
+    g = guards(run=run, out_dir=out_dir, sentinel=sentinel, frozen=frozen, replay_root=replay_root, git=git,
+               ignored=ignored, reproduce=reproduce)
     perception_model = frozen_perception_model(frozen)
     profile = freeze.profile_of(freeze.load(frozen))
     config = freeze.live(perception_model, profile)
     image_path = image_path or image_file
     qs = questions if questions is not None else load_questions()
     counts = preflight(qs, image_path, expected=expected)
-    run_id = uuid.uuid4().hex[:12]
+    run_id = (REPRO_PREFIX if reproduce else "") + uuid.uuid4().hex[:12]
     replay = Path(replay_root) / run_id
     if replay.exists():
         raise SystemExit(f"the replay folder {replay} already exists")
     started = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
-    sentinel = sentinel_for(run, sentinel)
-    what = ("the one private-test benchmark run (phase 5, item 1); its existence blocks a second run" if run == 1
-            else f"private-test benchmark run {run} of 3 (owner, 2026-11-21: mean and spread); "
-                 f"its existence blocks a second run {run}")
-    mark = {"what": what, "run": run, "run_id": run_id, "started": started, "git_commit": g["commit"], "status": "started",
+    if reproduce:
+        replay.mkdir(parents=True)
+        sentinel = replay / REPRO_MARK
+        what = ("a reproduction run of the private benchmark on the frozen system (owner, 2026-11-25); "
+                "not one of the three benchmark runs")
+    else:
+        sentinel = sentinel_for(run, sentinel)
+        what = ("the one private-test benchmark run (phase 5, item 1); its existence blocks a second run" if run == 1
+                else f"private-test benchmark run {run} of 3 (owner, 2026-11-21: mean and spread); "
+                     f"its existence blocks a second run {run}")
+    mark = {"what": what, "run": "reproduce" if reproduce else run, "run_id": run_id, "started": started, "git_commit": g["commit"], "status": "started",
             "frozen_record_sha256": hashlib.sha256(Path(frozen).read_bytes()).hexdigest(),
             "replay_dir": f"{Path(replay_root).name}/{run_id}"}
     Path(sentinel).write_text(json.dumps(mark, indent=2) + "\n", encoding="utf-8")
@@ -443,7 +475,9 @@ def run_private(max_spend: float, *, run: int = 1, confirm_frozen: bool = False,
             records.append({k: rec.get(k) for k in _KEEP})
             del a, t, rec
             print(f"[{n}/{len(qs)}]  spent ${guard.spent:.4f}")        # a counter only
-    report = {"what": "private test, aggregate only (phase 5, item 1)", "run": run, "run_id": run_id,
+    report = {"what": ("private test, reproduction run, aggregate only" if reproduce
+                       else "private test, aggregate only (phase 5, item 1)"),
+              "run": "reproduce" if reproduce else run, "run_id": run_id,
               "perception_model": perception_model, "answer_fallback": ANSWER_FALLBACK, **counts, "started": started,
               "finished": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
               "git_commit": g["commit"], "frozen_config": config,
@@ -451,8 +485,8 @@ def run_private(max_spend: float, *, run: int = 1, confirm_frozen: bool = False,
               "catalog_review": catalog_review(), "feature_rules": {k: v.pattern for k, v in FEATURES.items()},
               "spent_usd": round(guard.spent, 4), **aggregate(records)}
     records.clear()
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out = out_dir / f"private_aggregate_{run_id}.json"
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+    out = Path(out_dir) / (f"private_reproduce_{run_id}.json" if reproduce else f"private_aggregate_{run_id}.json")
     out.write_text(json.dumps(report, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
     mark.update(status="finished", finished=report["finished"], report=out.name, spent_usd=report["spent_usd"])
     Path(sentinel).write_text(json.dumps(mark, indent=2) + "\n", encoding="utf-8")
@@ -527,12 +561,17 @@ def main() -> None:
     r.add_argument("--confirm-frozen", action="store_true")
     r.add_argument("--max-spend", type=float, required=True)
     r.add_argument("--run", type=int, default=1, help="2 or 3 (owner, 2026-11-21); run 1 is done")
+    rp = sub.add_parser("reproduce", help="a reproduction run on the frozen system; never a benchmark run")
+    rp.add_argument("--confirm-frozen", action="store_true")
+    rp.add_argument("--max-spend", type=float, required=True)
     a = ap.parse_args()
     if a.cmd == "estimate":
         print(json.dumps({"phase48_at_dev_decided_share": estimate(),
                           "phase48_at_dev2_decided_share": estimate(decided_share=DECIDED_SHARE_48_DEV2),
                           "phase48_at_validation_decided_share": estimate(decided_share=DECIDED_SHARE)},
                          indent=2, ensure_ascii=False))
+    elif a.cmd == "reproduce":
+        run_private(a.max_spend, confirm_frozen=a.confirm_frozen, reproduce=True)
     else:
         run_private(a.max_spend, run=a.run, confirm_frozen=a.confirm_frozen)
 
