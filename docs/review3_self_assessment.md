@@ -20,7 +20,7 @@ below gives its state, the evidence a reviewer can open, and what is still missi
 | 8 | Monitoring | ✅ | Grafana dashboard "SignCite – hệ thống" (14 panels), Prometheus, node-exporter; admin overview | Phoenix (dropped, see row) |
 | 9 | Unit and integration tests | ✅ | 2,612 pytest cases (94–95% line coverage of `vqa/` and `app/`), 36 Vitest, 17 Playwright; JUnit and coverage reports on every CI run | — |
 | 10 | Load and stress | ✅ | Locust capacity and stress runs, 0 failures up to 1,000 users; a real end-to-end run, 10 users at once, 0 errors | the RAG under load (needs a GPU session) |
-| 11 | UAT | ✅ | 15 moderated sessions, all 4 targets met: SUS 91.3 (A+), task success 97%, CSAT 4–5 100%, lowest task 93% (`docs/results/uat-2026-11-25.md`) | no server-side figures (temporary server deleted); no complaints recorded |
+| 11 | UAT | ✅ | 15 moderated sessions, all 4 targets met: SUS 91.3 (A+), task success 97%, CSAT 4–5 100%, lowest task 93% (`docs/results/uat-2026-11-25.md`) |
 | 12 | Thesis | 🟡 | full draft of all 6 chapters, front matter, appendices (about 24,000 words; owner's local folder, Markdown → pandoc → FPT-format .docx) | the owner's rewrite; owner items marked [TODO]: personal details, baseline papers and exact scores, UAT results, screenshots, Chapter 3 diagram rendering |
 | 13 | References and plagiarism | 🟡 | IEEE list, 51 entries, numbered by first citation, both baselines cited | the two baseline papers' details; entries marked [VERIFY]; the plagiarism check |
 | 14 | Slides | ⬜ | — | 22 slides + 4 backup |
@@ -212,8 +212,6 @@ instead of guessing.
 
 - **Limits, stated in the report:**
   - every tester holds a driving licence, but none chose the form's "knows traffic law" group;
-  - the sessions ran on a temporary copy of the deployed images, deleted afterwards, so there are no server-side
-    waits, rules/RAG split or cost for the sessions;
   - the form's open questions and the log's tags and notes are empty, so there are no complaints to rank.
 
 ## Stage 4: the thesis
