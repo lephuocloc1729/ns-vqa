@@ -1,4 +1,4 @@
-# Review 3 self-assessment (state on 2026-11-25, thesis draft added)
+# Review 3 self-assessment (state on 2026-11-26, UAT done)
 
 The faculty's checklist "Kiểm tra khối lượng Task 3 trước Review lần 3" has 18 self-assessment rows. Each row
 below gives its state, the evidence a reviewer can open, and what is still missing. The plan behind each item is
@@ -20,7 +20,7 @@ below gives its state, the evidence a reviewer can open, and what is still missi
 | 8 | Monitoring | ✅ | Grafana dashboard "SignCite – hệ thống" (14 panels), Prometheus, node-exporter; admin overview | Phoenix (dropped, see row) |
 | 9 | Unit and integration tests | ✅ | 2,612 pytest cases (94–95% line coverage of `vqa/` and `app/`), 36 Vitest, 17 Playwright; JUnit and coverage reports on every CI run | — |
 | 10 | Load and stress | ✅ | Locust capacity and stress runs, 0 failures up to 1,000 users; a real end-to-end run, 10 users at once, 0 errors | the RAG under load (needs a GPU session) |
-| 11 | UAT | 🟡 | `eval/uat/` pack, scorer and tests; admin accounts | the sessions (26–28/11) and the report |
+| 11 | UAT | ✅ | 15 moderated sessions, all 4 targets met: SUS 91.3 (A+), task success 97%, CSAT 4–5 100%, lowest task 93% (`docs/results/uat-2026-11-25.md`) | no law-savvy tester; no server-side figures (temporary server deleted); no complaints recorded |
 | 12 | Thesis | 🟡 | full draft of all 6 chapters, front matter, appendices (about 24,000 words; owner's local folder, Markdown → pandoc → FPT-format .docx) | the owner's rewrite; owner items marked [TODO]: personal details, baseline papers and exact scores, UAT results, screenshots, Chapter 3 diagram rendering |
 | 13 | References and plagiarism | 🟡 | IEEE list, 51 entries, numbered by first citation, both baselines cited | the two baseline papers' details; entries marked [VERIFY]; the plagiarism check |
 | 14 | Slides | ⬜ | — | 22 slides + 4 backup |
@@ -196,13 +196,25 @@ instead of guessing.
   - the 10 answer slots add no queueing at 10 users.
 - **Not covered:** the RAG fallback under load (it needs a GPU session).
 
-### 11. UAT 🟡
-- **Ready:**
-  - `eval/uat/`: task sheet, form questions (SUS in Vietnamese), moderator notes, observation log, scorers
-    (`score_sus.py`, `turn_stats.py`), report template;
-  - tester accounts on the admin site.
-- **Targets:** SUS ≥ 68, task success ≥ 80%, CSAT 4–5 ≥ 70%, every task ≥ 60%.
-- **Missing:** the sessions (26–28/11, at least 15 testers) and the report.
+### 11. UAT ✅
+- **The pack:** `eval/uat/` has the task sheet, the form questions (SUS in Vietnamese), the moderator notes, the
+  observation log, the scorers (`score_sus.py`, `turn_stats.py`) and the report template.
+- **The sessions (2026-11-25):** 15 moderated video calls (12 students, 3 drivers; 8 on a computer, 7 on a phone),
+  each with 5 fixed tasks and 2 free questions. The report is `docs/results/uat-2026-11-25.md`.
+- **The targets, all met:**
+
+  | Target | Result |
+  |---|---|
+  | SUS ≥ 68 | 91.3 (95% CI 88.8–93.8), A+ |
+  | Task success ≥ 80% | 97% observed (73 of 75) |
+  | CSAT 4–5 ≥ 70% | 100% |
+  | Every task ≥ 60% | lowest 93% (T4 voice, T5 history) |
+
+- **Limits, stated in the report:**
+  - no tester who knows traffic law;
+  - the sessions ran on a temporary copy of the deployed images, deleted afterwards, so there are no server-side
+    waits, rules/RAG split or cost for the sessions;
+  - the form's open questions and the log's tags and notes are empty, so there are no complaints to rank.
 
 ## Stage 4: the thesis
 
