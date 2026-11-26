@@ -79,9 +79,11 @@ The benchmark is the private test of VLSP 2025 MLQA-TSR (Natural QA version): 14
 | Baseline LexiSignVQA [2] | 78.1% (114 of 146, hand-graded) |
 
 **The baselines** are the two VLSP 2025 systems, adapted to free-text Natural QA answers and re-run for this
-project with Qwen3.5-9B (BF16, greedy), the same answer model as the RAG. Each figure is the **best of 4 settings, picked on
-the private test itself** (LowCost: 0, 1, 3 or 5 few-shot examples, best 5; LexiSignVQA: top-k 1, 2, 3 or 5, best
-1), so it favours the baselines; V2 had no such choice. LowCost with Gemma 3 12B scored at most 73.3% (5-shot).
+project with Qwen3.5-9B (BF16, greedy), the same answer model as the RAG. Each figure is the **best of 8 settings** (Qwen3.5-9B and
+Gemma 3 12B, each with LowCost's 0, 1, 3 or 5 few-shot examples, or LexiSignVQA's top-k 1, 2, 3 or 5), **chosen on the
+public test, with ties broken on the private test** (on public, LowCost's Qwen 0, 3 and 5 shots tied at 77% and
+LexiSignVQA's Qwen top-k 1 and 5 at 88%; the private test picked 5 shots and top-k 1), so it favours the baselines;
+V2 had no such choice. LowCost with Gemma 3 12B scored at most 73.3% (5-shot).
 
 1. V. D. Anh, K. V. Tran, T. T. Ha, "A low-cost low-energy approach to VQA on traffic signs problems," in *Proc.
    VLSP 2025*, ACL, 2025, pp. 451–458. https://aclanthology.org/2025.vlsp-1.53/
@@ -417,7 +419,7 @@ All of them are committed:
 |---|---|
 | Claude models | `claude-haiku-5-5` and `claude-sonnet-5-5` through the Anthropic API (ids and prompt versions in `eval/frozen_phase52.json`) |
 | RAG answer model | Qwen3.5-9B, Q4_K_M GGUF, public on Hugging Face; source, revision and sha256 in the release notes |
-| RAG embeddings | F2LLM-v2 0.6B (queries) and BGE-M3 (the corpus embeddings), public on Hugging Face |
+| RAG embeddings | F2LLM-v2 0.6B for both the corpus chunks and the questions, public on Hugging Face (BGE-M3's tokenizer only counts tokens when the corpus is cut into 768-token chunks) |
 | RAG runtime assets | `services/rag/assets_manifest.json` (1,596 files with sha256), fetched by `services/rag/scripts/fetch.py` |
 | GPU image | `ghcr.io/lephuocloc1729/ns-vqa-rag` (public; code only), built by the "RAG GPU image" workflow |
 | The knowledge base | `kb/`: the sign catalog and the Prolog rules, in this repository |
@@ -452,5 +454,5 @@ repository. The dataset and any data derived from it are not published (see belo
 The dataset, its images and the law corpus figures are not redistributed here; the VLSP data agreement applies. How
 the author's annotations can be obtained, and how `tools/naturalized_layer.py` rebuilds the exact dataset from them
 and the original VLSP release, is in [`docs/data_availability.md`](docs/data_availability.md). The
-RAG's model weights are public upstream (Qwen3.5-9B GGUF, F2LLM-v2 0.6B, BGE-M3); `services/rag/assets_manifest.json`
+RAG's model weights are public upstream (Qwen3.5-9B GGUF, F2LLM-v2 0.6B, and BGE-M3 for its tokenizer); `services/rag/assets_manifest.json`
 lists the RAG's own files with their sha256.

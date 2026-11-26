@@ -9,7 +9,7 @@
 | **V2, rules + live RAG fallback** | **82.2% (1.8)** |
 | V1, rules only | decides 66.9% of questions at 82.3% |
 | RAG alone | 81.5% (119 of 146, hand-graded; judge 79.2%) |
-| Baselines LowCost / LexiSignVQA | 77.4% / 78.1% (owner's hand grades; each the best of 4 settings on the private test, Qwen3.5-9B) |
+| Baselines LowCost / LexiSignVQA | 77.4% / 78.1% (owner's hand grades; each the best of 8 settings on the public test, ties broken on the private test, Qwen3.5-9B) |
 
 - On the public test (public_dev + public_holdout, 100 questions), V2 scores 84.5%.
 - The error analysis is done: mostly perception misreads, 3 small rules gaps, and a routing signal for future work.
@@ -71,7 +71,7 @@ Plan: `docs/plans/task-3-review-3.md` (proposed; 9-day schedule). All work goes 
 | #22 | RAG settings for several questions at once (defaults unchanged) and `eval/rag_bench.py`; GPU results `docs/results/rag-concurrency-2026-11-23.md` | `ef8e6d6` |
 | #23, #27 | **RAG answer cache** (`app/api/rag_cache.py`, on by default for the RAG fallback; owner exception in CLAUDE.md); cache hits recorded in stored turns and `/metrics` (#27 carries a fix that missed #23) | `62c1cd2`, `54c90dd` |
 | #24 | `httpx` in the API image (the RAG client needed it); CI imports every real-mode module inside the image; CI runs on `main` no longer cancelled | `00dd01c` |
-| #25 | No test-split file in what a GPU session downloads: `rag_bundle` (1,647 files) and `rag_eval_bundle` (195 public-test files, only with `--eval`); the service's caption settings beside its code; answers unchanged | `8f6e41f` |
+| #25 | No test-split file in what a GPU session downloads: `rag_bundle` (1,647 files: the manifest's 1,342 files without the test-split caches, plus the train images and the law file) and `rag_eval_bundle` (195 public-test files, only with `--eval`); the service's caption settings beside its code; answers unchanged | `8f6e41f` |
 | #26 | The demo server reaches a rented GPU's RAG: the `rag-tunnel` service and `docker/rag-session.sh key/on/off/status` | `964ac17` |
 
 **The demo server** (`docs/deploy.md`):
@@ -109,7 +109,7 @@ Plan: `docs/plans/task-3-review-3.md` (proposed; 9-day schedule). All work goes 
    - **Draft done (2026-11-25):** chapters 1–6, front matter, references (51, IEEE) and appendices, built by pandoc into the FPT format in the owner's thesis folder; the owner rewrites. Owner items are marked [TODO] (personal details, baseline papers and scores, UAT results, screenshots, Chapter 3 diagrams).
    - **To report honestly:** Claude Sonnet alone (B1, one run, judge) scores 85.3% on private, above V2's 82.2%. The case for the system is the proof and citations on every rules answer, the honest "undecided", and the margin over both published baselines (about 78%).
 3. **Demo video:** script `docs/defense/demo_video_script.md`; recording by the owner with a GPU session.
-4. **Slides** (22 + 4 backup) and their review pass; references and the plagiarism check; a root `README.md`; the GitHub release (owner's call: the repo is public).
+4. **Slides** (22 + 6 backup) and their review pass; references and the plagiarism check; a root `README.md`; the GitHub release (owner's call: the repo is public).
 6. **The Q4 vs BF16 accuracy** (owner's figures, 2026-11-25): on private, RAG alone, by hand Q4_K_M 81.5% = BF16 81.5% (119 of 146 each); judge score 79.2% vs 84.6% (one BF16 run). Q4 halves the GPU memory and generates 2.2× faster with the same hand-graded accuracy; it stays the benchmarked setting.
 
 **Closed on 2026-11-25:** a root `README.md`; test coverage in CI (`pytest-cov`: 94% of the lines in `vqa/` and `app/` in CI, 95% locally where the dataset tests also run; on each run's summary page); the real end-to-end load run (`docs/results/load-test-real-2026-11-25.md`, owner's go-ahead, $0.37: 5 then 10 users at once on the real pipeline, 45 questions, 0 errors, first question about 20 s, later questions about 4.5 s). The BF16 accuracy figure is in the W6 table. Still open from the self-assessment: thesis, references, slides, release, video.
