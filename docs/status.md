@@ -9,7 +9,7 @@
 | **V2, rules + live RAG fallback** | **82.2% (1.8)** |
 | V1, rules only | decides 66.9% of questions at 82.3% |
 | RAG alone | 81.5% (119 of 146, hand-graded; judge 79.2%) |
-| Baselines LowCost / LexiSignVQA | 77.4% / 78.1% (owner's hand grades; each the best of 4 settings on the private test, Qwen3.5-9B) |
+| Baselines LowCost / LexiSignVQA | 77.4% / 78.1% (owner's hand grades; each the best of 8 settings on the public test, ties broken on the private test, Qwen3.5-9B) |
 
 - On the public test (public_dev + public_holdout, 100 questions), V2 scores 84.5%.
 - The error analysis is done: mostly perception misreads, 3 small rules gaps, and a routing signal for future work.

@@ -79,9 +79,11 @@ The benchmark is the private test of VLSP 2025 MLQA-TSR (Natural QA version): 14
 | Baseline LexiSignVQA [2] | 78.1% (114 of 146, hand-graded) |
 
 **The baselines** are the two VLSP 2025 systems, adapted to free-text Natural QA answers and re-run for this
-project with Qwen3.5-9B (BF16, greedy), the same answer model as the RAG. Each figure is the **best of 4 settings, picked on
-the private test itself** (LowCost: 0, 1, 3 or 5 few-shot examples, best 5; LexiSignVQA: top-k 1, 2, 3 or 5, best
-1), so it favours the baselines; V2 had no such choice. LowCost with Gemma 3 12B scored at most 73.3% (5-shot).
+project with Qwen3.5-9B (BF16, greedy), the same answer model as the RAG. Each figure is the **best of 8 settings** (Qwen3.5-9B and
+Gemma 3 12B, each with LowCost's 0, 1, 3 or 5 few-shot examples, or LexiSignVQA's top-k 1, 2, 3 or 5), **chosen on the
+public test, with ties broken on the private test** (on public, LowCost's Qwen 0, 3 and 5 shots tied at 77% and
+LexiSignVQA's Qwen top-k 1 and 5 at 88%; the private test picked 5 shots and top-k 1), so it favours the baselines;
+V2 had no such choice. LowCost with Gemma 3 12B scored at most 73.3% (5-shot).
 
 1. V. D. Anh, K. V. Tran, T. T. Ha, "A low-cost low-energy approach to VQA on traffic signs problems," in *Proc.
    VLSP 2025*, ACL, 2025, pp. 451–458. https://aclanthology.org/2025.vlsp-1.53/
