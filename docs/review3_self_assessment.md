@@ -23,7 +23,7 @@ below gives its state, the evidence a reviewer can open, and what is still missi
 | 11 | UAT | ✅ | 15 moderated sessions, all 4 targets met: SUS 91.3 (A+), task success 97%, CSAT 4–5 100%, lowest task 93% (`docs/results/uat-2026-11-25.md`) |
 | 12 | Thesis | 🟡 | full draft of all 6 chapters, front matter, appendices (about 24,000 words; owner's local folder, Markdown → pandoc → FPT-format .docx) | the owner's rewrite; owner items marked [TODO]: personal details, baseline papers and exact scores, UAT results, screenshots, Chapter 3 diagram rendering |
 | 13 | References and plagiarism | 🟡 | IEEE list, 51 entries, numbered by first citation, both baselines cited | the two baseline papers' details; entries marked [VERIFY]; the plagiarism check |
-| 14 | Slides | ⬜ | — | 22 slides + 4 backup |
+| 14 | Slides | 🟡 | 22 slides + 6 backup (B1–B6): slide content, speaker scripts (English, Vietnamese) and figures drafted; the deck is being built (owner's local folder) | the PPTX and PDF |
 | 15 | Slide review | ⬜ | — | the review pass for the five faults |
 | 16 | Repository | ✅ | `README.md` (results, how to run, how to reproduce each number), `docs/`, `DESIGN.md`, Swagger at `/docs`, tag `v1.0-benchmark` | — |
 | 17 | Artifacts | ✅ | GitHub release [`v1.0-benchmark`](https://github.com/lephuocloc1729/ns-vqa/releases/tag/v1.0-benchmark) (notes: `docs/release/v1.0-benchmark.md`): the model files' sha256, prompt versions, image digest; tag and freeze records | — |
@@ -179,7 +179,9 @@ instead of guessing.
 - **Playwright: 17** on desktop and phone, against the real API with a fake pipeline.
 - A JUnit report is uploaded on every CI run.
 - **Coverage (2026-11-25): 94% of the lines in `vqa/` and `app/` in CI** (8,094 statements, 475 missed; 2,471
-  tests, 126 skipped there because they need the local dataset), **95% locally** with all 2,612. Measured by
+  tests run and 126 skipped there because they need the local dataset; the 15 tests of `tests/test_dev2.py` are not
+  collected in CI at all, because the file reads the train QA file at import time: 2,471 + 126 + 15 = 2,612),
+  **95% locally** with all 2,612. Measured by
   `pytest-cov` on every CI run, shown on the run's summary page, and uploaded as `coverage.xml`. The Prolog rules
   in `kb/` are tested by the rule-family tests but not measured by Python coverage.
 
@@ -228,8 +230,10 @@ instead of guessing.
 
 ## Stage 5: slides
 
-### 14. Slides ⬜ · 15. Slide review ⬜
-- 22 slides + 4 backup (`docs/plans/task-3-review-3.md`, stage 5); then the review pass for the five faults.
+### 14. Slides 🟡 · 15. Slide review ⬜
+- 22 slides + 6 backup (B1–B6) (`docs/plans/task-3-review-3.md`, stage 5): the slide content, the speaker scripts in English and
+  Vietnamese and the figures are drafted, and the deck is being built (owner's local folder, outside the repo); then
+  the review pass for the five faults.
 
 ## Stage 6: hand-over
 

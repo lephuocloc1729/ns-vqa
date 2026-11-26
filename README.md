@@ -417,7 +417,7 @@ All of them are committed:
 |---|---|
 | Claude models | `claude-haiku-5-5` and `claude-sonnet-5-5` through the Anthropic API (ids and prompt versions in `eval/frozen_phase52.json`) |
 | RAG answer model | Qwen3.5-9B, Q4_K_M GGUF, public on Hugging Face; source, revision and sha256 in the release notes |
-| RAG embeddings | F2LLM-v2 0.6B (queries) and BGE-M3 (the corpus embeddings), public on Hugging Face |
+| RAG embeddings | F2LLM-v2 0.6B for both the corpus chunks and the questions, public on Hugging Face (BGE-M3's tokenizer only counts tokens when the corpus is cut into 768-token chunks) |
 | RAG runtime assets | `services/rag/assets_manifest.json` (1,596 files with sha256), fetched by `services/rag/scripts/fetch.py` |
 | GPU image | `ghcr.io/lephuocloc1729/ns-vqa-rag` (public; code only), built by the "RAG GPU image" workflow |
 | The knowledge base | `kb/`: the sign catalog and the Prolog rules, in this repository |
@@ -452,5 +452,5 @@ repository. The dataset and any data derived from it are not published (see belo
 The dataset, its images and the law corpus figures are not redistributed here; the VLSP data agreement applies. How
 the author's annotations can be obtained, and how `tools/naturalized_layer.py` rebuilds the exact dataset from them
 and the original VLSP release, is in [`docs/data_availability.md`](docs/data_availability.md). The
-RAG's model weights are public upstream (Qwen3.5-9B GGUF, F2LLM-v2 0.6B, BGE-M3); `services/rag/assets_manifest.json`
+RAG's model weights are public upstream (Qwen3.5-9B GGUF, F2LLM-v2 0.6B, and BGE-M3 for its tokenizer); `services/rag/assets_manifest.json`
 lists the RAG's own files with their sha256.
