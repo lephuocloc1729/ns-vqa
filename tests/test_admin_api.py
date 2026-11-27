@@ -114,6 +114,42 @@ def test_questions_are_stored_with_the_account_that_asked(make):
     assert acct["name"] == "p03" and acct["questions"] == 2 and acct["last_question_at"]
 
 
+def test_deleting_an_account_removes_the_login_and_keeps_its_questions(make):
+    c, _, s = make()
+    c.post("/v1/admin/accounts", json={"name": "p05"}, headers=ADMIN)
+    c.post("/v1/ask", files={"image": ("p.jpg", jpeg(), "image/jpeg")}, data={"question": "Có được đi không?"},
+           headers={"X-Remote-User": "p05"})
+    assert "p05" in users_file(s)
+
+    assert c.delete("/v1/admin/accounts/p05").status_code == 401        # admin only
+    r = c.delete("/v1/admin/accounts/p05", headers=ADMIN)
+    assert r.status_code == 200 and r.json() == {"name": "p05", "deleted": True}
+    assert "p05" not in users_file(s) and "signcite" in users_file(s)
+    assert c.get("/v1/admin/accounts", headers=ADMIN).json()["items"] == []
+    assert [x["account"] for x in c.get("/v1/admin/turns", headers=ADMIN).json()["items"]] == ["p05"]
+
+    assert c.delete("/v1/admin/accounts/p05", headers=ADMIN).status_code == 404
+    assert c.delete("/v1/admin/accounts/signcite", headers=ADMIN).status_code == 404   # the .env login is not here
+
+
+def test_the_site_login_can_be_turned_off_for_everyone(make):
+    c, _, s = make()
+    flag = s.site_users_file.parent / "site_open"
+    assert c.get("/v1/admin/accounts", headers=ADMIN).json()["login_required"] is True and not flag.exists()
+    assert c.put("/v1/admin/site-login", json={"required": False}).status_code == 401     # admin only
+
+    assert c.put("/v1/admin/site-login", json={"required": False}, headers=ADMIN).json() == {"login_required": False}
+    assert flag.exists()
+    assert c.get("/v1/admin/accounts", headers=ADMIN).json()["login_required"] is False
+    c.post("/v1/admin/settings/reset", headers=ADMIN)                                     # not a live setting
+    assert flag.exists()
+    c2, _, _ = make()                                                                      # survives a restart
+    assert flag.exists() and c2.get("/v1/admin/accounts", headers=ADMIN).json()["login_required"] is False
+
+    assert c.put("/v1/admin/site-login", json={"required": True}, headers=ADMIN).json() == {"login_required": True}
+    assert not flag.exists()
+
+
 def test_accounts_are_refused_when_the_server_has_no_password_file(make):
     c, _, _ = make(site_users_file=None)
     assert c.post("/v1/admin/accounts", json={"name": "p01"}, headers=ADMIN).status_code == 409

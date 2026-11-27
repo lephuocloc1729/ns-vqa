@@ -151,6 +151,7 @@ The plan is `docs/plans/admin-page.md`.
 **Tester accounts:**
 - With `BASIC_AUTH_USER` and `BASIC_AUTH_PASSWORD` set, the public site's login accepts that shared account plus every enabled tester account made on the admin site.
 - The API writes nginx's password file (apr1 hashes only) into the `siteauth` volume. nginx reads it on each request, so new, reset or locked accounts apply at once.
+- The admin site's Accounts tab can turn the public site's login off for everyone (for example, for the committee). The API then writes `site_open` into the same volume. nginx skips the login while that file exists and passes no account name to the API. Turning the login back on deletes the file. Both take effect at once.
 - Each question is stored with the account that asked. nginx sends it as `X-Remote-User`, overwriting anything a browser sends.
 
 **GPU connection (Cài đặt → Máy GPU cho RAG):**

@@ -62,6 +62,28 @@ export default function Accounts({ onError }: { onError: (e: unknown) => void })
         {d?.shared_account && <> Tài khoản chung trong .env: <b>{d.shared_account}</b>.</>}
       </p>
       {d && !d.enabled && <p className="adm-error">Máy chủ này chưa bật tài khoản riêng (VQA_SITE_USERS_FILE).</p>}
+      {d?.enabled && (
+        <div className={d.login_required ? "adm-card adm-site-login" : "adm-card adm-site-login adm-site-open"}>
+          <label className="adm-switch">
+            <input type="checkbox" role="switch" checked={d.login_required} disabled={busy}
+              aria-label="Bắt buộc đăng nhập trang SignCite"
+              onChange={() => {
+                const off = d.login_required;
+                if (!off || window.confirm("Tắt đăng nhập? Ai có địa chỉ trang cũng hỏi được, không cần tài khoản. "
+                  + "Chi phí vẫn bị giới hạn bởi hạn mức chi tiêu.")) {
+                  run(() => admin.setLoginRequired(!d.login_required));
+                }
+              }} />
+            <span className="adm-switch-track" aria-hidden="true" />
+            <b>{d.login_required ? "Bắt buộc đăng nhập" : "Không cần đăng nhập"}</b>
+          </label>
+          <p className="adm-muted">
+            {d.login_required
+              ? "Người dùng phải đăng nhập bằng một tài khoản bên dưới (hoặc tài khoản chung)."
+              : "Ai có địa chỉ trang cũng dùng được ngay (ví dụ hội đồng chấm). Câu hỏi được ghi không kèm tài khoản."}
+          </p>
+        </div>
+      )}
       {shown && <PasswordBox {...shown} onClose={() => setShown(null)} />}
       <form className="adm-filters" onSubmit={(e) => {
         e.preventDefault();
@@ -91,7 +113,15 @@ export default function Accounts({ onError }: { onError: (e: unknown) => void })
                 <tr key={a.name} className={a.enabled ? "" : "adm-disabled"}>
                   <td><b>{a.name}</b></td>
                   <td className="adm-muted">{a.note ?? ""}</td>
-                  <td>{a.enabled ? "Đang dùng" : "Đã khoá"}</td>
+                  <td className="nowrap">
+                    <label className="adm-switch">
+                      <input type="checkbox" role="switch" checked={a.enabled} disabled={busy}
+                        aria-label={`${a.enabled ? "Tắt" : "Bật"} tài khoản ${a.name}`}
+                        onChange={() => run(() => admin.setEnabled(a.name, !a.enabled))} />
+                      <span className="adm-switch-track" aria-hidden="true" />
+                      <span>{a.enabled ? "Bật" : "Tắt"}</span>
+                    </label>
+                  </td>
                   <td className="adm-num">{a.questions}</td>
                   <td className="nowrap">{fmtTime(a.last_question_at)}</td>
                   <td className="nowrap">{fmtTime(a.created_at)}</td>
@@ -101,9 +131,12 @@ export default function Accounts({ onError }: { onError: (e: unknown) => void })
                         run(async () => setShown(await admin.resetPassword(a.name)));
                       }
                     }}>Mật khẩu mới</button>
-                    <button type="button" disabled={busy} onClick={() => run(() => admin.setEnabled(a.name, !a.enabled))}>
-                      {a.enabled ? "Khoá" : "Mở khoá"}
-                    </button>
+                    <button type="button" className="adm-danger" disabled={busy} onClick={() => {
+                      if (window.confirm(`Xoá tài khoản ${a.name}? Không hoàn tác được: tài khoản này không đăng nhập được nữa. `
+                        + `${a.questions} câu hỏi đã hỏi vẫn được giữ, ghi tên ${a.name}.`)) {
+                        run(() => admin.deleteAccount(a.name));
+                      }
+                    }}>Xoá</button>
                   </td>
                 </tr>
               ))}
@@ -113,12 +146,12 @@ export default function Accounts({ onError }: { onError: (e: unknown) => void })
       ))}
       {d && d.items.some((a) => a.enabled) && (
         <button type="button" disabled={busy} onClick={() => {
-          if (window.confirm("Khoá tất cả tài khoản người thử? Tài khoản chung trong .env vẫn dùng được.")) {
+          if (window.confirm("Tắt tất cả tài khoản người thử? Tài khoản chung trong .env vẫn dùng được.")) {
             run(async () => {
               for (const a of d.items.filter((x) => x.enabled)) await admin.setEnabled(a.name, false);
             });
           }
-        }}>Khoá tất cả</button>
+        }}>Tắt tất cả</button>
       )}
     </div>
   );
