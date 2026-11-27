@@ -4,7 +4,8 @@ Every endpoint checks the admin login itself (HTTP basic auth, VQA_ADMIN_USER / 
 even though the web server also asks for it on admin.<domain> and hides /v1/admin on the public
 site. Without VQA_ADMIN_PASSWORD every endpoint answers 404.
 
-It reads stored answers and feedback and changes live settings and site accounts. The pipeline
+It reads stored answers and feedback and changes live settings and site accounts (create, reset the
+password, turn on or off, delete; a deleted account's questions keep its name). The pipeline
 never reads anything written here except the live settings (app/api/live.py).
 """
 
@@ -15,6 +16,7 @@ import csv
 import hmac
 import io
 import math
+import os
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -124,6 +126,10 @@ class AccountIn(BaseModel):
 class GpuIn(BaseModel):
     host: str = Field(min_length=1, max_length=253)
     port: int
+
+
+class SiteLoginIn(BaseModel):
+    required: bool
 
 
 class AccountPatch(BaseModel):
@@ -383,7 +389,17 @@ def admin_router(settings: Settings, store: Store, live_now: Callable[[], live_m
         usage = store.account_usage()
         return {"enabled": settings.site_users_file is not None,
                 "shared_account": settings.site_shared_user or None,
+                "login_required": login_required(store),
                 "items": [account_view(a, usage) for a in store.accounts()]}
+
+    @r.put("/site-login", dependencies=deps)
+    def set_site_login(body: SiteLoginIn) -> dict[str, Any]:
+        """Turn the public site's login on or off for everyone (off: anyone with the address can ask)."""
+        if settings.site_users_file is None:
+            raise HTTPException(409, "máy chủ này chưa bật tài khoản riêng (VQA_SITE_USERS_FILE)")
+        store.set_overrides({SITE_LOGIN_KEY: None if body.required else "off"})
+        sync_site_users()
+        return {"login_required": login_required(store)}
 
     @r.post("/accounts", dependencies=deps)
     def create_account(body: AccountIn) -> dict[str, Any]:
@@ -420,6 +436,13 @@ def admin_router(settings: Settings, store: Store, live_now: Callable[[], live_m
         sync_site_users()
         return account_view(a, store.account_usage())
 
+    @r.delete("/accounts/{name}", dependencies=deps)
+    def delete_account(name: str) -> dict[str, Any]:
+        if not store.delete_account(name):
+            raise HTTPException(404, "không có tài khoản này")
+        sync_site_users()                 # the login stops working at once
+        return {"name": name, "deleted": True}
+
     @r.get("/me", dependencies=deps)
     def me() -> dict[str, Any]:
         return {"admin": settings.admin_user}
@@ -427,10 +450,26 @@ def admin_router(settings: Settings, store: Store, live_now: Callable[[], live_m
     return r
 
 
+SITE_LOGIN_KEY = "site_login"          # in the settings table, outside live.KEYS: "Reset settings" keeps it
+OPEN_FLAG = "site_open"                # next to the password file; nginx skips the login while it exists
+
+
+def login_required(store: Store) -> bool:
+    return store.settings_overrides().get(SITE_LOGIN_KEY) != "off"
+
+
 def sync_users(settings: Settings, store: Store) -> None:
-    """Write the web server's password file: the shared .env login and every enabled account."""
+    """Write the web server's password file (the shared .env login and every enabled account) and
+    the open-site flag (docker/nginx/40-basic-auth.sh checks it on each request)."""
     if settings.site_users_file is None:
         return
+    flag = Path(settings.site_users_file).parent / OPEN_FLAG
+    if login_required(store):
+        flag.unlink(missing_ok=True)
+    else:
+        flag.parent.mkdir(parents=True, exist_ok=True)
+        flag.write_text("the public site's login is off (admin console, Accounts)\n", encoding="utf-8")
+        os.chmod(flag, 0o644)
     entries: list[tuple[str, str]] = []
     if settings.site_shared_user and settings.site_shared_password:
         entries.append((settings.site_shared_user, acc.apr1(settings.site_shared_password)))

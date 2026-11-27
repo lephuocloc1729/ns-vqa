@@ -242,6 +242,16 @@ class Store:
             s.commit()
             return a
 
+    def delete_account(self, name: str) -> bool:
+        """Remove the login. Questions it asked keep its name, so the history stays as it was."""
+        with self.db() as s:
+            a = s.get(SiteAccount, name)
+            if a is None:
+                return False
+            s.delete(a)
+            s.commit()
+            return True
+
     def account_usage(self) -> dict[str, tuple[int, datetime | None]]:
         """Per account: questions asked and the time of the last one."""
         with self.db() as s:

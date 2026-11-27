@@ -150,6 +150,8 @@ export interface Account {
 export interface Accounts {
   enabled: boolean;
   shared_account: string | null;
+  /** false: the public site asks for no login (anyone with the address can ask) */
+  login_required: boolean;
   items: Account[];
 }
 
@@ -175,4 +177,8 @@ export const admin = {
     call<{ name: string; password: string }>(`/v1/admin/accounts/${encodeURIComponent(name)}/reset`, json("POST")),
   setEnabled: (name: string, enabled: boolean) =>
     call<Account>(`/v1/admin/accounts/${encodeURIComponent(name)}`, json("PATCH", { enabled })),
+  setLoginRequired: (required: boolean) =>
+    call<{ login_required: boolean }>("/v1/admin/site-login", json("PUT", { required })),
+  deleteAccount: (name: string) =>
+    call<{ name: string; deleted: boolean }>(`/v1/admin/accounts/${encodeURIComponent(name)}`, { method: "DELETE" }),
 };
