@@ -5,7 +5,7 @@ import type { SignBox, TurnOut } from "../lib/types";
 import { Warning } from "./Icons";
 import ProofTree from "./ProofTree";
 
-export const RAG_BADGE = "Trả lời bằng RAG – chưa được hệ luật kiểm chứng";
+export const RAG_BADGE = "Trả lời bằng hệ thống RAG";
 
 function Notes({ t, signs }: { t: TurnOut; signs: SignBox[] }) {
   const notes: { kind: "warn" | "info"; body: React.ReactNode; id: string }[] = [];
@@ -15,16 +15,14 @@ function Notes({ t, signs }: { t: TurnOut; signs: SignBox[] }) {
     const i = signs.findIndex((s) => s.id === id);
     return i >= 0 ? `biển ${i + 1} (${signs[i].code ?? "?"})` : id;
   };
-  if ((t.verdict === "unknown" || t.answered_by === "not_decided") && !outOfScope(t)) {
+  // an "unknown" verdict gets no note of its own (owner, 2026-11-27); the answer text already says it
+  if (t.answered_by === "not_decided" && !outOfScope(t)) {
     const why = (proof?.reasons ?? []).filter((r) => r.truth === "unknown" && r.detail).map((r) => r.detail as string);
     notes.push({
       id: "unknown", kind: "warn",
       body: (
         <>
-          <strong>Chưa đủ dữ kiện để kết luận.</strong>{" "}
-          {t.answered_by === "not_decided"
-            ? "Hệ luật chưa quyết định được và chế độ dự phòng đang tắt."
-            : "Thiếu thông tin trong ảnh hoặc câu hỏi (thời gian, làn đường, loại xe, …)."}
+          <strong>Chưa đủ dữ kiện để kết luận.</strong> Hệ luật chưa quyết định được và chế độ dự phòng đang tắt.
           {why.length > 0 && <ul>{why.slice(0, 5).map((w, i) => <li key={i}>{w}</li>)}</ul>}
         </>
       ),
