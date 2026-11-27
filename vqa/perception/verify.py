@@ -9,10 +9,12 @@ verify(scene) -> (scene, issues)
   no value is lowered to low. An end-of-limit sign (a row with `ends`) keeps its
   value as the limit being ended, checked as a speed when it ends a speed limit.
 - Look vs catalog: a reported shape / border / background that differs from the
-  row's visual is always recorded. It lowers the sign to low only on rows with
-  visual_reviewed_by: human (plan D10), and only when the shape or the background
-  differs; a border-only difference is recorded, not lowered (owner's change,
-  2026-11-15). The reported look is kept.
+  row's visual is always recorded. It lowers the sign to low only on the 55 rows of the
+  owner's D10 visual check (plan D10, STRICT_LOOK_ROWS), and only when the shape or the
+  background differs; a border-only difference is recorded, not lowered (owner's change,
+  2026-11-15). The reported look is kept. The owner's full review (2026-11-27) made every
+  row visual_reviewed_by: human; the strict check stays on the D10 rows so the system
+  behaves as before (owner, 2026-11-27).
 - Plates: a sign whose code is an auxiliary plate (S.504, S.505a, S.508a/b, S.H,6)
   is a plate the model didn't attach. It goes under the sign directly above it on
   the same side (else directly above).
@@ -38,6 +40,18 @@ VALUE_RANGES = {            # attr -> (low exclusive, high inclusive)
 }
 PLATE_KINDS = {"S.504": PlateKind.lane, "S.505a": PlateKind.vehicle, "S.508a": PlateKind.time,
                "S.508b": PlateKind.time, "S.H,6": PlateKind.exception}
+
+# The rows of the owner's D10 visual check (2026-11-15), the rows with visual_reviewed_by: human
+# before the full review of 2026-11-27. Only these lower a sign whose look differs (owner, 2026-11-27).
+STRICT_LOOK_ROWS = frozenset({
+    "P.102", "P.103a", "P.103c", "P.106a", "P.106b", "P.107", "P.107a", "P.110a", "P.111a", "P.111b",
+    "P.111d", "P.112", "P.115", "P.117", "P.123b", "P.124c", "P.125", "P.130", "P.131a", "P.131b",
+    "P.131c", "P.127", "P.127b", "P.127c", "R.306", "R.403a", "R.307", "R.404a", "R.302(a,b,c)",
+    "R.303", "R.411", "R.420", "R.412f", "R.415a", "R.415b", "W.201b", "W.203(a,b,c)",
+    "W.205(a,b,c,d,e)", "W.207(a,b,c,d,e,f,g,h,i,k,l)", "W.210", "W.224", "W.227", "W.244", "W.245a",
+    "I.407(a,b,c)", "I.408", "I.409", "I.414(a,b,c,d)", "I.415", "I.423(a,b)", "IE.451b", "IE.452",
+    "IE.464", "IE.465", "IE.466",
+})
 
 
 def ok_speed(v: float | None) -> bool:
@@ -109,11 +123,12 @@ def _check_look(s: Sign, row, issues: list[str]) -> Sign:
         return s
     category = any(getattr(s, k) is not None and val(getattr(s, k)) != getattr(row.visual, k)
                    for k in ("shape", "background"))
-    if row.visual_reviewed_by == "human" and category:
+    strict = row.code in STRICT_LOOK_ROWS
+    if strict and category:
         issues.append(f"{s.id} {s.code}: look differs from the catalog: {', '.join(diffs)}; lowered to low")
         return s.model_copy(update={"confidence": Confidence.low})
-    why = ("border only; recorded only" if row.visual_reviewed_by == "human"
-           else "row not visually reviewed; recorded only")
+    why = ("border only; recorded only" if strict
+           else "row not in the D10 visual check; recorded only")
     issues.append(f"{s.id} {s.code}: look differs from the catalog: {', '.join(diffs)} ({why})")
     return s
 

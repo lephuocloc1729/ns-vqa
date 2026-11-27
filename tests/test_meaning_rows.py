@@ -61,30 +61,21 @@ def test_meaning_rows_restrict_nothing(engine):
 def test_review_provenance():
     cat = load_catalog()
     by = {s.code: s for s in cat.signs}
-    human = [s.code for s in cat.signs if s.reviewed_by == "human"]
-    # 39 meaning rows plus the owner's review of rule rows P.118 and P.119
-    assert len(human) == 41 and "IE.473" in human and "IE.472b" in human
-    assert {"P.118", "P.119"} <= set(human)
-    # rule rows nobody has checked; rows added in phase 4.5 are assistant-checked (owner, 2026-11-17)
-    new45 = {s.code for s in cat.signs if s.listed_from == "phase45"}
-    assert new45 == {"R.421", "R.122", "S.501"} and all(by[c].reviewed_by == "assistant" for c in new45)
-    # parser v13 (owner, 2026-11-18): P.116 is added assistant-checked, listed from parser v13 on
-    new13 = {s.code for s in cat.signs if s.listed_from == "parser_v13"}
-    assert new13 == {"P.116"} and all(by[c].reviewed_by == "assistant" for c in new13)
-    assert all(s.reviewed_by in ("none", "human") for s in cat.signs if not s.meaning_only and s.code not in {"P.118", "P.119"} | new45 | new13)
-    visual = sorted(s.code for s in cat.signs if s.visual_reviewed_by == "assistant" and not s.listed_from)
-    assert visual == ["IE.451a", "IE.471", "IE.473", "W.242(a,b)", "W.243(a,b,c)"]
-    assert all(by[c].visual_reviewed_by == "assistant" for c in new45)
-    assert by["IE.471"].visual.background == "yellow"
-    # The owner's D10 visual check (2026-11-15): all 55 rows on the list, 35 rule rows
-    # and 20 meaning rows; four of them fixed.
-    seen = [s for s in cat.signs if s.visual_reviewed_by == "human"]
-    assert len(seen) == 55
-    # counted by the file a row comes from (phase 4.5 gave some meaning rows effects)
+    # The owner's full review (2026-11-27): every row, rule rows and meaning rows, was checked
+    # by a person for name, letters, citation and look. Before it: 39 meaning rows and the rule
+    # rows P.118 and P.119 had a human check; rows added in phase 4.5 (R.421, R.122, S.501) and
+    # parser v13 (P.116) were assistant-checked; the D10 visual check covered 55 rows.
+    assert len(cat.signs) == 233
+    assert all(s.reviewed_by == "human" for s in cat.signs)
+    assert all(s.visual_reviewed_by == "human" for s in cat.signs)
+    assert {s.code for s in cat.signs if s.listed_from == "phase45"} == {"R.421", "R.122", "S.501"}
+    assert {s.code for s in cat.signs if s.listed_from == "parser_v13"} == {"P.116"}
     import yaml
     from vqa.kb import MEANING_PATH
     meaning_codes = {r["code"] for r in yaml.safe_load(MEANING_PATH.read_text(encoding="utf-8"))["signs"]}
-    assert sum(s.code not in meaning_codes for s in seen) == 35 and sum(s.code in meaning_codes for s in seen) == 20
+    assert sum(s.code not in meaning_codes for s in cat.signs) == 84 and len(meaning_codes) == 149
+    # the visual fixes from the D10 check stay
+    assert by["IE.471"].visual.background == "yellow"
     assert by["P.102"].visual.border == "none" and by["P.102"].visual.background == "red"
     assert by["I.415"].visual.shape == "other"
     assert by["IE.451b"].visual.background == "blue"

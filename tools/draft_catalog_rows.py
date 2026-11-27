@@ -116,6 +116,12 @@ VISUAL_REVIEWED: set[str] = {
     "IE.466",
 }
 
+# The owner's full review (2026-11-27): every row checked against its article and figure in
+# law_db (name and letters, citation, visual attributes) and found correct. Every row is then
+# reviewed_by: human and visual_reviewed_by: human. The sets above keep the earlier reviews'
+# history; set this to False to write the rows as they were before the full review.
+FULL_REVIEW = True
+
 VISUAL = {
     "warning": {"shape": "triangle", "border": "red", "background": "yellow"},
     "information": {"shape": "rectangle", "border": "none", "background": "blue"},
@@ -280,8 +286,8 @@ def to_yaml(rows: list[dict]) -> str:
         if r.get("note"):
             out.append(f"    note: {json.dumps(r['note'], ensure_ascii=False)}")
         out.append(f"    source: {{law_id: \"{QCVN}\", article_id: \"{r['source']}\"}}")
-        out.append(f"    reviewed_by: {'human' if r['code'] in REVIEWED else 'none'}")
-        if r["code"] in VISUAL_REVIEWED:
+        out.append(f"    reviewed_by: {'human' if FULL_REVIEW or r['code'] in REVIEWED else 'none'}")
+        if FULL_REVIEW or r["code"] in VISUAL_REVIEWED:
             out.append("    visual_reviewed_by: human")
         elif r["code"] in VISUAL_OVERRIDES:
             out.append("    visual_reviewed_by: assistant")

@@ -14,6 +14,7 @@
 - On the public test (public_dev + public_holdout, 100 questions), V2 scores 84.5%.
 - The error analysis is done: mostly perception misreads, 3 small rules gaps, and a routing signal for future work.
 - The lane-sign payload fix (QCVN 41 D.14, `05e4b3b`) is post-benchmark and never scored on private.
+- **The owner's full catalog review (2026-11-27):** all 233 rows (84 with effects, 149 meaning-only) checked against their law_db article and figure for name and letters, citation, look and, for the effect rows, effect; all correct, no changes. Every row is now `reviewed_by: human` and `visual_reviewed_by: human` (before: 2 and 39 rows by name, 55 by look). Perception's strict look check stays on the 55 D10 rows (`STRICT_LOOK_ROWS` in `vqa/perception/verify.py`), so the system behaves as before. The benchmark (tag `v1.0-benchmark`) is unaffected.
 - Details are in the entries below.
 
 ### Task 3 (Review 3 checklist): Review 3 on 2026-11-30, the thesis defense on 2026-12-19

@@ -56,14 +56,19 @@ def test_lane_row_speeds_are_checked():
 
 # ---------------------------------------------------------------- look vs catalog (D10)
 
-def test_look_mismatch_lowers_only_on_human_reviewed_rows():
+def test_look_mismatch_lowers_only_on_the_d10_rows():
+    from vqa.perception.verify import STRICT_LOOK_ROWS
     cat = load_catalog()
-    assert cat.get("P.123b").visual_reviewed_by == "human"
+    assert len(STRICT_LOOK_ROWS) == 55 and STRICT_LOOK_ROWS <= {s.code for s in cat.signs}
+    assert "P.123b" in STRICT_LOOK_ROWS
     sc, issues = verify(scene(sign("s1", "P.123b", 1, background="blue")))
     assert sc.signs[0].confidence == Confidence.low and "lowered to low" in issues[0]
     assert sc.signs[0].background.value == "blue"                  # the reported look is kept
-    unreviewed = next(s for s in cat.signs if s.visual_reviewed_by != "human" and s.code.startswith("P."))
-    sc, issues = verify(scene(sign("s1", unreviewed.code, 1, shape="triangle")))
+    # every row is visual_reviewed_by: human since the owner's full review (2026-11-27), but only
+    # the D10 rows lower a sign: a row outside them keeps its confidence, as before
+    other = next(s for s in cat.signs if s.code not in STRICT_LOOK_ROWS and s.code.startswith("P."))
+    assert other.visual_reviewed_by == "human"
+    sc, issues = verify(scene(sign("s1", other.code, 1, shape="triangle")))
     assert sc.signs[0].confidence == Confidence.high and "recorded only" in issues[0]
 
 
