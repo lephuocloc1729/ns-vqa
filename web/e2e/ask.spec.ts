@@ -76,12 +76,13 @@ test("ask, stream, boxes, citations, proof, feedback, RAG and history", async ({
   await ask(page, "Hỏi RAG: xe ô tô có được đi vào không?");
   const rag = page.getByTestId("turn").nth(1);
   await expect(rag).toHaveAttribute("data-phase", "done");
-  await expect(rag.getByTestId("rag-badge")).toHaveText("Trả lời bằng RAG – chưa được hệ luật kiểm chứng");
+  await expect(rag.getByTestId("rag-badge")).toHaveText("Trả lời bằng hệ thống RAG");
   await expect(rag.getByTestId("rag")).toContainText("QCVN 41:2024/BGTVT – B.3");
   await expect(rag.getByTestId("rag")).toContainText("Biển số P.103a"); // the first law is open
   await expect(rag.getByTestId("stats")).toContainText("Dự phòng");
   await rag.getByRole("button", { name: "Căn cứ và chứng minh" }).click();
   await expect(rag.getByTestId("evidence")).toBeVisible();
+  await expect(rag).not.toContainText("Chưa đủ dữ kiện"); // an unknown verdict gets no note
   await expect(rag.getByTestId("citations")).toHaveCount(0); // RAG laws are not rule citations
   await expect(rag.getByTestId("user-photo")).toHaveCount(0); // same photo: shown once
 
