@@ -36,6 +36,18 @@ async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const imageUrl = (sha: string) => `/v1/images/${sha}`;
 
+export interface DemoPhoto {
+  sha256: string;
+  caption: string;
+  questions: string[];
+}
+
+export const demoThumbUrl = (sha: string) => `/v1/demo/${sha}/thumb`;
+
+/** The demo photos the admin site has switched on (none when off, or when the server is older). */
+export const getDemo = () =>
+  getJson<{ enabled: boolean; items: DemoPhoto[] }>("/v1/demo").then((d) => (d.enabled ? d.items : []), () => []);
+
 export const getTurn = (id: string) => getJson<TurnOut>(`/v1/turns/${encodeURIComponent(id)}`);
 
 export const getTurns = (sessionId: string) =>

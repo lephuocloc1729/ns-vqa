@@ -6,7 +6,9 @@ Tables:
   stage summary, cost and time;
 - feedback: thumbs up/down and an optional corrected answer for a turn;
 - app_setting: live overrides of .env settings, changed on the admin site (app/api/live.py);
-- site_account: one login per tester for the site's password prompt (app/api/accounts.py).
+- site_account: one login per tester for the site's password prompt (app/api/accounts.py);
+- demo_image: a photo the admin site offers for trying the app, with a caption and suggested questions
+  (app/api/demo.py).
 
 Feedback is stored for the dashboard and the thesis only. The pipeline never reads it.
 """
@@ -92,6 +94,15 @@ class SiteAccount(Base):
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=_now)
     password_set_at: Mapped[datetime] = mapped_column(default=_now)
+
+
+class DemoImage(Base):
+    __tablename__ = "demo_image"
+    sha256: Mapped[str] = mapped_column(String(64), primary_key=True)     # the photo in the upload folder
+    caption: Mapped[str] = mapped_column(Text, default="")
+    questions: Mapped[list[str]] = mapped_column(JSON, default=list)
+    position: Mapped[int] = mapped_column(default=0)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
 
 
 class Store:
@@ -258,6 +269,53 @@ class Store:
             rows = s.execute(select(Turn.account, func.count(), func.max(Turn.created_at))
                              .where(Turn.account.is_not(None)).group_by(Turn.account)).all()
             return {r[0]: (int(r[1]), r[2]) for r in rows}
+
+    # ------------------------------------------------------------------ demo photos
+    def demo_images(self) -> list[DemoImage]:
+        with self.db() as s:
+            return list(s.scalars(select(DemoImage).order_by(DemoImage.position, DemoImage.created_at)).all())
+
+    def get_demo(self, sha256: str) -> DemoImage | None:
+        with self.db() as s:
+            return s.get(DemoImage, sha256)
+
+    def add_demo(self, sha256: str, caption: str, questions: list[str]) -> DemoImage:
+        with self.db() as s:
+            last = s.scalar(select(func.max(DemoImage.position)))
+            d = DemoImage(sha256=sha256, caption=caption, questions=questions,
+                          position=(last + 1) if last is not None else 0)
+            s.add(d)
+            s.commit()
+            return d
+
+    def update_demo(self, sha256: str, **fields: Any) -> DemoImage | None:
+        with self.db() as s:
+            d = s.get(DemoImage, sha256)
+            if d is None:
+                return None
+            for k, v in fields.items():
+                setattr(d, k, v)
+            s.commit()
+            return d
+
+    def order_demos(self, shas: list[str]) -> None:
+        """Put the listed photos first, in this order; the others keep their order after them."""
+        with self.db() as s:
+            rows = list(s.scalars(select(DemoImage).order_by(DemoImage.position, DemoImage.created_at)).all())
+            rank = {sha: i for i, sha in enumerate(shas)}
+            rows.sort(key=lambda d: (rank.get(d.sha256, len(rank)), d.position))
+            for i, d in enumerate(rows):
+                d.position = i
+            s.commit()
+
+    def delete_demo(self, sha256: str) -> bool:
+        with self.db() as s:
+            d = s.get(DemoImage, sha256)
+            if d is None:
+                return False
+            s.delete(d)
+            s.commit()
+            return True
 
     # ------------------------------------------------------------------ admin reads
     def turns_between(self, since: datetime | None, until: datetime | None) -> list[Turn]:

@@ -4,14 +4,15 @@ import { THEME_LABEL, THEME_NEXT, ThemeIcon } from "../components/Sidebar";
 import { PRODUCT } from "../lib/brand";
 import { loadTheme, saveTheme, type Theme } from "../lib/storage";
 import Accounts from "./Accounts";
+import DemoPhotos from "./DemoPhotos";
 import { AdminError, type Range } from "./api";
 import { presetRange, type Preset } from "./format";
-import { External, Gear, Home, Inbox, List, Users } from "./icons";
+import { External, Gear, Home, Inbox, List, Photo, Users } from "./icons";
 import Overview, { type Drill } from "./Overview";
 import Settings from "./Settings";
 import Turns, { FeedbackInbox, type TurnFilters } from "./Turns";
 
-type Tab = "overview" | "feedback" | "turns" | "accounts" | "settings";
+type Tab = "overview" | "feedback" | "turns" | "accounts" | "demo" | "settings";
 
 const NAV: { group: string; items: { tab: Tab; label: string; icon: (p: { size?: number }) => JSX.Element; hint: string }[] }[] = [
   {
@@ -26,6 +27,7 @@ const NAV: { group: string; items: { tab: Tab; label: string; icon: (p: { size?:
     group: "Quản lý",
     items: [
       { tab: "accounts", label: "Tài khoản", icon: Users, hint: "Tài khoản người thử" },
+      { tab: "demo", label: "Ảnh mẫu", icon: Photo, hint: "Ảnh có sẵn để thử ứng dụng" },
       { tab: "settings", label: "Cài đặt", icon: Gear, hint: "Dự phòng, bộ nhớ đệm, hạn mức" },
     ],
   },
@@ -165,6 +167,7 @@ export default function AdminApp() {
           {tab === "feedback" && <FeedbackInbox range={range} onError={onError} />}
           {tab === "turns" && <Turns key={drillKey} range={range} onError={onError} initial={filters} />}
           {tab === "accounts" && <Accounts onError={onError} />}
+          {tab === "demo" && <DemoPhotos onError={onError} />}
           {tab === "settings" && <Settings onError={onError} />}
           {showRange && <p className="adm-muted adm-foot-note">Ngày tính theo giờ Việt Nam.</p>}
         </main>

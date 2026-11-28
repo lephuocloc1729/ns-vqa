@@ -155,6 +155,18 @@ export interface Accounts {
   items: Account[];
 }
 
+export interface DemoItem {
+  sha256: string;
+  caption: string;
+  questions: string[];
+}
+
+export interface Demo {
+  /** true: the public app shows these photos on its start screen */
+  enabled: boolean;
+  items: DemoItem[];
+}
+
 export const admin = {
   overview: (r: Range) => call<Overview>(`/v1/admin/overview${rangeQuery(r)}`),
   turns: (r: Range, f: Record<string, string | number | null>) => call<Page<TurnSummary>>(`/v1/admin/turns${rangeQuery(r, f)}`),
@@ -181,4 +193,17 @@ export const admin = {
     call<{ login_required: boolean }>("/v1/admin/site-login", json("PUT", { required })),
   deleteAccount: (name: string) =>
     call<{ name: string; deleted: boolean }>(`/v1/admin/accounts/${encodeURIComponent(name)}`, { method: "DELETE" }),
+  demo: () => call<Demo>("/v1/admin/demo"),
+  setDemoEnabled: (enabled: boolean) => call<Demo>("/v1/admin/demo", json("PUT", { enabled })),
+  addDemo: (image: File, caption: string, questions: string[]) => {
+    const form = new FormData();
+    form.append("image", image, image.name || "demo.jpg");
+    form.append("caption", caption);
+    form.append("questions", questions.join("\n"));
+    return call<Demo>("/v1/admin/demo", { method: "POST", body: form });
+  },
+  editDemo: (sha: string, patch: { caption?: string; questions?: string[] }) =>
+    call<Demo>(`/v1/admin/demo/${sha}`, json("PATCH", patch)),
+  orderDemo: (order: string[]) => call<Demo>("/v1/admin/demo/order", json("POST", { order })),
+  deleteDemo: (sha: string) => call<Demo>(`/v1/admin/demo/${sha}`, { method: "DELETE" }),
 };
