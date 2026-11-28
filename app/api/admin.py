@@ -138,11 +138,8 @@ class AccountPatch(BaseModel):
 
 
 # ---------------------------------------------------------------------- the router
-def admin_router(settings: Settings, store: Store, live_now: Callable[[], live_mod.Live],
-                 runner: Any, rag_cache_folder: Callable[[], Any],
-                 rag_health: Callable[[str], tuple[bool, str]] | None = None) -> APIRouter:
-    r = APIRouter(prefix="/v1/admin", tags=["admin"])
-
+def admin_guard(settings: Settings) -> Callable[[Request], None]:
+    """A FastAPI dependency that lets only the admin login through (404 without VQA_ADMIN_PASSWORD)."""
     def require_admin(request: Request) -> None:
         if not settings.admin_password:
             raise HTTPException(404, "Not Found")
@@ -157,6 +154,15 @@ def admin_router(settings: Settings, store: Store, live_now: Callable[[], live_m
                 ok = False
         if not ok:
             raise HTTPException(401, "cần đăng nhập quản trị", headers={"WWW-Authenticate": 'Basic realm="SignCite admin"'})
+    return require_admin
+
+
+def admin_router(settings: Settings, store: Store, live_now: Callable[[], live_mod.Live],
+                 runner: Any, rag_cache_folder: Callable[[], Any],
+                 rag_health: Callable[[str], tuple[bool, str]] | None = None) -> APIRouter:
+    r = APIRouter(prefix="/v1/admin", tags=["admin"])
+
+    require_admin = admin_guard(settings)
 
     def check_rag(url: str) -> tuple[bool, str]:
         if rag_health is not None:

@@ -135,6 +135,7 @@ The plan is `docs/plans/admin-page.md`.
 - the feedback inbox;
 - every question, with its account;
 - tester accounts;
+- demo photos;
 - live settings.
 
 **Setting it up:**
@@ -158,6 +159,12 @@ The plan is `docs/plans/admin-page.md`.
 - Paste the GPU's SSH command, press **Nối**, then **Dùng RAG trên GPU này** once the RAG answers. **Ngắt GPU** switches the fallback off and disconnects.
 - The `rag-tunnel` service runs all the time in standby and follows the target the API writes into the `gpu` volume (`docker/rag-tunnel/tunnel.sh`, `app/api/gpu.py`). The API never touches Docker or the SSH key.
 - `docker/rag-session.sh on|off|status` does the same from the shell (`docs/runbooks/gpu-session.md`).
+
+**Demo photos (Ảnh mẫu):**
+- Photos the public app shows under the question box before the first question, so a visitor (e.g. the committee) can try it without a photo of their own. A click picks the photo and puts its first suggested question in the box; nothing is sent until they press Gửi, and the answer comes from the pipeline like any other (it costs the same).
+- Add, caption, reorder or remove them on the admin site; the switch at the top shows or hides the whole gallery at once (off by default, and "Về mặc định .env" keeps it).
+- The photos are uploads kept in the `uploads` volume, never repository files. Use your own photos or ones you may share; not private-test images.
+- `app/api/demo.py`: `GET /v1/demo` (public, empty while off), `/v1/demo/{sha}/thumb`, and `/v1/admin/demo` for the admin site.
 
 **CSV export:** Câu hỏi and Phản hồi each have **Tải CSV**, with the current filters (UTF-8 with a BOM, so spreadsheet apps read the Vietnamese text).
 

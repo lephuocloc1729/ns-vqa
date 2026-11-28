@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { ApiError, askStream, getTurn, getTurns, imageUrl, recoverTurn } from "./lib/api";
+import { ApiError, askStream, getDemo, getTurn, getTurns, imageUrl, recoverTurn, type DemoPhoto } from "./lib/api";
 import {
   forgetSession, loadFlag, loadSessionId, loadSessions, loadTheme, rememberSession, saveFlag, saveSessionId, saveTheme,
   type KnownSession, type Theme,
 } from "./lib/storage";
 import { newTurn, turnFromStored, turnReducer, type TurnAction, type TurnState } from "./lib/turn";
 import Composer, { ACCEPTED } from "./components/Composer";
+import DemoGallery from "./components/DemoGallery";
 import { Menu, PanelLeft, PanelRight, Pencil } from "./components/Icons";
 import PhotoPanel from "./components/PhotoPanel";
 import Sidebar, { THEME_LABEL, THEME_NEXT, ThemeIcon } from "./components/Sidebar";
@@ -73,6 +74,8 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(() => loadTheme());
   const [server, setServer] = useState<{ ok: boolean; fallback?: string; profile?: string } | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [demos, setDemos] = useState<DemoPhoto[]>([]);
+  const [demoPicked, setDemoPicked] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
 
@@ -118,6 +121,7 @@ export default function App() {
       .then((v: { answer_fallback?: string; profile?: string }) =>
         setServer({ ok: true, fallback: v.answer_fallback, profile: v.profile }))
       .catch(() => setServer({ ok: false }));
+    void getDemo().then(setDemos);
     const linked = turnFromHash();
     if (linked) {
       getTurn(linked)
@@ -156,9 +160,21 @@ export default function App() {
       return;
     }
     setPhotoErr(null);
+    setDemoPicked(null);
     setPhoto({ url: URL.createObjectURL(f), blob: f, name: f.name || "Ảnh đã dán", size: f.size });
     setSelected(null);
     setHash(null);
+    textRef.current?.focus();
+  }, []);
+
+  // a demo photo: the stored image, fetched when asked about; its first suggested question fills the box
+  const pickDemo = useCallback((d: DemoPhoto) => {
+    setPhotoErr(null);
+    setDemoPicked(d.sha256);
+    setPhoto({ url: imageUrl(d.sha256), blob: null, name: d.caption || "Ảnh mẫu", size: null });
+    setSelected(null);
+    setHash(null);
+    if (d.questions.length) setQuestion(d.questions[0]);
     textRef.current?.focus();
   }, []);
 
@@ -254,6 +270,7 @@ export default function App() {
     adoptSession(null);
     dispatch({ type: "set", turns: [] });
     setPhoto(null);
+    setDemoPicked(null);
     setSelected(null);
     setLoadErr(null);
     setHash(null);
@@ -285,7 +302,7 @@ export default function App() {
     <Composer ref={textRef} busy={busy} error={photoErr} question={question} onQuestion={setQuestion}
       photo={photo ? { url: photo.url, name: photo.name, size: photo.size } : null}
       onPick={pickFile} onSubmit={() => void ask()}
-      onClearPhoto={() => { setPhoto(null); setSelected(null); setHash(null); }} />
+      onClearPhoto={() => { setPhoto(null); setDemoPicked(null); setSelected(null); setHash(null); }} />
   );
 
   return (
@@ -332,6 +349,8 @@ export default function App() {
             <div className="hero-anchor">
               <h2>Hỏi biển báo trong ảnh của bạn</h2>
               {composer}
+              <DemoGallery items={demos} picked={demoPicked} busy={busy} onPick={pickDemo}
+                onQuestion={(q) => { setQuestion(q); textRef.current?.focus(); }} />
             </div>
           </div>
         ) : (

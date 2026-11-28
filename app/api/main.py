@@ -15,6 +15,7 @@ Endpoints:
 - GET  /v1/turns/{id}                    one turn (also how a client that lost the stream gets its answer)
 - POST /v1/turns/{id}/feedback           thumbs up/down, a corrected answer, a note
 - GET  /v1/images/{sha256}               an uploaded image
+- GET  /v1/demo                          the demo photos to try, when the admin site has them on (app/api/demo.py)
 - GET  /health, GET /version, GET /metrics (Prometheus)
 - /v1/admin/...                          the admin site (app/api/admin.py): its own login, live settings,
                                          site accounts, stored answers and feedback
@@ -24,9 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
-import hashlib
 import threading
-import io
 import json
 import re
 from contextlib import asynccontextmanager
@@ -36,7 +35,6 @@ from typing import Any, AsyncIterator, Callable, Literal
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response, StreamingResponse
-from PIL import Image, UnidentifiedImageError
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, Histogram, generate_latest
 from pydantic import BaseModel, Field
 
@@ -46,12 +44,13 @@ from app.api import followup as followup_mod
 from app.api import proof_view
 from app.api import live as live_mod
 from app.api.admin import admin_router, sync_users
+from app.api.demo import demo_router
+from app.api.images import find_image, save_image
 from app.api.profiles import PROFILES, pipeline_config
 from app.api.runner import PipelineRunner
 from app.api.settings import Settings
 from app.api.storage import Store, Turn
 
-IMAGE_TYPES = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp"}
 SHA_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -260,27 +259,12 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
                        allow_headers=["*"])
     app.state.settings, app.state.store, app.state.runner, app.state.metrics = settings, store, runner, metrics
     app.include_router(admin_router(settings, store, live_now, runner, lambda: settings.rag_cache_dir))
+    app.include_router(demo_router(settings, store))
 
     # ------------------------------------------------------------------ helpers
     async def save_upload(image: UploadFile) -> tuple[str, Path]:
         data = await image.read(settings.max_image_bytes + 1)
-        if len(data) > settings.max_image_bytes:
-            raise HTTPException(413, f"image larger than {settings.max_image_bytes // (1024 * 1024)} MB")
-        if not data:
-            raise HTTPException(400, "empty image")
-        try:
-            with Image.open(io.BytesIO(data)) as im:
-                fmt = im.format
-                im.verify()
-        except (UnidentifiedImageError, OSError, SyntaxError):
-            raise HTTPException(415, "not a readable image")
-        if fmt not in IMAGE_TYPES:
-            raise HTTPException(415, f"image type {fmt} not accepted (JPEG, PNG or WEBP)")
-        sha = hashlib.sha256(data).hexdigest()
-        path = settings.upload_dir / f"{sha}{IMAGE_TYPES[fmt]}"
-        if not path.exists():
-            path.write_bytes(data)
-        return sha, path
+        return save_image(settings.upload_dir, data, settings.max_image_bytes)
 
     def check_question(question: str) -> str:
         q = question.strip()
@@ -403,11 +387,10 @@ def create_app(settings: Settings | None = None, pipeline_factory: Callable[[], 
     def get_image(sha256: str) -> FileResponse:
         if not SHA_RE.match(sha256):
             raise HTTPException(400, "bad image id")
-        for ext in IMAGE_TYPES.values():
-            p = settings.upload_dir / f"{sha256}{ext}"
-            if p.exists():
-                return FileResponse(p)
-        raise HTTPException(404, "unknown image")
+        p = find_image(settings.upload_dir, sha256)
+        if p is None:
+            raise HTTPException(404, "unknown image")
+        return FileResponse(p)
 
     @app.post("/v1/ask", response_model=TurnOut)
     async def ask(request: Request, image: UploadFile = File(...), question: str = Form(...),
